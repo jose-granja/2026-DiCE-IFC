@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: dice-ifc-companion
+Version: 0.1.0
+Summary: Local signing companion for DiCE-IFC — drives the Cartão de Cidadão over PKCS#11
+Requires-Python: >=3.11
+Requires-Dist: PyKCS11>=1.5.17

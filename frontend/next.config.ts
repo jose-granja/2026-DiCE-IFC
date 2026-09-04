@@ -1,0 +1,72 @@
+import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
+
+// No i18n routing — the locale comes from a cookie. See i18n/config.ts.
+const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
+
+const nextConfig: NextConfig = {
+  // Next 16: Turbopack config is top-level, no longer under `experimental`.
+  turbopack: {
+    resolveAlias: {
+      // `@ifc-lite/pointcloud` reaches `laz-perf` through a dynamic import that
+      // is never executed here — we decode IFC, BCF and IDS, never LAS/LAZ.
+      // Turbopack still traces the target, and laz-perf's emscripten loader
+      // imports the bare WASI specifiers `env` and `wasi_snapshot_preview1`,
+      // which are instantiation-time import objects rather than modules, so the
+      // build fails. Stubbing the package keeps the loader out of the graph
+      // entirely. See lib/empty-module.ts.
+      "laz-perf": "./lib/empty-module.ts",
+      // The deep, Vite-flavoured `?url` import of the wasm asset. Turbopack
+      // does not understand `?url` and tries to bundle the .wasm as a module,
+      // synthesising an ESM loader with WASI imports it cannot resolve.
+      "laz-perf/lib/web/laz-perf.wasm?url": "./lib/empty-module.ts",
+      "laz-perf/lib/web/laz-perf.wasm": "./lib/empty-module.ts",
+      // `lib/ids/validate.ts` picks the xmllint build at runtime — the Node one
+      // when there is no `Worker` (jsdom tests), the browser one otherwise.
+      // Turbopack traces both branches, so the Node build drags `worker_threads`
+      // into the browser bundle. It is never *executed* there, because a browser
+      // always has `Worker`.
+      worker_threads: { browser: "./lib/empty-module.ts" },
+    },
+  },
+
+  // Standalone output ships a traced subset of node_modules instead of the
+  // whole tree — but it also makes `next start` a no-op, which breaks local
+  // `npm start` and the Playwright web server. So it is opt-in, set only by
+  // Dockerfile.prod, which copies .next/standalone and runs server.js directly.
+  ...(process.env.BUILD_STANDALONE === "1"
+    ? { output: "standalone" as const }
+    : {}),
+
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          // The IFC/geometry WASM workers want SharedArrayBuffer, which is
+          // gated behind cross-origin isolation. `credentialless` keeps
+          // same-origin subresources working without a CORP header on each.
+          //
+          // Keep in sync with nginx/nginx.conf, which sets the same pair in
+          // production — the Next dev server is not in that path.
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          // Nothing in this app needs a camera, a microphone or a location.
+          // The georeferencing module places a *model* on a map; it never asks
+          // where the user is.
+          {
+            key: "Permissions-Policy",
+            value:
+              "camera=(), microphone=(), geolocation=(), interest-cohort=(), usb=(), serial=()",
+          },
+        ],
+      },
+    ];
+  },
+};
+
+export default withNextIntl(nextConfig);

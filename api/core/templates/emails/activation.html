@@ -1,0 +1,35 @@
+{% block subject %}
+
+Confirm your email address for {{ product_name }} account
+
+{% endblock %}
+
+{% block text_body %}
+Dear {{ user.get_full_name|default:user.email }},
+
+Thank you for creating an account in the BIM A+ Master Application Portal.
+Before you can access the portal and complete your application, please confirm your email address by clicking the button below:
+
+{{ url }}
+If the button does not work, you can copy and paste the link into your browser.
+
+This step helps us verify that the email address belongs to you and ensures that you receive important updates about your application.
+
+If you did not create an account with {{ product_name }} , please ignore this message.
+
+Best regards,
+BIM A+ Team
+{% endblock %}
+
+{% block html_body %}
+
+<p>Dear {{ user.get_full_name|default:user.email }},</p>
+<p>Thank you for creating an account in the BIM A+ Master Application Portal.
+Before you can access the portal and complete your application, please confirm your email address by clicking the button below:</p>
+<p><a href="{{ url }}">{{ url }}</a></p>
+<p>If the button does not work, you can copy and paste the link into your browser.
+<p>This step helps us verify that the email address belongs to you and ensures that you receive important updates about your application.</p>
+<p>If you did not create an account with BIM A+, please ignore this message.</p>
+<p>Best regards,<br>
+BIM A+ Team</p>
+{% endblock %}

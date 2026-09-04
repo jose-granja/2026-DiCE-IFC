@@ -1,0 +1,23 @@
+[project]
+name = "dice-ifc-companion"
+version = "0.1.0"
+description = "Local signing companion for DiCE-IFC — drives the Cartão de Cidadão over PKCS#11"
+requires-python = ">=3.11"
+# One dependency, deliberately. This has to be installed by people who are not
+# developers, on three operating systems; every extra wheel is another way for
+# that to fail.
+dependencies = ["PyKCS11>=1.5.17"]
+
+[project.scripts]
+dice-companion = "dice_companion.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# Without this, setuptools' flat-layout auto-discovery finds two plausible
+# top-level packages — `dice_companion` and `packaging/` (the PyInstaller
+# spec, Inno Setup script and postinstall files for building the installer,
+# not a Python package) — and refuses to guess which one is the real one.
+[tool.setuptools]
+packages = ["dice_companion"]

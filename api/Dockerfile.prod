@@ -1,0 +1,66 @@
+# syntax=docker/dockerfile:1
+
+# Django API, production image.
+#
+# Two stages so the uv binary and the build cache never reach the runtime
+# image. Dependencies are installed before the source is copied, so editing a
+# view does not reinstall Django.
+
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
+
+WORKDIR /app
+
+# Dependency layer. `--no-install-project` keeps this cached across source
+# changes; `--frozen` fails loudly if uv.lock is out of date rather than
+# quietly resolving something different from what was tested.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+
+COPY . /app
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+
+FROM python:3.14-slim-bookworm AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH"
+
+# libpq for psycopg's binary wheel, curl for the healthcheck. No compiler in
+# the runtime image.
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y libpq5 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --system django && useradd --system --gid django --home /app django
+
+WORKDIR /app
+COPY --from=builder --chown=django:django /app /app
+
+# collectstatic and migrate run from the compose command, not here: a build
+# must not need a database, and the same image is reused by the celery,
+# celery-beat and flower services which must not run migrations.
+RUN mkdir -p /app/staticfiles /app/media /vol \
+    && chown -R django:django /app/staticfiles /app/media /vol
+
+USER django
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8000/api/admin/login/ || exit 1
+
+CMD ["gunicorn", "dicecde.wsgi:application", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "3", \
+     "--timeout", "60", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]

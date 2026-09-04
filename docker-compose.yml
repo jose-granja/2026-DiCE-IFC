@@ -1,0 +1,118 @@
+version: '0.1'
+services:
+  api:
+    build: 
+      context: ./api
+      dockerfile: Dockerfile.prod
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      python manage.py collectstatic --noinput &&
+      gunicorn dicecde.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60
+      "
+    expose:
+      - "8000"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    env_file:
+      - stack.env
+    volumes:
+      # - ./api:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - logs_volume:/vol
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      # NEXT_PUBLIC_* is inlined by Next at build time, so these must be build
+      # args. `env_file` below applies at runtime only and arrives far too late
+      # — which is why the basemap was missing from every built image.
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/api}
+        NEXT_PUBLIC_API_ORIGIN: ${NEXT_PUBLIC_API_ORIGIN:-}
+        NEXT_PUBLIC_TILE_ORIGIN: ${NEXT_PUBLIC_TILE_ORIGIN:-}
+        NEXT_PUBLIC_MAP_STYLE_URL: ${NEXT_PUBLIC_MAP_STYLE_URL:-}
+        NEXT_PUBLIC_MAPTILER_KEY: ${NEXT_PUBLIC_MAPTILER_KEY:-}
+        NEXT_PUBLIC_CESIUM_ION_TOKEN: ${NEXT_PUBLIC_CESIUM_ION_TOKEN:-}
+        NEXT_PUBLIC_CESIUM_ION_ASSET_ID: ${NEXT_PUBLIC_CESIUM_ION_ASSET_ID:-}
+        NEXT_PUBLIC_SIGNING_PROVIDER: ${NEXT_PUBLIC_SIGNING_PROVIDER:-companion}
+    env_file:
+      - stack.env
+    expose:
+      - "3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    depends_on:
+      - frontend
+      - api
+    ports:
+      - "9880:80"
+    env_file:
+      - stack.env
+    volumes:
+      # - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_volume:/vol/static:ro
+      - media_volume:/vol/media:ro
+  postgres:
+    image: postgres:16-alpine
+    expose:
+      - "5432"
+    env_file:
+      - stack.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+  redis:
+    image: redis:6.2-alpine
+    command: --port 6379
+    expose:
+      - "6379"
+    restart: always
+  celery:
+    build: ./api
+    command: celery -A dicecde worker --loglevel=info
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - stack.env
+    volumes:
+      - media_volume:/app/media
+  celery-beat:
+    build: ./api
+    command: celery -A dicecde beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - stack.env
+  flower:
+    build: ./api
+    command: >
+      celery -A dicecde flower
+      --address=0.0.0.0
+      --port=5555
+      --url_prefix=/flower
+      --basic-auth="jlgranja_12@hotmail.com:Djrl1mnn"
+    # command: celery -A dicecde flower
+    depends_on:
+      - api
+      - redis
+      - celery
+    env_file:
+      - stack.env
+    expose:
+      - "5555"
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+  logs_volume:

@@ -1,0 +1,96 @@
+# syntax=docker/dockerfile:1
+
+# Next.js frontend, production image.
+#
+# Uses `output: "standalone"` (see next.config.ts), so the runtime stage ships
+# a traced subset of node_modules instead of the whole tree.
+#
+# Note on the security headers: `next.config.ts` sets CSP and COOP/COEP, and so
+# does nginx/nginx.conf in front of it. Both are deliberate — nginx covers
+# static assets it serves itself, Next covers everything it renders. Keep them
+# in sync; a mismatch shows up as "SharedArrayBuffer is not defined" in one
+# environment only.
+
+FROM node:24-bookworm-slim AS deps
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+# `npm ci` needs the lockfile to match package.json exactly, which is what we
+# want in a build: a drifted lockfile should fail here, not resolve silently.
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
+
+
+FROM node:24-bookworm-slim AS builder
+
+WORKDIR /app
+
+# Opt into `output: "standalone"` (see next.config.ts) — only the Docker build
+# wants it, because it disables `next start` everywhere else.
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NODE_ENV=production \
+    BUILD_STANDALONE=1
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# NEXT_PUBLIC_* values are inlined at build time, so they have to be present
+# here rather than only in the runtime environment.
+ARG NEXT_PUBLIC_API_BASE_URL=/api
+ARG NEXT_PUBLIC_API_ORIGIN=
+ARG NEXT_PUBLIC_TILE_ORIGIN=
+# Both, or the basemap is silently absent: the style URL is what MapLibre loads
+# and the tile origin is what the CSP allows it to reach. Having only one is the
+# same as having neither, and the app says so on the georeferencing panel.
+ARG NEXT_PUBLIC_MAP_STYLE_URL=
+# Optional. Adds the MapTiler styles to the menu and api.maptiler.com to the CSP.
+ARG NEXT_PUBLIC_MAPTILER_KEY=
+# Optional. Adds Cesium ion 3D buildings, and its origins to the CSP.
+ARG NEXT_PUBLIC_CESIUM_ION_TOKEN=
+ARG NEXT_PUBLIC_CESIUM_ION_ASSET_ID=
+# The default is the local companion (ADR 007). `webeid` cannot sign a Cartão de
+# Cidadão — no build of the extension supports it — so defaulting to it shipped
+# a signing page that could never work.
+ARG NEXT_PUBLIC_SIGNING_PROVIDER=companion
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL \
+    NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN \
+    NEXT_PUBLIC_TILE_ORIGIN=$NEXT_PUBLIC_TILE_ORIGIN \
+    NEXT_PUBLIC_MAP_STYLE_URL=$NEXT_PUBLIC_MAP_STYLE_URL \
+    NEXT_PUBLIC_MAPTILER_KEY=$NEXT_PUBLIC_MAPTILER_KEY \
+    NEXT_PUBLIC_CESIUM_ION_TOKEN=$NEXT_PUBLIC_CESIUM_ION_TOKEN \
+    NEXT_PUBLIC_CESIUM_ION_ASSET_ID=$NEXT_PUBLIC_CESIUM_ION_ASSET_ID \
+    NEXT_PUBLIC_SIGNING_PROVIDER=$NEXT_PUBLIC_SIGNING_PROVIDER
+
+RUN npm run build
+
+
+FROM node:24-bookworm-slim AS runtime
+
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 1001 nodejs \
+    && useradd --system --uid 1001 --gid nodejs nextjs
+
+COPY --from=builder /app/public ./public
+
+# The standalone bundle carries its own minimal node_modules and server.js.
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:3000/ || exit 1
+
+CMD ["node", "server.js"]

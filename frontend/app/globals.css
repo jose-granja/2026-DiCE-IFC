@@ -1,0 +1,489 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------------------------------------------------------------------------
+   DiCE-IFC palette.
+
+   A BIM toolkit is read for hours at a time next to a 3D canvas, so the chrome
+   is deliberately quiet: a steel blue carries actions and selection, and the
+   neutrals hold a trace of that hue so greys sit with it rather than against it.
+
+   Brand steel   #1b6ea8  hsl(205 72% 38%)
+   Hover/darker  #14547f  hsl(205 72% 29%)
+   Body text     #333333  hsl(0 0% 20%)
+   Muted text    #666666  hsl(0 0% 40%)
+   Surfaces      #f2f2f2  hsl(0 0% 95%)
+   Borders       #e5e5e5  hsl(0 0% 90%)
+
+   Destructive is a red well clear of the primary hue, because in this app red
+   also carries meaning in the data: IDS failures, invalid signatures and
+   missing georeferencing all render red. Danger *actions* must not be mistaken
+   for danger *results*, so destructive is darker and more saturated than the
+   status reds used in reports.
+
+   Status tokens (--success / --warning / --destructive) are the ones validation
+   and signature-verification UI should use — never a raw Tailwind colour.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* Tokyo Night, the palette ifclite uses. Rounded rather than square: the
+     glass panels below need a radius to read as panels rather than as regions
+     of a flat page. */
+  --radius: 0.5rem;
+  --background: #ffffff; /* e0e6f0 */
+  --foreground: #1a1b2e;
+  --card: #ffffffcc;
+  --card-foreground: #1a1b2e;
+  --popover: #eceefa;
+  --popover-foreground: #1a1b2e;
+  --primary: #3f5bb8;
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: #d6dceb;
+  --secondary-foreground: #1a1b2e;
+  --muted: #d6dceb;
+  --muted-foreground: #565f89;
+  --accent: #9d7cd826;
+  --accent-foreground: #2e3050;
+  --destructive: #b0384f;
+  --destructive-foreground: #16161e;
+  --border: #0000001f;
+  --input: #00000029;
+  --ring: #7aa2f7;
+
+  /* Chart series: brand steel first, then hues spaced far enough apart to stay
+     separable, including for the most common colour-vision deficiencies. Used
+     by the IDS validation dashboards. */
+  --chart-1: #3f5bb8;
+  --chart-2: #c2691f;
+  --chart-3: #2f8f76;
+  --chart-4: #7c5bbf;
+  --chart-5: #b34b6a;
+
+  --success: #3f7a4e;
+  --success-foreground: hsl(0 0% 100%);
+  --warning: #b8802a;
+  --warning-foreground: hsl(30 60% 18%);
+
+  --sidebar: #ffffffb8;
+  --sidebar-foreground: #1a1b2e;
+  --sidebar-primary: #3f5bb8;
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: #9d7cd826;
+  --sidebar-accent-foreground: #2e3050;
+  --sidebar-border: #0000001f;
+  --sidebar-ring: #7aa2f7;
+
+  /* Dark surface used for the footer and the viewer chrome. It stays dark in
+     both themes, so it needs its own foreground: the ordinary
+     --muted-foreground is a mid grey and drops to 2.2:1 against it in light
+     mode. Anything on this surface should use these two tokens. */
+  --background-secondary: #1a1b26;
+  --background-secondary-foreground: #a9b1d6;
+  --background-secondary-muted: #7982a9;
+  --background-primary: #3f5bb8;
+}
+
+.dark {
+  /* Near-black with a trace of the brand hue rather than pure grey, so the
+     steel does not look pasted onto the surface, and light enough that the 3D
+     canvas (which sits on --background) does not read as a hole in the page. */
+  --background: #1a1b26;
+  --foreground: #a9b1d6;
+  --card: #16161ee6;
+  --card-foreground: #c0caf5;
+  --popover: #1f2335;
+  --popover-foreground: #c0caf5;
+  --primary: #7aa2f7;
+  --primary-foreground: #16161e;
+  --secondary: #1f2335;
+  --secondary-foreground: #c0caf5;
+  --muted: #1f2335;
+  --muted-foreground: #7982a9;
+  --accent: #1f2335;
+  --accent-foreground: #a9b1d6;
+  --destructive: #f7768e;
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: #3b4261;
+  --input: #3b4261;
+  --ring: #7aa2f7;
+
+  --chart-1: #7aa2f7;
+  --chart-2: #ff9e64;
+  --chart-3: #73daca;
+  --chart-4: #bb9af7;
+  --chart-5: #f7768e;
+
+  --success: #9ece6a;
+  --success-foreground: #16161e;
+  --warning: #e0af68;
+  --warning-foreground: #16161e;
+
+  --sidebar: #16161ee6;
+  --sidebar-foreground: #a9b1d6;
+  --sidebar-primary: #7aa2f7;
+  --sidebar-primary-foreground: #16161e;
+  --sidebar-accent: #1f2335;
+  --sidebar-accent-foreground: #a9b1d6;
+  --sidebar-border: #3b4261;
+  --sidebar-ring: #7aa2f7;
+
+  --background-secondary: #13131a;
+  --background-secondary-foreground: hsl(0 0% 88%);
+  --background-secondary-muted: hsl(0 0% 72%);
+  --background-primary: #13131a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-background-secondary: var(--background-secondary);
+  --color-background-secondary-foreground: var(
+    --background-secondary-foreground
+  );
+  --color-background-secondary-muted: var(--background-secondary-muted);
+  --color-background-primary: var(--background-primary);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Animated underline, matching bimaplus.org.
+
+   The site draws a 1px bar with an ::after pseudo-element and animates its
+   width from 0 to 100% on hover:
+
+     .wrapper a:after { content:""; width:0; height:1px; bottom:-1px;
+       transition: all .3s cubic-bezier(.175,.885,.32,1.075); }
+     …li:hover > a:after { width:100% }
+
+   Same geometry and the same easing here — that curve overshoots slightly past
+   1, which is what gives the bar its flick as it lands.
+
+   Deliberately a class rather than a bare `a` rule: plenty of anchors in this
+   app are buttons, cards or menu items (anything using buttonVariants, every
+   DropdownMenuItem wrapping a Link), and a global rule would draw a sliding
+   bar under all of them.
+
+   The bar uses currentColor so it works in every context it appears in — coral
+   on a light page, white on the coral navbar, light grey in the dark footer.
+   --------------------------------------------------------------------------- */
+
+.link-underline {
+  position: relative;
+  text-decoration: none;
+}
+
+.link-underline::after {
+  content: "";
+  display: block;
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background-color: currentColor;
+  overflow: hidden;
+  transition: width 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075);
+}
+
+/* focus-visible as well as hover, so the effect is reachable by keyboard. */
+.link-underline:hover::after,
+.link-underline:focus-visible::after {
+  width: 100%;
+}
+
+/* Mark the current page: the bar stays drawn rather than animating in. */
+.link-underline[aria-current="page"]::after {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link-underline::after {
+    transition: none;
+  }
+}
+
+/* Rich-text bodies are the closest thing here to the site's `.wrapper a`:
+   prose links, where an animated underline reads as intended. */
+.rich-text-content a {
+  position: relative;
+  text-decoration: none;
+}
+
+.rich-text-content a::after {
+  content: "";
+  display: block;
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background-color: currentColor;
+  transition: width 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075);
+}
+
+.rich-text-content a:hover::after,
+.rich-text-content a:focus-visible::after {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rich-text-content a::after {
+    transition: none;
+  }
+}
+
+/* Rich text editor content (Tiptap) */
+.rich-text-content:focus {
+  outline: none;
+}
+.rich-text-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0.5rem 0;
+}
+.rich-text-content h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
+}
+.rich-text-content p {
+  margin: 0.25rem 0;
+}
+.rich-text-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+.rich-text-content ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+.rich-text-content blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 0.75rem;
+  color: var(--muted-foreground);
+  margin: 0.5rem 0;
+}
+.rich-text-content a {
+  color: var(--primary);
+  /* No text-decoration: the animated bar above supplies the underline. */
+}
+/* Placeholder shown when the editor is empty */
+.rich-text-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+@media print {
+  p {
+    border-bottom: none !important;
+  }
+  section.pdf-break {
+    page-break-before: always;
+    break-before: page;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    position: relative;
+    top: 0;
+  }
+
+  /* Force first element in section to top */
+  section.pdf-break > *:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+}
+
+/* Applied only while generating the PDF (html2pdf): force each section onto a
+   fresh page and a plain light background. Scoped to .generating-pdf so it has
+   no effect on the normal on-screen view. */
+.generating-pdf section.pdf-break {
+  break-before: page;
+  page-break-before: always;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+.generating-pdf section.pdf-break > *:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Glass panels
+   ---------------------------------------------------------------------------
+   The surface treatment ifclite uses: a translucent panel over a blurred
+   backdrop, so the 3D view reads as the thing the interface sits on rather
+   than as one pane in a grid of panes.
+
+   `--card` is already translucent in both themes (`#ffffffcc`, `#16161ee6`),
+   so `bg-card` plus this class is all a panel needs.
+
+   `backdrop-filter` is the expensive part: it forces the compositor to sample
+   what is behind the element every frame, and behind these panels is a WebGL
+   canvas that is already redrawing. It is scoped to the panel chrome and never
+   applied to anything that scrolls a long list. */
+.glass {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Panels that sit against the viewport get a hairline rather than a full
+   border, so the eye reads one continuous surface with divisions rather than
+   separate boxes. */
+.glass-edge {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  /* Someone who has asked for less transparency gets an opaque panel. The
+     blur is decoration; legibility is not. */
+  .glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: var(--popover);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The 3D viewport background
+   ---------------------------------------------------------------------------
+   A WebGL canvas clears to its own colour, so it cannot inherit the page's.
+   This token is what `ViewerCanvas` reads and hands to the renderer, which
+   means the viewport follows the theme and a BCF snapshot keeps the same
+   backdrop instead of coming out transparent.
+
+   Slightly off the page background in both themes: a model that is exactly the
+   colour of the page behind it loses its silhouette. */
+:root {
+  --viewport: #dde3ee;
+}
+
+.dark {
+  --viewport: #16161e;
+}
+
+/* ---------------------------------------------------------------------------
+   Compact panel tabs
+   ---------------------------------------------------------------------------
+   Five tabs do not fit a 19rem panel at a readable size, and truncating them
+   to "Struc…" helps nobody. ifclite solves this with container queries — the
+   label when there is room, the icon alone when there is not — and the icon
+   keeps the tab's accessible name either way. */
+.panel-tabs {
+  container-type: inline-size;
+}
+
+.panel-tab-text {
+  display: inline;
+}
+
+.panel-tab-icon {
+  display: none;
+}
+
+@container (max-width: 26rem) {
+  /*
+    Hidden visually, not removed. `display: none` would take the word out of the
+    accessibility tree too, leaving a tab whose only name is an icon — and
+    leaving `getByRole("tab", { name: "Classes" })` matching nothing. This is
+    the standard visually-hidden recipe, so the label is still the tab's
+    accessible name when only the icon is drawn.
+  */
+  .panel-tab-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  .panel-tab-icon {
+    display: inline;
+  }
+}
+
+/*
+ * The bit of Cesium's widget stylesheet that actually matters here.
+ *
+ * `CesiumWidget` builds its own `<canvas>` inside the container it is given and
+ * sizes it from the container's *laid-out* size. Without these rules the canvas
+ * has no CSS size, so it keeps the HTML default of 300×150 and the globe
+ * renders a postage stamp stretched across the viewport — which is exactly what
+ * happened when the copy script stopped shipping `Widgets/`.
+ *
+ * Only the layout rules are here. The rest of that file styles a credit bar and
+ * an error panel this application does not use: it renders its own attribution
+ * (see `GlobeControls`) and reports failures as toasts.
+ */
+.cesium-widget,
+.cesium-widget canvas {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+}

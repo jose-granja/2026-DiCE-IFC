@@ -1,0 +1,110 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]'),'2;1');
+FILE_NAME('georeferenced-wall-ifc4.ifc','2026-01-01T00:00:00',('DiCE-IFC'),('UMinho'),'DiCE-IFC fixtures','DiCE-IFC','');
+FILE_SCHEMA(('IFC4'));
+ENDSEC;
+DATA;
+#1= IFCPERSON($,'Fixture','Author',$,$,$,$,$);
+#2= IFCORGANIZATION($,'DiCE-IFC',$,$,$);
+#3= IFCPERSONANDORGANIZATION(#1,#2,$);
+#4= IFCAPPLICATION(#2,'1.0','DiCE-IFC fixtures','DICE');
+#5= IFCOWNERHISTORY(#3,#4,$,.ADDED.,$,$,$,0);
+
+#10= IFCCARTESIANPOINT((0.,0.,0.));
+#11= IFCDIRECTION((0.,0.,1.));
+#12= IFCDIRECTION((1.,0.,0.));
+#13= IFCAXIS2PLACEMENT3D(#10,#11,#12);
+#14= IFCDIRECTION((0.,1.));
+#15= IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-05,#13,#14);
+#16= IFCGEOMETRICREPRESENTATIONSUBCONTEXT('Body','Model',*,*,*,*,#15,$,.MODEL_VIEW.,$);
+
+#20= IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.);
+#21= IFCSIUNIT(*,.AREAUNIT.,$,.SQUARE_METRE.);
+#22= IFCSIUNIT(*,.VOLUMEUNIT.,$,.CUBIC_METRE.);
+#23= IFCSIUNIT(*,.PLANEANGLEUNIT.,$,.RADIAN.);
+#24= IFCUNITASSIGNMENT((#20,#21,#22,#23));
+
+#30= IFCPROJECT('2FacetFixtureProject0001',#5,'Facet fixture',$,$,$,$,(#15),#24);
+#31= IFCSITE('2FacetFixtureSite000001',#5,'Site',$,$,#40,$,$,.ELEMENT.,$,$,$,$,$);
+#32= IFCBUILDING('2FacetFixtureBuilding01',#5,'Building',$,$,#41,$,$,.ELEMENT.,$,$,$);
+#33= IFCBUILDINGSTOREY('2FacetFixtureStorey001',#5,'Level 0',$,$,#42,$,$,.ELEMENT.,0.);
+#34= IFCBUILDINGSTOREY('2FacetFixtureStorey002',#5,'Level 1',$,$,#43,$,$,.ELEMENT.,3.);
+
+#40= IFCLOCALPLACEMENT($,#13);
+#41= IFCLOCALPLACEMENT(#40,#13);
+#42= IFCLOCALPLACEMENT(#41,#13);
+#43= IFCLOCALPLACEMENT(#41,#13);
+
+#50= IFCRELAGGREGATES('2FacetRelAgg0000000001',#5,$,$,#30,(#31));
+#51= IFCRELAGGREGATES('2FacetRelAgg0000000002',#5,$,$,#31,(#32));
+#52= IFCRELAGGREGATES('2FacetRelAgg0000000003',#5,$,$,#32,(#33,#34));
+
+/* Geometry shared by every element: a 1 m cube. */
+#60= IFCCARTESIANPOINT((0.,0.));
+#61= IFCRECTANGLEPROFILEDEF(.AREA.,'Profile',#62,1.,1.);
+#62= IFCAXIS2PLACEMENT2D(#60,$);
+#63= IFCEXTRUDEDAREASOLID(#61,#13,#11,1.);
+#64= IFCSHAPEREPRESENTATION(#16,'Body','SweptSolid',(#63));
+#65= IFCPRODUCTDEFINITIONSHAPE($,$,(#64));
+
+/* Two walls on Level 0, one slab on Level 1. ObjectType carries the type name
+   for exporters that write no IfcRelDefinesByType; #103 relies on the relation
+   instead, so both routes are exercised. */
+#100= IFCWALL('2FacetWall00000000001',#5,'Wall A','','Basic Wall 200',#70,#65,$,$);
+#101= IFCWALL('2FacetWall00000000002',#5,'Wall B','','Basic Wall 200',#71,#65,$,$);
+#102= IFCSLAB('2FacetSlab00000000001',#5,'Slab A','',$,#72,#65,$,$);
+
+/* Spread out, so hiding one changes the picture.
+
+   The first draft placed all three at their storey's origin with the same
+   geometry, which made them coincide on screen: filtering worked perfectly and
+   the viewport looked identical, because the survivors sat exactly where the
+   hidden ones had been. A fixture that cannot show the effect cannot test it. */
+#66= IFCCARTESIANPOINT((0.,0.,0.));
+#67= IFCCARTESIANPOINT((3.,0.,0.));
+#68= IFCCARTESIANPOINT((6.,0.,0.));
+#73= IFCAXIS2PLACEMENT3D(#66,#11,#12);
+#74= IFCAXIS2PLACEMENT3D(#67,#11,#12);
+#75= IFCAXIS2PLACEMENT3D(#68,#11,#12);
+
+#70= IFCLOCALPLACEMENT(#42,#73);
+#71= IFCLOCALPLACEMENT(#42,#74);
+#72= IFCLOCALPLACEMENT(#43,#75);
+
+#80= IFCRELCONTAINEDINSPATIALSTRUCTURE('2FacetRelContain00001',#5,$,$,(#100,#101),#33);
+#81= IFCRELCONTAINEDINSPATIALSTRUCTURE('2FacetRelContain00002',#5,$,$,(#102),#34);
+
+/* Materials: the walls are concrete, the slab is timber. */
+#110= IFCMATERIAL('Concrete C30/37');
+#111= IFCMATERIAL('Timber CLT');
+#112= IFCRELASSOCIATESMATERIAL('2FacetRelMaterial0001',#5,$,$,(#100,#101),#110);
+#113= IFCRELASSOCIATESMATERIAL('2FacetRelMaterial0002',#5,$,$,(#102),#111);
+
+/* A type, shared by both walls, carrying its own property set.
+
+   `HasPropertySets` is the sixth attribute of IfcTypeObject. Leaving it $ —
+   which the first draft of this fixture did — gives a type relation with
+   nothing behind it, so the panel's "From its type" section stays empty and
+   the test proves nothing. */
+#160= IFCPROPERTYSINGLEVALUE('ThermalTransmittance',$,IFCREAL(0.18),$);
+#161= IFCPROPERTYSET('2FacetTypePset000001',#5,'Pset_WallCommon',$,(#160));
+#120= IFCWALLTYPE('2FacetWallType0000001',#5,'Basic Wall 200',$,$,(#161),$,$,$,.STANDARD.);
+#121= IFCRELDEFINESBYTYPE('2FacetRelDefByType001',#5,$,$,(#100,#101),#120);
+
+/* A group spanning one wall and the slab, so it cuts across class. */
+#130= IFCGROUP('2FacetGroup0000000001',#5,'Fire compartment 1',$,$);
+#131= IFCRELASSIGNSTOGROUP('2FacetRelAssignGrp001',#5,$,$,(#100,#102),$,#130);
+
+/* A zone too, to prove zones are treated as groups. */
+#140= IFCZONE('2FacetZone00000000001',#5,'Zone North',$,$,$);
+#141= IFCRELASSIGNSTOGROUP('2FacetRelAssignGrp002',#5,$,$,(#101),$,#140);
+
+/* A property set, so the information panel has something to show. */
+#150= IFCPROPERTYSINGLEVALUE('FireRating',$,IFCLABEL('REI 60'),$);
+#151= IFCPROPERTYSINGLEVALUE('LoadBearing',$,IFCBOOLEAN(.T.),$);
+#152= IFCPROPERTYSET('2FacetPset00000000001',#5,'Pset_WallCommon',$,(#150,#151));
+#153= IFCRELDEFINESBYPROPERTIES('2FacetRelDefByProps01',#5,$,$,(#100,#101),#152);
+
+ENDSEC;
+END-ISO-10303-21;

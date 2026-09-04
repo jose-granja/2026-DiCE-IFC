@@ -1,0 +1,681 @@
+"use client";
+
+/**
+ * The viewer's shared state.
+ *
+ * Deliberately not local to `/viewer`: Phase 6 clicks an IDS failure and the
+ * viewer isolates that entity, and Phase 7 opens a BCF viewpoint and the viewer
+ * restores its selection, visibility and colouring. All three modules read and
+ * write *this* store, which is why selection is keyed by `(modelId, expressId)`
+ * rather than by a bare express id — express ids are only unique within a model,
+ * and a federation has several.
+ */
+
+import { create } from "zustand";
+
+import type { SignatureSummary } from "@/lib/signing/summary";
+
+import type {
+  CoordinateInfo,
+  EntitySummary,
+  ExpressId,
+  GeoreferenceView,
+  ModelSummary,
+  SpatialNodeView,
+  Vec3,
+} from "@/lib/ifc/types";
+import {
+  computePlacements,
+  deriveWorldOrigin,
+  federatedBounds,
+  type FederationModelInput,
+  type ModelPlacement,
+  type WorldOrigin,
+} from "./federation";
+import {
+  defaultSectionPosition,
+  type AngleMeasurement,
+  type AreaMeasurement,
+  type Measurement,
+  type SectionAxis,
+  type SectionPlane,
+  type SnapTargets,
+  type SnapTargetType,
+  type Triangle,
+  type VolumeMeasurement,
+} from "./tools";
+
+/** A selection that is unambiguous across a federation. */
+export type EntityRef = { modelId: string; expressId: ExpressId };
+
+export function refKey(ref: EntityRef): string {
+  return `${ref.modelId}#${ref.expressId}`;
+}
+
+export type ModelLoadState =
+  | { status: "parsing"; phase: string; percent: number }
+  | { status: "geometry"; phase: string; percent: number }
+  | { status: "ready" }
+  | { status: "failed"; error: string };
+
+export type ViewerModel = {
+  summary: ModelSummary;
+  /** Assigned on load, used for the model list and for per-model tinting. */
+  colour: string;
+  visible: boolean;
+  load: ModelLoadState;
+  georeference: GeoreferenceView;
+  spatialTree: SpatialNodeView | null;
+  entityTypes: Array<{ type: string; count: number }>;
+  /**
+   * The coordinate frame the geometry came back in — RTC shift and bounds.
+   * Null until geometry has been extracted; federation needs `originShift`,
+   * not just the bounds, so the whole thing is kept rather than a box.
+   */
+  coordinates: CoordinateInfo | null;
+  /** User-set offset, on top of the derived placement. */
+  manualOffset?: Vec3;
+  /** Set once geometry has been handed to the renderer. */
+  hasGeometry: boolean;
+  /**
+   * Present when the model came out of a signed container.
+   *
+   * `null` while the check is still running, so the UI can say "checking"
+   * rather than "unsigned" — which would be a different and much worse claim.
+   */
+  signature?: SignatureSummary | null;
+};
+
+/**
+ * Model colours. Chosen to stay distinguishable under the most common
+ * colour-vision deficiencies and against both light and dark viewport
+ * backgrounds — a federation of six models is normal.
+ */
+const MODEL_COLOURS = [
+  "#1b6ea8",
+  "#d97706",
+  "#2f9e6f",
+  "#8b5cf6",
+  "#d9467a",
+  "#0f7a8a",
+  "#a16207",
+  "#6366f1",
+] as const;
+
+type ViewerState = {
+  models: ViewerModel[];
+  worldOrigin: WorldOrigin | null;
+  placements: Record<string, ModelPlacement>;
+
+  /** Multi-select, ordered by insertion so "the selected entity" is well-defined. */
+  selection: EntityRef[];
+  /** Entities explicitly hidden by the user. */
+  hidden: Set<string>;
+  /** When non-null, only these entities render. */
+  isolated: Set<string> | null;
+  /** Overrides applied by the IDS validator and BCF viewpoints. */
+  colouring: Map<string, string>;
+
+  /** IFC classes the user has filtered the tree/list down to. Empty = all. */
+  typeFilter: Set<string>;
+  /**
+   * What the filter panel leaves visible, or null for "no filter".
+   *
+   * A resolved set of `modelId#expressId` keys rather than the chosen facets,
+   * because the facets are five independent dimensions that have to be
+   * intersected, and doing that per element on every visibility check would
+   * run on every frame. The panel owns the choosing; the store owns the answer.
+   */
+  facetVisible: Set<string> | null;
+
+  /**
+   * What a click in the viewport does. Selecting and every measuring mode
+   * consume the primary click, so only one can be live — the mode is
+   * explicit rather than modified by a held key, which would be invisible to
+   * a keyboard user.
+   */
+  tool: "select" | "measureDistance" | "measureAngle" | "measureArea" | "measureVolume";
+  sectionPlanes: SectionPlane[];
+
+  measurements: Measurement[];
+  /** First point of a distance measurement in progress, if any. */
+  pendingPoint: Vec3 | null;
+
+  angleMeasurements: AngleMeasurement[];
+  /** Points clicked so far for an angle in progress: 0, 1 or 2 — the 3rd completes it. */
+  pendingAnglePoints: Vec3[];
+
+  areaMeasurements: AreaMeasurement[];
+  /**
+   * Which area workflow is active: click one flat face for its own extent
+   * (the connected, coplanar patch of triangles under the click — see
+   * `ViewerRenderer.pickFace` / `floodFillCoplanarPatch`), or trace an
+   * arbitrary shape by clicking its corners by hand. A preference, not a
+   * tool-mode detail — same reasoning as `volumeMode` below.
+   */
+  areaMode: "points" | "face";
+  /**
+   * Points clicked so far for a "points"-mode area in progress. Unlike
+   * distance (2 points) or angle (3), an area has no fixed point count, so
+   * nothing completes it automatically — `finishAreaMeasurement` does, on an
+   * explicit "Finish" or Enter.
+   */
+  pendingAreaPoints: Vec3[];
+
+  volumeMeasurements: VolumeMeasurement[];
+  /**
+   * Which volume workflow is active: click one element for its own solid
+   * volume (computed from its mesh — see `ViewerRenderer.getElementVolume`),
+   * or click two opposite corners of an axis-aligned box. A preference, not
+   * a tool-mode detail, so it survives leaving the tool and `reset()` — the
+   * same reasoning as `snapTargets` below.
+   */
+  volumeMode: "element" | "box";
+  /** First corner of a box volume in progress, if any (`volumeMode: "box"` only). */
+  pendingBoxCorner: Vec3 | null;
+
+  /**
+   * Which kinds of geometry `pickPoint` snaps to: a triangle's corners, the
+   * midpoint of one of its edges, or the nearest point anywhere along an
+   * edge (see `snapToTriangle` in `lib/viewer/tools.ts`). Corners on by
+   * default — measuring between corners is what people actually want — with
+   * the other two off: a face's true midpoint or an arbitrary edge point is
+   * sometimes the thing being measured, and only these reach it. All three
+   * are independently toggleable and can be on together; corners and
+   * midpoints take priority, and "anywhere on an edge" applies only where
+   * neither is in range (see `snapToTriangle`'s own doc comment for why). A
+   * preference, not a tool-mode detail: survives leaving measure mode and
+   * `reset()`, since it says nothing about which model is loaded.
+   */
+  snapTargets: SnapTargets;
+
+  addModel: (model: ViewerModel) => void;
+  updateModel: (id: string, patch: Partial<ViewerModel>) => void;
+  removeModel: (id: string) => void;
+  setModelVisible: (id: string, visible: boolean) => void;
+  setManualOffset: (id: string, offset: Vec3 | undefined) => void;
+
+  select: (refs: EntityRef[], mode?: "replace" | "add" | "toggle") => void;
+  clearSelection: () => void;
+  isSelected: (ref: EntityRef) => boolean;
+
+  hide: (refs: EntityRef[]) => void;
+  show: (refs: EntityRef[]) => void;
+  isolate: (refs: EntityRef[]) => void;
+  /** Null clears the filter; a set narrows visibility to exactly those refs. */
+  setFacetVisible: (keys: Set<string> | null) => void;
+  clearIsolation: () => void;
+  resetVisibility: () => void;
+  isVisible: (ref: EntityRef) => boolean;
+
+  setColouring: (entries: Array<{ ref: EntityRef; colour: string }>) => void;
+  clearColouring: () => void;
+
+  toggleTypeFilter: (type: string) => void;
+  clearTypeFilter: () => void;
+
+  setTool: (
+    tool: "select" | "measureDistance" | "measureAngle" | "measureArea" | "measureVolume",
+  ) => void;
+  setSnapTarget: (type: SnapTargetType, enabled: boolean) => void;
+  addSectionPlane: (axis: SectionAxis) => void;
+  updateSectionPlane: (id: string, patch: Partial<SectionPlane>) => void;
+  removeSectionPlane: (id: string) => void;
+  clearSectionPlanes: () => void;
+
+  /** Add a distance measurement point; the second point completes it. */
+  addMeasurementPoint: (point: Vec3) => void;
+  cancelMeasurement: () => void;
+  removeMeasurement: (id: string) => void;
+  clearMeasurements: () => void;
+
+  /** Add an angle measurement point; the third point (`a`, `vertex`, `c`) completes it. */
+  addAnglePoint: (point: Vec3) => void;
+  cancelAngleMeasurement: () => void;
+  removeAngleMeasurement: (id: string) => void;
+  clearAngleMeasurements: () => void;
+
+  setAreaMode: (mode: "points" | "face") => void;
+  /** Record one face's own area directly — a single click completes it, no pending state. */
+  addFaceArea: (modelId: string, expressId: number, triangles: Triangle[]) => void;
+  /** Add a "points"-mode area measurement point. No point count completes it — `finishAreaMeasurement` does. */
+  addAreaPoint: (point: Vec3) => void;
+  /** Close the polygon and record it. A no-op below 3 points. */
+  finishAreaMeasurement: () => void;
+  cancelAreaMeasurement: () => void;
+  removeAreaMeasurement: (id: string) => void;
+  clearAreaMeasurements: () => void;
+
+  setVolumeMode: (mode: "element" | "box") => void;
+  /** Record one element's own volume directly — a single click completes it, no pending state. */
+  addElementVolume: (modelId: string, expressId: number, volume: number, centroid: Vec3) => void;
+  /** Add a box volume corner point; the second corner completes it. */
+  addBoxVolumePoint: (point: Vec3) => void;
+  cancelVolumeMeasurement: () => void;
+  removeVolumeMeasurement: (id: string) => void;
+  clearVolumeMeasurements: () => void;
+
+  /** Recompute the world origin and every placement. Idempotent. */
+  refederate: () => void;
+  federationBounds: () => { min: Vec3; max: Vec3 } | null;
+  reset: () => void;
+};
+
+const EMPTY_COORDINATES: CoordinateInfo = {
+  originShift: [0, 0, 0],
+  originalBounds: { min: [0, 0, 0], max: [0, 0, 0] },
+  shiftedBounds: { min: [0, 0, 0], max: [0, 0, 0] },
+  hasLargeCoordinates: false,
+};
+
+function toFederationInput(model: ViewerModel): FederationModelInput {
+  return {
+    id: model.summary.id,
+    name: model.summary.name,
+    // A model whose geometry has not arrived yet still takes part in the
+    // federation, at its unshifted origin, so the model list and the tree work
+    // while meshes are still being tessellated.
+    coordinates: model.coordinates ?? EMPTY_COORDINATES,
+    georeference: model.georeference,
+    manualOffset: model.manualOffset,
+  };
+}
+
+export const useViewerStore = create<ViewerState>((set, get) => ({
+  models: [],
+  worldOrigin: null,
+  placements: {},
+  selection: [],
+  hidden: new Set(),
+  isolated: null,
+  colouring: new Map(),
+  typeFilter: new Set(),
+  facetVisible: null,
+  tool: "select",
+  sectionPlanes: [],
+  measurements: [],
+  pendingPoint: null,
+  angleMeasurements: [],
+  pendingAnglePoints: [],
+  areaMeasurements: [],
+  areaMode: "points",
+  pendingAreaPoints: [],
+  volumeMeasurements: [],
+  volumeMode: "element",
+  pendingBoxCorner: null,
+  snapTargets: { corner: true, edgeMidpoint: false, edge: false },
+
+  addModel: (model) => {
+    set((state) => ({
+      models: [
+        ...state.models,
+        {
+          ...model,
+          colour:
+            model.colour ?? MODEL_COLOURS[state.models.length % MODEL_COLOURS.length],
+        },
+      ],
+    }));
+    get().refederate();
+  },
+
+  updateModel: (id, patch) => {
+    set((state) => ({
+      models: state.models.map((m) =>
+        m.summary.id === id ? { ...m, ...patch } : m,
+      ),
+    }));
+    // Georeferencing or bounds arriving late changes where everything sits.
+    if ("georeference" in patch || "coordinates" in patch) get().refederate();
+  },
+
+  removeModel: (id) => {
+    set((state) => ({
+      models: state.models.filter((m) => m.summary.id !== id),
+      // Drop anything that referred to the removed model, or the selection
+      // panel keeps showing entities that no longer exist.
+      selection: state.selection.filter((r) => r.modelId !== id),
+      hidden: new Set([...state.hidden].filter((k) => !k.startsWith(`${id}#`))),
+      isolated: state.isolated
+        ? new Set([...state.isolated].filter((k) => !k.startsWith(`${id}#`)))
+        : null,
+      colouring: new Map(
+        [...state.colouring].filter(([k]) => !k.startsWith(`${id}#`)),
+      ),
+    }));
+    get().refederate();
+  },
+
+  setModelVisible: (id, visible) =>
+    set((state) => ({
+      models: state.models.map((m) =>
+        m.summary.id === id ? { ...m, visible } : m,
+      ),
+    })),
+
+  setManualOffset: (id, offset) => {
+    set((state) => ({
+      models: state.models.map((m) =>
+        m.summary.id === id ? { ...m, manualOffset: offset } : m,
+      ),
+    }));
+    get().refederate();
+  },
+
+  select: (refs, mode = "replace") =>
+    set((state) => {
+      if (mode === "replace") return { selection: refs };
+
+      const existing = new Map(state.selection.map((r) => [refKey(r), r]));
+      for (const ref of refs) {
+        const key = refKey(ref);
+        if (mode === "toggle" && existing.has(key)) existing.delete(key);
+        else existing.set(key, ref);
+      }
+      return { selection: [...existing.values()] };
+    }),
+
+  clearSelection: () => set({ selection: [] }),
+
+  isSelected: (ref) => {
+    const key = refKey(ref);
+    return get().selection.some((r) => refKey(r) === key);
+  },
+
+  hide: (refs) =>
+    set((state) => {
+      const hidden = new Set(state.hidden);
+      for (const ref of refs) hidden.add(refKey(ref));
+      return { hidden };
+    }),
+
+  show: (refs) =>
+    set((state) => {
+      const hidden = new Set(state.hidden);
+      for (const ref of refs) hidden.delete(refKey(ref));
+      return { hidden };
+    }),
+
+  isolate: (refs) => set({ isolated: new Set(refs.map(refKey)) }),
+  clearIsolation: () => set({ isolated: null }),
+  resetVisibility: () => set({ hidden: new Set(), isolated: null }),
+
+  isVisible: (ref) => {
+    const state = get();
+    const model = state.models.find((m) => m.summary.id === ref.modelId);
+    if (model && !model.visible) return false;
+
+    const key = refKey(ref);
+
+    // The facet filter narrows; isolation replaces. They compose in that order
+    // so that "show me only this element" from the IDS validator still wins
+    // over whatever the filter panel had left on screen — otherwise clicking a
+    // failure would show nothing whenever a filter happened to exclude it.
+    if (state.facetVisible && !state.facetVisible.has(key)) return false;
+
+    if (state.isolated) return state.isolated.has(key);
+    return !state.hidden.has(key);
+  },
+
+  setColouring: (entries) =>
+    set((state) => {
+      const colouring = new Map(state.colouring);
+      for (const { ref, colour } of entries) colouring.set(refKey(ref), colour);
+      return { colouring };
+    }),
+
+  clearColouring: () => set({ colouring: new Map() }),
+
+  toggleTypeFilter: (type) =>
+    set((state) => {
+      const typeFilter = new Set(state.typeFilter);
+      if (typeFilter.has(type)) typeFilter.delete(type);
+      else typeFilter.add(type);
+      return { typeFilter };
+    }),
+
+  clearTypeFilter: () => set({ typeFilter: new Set() }),
+
+  setFacetVisible: (keys) => set({ facetVisible: keys }),
+
+  // -------------------------------------------------------------------------
+  // Tools
+  // -------------------------------------------------------------------------
+
+  setTool: (tool) =>
+    // Leaving a measuring mode — including switching to a *different* one —
+    // drops whatever it had half-finished, rather than leaving a stray point
+    // or two that complete on the next unrelated click in that mode.
+    set((state) => ({
+      tool,
+      pendingPoint: tool === "measureDistance" ? state.pendingPoint : null,
+      pendingAnglePoints: tool === "measureAngle" ? state.pendingAnglePoints : [],
+      pendingAreaPoints: tool === "measureArea" ? state.pendingAreaPoints : [],
+      pendingBoxCorner: tool === "measureVolume" ? state.pendingBoxCorner : null,
+    })),
+
+  setSnapTarget: (type, enabled) =>
+    set((state) => ({ snapTargets: { ...state.snapTargets, [type]: enabled } })),
+
+  addSectionPlane: (axis) =>
+    set((state) => ({
+      sectionPlanes: [
+        ...state.sectionPlanes,
+        {
+          id: `${axis}-${nextSectionSeq()}`,
+          axis,
+          // Centre of the model, not the origin: a federation offset into a
+          // projected CRS would otherwise get a plane that misses it entirely.
+          position: defaultSectionPosition(get().federationBounds(), axis),
+          flipped: false,
+          enabled: true,
+        },
+      ],
+    })),
+
+  updateSectionPlane: (id, patch) =>
+    set((state) => ({
+      sectionPlanes: state.sectionPlanes.map((plane) =>
+        plane.id === id ? { ...plane, ...patch } : plane,
+      ),
+    })),
+
+  removeSectionPlane: (id) =>
+    set((state) => ({
+      sectionPlanes: state.sectionPlanes.filter((plane) => plane.id !== id),
+    })),
+
+  clearSectionPlanes: () => set({ sectionPlanes: [] }),
+
+  addMeasurementPoint: (point) =>
+    set((state) => {
+      if (!state.pendingPoint) return { pendingPoint: point };
+      return {
+        pendingPoint: null,
+        measurements: [
+          ...state.measurements,
+          { id: `m-${nextMeasurementSeq()}`, start: state.pendingPoint, end: point },
+        ],
+      };
+    }),
+
+  cancelMeasurement: () => set({ pendingPoint: null }),
+
+  removeMeasurement: (id) =>
+    set((state) => ({
+      measurements: state.measurements.filter((m) => m.id !== id),
+    })),
+
+  clearMeasurements: () => set({ measurements: [], pendingPoint: null }),
+
+  addAnglePoint: (point) =>
+    set((state) => {
+      const pending = [...state.pendingAnglePoints, point];
+      if (pending.length < 3) return { pendingAnglePoints: pending };
+
+      const [a, vertex, c] = pending;
+      return {
+        pendingAnglePoints: [],
+        angleMeasurements: [
+          ...state.angleMeasurements,
+          { id: `angle-${nextAngleSeq()}`, a, vertex, c },
+        ],
+      };
+    }),
+
+  cancelAngleMeasurement: () => set({ pendingAnglePoints: [] }),
+
+  removeAngleMeasurement: (id) =>
+    set((state) => ({
+      angleMeasurements: state.angleMeasurements.filter((m) => m.id !== id),
+    })),
+
+  clearAngleMeasurements: () => set({ angleMeasurements: [], pendingAnglePoints: [] }),
+
+  setAreaMode: (mode) =>
+    // A pending point sequence means nothing once the click that follows it
+    // picks a whole face instead of the next corner.
+    set({ areaMode: mode, pendingAreaPoints: [] }),
+
+  addFaceArea: (modelId, expressId, triangles) =>
+    set((state) => ({
+      areaMeasurements: [
+        ...state.areaMeasurements,
+        { id: `area-${nextAreaSeq()}`, kind: "face", modelId, expressId, triangles },
+      ],
+    })),
+
+  addAreaPoint: (point) =>
+    set((state) => ({ pendingAreaPoints: [...state.pendingAreaPoints, point] })),
+
+  finishAreaMeasurement: () =>
+    set((state) => {
+      if (state.pendingAreaPoints.length < 3) return {};
+      return {
+        pendingAreaPoints: [],
+        areaMeasurements: [
+          ...state.areaMeasurements,
+          { id: `area-${nextAreaSeq()}`, kind: "points", points: state.pendingAreaPoints },
+        ],
+      };
+    }),
+
+  cancelAreaMeasurement: () => set({ pendingAreaPoints: [] }),
+
+  removeAreaMeasurement: (id) =>
+    set((state) => ({
+      areaMeasurements: state.areaMeasurements.filter((m) => m.id !== id),
+    })),
+
+  clearAreaMeasurements: () => set({ areaMeasurements: [], pendingAreaPoints: [] }),
+
+  setVolumeMode: (mode) =>
+    // A pending box corner means nothing once the click that follows it picks
+    // a whole element instead of a second corner.
+    set({ volumeMode: mode, pendingBoxCorner: null }),
+
+  addElementVolume: (modelId, expressId, volume, centroid) =>
+    set((state) => ({
+      volumeMeasurements: [
+        ...state.volumeMeasurements,
+        { id: `volume-${nextVolumeSeq()}`, kind: "element", modelId, expressId, volume, centroid },
+      ],
+    })),
+
+  addBoxVolumePoint: (point) =>
+    set((state) => {
+      if (!state.pendingBoxCorner) return { pendingBoxCorner: point };
+      return {
+        pendingBoxCorner: null,
+        volumeMeasurements: [
+          ...state.volumeMeasurements,
+          {
+            id: `volume-${nextVolumeSeq()}`,
+            kind: "box",
+            corner1: state.pendingBoxCorner,
+            corner2: point,
+          },
+        ],
+      };
+    }),
+
+  cancelVolumeMeasurement: () => set({ pendingBoxCorner: null }),
+
+  removeVolumeMeasurement: (id) =>
+    set((state) => ({
+      volumeMeasurements: state.volumeMeasurements.filter((m) => m.id !== id),
+    })),
+
+  clearVolumeMeasurements: () => set({ volumeMeasurements: [], pendingBoxCorner: null }),
+
+  refederate: () => {
+    const models = get().models;
+    if (models.length === 0) {
+      set({ worldOrigin: null, placements: {} });
+      return;
+    }
+
+    const inputs = models.map(toFederationInput);
+    const worldOrigin = deriveWorldOrigin(inputs);
+    const placements = Object.fromEntries(
+      computePlacements(inputs, worldOrigin).map((p) => [p.modelId, p]),
+    );
+    set({ worldOrigin, placements });
+  },
+
+  federationBounds: () => {
+    const { models, placements } = get();
+    return federatedBounds(
+      models
+        .filter((m) => m.coordinates && m.visible)
+        .map((m) => ({
+          bounds: m.coordinates!.shiftedBounds,
+          offset: placements[m.summary.id]?.offset ?? [0, 0, 0],
+        })),
+    );
+  },
+
+  reset: () =>
+    set({
+      models: [],
+      worldOrigin: null,
+      placements: {},
+      selection: [],
+      hidden: new Set(),
+      isolated: null,
+      colouring: new Map(),
+      typeFilter: new Set(),
+  facetVisible: null,
+      tool: "select",
+      sectionPlanes: [],
+      measurements: [],
+      pendingPoint: null,
+      angleMeasurements: [],
+      pendingAnglePoints: [],
+      areaMeasurements: [],
+      pendingAreaPoints: [],
+      volumeMeasurements: [],
+      pendingBoxCorner: null,
+    }),
+}));
+
+// Monotonic ids, so React keys stay stable when items are removed from the
+// middle of the list — array indices would not.
+let sectionSeq = 0;
+let measurementSeq = 0;
+let angleSeq = 0;
+let areaSeq = 0;
+let volumeSeq = 0;
+const nextSectionSeq = () => (sectionSeq += 1);
+const nextMeasurementSeq = () => (measurementSeq += 1);
+const nextAngleSeq = () => (angleSeq += 1);
+const nextAreaSeq = () => (areaSeq += 1);
+const nextVolumeSeq = () => (volumeSeq += 1);
+
+/** Convenience for panels that need one entity's identity and nothing else. */
+export function useSelectedEntity(): EntityRef | null {
+  return useViewerStore((s) => s.selection[s.selection.length - 1] ?? null);
+}
+
+export { MODEL_COLOURS };
+export type { EntitySummary };

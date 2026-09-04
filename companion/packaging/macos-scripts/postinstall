@@ -1,0 +1,13 @@
+#!/bin/bash
+# Load the LaunchAgent for the user who ran the installer, so the companion is
+# running before they get back to the browser rather than after a reboot.
+set -e
+
+USER_NAME="${USER:-$(stat -f%Su /dev/console)}"
+UID_NUM="$(id -u "${USER_NAME}")"
+PLIST="/Library/LaunchAgents/pt.dice.companion.plist"
+
+launchctl bootout "gui/${UID_NUM}/pt.dice.companion" 2>/dev/null || true
+launchctl bootstrap "gui/${UID_NUM}" "${PLIST}" 2>/dev/null || true
+
+exit 0
