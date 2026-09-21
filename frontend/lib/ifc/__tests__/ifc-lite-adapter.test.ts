@@ -1,8 +1,12 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { afterAll } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
-import { ifcLiteAdapter, resetIfcLiteAdapter } from "../ifc-lite-adapter";
+import {
+  ifcLiteAdapter,
+  resetIfcLiteAdapter,
+  resolveRenderOriginShift,
+} from "../ifc-lite-adapter";
 import { runAdapterConformance, type ConformanceFixtures } from "../conformance";
 
 const FIXTURES = path.resolve(__dirname, "../../../fixtures/ifc");
@@ -28,3 +32,14 @@ afterAll(() => {
 });
 
 runAdapterConformance(ifcLiteAdapter, fixtures);
+
+describe("geometry coordinate metadata", () => {
+  it("combines the IFC Z-up WASM RTC offset with the later render shift", () => {
+    expect(
+      resolveRenderOriginShift({
+        originShift: { x: 1, y: 2, z: 3 },
+        wasmRtcOffset: { x: 100, y: 200, z: 5 },
+      }),
+    ).toEqual([101, 7, -197]);
+  });
+});

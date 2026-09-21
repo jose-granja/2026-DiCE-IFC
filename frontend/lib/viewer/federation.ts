@@ -68,6 +68,37 @@ export function subVec(a: Vec3, b: Vec3): Vec3 {
 export const ZERO: Vec3 = [0, 0, 0];
 
 /**
+ * Convert a point in the shared render world back to unshifted IFC Z-up
+ * metres for one model.
+ *
+ * This is the inverse of the renderer's model-group transform plus the
+ * geometry engine's RTC shift. Cesium uses it to find the projected position
+ * of render `(0,0,0)`; BCF and context integrations use the same frame rule.
+ */
+export function worldToIfcMetres(
+  point: Vec3,
+  coordinates: CoordinateInfo,
+  placement: Pick<ModelPlacement, "offset" | "rotationY" | "scale">,
+): Vec3 | null {
+  if (!Number.isFinite(placement.scale) || placement.scale === 0) return null;
+
+  const dx = point[0] - placement.offset[0];
+  const dy = point[1] - placement.offset[1];
+  const dz = point[2] - placement.offset[2];
+  const cos = Math.cos(placement.rotationY);
+  const sin = Math.sin(placement.rotationY);
+
+  // Inverse of world = offset + R_y(rotationY) * scale * local.
+  const localRender: Vec3 = [
+    (cos * dx - sin * dz) / placement.scale,
+    dy / placement.scale,
+    (sin * dx + cos * dz) / placement.scale,
+  ];
+
+  return renderToIfc(addVec(localRender, coordinates.originShift));
+}
+
+/**
  * Collapse `-0` to `0`.
  *
  * Negating a zero component (map northing → render z) produces `-0`, which
@@ -120,6 +151,8 @@ export type ModelPlacement = {
   offset: Vec3;
   /** Rotation about the render-frame Y axis, radians. */
   rotationY: number;
+  /** Uniform map-conversion scale applied to the render geometry. */
+  scale: number;
   /**
    * How trustworthy this placement is. `exact` means both this model and the
    * world origin came from an `IfcMapConversion` in the same CRS. Anything less
@@ -284,7 +317,11 @@ export function computePlacements(
 
       return withManual({
         offset,
-        rotationY: -gridRotationAngle(model),
+        // Three.js positive Y rotation maps render (x, -z) to map (E, N):
+        // E = cos*x - sin*y; N = sin*x + cos*y. The former negative angle
+        // mirrored the XAxisAbscissa/XAxisOrdinate rotation and caused E/N drift.
+        rotationY: gridRotationAngle(model),
+        scale: model.georeference.mapConversion?.scale ?? 1,
         confidence: crsMatches ? "exact" : "approximate",
         reason: crsMatches
           ? `Positioned from IfcMapConversion${origin.crs ? ` in ${origin.crs}` : ""}.`
@@ -296,6 +333,7 @@ export function computePlacements(
       return withManual({
         offset: ZERO,
         rotationY: 0,
+        scale: 1,
         confidence: origin.source === "mapConversion" ? "exact" : "approximate",
         reason: "This model defines the federation origin.",
       });
@@ -304,6 +342,7 @@ export function computePlacements(
     return withManual({
       offset: ZERO,
       rotationY: 0,
+      scale: 1,
       confidence: "unaligned",
       reason:
         "No IfcMapConversion, so this model is shown in its own coordinates and may not line up. Georeference it, or set a manual offset.",
@@ -316,17 +355,41 @@ export function computePlacements(
  * Returns null when nothing has geometry yet.
  */
 export function federatedBounds(
-  entries: Array<{ bounds: CoordinateInfo["shiftedBounds"]; offset: Vec3 }>,
+  entries: Array<{
+    bounds: CoordinateInfo["shiftedBounds"];
+    offset: Vec3;
+    rotationY?: number;
+    scale?: number;
+  }>,
 ): { min: Vec3; max: Vec3 } | null {
   if (entries.length === 0) return null;
 
   const min: Vec3 = [Infinity, Infinity, Infinity];
   const max: Vec3 = [-Infinity, -Infinity, -Infinity];
 
-  for (const { bounds, offset } of entries) {
-    for (let axis = 0; axis < 3; axis += 1) {
-      min[axis] = Math.min(min[axis], bounds.min[axis] + offset[axis]);
-      max[axis] = Math.max(max[axis], bounds.max[axis] + offset[axis]);
+  for (const { bounds, offset, rotationY = 0, scale = 1 } of entries) {
+    const cos = Math.cos(rotationY);
+    const sin = Math.sin(rotationY);
+
+    // A rotated box cannot be transformed by moving only its min/max points.
+    // Transform all eight corners so fitting remains correct for any bearing.
+    for (const x of [bounds.min[0], bounds.max[0]]) {
+      for (const y of [bounds.min[1], bounds.max[1]]) {
+        for (const z of [bounds.min[2], bounds.max[2]]) {
+          const sx = x * scale;
+          const sy = y * scale;
+          const sz = z * scale;
+          const point: Vec3 = [
+            sx * cos + sz * sin + offset[0],
+            sy + offset[1],
+            -sx * sin + sz * cos + offset[2],
+          ];
+          for (let axis = 0; axis < 3; axis += 1) {
+            min[axis] = Math.min(min[axis], point[axis]);
+            max[axis] = Math.max(max[axis], point[axis]);
+          }
+        }
+      }
     }
   }
 

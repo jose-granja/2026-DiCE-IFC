@@ -3,12 +3,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
-import { Download, FileDown, FileText, Save, Upload } from "lucide-react";
+import { Download, FileDown, FilePlus2, FileText, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import ModuleHeader from "@/components/ModuleHeader";
 import { ResizeHandle, useResizableWidth } from "@/components/PanelResizeHandle";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -51,6 +60,7 @@ export default function IdsCreatePage() {
   const setDocument = useIdsStore((s) => s.setDocument);
   const saveDraft = useIdsStore((s) => s.saveDraft);
   const loadDraft = useIdsStore((s) => s.loadDraft);
+  const startNew = useIdsStore((s) => s.startNew);
   const selected = useSelectedSpecification();
 
   // Select the array, then derive. Filtering *inside* the selector builds a
@@ -63,6 +73,8 @@ export default function IdsCreatePage() {
   );
   const [vocabularyModelId, setVocabularyModelId] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [newDialogOpen, setNewDialogOpen] = useState(false);
+  const [startingNew, setStartingNew] = useState(false);
   const buildPdfReport = useIdsPdfReport();
   const [leftWidth, setLeftWidth] = useResizableWidth("left", 304, 240, 560, "ids");
   const [rightWidth, setRightWidth] = useResizableWidth("right", 384, 280, 640, "ids");
@@ -170,6 +182,11 @@ export default function IdsCreatePage() {
 
             <DictionaryPicker />
 
+            <Button variant="ghost" size="sm" onClick={() => setNewDialogOpen(true)}>
+              <FilePlus2 className="h-4 w-4" />
+              {t("newIds")}
+            </Button>
+
             <Button
               variant="ghost"
               size="sm"
@@ -213,6 +230,41 @@ export default function IdsCreatePage() {
           </>
         }
       />
+
+      <Dialog open={newDialogOpen} onOpenChange={setNewDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("newIdsDialog.title")}</DialogTitle>
+            <DialogDescription>{t("newIdsDialog.description")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={startingNew}>
+                {t("newIdsDialog.cancel")}
+              </Button>
+            </DialogClose>
+            <Button
+              disabled={startingNew}
+              onClick={async () => {
+                setStartingNew(true);
+                try {
+                  await startNew();
+                  setNewDialogOpen(false);
+                  toast.success(t("newIdsStarted"));
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error ? error.message : t("newIdsFailed"),
+                  );
+                } finally {
+                  setStartingNew(false);
+                }
+              }}
+            >
+              {t("newIdsDialog.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:flex">
         <aside

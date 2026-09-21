@@ -148,7 +148,11 @@ export type MeshView = {
  * models or they will not line up — see `lib/viewer/federation.ts`.
  */
 export type CoordinateInfo = {
-  /** Translation the engine applied to bring the model near the origin. */
+  /**
+   * Total translation the engine applied to bring the model near the origin,
+   * expressed in render coordinates (Y-up metres). This includes both the
+   * IFC-frame WASM RTC shift and any later render-frame shift.
+   */
   originShift: Vec3;
   /** Bounds before the shift, i.e. in the file's own coordinates. */
   originalBounds: Aabb;

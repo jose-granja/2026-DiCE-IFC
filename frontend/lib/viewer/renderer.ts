@@ -518,11 +518,12 @@ export class ViewerRenderer {
   }
 
   /** Position a model in the federated frame. */
-  setPlacement(modelId: string, offset: Vec3, rotationY = 0) {
+  setPlacement(modelId: string, offset: Vec3, rotationY = 0, scale = 1) {
     const model = this.models.get(modelId);
     if (!model) return;
     model.group.position.set(offset[0], offset[1], offset[2]);
     model.group.rotation.y = rotationY;
+    model.group.scale.setScalar(scale);
   }
 
   setModelVisible(modelId: string, visible: boolean) {

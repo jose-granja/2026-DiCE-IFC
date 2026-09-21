@@ -276,13 +276,13 @@ function PropertySets({
         <p className="text-muted-foreground text-xs">{empty}</p>
       ) : (
         <div className="space-y-2.5">
-          {sets.map((set) => (
-            <div key={set.name}>
+          {sets.map((set, setIndex) => (
+            <div key={`${set.globalId ?? set.name}:${setIndex}`}>
               <p className="text-xs font-medium">{set.name}</p>
               <dl className="mt-1 space-y-0.5 text-xs">
-                {set.properties.map((property) => (
+                {set.properties.map((property, propertyIndex) => (
                   <Row
-                    key={property.name}
+                    key={`${property.name}:${propertyIndex}`}
                     label={property.name}
                     value={formatValue(property.value, t("yes"), t("no"))}
                   />

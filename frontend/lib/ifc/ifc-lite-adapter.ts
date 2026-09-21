@@ -311,6 +311,32 @@ function toVec3(v: IfcLiteVec3): Vec3 {
   return [v.x, v.y, v.z];
 }
 
+/**
+ * Resolve every origin shift applied by the geometry pipeline into the one
+ * render-frame translation used by the rest of the application.
+ *
+ * The WASM pre-pass subtracts its RTC offset while coordinates are still IFC
+ * Z-up. `CoordinateHandler.originShift`, when present, is a later shift of the
+ * already Y-up render meshes. Older code kept only the latter, which is
+ * normally zero on the WASM path and therefore lost the large E/N offset that
+ * Cesium and federation need to put the model back on the map.
+ */
+export function resolveRenderOriginShift(info: {
+  originShift: IfcLiteVec3;
+  wasmRtcOffset?: IfcLiteVec3;
+}): Vec3 {
+  const renderShift = toVec3(info.originShift);
+  const rtc = info.wasmRtcOffset;
+  if (!rtc) return renderShift;
+
+  // IFC (x, y, z) -> render (x, z, -y).
+  return [
+    renderShift[0] + rtc.x,
+    renderShift[1] + rtc.z,
+    renderShift[2] - rtc.y,
+  ];
+}
+
 function toAabb(box: IfcLiteAabb): Aabb {
   return { min: toVec3(box.min), max: toVec3(box.max) };
 }
@@ -763,10 +789,11 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
           color: mesh.color,
         })),
       coordinates: {
-        originShift: toVec3(info.originShift),
+        originShift: resolveRenderOriginShift(info),
         originalBounds: toAabb(info.originalBounds),
         shiftedBounds: toAabb(info.shiftedBounds),
-        hasLargeCoordinates: info.hasLargeCoordinates,
+        hasLargeCoordinates:
+          info.hasLargeCoordinates || info.wasmRtcOffset !== undefined,
         buildingRotation: info.buildingRotation,
         lengthUnitScale: info.lengthUnitScale,
       },

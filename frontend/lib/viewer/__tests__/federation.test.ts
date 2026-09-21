@@ -9,6 +9,7 @@ import {
   ifcToRender,
   mapPositionOfRenderOrigin,
   renderToIfc,
+  worldToIfcMetres,
   type FederationModelInput,
 } from "../federation";
 
@@ -203,7 +204,7 @@ describe("placements", () => {
     expect(b.offset[2]).toBeCloseTo(-300, 6);
   });
 
-  it("reports a rotated model's counter-rotation", () => {
+  it("rotates a model in the same direction as IfcMapConversion", () => {
     const models = [
       model("a", georeferenced(0, 0, 0)),
       model(
@@ -215,7 +216,13 @@ describe("placements", () => {
       ),
     ];
     const [, b] = computePlacements(models, deriveWorldOrigin(models));
-    expect(b.rotationY).toBeCloseTo(-Math.PI / 4, 6);
+    expect(b.rotationY).toBeCloseTo(Math.PI / 4, 6);
+  });
+
+  it("carries the map conversion scale into the render placement", () => {
+    const models = [model("a", georeferenced(0, 0, 0, { scale: 0.9996 }))];
+    const [placement] = computePlacements(models, deriveWorldOrigin(models));
+    expect(placement.scale).toBeCloseTo(0.9996, 8);
   });
 
   it("marks a model with no georeferencing as unaligned rather than guessing", () => {
@@ -265,6 +272,32 @@ describe("placements", () => {
   });
 });
 
+describe("world to IFC", () => {
+  it("undoes placement rotation, scale, offset and RTC shift", () => {
+    const point = worldToIfcMetres(
+      [12, 7, 2],
+      coordinates([100, 5, -200]),
+      { offset: [10, 2, 4], rotationY: Math.PI / 2, scale: 2 },
+    );
+
+    // world-offset=(2,5,-2); inverse 90° Y rotation and /2 => render (1,2.5,1).
+    // Add render RTC (100,5,-200), then render -> IFC (x,-z,y).
+    expect(point?.[0]).toBeCloseTo(101, 6);
+    expect(point?.[1]).toBeCloseTo(199, 6);
+    expect(point?.[2]).toBeCloseTo(7.5, 6);
+  });
+
+  it("rejects a zero map scale", () => {
+    expect(
+      worldToIfcMetres([0, 0, 0], coordinates(), {
+        offset: [0, 0, 0],
+        rotationY: 0,
+        scale: 0,
+      }),
+    ).toBeNull();
+  });
+});
+
 describe("federated bounds", () => {
   it("unions the placed models", () => {
     const bounds = federatedBounds([
@@ -274,6 +307,24 @@ describe("federated bounds", () => {
 
     expect(bounds.min).toEqual([0, 0, 0]);
     expect(bounds.max).toEqual([110, 5, 10]);
+  });
+
+  it("includes placement rotation and scale", () => {
+    const bounds = federatedBounds([
+      {
+        bounds: { min: [0, 0, 0], max: [10, 2, 20] },
+        offset: [5, 0, 7],
+        rotationY: Math.PI / 2,
+        scale: 2,
+      },
+    ])!;
+
+    expect(bounds.min[0]).toBeCloseTo(5, 6);
+    expect(bounds.max[0]).toBeCloseTo(45, 6);
+    expect(bounds.min[1]).toBeCloseTo(0, 6);
+    expect(bounds.max[1]).toBeCloseTo(4, 6);
+    expect(bounds.min[2]).toBeCloseTo(-13, 6);
+    expect(bounds.max[2]).toBeCloseTo(7, 6);
   });
 
   it("is null with nothing loaded", () => {

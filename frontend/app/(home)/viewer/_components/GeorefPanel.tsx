@@ -10,7 +10,7 @@ import { useGeorefStore } from "@/lib/georef/store";
 import { gridConvergence, isSupportedCrs, localToMap, mapToWgs84 } from "@/lib/georef/transform";
 import GlobeControls from "./GlobeControls";
 import ContextModel from "./ContextModel";
-import { federatedBounds, renderToIfc } from "@/lib/viewer/federation";
+import { worldToIfcMetres } from "@/lib/viewer/federation";
 import { useViewerStore } from "@/lib/viewer/store";
 import type { Vec3 } from "@/lib/ifc/types";
 
@@ -88,55 +88,39 @@ export function GeorefPanel() {
     );
   }, [model?.summary.id, georeference, setDraft, setOriginal]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const bounds = useMemo(
-    () =>
-      federatedBounds(
-        models
-          .filter((entry) => entry.coordinates && entry.visible)
-          .map((entry) => ({
-            bounds: entry.coordinates!.shiftedBounds,
-            offset: placements[entry.summary.id]?.offset ?? [0, 0, 0],
-          })),
-      ),
-    [models, placements],
-  );
-
   /**
-   * Where the model sits on the earth.
+   * Where render coordinate (0, 0, 0) sits on the earth.
    *
-   * The globe is anchored to the *model*, never the camera: Cesium streams
-   * whatever the view needs by itself, and re-anchoring as the camera moves
-   * would throw that away on every zoom.
+   * `createGlobe.sync` treats its WGS point as the origin of the whole Three.js
+   * frame and then transforms the camera's unmodified render coordinates from
+   * there. Anchoring at the model bounds centre adds that centre twice: once in
+   * the WGS anchor and again in the camera position. Resolve the render origin
+   * through the inverse model-group transform instead, matching the reference
+   * implementation's "shift geometry, project the same shift" rule.
    */
   const modelAnchor = useMemo(() => {
-    if (!model || !draft || !bounds) return null;
+    if (!model || !draft || !model.coordinates) return null;
     // Eastings=Northings=0 is a placeholder no real site sits on (Revit's
     // default when its Survey Point was never set) — trusting it lands the
     // model near the CRS's false origin, often hundreds of km from the real
     // site, while every other level-50 check still reads as "georeferenced".
     if (isTrivialMapConversion(draft.conversion)) return null;
 
-    const groundCentre: Vec3 = [
-      (bounds.min[0] + bounds.max[0]) / 2,
-      bounds.min[1],
-      (bounds.min[2] + bounds.max[2]) / 2,
-    ];
-
-    const shift = model.coordinates?.originShift ?? ZERO;
-    const offset = placements[model.summary.id]?.offset ?? ZERO;
-    const ifc = renderToIfc([
-      groundCentre[0] - offset[0] + shift[0],
-      groundCentre[1] - offset[1] + shift[1],
-      groundCentre[2] - offset[2] + shift[2],
-    ]);
+    const placement = placements[model.summary.id];
+    const ifcMetres = worldToIfcMetres(
+      ZERO,
+      model.coordinates,
+      placement ?? { offset: ZERO, rotationY: 0, scale: 1 },
+    );
+    if (!ifcMetres) return null;
 
     try {
       const placement = { epsg: draft.epsg, conversion: draft.conversion, lengthUnitScale };
       const mapPoint = localToMap(
         {
-          x: ifc[0] / lengthUnitScale,
-          y: ifc[1] / lengthUnitScale,
-          z: ifc[2] / lengthUnitScale,
+          x: ifcMetres[0] / lengthUnitScale,
+          y: ifcMetres[1] / lengthUnitScale,
+          z: ifcMetres[2] / lengthUnitScale,
         },
         placement,
       );
@@ -153,7 +137,7 @@ export function GeorefPanel() {
       // on earth to put it, and guessing would be a fabrication.
       return null;
     }
-  }, [model, draft, bounds, placements, lengthUnitScale]);
+  }, [model, draft, placements, lengthUnitScale]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

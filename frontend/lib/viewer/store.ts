@@ -631,6 +631,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         .map((m) => ({
           bounds: m.coordinates!.shiftedBounds,
           offset: placements[m.summary.id]?.offset ?? [0, 0, 0],
+          rotationY: placements[m.summary.id]?.rotationY ?? 0,
+          scale: placements[m.summary.id]?.scale ?? 1,
         })),
     );
   },

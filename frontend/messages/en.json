@@ -588,6 +588,15 @@
     "modelForAutocomplete": "Model for autocomplete",
     "autocompleteFromPlaceholder": "Autocomplete from…",
     "import": "Import",
+    "newIds": "New IDS",
+    "newIdsStarted": "Started a new IDS file.",
+    "newIdsFailed": "Could not start a new IDS file.",
+    "newIdsDialog": {
+      "title": "Start a new IDS file?",
+      "description": "This clears the current editor and its saved draft. Download the current IDS first if you want to keep it.",
+      "cancel": "Cancel",
+      "confirm": "Start new IDS"
+    },
     "saveDraft": "Save draft",
     "draftSaved": "Draft saved on this device.",
     "downloadIds": "Download .ids",

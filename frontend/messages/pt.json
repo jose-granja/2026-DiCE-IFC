@@ -588,6 +588,15 @@
     "modelForAutocomplete": "Modelo para autocompletar",
     "autocompleteFromPlaceholder": "Autocompletar a partir de…",
     "import": "Importar",
+    "newIds": "Novo IDS",
+    "newIdsStarted": "Foi iniciado um novo ficheiro IDS.",
+    "newIdsFailed": "Não foi possível iniciar um novo ficheiro IDS.",
+    "newIdsDialog": {
+      "title": "Iniciar um novo ficheiro IDS?",
+      "description": "Isto limpa o editor atual e o respetivo rascunho guardado. Transfira primeiro o IDS atual se pretender conservá-lo.",
+      "cancel": "Cancelar",
+      "confirm": "Iniciar novo IDS"
+    },
     "saveDraft": "Guardar rascunho",
     "draftSaved": "Rascunho guardado neste dispositivo.",
     "downloadIds": "Transferir .ids",

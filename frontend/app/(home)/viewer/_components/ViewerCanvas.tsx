@@ -227,6 +227,7 @@ export function ViewerCanvas() {
           model.summary.id,
           placement.offset,
           placement.rotationY,
+          placement.scale,
         );
       }
       renderer.setModelVisible(model.summary.id, model.visible);

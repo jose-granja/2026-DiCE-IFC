@@ -13,6 +13,25 @@ function spec(id: string) {
   return found;
 }
 
+describe("startNew", () => {
+  beforeEach(() => useIdsStore.getState().reset());
+
+  it("starts with blank metadata, no specifications and file metadata selected", async () => {
+    const { addSpecification, updateInfo, startNew } = useIdsStore.getState();
+    addSpecification();
+    updateInfo({ title: "Existing IDS", description: "Work in progress" });
+
+    await startNew();
+
+    const state = useIdsStore.getState();
+    expect(state.document.info.title).toBe("Untitled specification");
+    expect(state.document.info.description).toBeUndefined();
+    expect(state.document.specifications).toEqual([]);
+    expect(state.selectedId).toBeNull();
+    expect(state.dirty).toBe(false);
+  });
+});
+
 describe("setApplicabilityCardinality", () => {
   beforeEach(() => useIdsStore.getState().reset());
 

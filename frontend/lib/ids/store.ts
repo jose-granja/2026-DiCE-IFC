@@ -11,7 +11,13 @@
 
 import { create } from "zustand";
 
-import { OPFS_NAMESPACES, readJson, writeJson } from "@/lib/storage/opfs";
+import {
+  OPFS_NAMESPACES,
+  isOpfsAvailable,
+  readJson,
+  remove,
+  writeJson,
+} from "@/lib/storage/opfs";
 import {
   allowedCardinalities,
   emptyDocument,
@@ -58,6 +64,7 @@ type IdsState = {
 
   saveDraft: () => Promise<void>;
   loadDraft: () => Promise<boolean>;
+  startNew: () => Promise<void>;
   reset: () => void;
 };
 
@@ -317,6 +324,13 @@ export const useIdsStore = create<IdsState>((set, get) => ({
       dirty: false,
     });
     return true;
+  },
+
+  startNew: async () => {
+    // A removed draft cannot unexpectedly replace the new blank document on
+    // the next reload. Browsers without OPFS can still start a new document.
+    if (isOpfsAvailable()) await remove(OPFS_NAMESPACES.ids, DRAFT_KEY);
+    set({ document: emptyDocument(), selectedId: null, dirty: false });
   },
 
   reset: () =>
