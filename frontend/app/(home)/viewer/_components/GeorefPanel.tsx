@@ -147,7 +147,7 @@ export function GeorefPanel() {
       />
       <ContextModel
         placement={
-          draft && model?.coordinates
+          draft && model?.coordinates && !isTrivialMapConversion(draft.conversion)
             ? { conversion: draft.conversion, epsg: draft.epsg, lengthUnitScale }
             : null
         }

@@ -11,6 +11,7 @@ import { expect, test } from "@playwright/test";
  */
 
 const IFC4 = path.resolve(__dirname, "../fixtures/ifc/georeferenced-wall-ifc4.ifc");
+const IFC_WITHOUT_GEOREF = path.resolve(__dirname, "../fixtures/ifc/facets-ifc4.ifc");
 const CITY = path.resolve(__dirname, "../fixtures/cityjson/two-blocks.city.json");
 const GEOJSON = path.resolve(__dirname, "../fixtures/geojson/context.geojson");
 const CITYGML = path.resolve(__dirname, "../fixtures/citygml/two-blocks.gml");
@@ -30,7 +31,7 @@ async function openGeoref(page: import("@playwright/test").Page) {
   // own describe block for that behaviour) would read every one of them as
   // "nothing nearby" and fail the load. Off here; on again wherever a test
   // is about the clip itself.
-  const clip = page.getByRole("switch", { name: "Clip CityJSON to the model" });
+  const clip = page.getByRole("switch", { name: "Clip context to the model" });
   if (await clip.isVisible()) await clip.click();
 }
 
@@ -53,6 +54,34 @@ test("loads CityGML, which is already three-dimensional", async ({ page }) => {
 
   expect(await triangles(page)).toBe(24);
   await expect(page.getByText(/EPSG:3763/).first()).toBeVisible();
+});
+
+test("loads a plain .gml context with legacy coordinates", async ({ page }) => {
+  // Generic GML rather than CityGML: no CityModel or Building vocabulary, and
+  // the coordinate encoding is the GML 2 form used by cadastral exports.
+  await page.goto("/viewer");
+  await page.setInputFiles('input[type="file"]', [IFC_WITHOUT_GEOREF]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({
+    timeout: 60_000,
+  });
+  await page.getByRole("tab", { name: "Geo" }).click();
+  await cityInput(page).setInputFiles({
+    name: "parcel-context.gml",
+    mimeType: "application/gml+xml",
+    buffer: Buffer.from(`<?xml version="1.0"?>
+      <FeatureCollection xmlns:gml="http://www.opengis.net/gml" srsName="EPSG:3763">
+        <featureMember><Parcel><geometry>
+          <gml:Polygon><gml:outerBoundaryIs><gml:LinearRing>
+            <gml:coordinates cs="," ts=" ">
+              -10,-10,0 10,-10,0 10,10,0 -10,10,0 -10,-10,0
+            </gml:coordinates>
+          </gml:LinearRing></gml:outerBoundaryIs></gml:Polygon>
+        </geometry></Parcel></featureMember>
+      </FeatureCollection>`),
+  });
+
+  expect(await triangles(page)).toBe(2);
+  await expect(page.getByText(/placed at the origin rather than aligned/i)).toBeVisible();
 });
 
 test("loads a GeoPackage, which is a SQLite database", async ({ page }) => {
@@ -191,6 +220,19 @@ test("the context is not treated as one of the user's models", async ({ page }) 
   await page.getByRole("tab", { name: "Models" }).click();
   await expect(page.getByText("two-blocks.city.json")).toHaveCount(0);
   await expect(page.locator("[data-rendered-models]")).not.toContainText("city");
+});
+
+test("the context stays mounted while section planes are edited", async ({ page }) => {
+  await openGeoref(page);
+  await cityInput(page).setInputFiles([CITY]);
+  const context = page.locator("[data-context-model='true']");
+  await expect(context).toBeAttached({ timeout: 30_000 });
+
+  await page.getByRole("tab", { name: "Section" }).click();
+  await expect(context).toBeAttached();
+
+  await page.getByRole("button", { name: "Plan" }).click();
+  await expect(context).toBeAttached();
 });
 
 test("says what is wrong with a file it cannot draw", async ({ page }) => {

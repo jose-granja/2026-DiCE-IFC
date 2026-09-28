@@ -207,6 +207,7 @@
       "models": "Modelos",
       "structure": "Estrutura",
       "classes": "Classes",
+      "quantities": "Quantidades",
       "geo": "Geo",
       "section": "Corte",
       "measure": "Medir",
@@ -262,7 +263,9 @@
       "flipNearSide": "A manter o lado mais próximo — inverta para manter o lado mais afastado",
       "flipWhichSide": "Inverter o lado mantido",
       "removePlane": "Remover plano de corte",
-      "positionLabel": "Posição de {label}"
+      "positionLabel": "Posição de {label}",
+      "rotationLabel": "Rotação de {label} em torno do eixo vertical",
+      "handlesHint": "Na vista, arraste a seta azul para mover um plano e o anel dourado para rodar um corte vertical."
     },
     "classFilter": {
       "loadModel": "Carregue um modelo para filtrar por classe IFC.",
@@ -292,7 +295,117 @@
       "recordsNone": "Este modelo não regista {dimension}.",
       "searchDimension": "Pesquisar {dimension}",
       "nothingMatches": "Nada corresponde a “{search}”.",
+      "hideValue": "Ocultar {name}",
+      "showValue": "Mostrar {name}",
       "combineRule": "A mostrar elementos que correspondem a <strong>todas</strong> as categorias escolhidas, e a <strong>qualquer</strong> valor dentro de cada uma."
+    },
+    "quantityQuery": {
+      "title": "Consulta de quantidades",
+      "loadModel": "Carregue um modelo para configurar e executar uma consulta de quantidades.",
+      "modelUnavailable": "Um modelo já não está carregado.",
+      "add": "Adicionar",
+      "set": "Conjunto",
+      "property": "Propriedade",
+      "quantity": "Quantidade",
+      "value": "Valor",
+      "removeCondition": "Remover condição de propriedade",
+      "removeSource": "Remover origem do resultado",
+      "formula": "Fórmula",
+      "formulaHint": "Use os nomes curtos com +, -, *, /, ^ e parênteses. Deixe vazio quando existir uma só origem.",
+      "unit": "Unidade do resultado",
+      "unitHint": "Etiqueta para apresentação e exportação; os valores não são convertidos automaticamente.",
+      "run": "Executar consulta",
+      "running": "A executar…",
+      "tabs": {
+        "filters": "Filtros",
+        "values": "Valores",
+        "results": "Resultados"
+      },
+      "list": {
+        "title": "Lista de consultas",
+        "new": "Nova",
+        "add": "Adicionar à lista",
+        "update": "Atualizar",
+        "edit": "Editar",
+        "duplicate": "Duplicar",
+        "remove": "Remover",
+        "runAll": "Executar todas",
+        "empty": "Sem consultas guardadas. Configure os campos abaixo e adicione a consulta a esta lista.",
+        "code": "Código",
+        "description": "Descrição",
+        "defaultDescription": "Quantidade {number}",
+        "copyDescription": "Cópia de {description}",
+        "notRun": "Não executada",
+        "selectHint": "Selecione uma quantidade para a consultar ou crie uma nova.",
+        "viewItem": "Consultar {description}",
+        "editItem": "Editar {description}",
+        "duplicateItem": "Duplicar {description}",
+        "deleteItem": "Eliminar {description}",
+        "matchCount": "{count, plural, one {# correspondência} other {# correspondências}}",
+        "itemError": "{description}: {message}"
+      },
+      "workbook": {
+        "import": "Importar Excel",
+        "download": "Descarregar Excel",
+        "imported": "Importadas {count, plural, one {# quantidade} other {# quantidades}} do Excel.",
+        "downloaded": "Foi descarregada a tabela de quantidades com os valores dos elementos.",
+        "importFailed": "Não foi possível importar esse ficheiro Excel. Use uma tabela .xlsx com as colunas Descrição e Quantidade.",
+        "exportFailed": "Não foi possível criar a tabela Excel de quantidades."
+      },
+      "filters": {
+        "title": "Filtros",
+        "rule": "Os campos combinam-se com E. Valores separados por vírgulas no mesmo campo combinam-se com OU.",
+        "class": "Classe IFC",
+        "predefinedType": "Tipo predefinido",
+        "objectType": "Tipo de objeto",
+        "material": "Material",
+        "multipleHint": "Separe alternativas com vírgulas.",
+        "propertyConditions": "Condições de propriedade",
+        "propertyRule": "Regra das condições de propriedade",
+        "propertyAll": "Todas",
+        "propertyAny": "Qualquer",
+        "noConditions": "Sem condições de propriedade."
+      },
+      "operators": {
+        "equals": "é igual a",
+        "notEquals": "é diferente de",
+        "contains": "contém",
+        "greaterThan": "é maior que",
+        "greaterOrEqual": "é pelo menos",
+        "lessThan": "é menor que",
+        "lessOrEqual": "é no máximo",
+        "exists": "existe"
+      },
+      "sources": {
+        "title": "Valores do resultado",
+        "hint": "Dê um nome curto a cada contagem, propriedade ou quantidade. Uma fórmula pode combinar esses nomes por elemento.",
+        "alias": "Nome na fórmula",
+        "count": "Contagem de elementos",
+        "property": "Propriedade",
+        "quantity": "Quantidade"
+      },
+      "errors": {
+        "alias": "Os nomes devem começar por uma letra ou sublinhado e conter apenas letras, números e sublinhados.",
+        "duplicateAlias": "Cada origem precisa de um nome único.",
+        "sourceFields": "Escolha um conjunto e um valor para cada origem de propriedade ou quantidade.",
+        "formulaRequired": "Adicione uma fórmula para combinar várias origens.",
+        "conditionFields": "Escolha um conjunto e uma propriedade para cada condição.",
+        "run": "Não foi possível concluir a consulta."
+      },
+      "results": {
+        "title": "Resultados",
+        "summary": "{matched, number} correspondências · {values, number} valores · {missing, number} em falta",
+        "total": "Total",
+        "select": "Selecionar",
+        "isolate": "Isolar",
+        "downloadCsv": "Descarregar as linhas desta consulta em CSV",
+        "runHint": "Execute a consulta para ver os valores das quantidades.",
+        "none": "Nenhum elemento corresponde a esta consulta.",
+        "element": "Elemento",
+        "class": "Classe",
+        "value": "Resultado",
+        "previewLimit": "A mostrar as primeiras 250 de {count, number} linhas. O CSV contém todas as linhas."
+      }
     },
     "spatialTree": {
       "loadModel": "Carregue um modelo para ver a sua estrutura espacial.",
@@ -300,6 +413,10 @@
       "readingStructure": "A ler a estrutura…",
       "collapse": "Recolher",
       "expand": "Expandir",
+      "hide": "Ocultar {name}",
+      "show": "Mostrar {name}",
+      "isolate": "Isolar {name}",
+      "clearIsolation": "Limpar isolamento de {name}",
       "moreElements": "+ {count, number} mais — use o filtro de classes para reduzir esta lista."
     },
     "propertyPanel": {
@@ -319,11 +436,37 @@
     },
     "relatedTopics": {
       "none": "Nenhum tópico se refere ao elemento selecionado.",
-      "about": "Sobre o elemento selecionado"
+      "about": "Sobre o elemento selecionado",
+      "edit": "Editar {title}"
     },
     "canvas": {
       "dropHint": "Largue aqui ficheiros IFC, ou use “Adicionar modelos”.",
       "fitView": "Ajustar vista",
+      "showOrigins": "Mostrar origens dos modelos",
+      "hideOrigins": "Ocultar origens dos modelos",
+      "viewCube": {
+        "label": "Orientação e projeção da vista",
+        "projection": "Projeção",
+        "perspective": "Perspetiva",
+        "orthographic": "Ortográfica",
+        "views": {
+          "isometric": "Vista isométrica",
+          "top": "Vista superior",
+          "bottom": "Vista inferior",
+          "front": "Vista frontal",
+          "back": "Vista traseira",
+          "left": "Vista esquerda",
+          "right": "Vista direita"
+        },
+        "short": {
+          "top": "CIMA",
+          "front": "FRENTE",
+          "right": "DIR",
+          "left": "ESQ",
+          "back": "TRÁS",
+          "bottom": "INF"
+        }
+      },
       "webgpu": {
         "noWebGpu": "Este navegador não tem WebGPU. A renderização usa WebGL, mais lenta em federações muito grandes.",
         "available": "WebGPU está disponível.",
@@ -494,10 +637,12 @@
       "title": "Modelo de contexto",
       "remove": "Remover o modelo de contexto",
       "loadContext": "Carregar contexto",
-      "clipToModel": "Recortar CityJSON ao modelo",
+      "clipToModel": "Recortar contexto ao modelo",
       "clipRadiusLabel": "Raio de recorte em metros",
       "needsPlacement": "Estes dados estão georreferenciados, pelo que o modelo precisa de uma conversão de mapa antes de poder ser colocado em relação a eles.",
       "neitherJsonNorXml": "{name} não é JSON nem XML, pelo que não corresponde a nenhum dos formatos suportados.",
+      "largeGmlNeedsClip": "Este GML é demasiado grande para ser carregado por inteiro. Mantenha o recorte ativo e georreferencie o modelo IFC para ler apenas a geometria próxima.",
+      "readingProgress": "{percent}%",
       "loaded": "Carregados {count} objetos — {summary}.",
       "crsMismatch": "O modelo de cidade está em EPSG:{resultEpsg} mas o IFC está em EPSG:{placementEpsg}. É colocado sem reprojeção, pelo que pode estar desalinhado.",
       "readFailed": "Não foi possível ler esse ficheiro.",
@@ -506,7 +651,7 @@
       "summaryNoCrs": ", sem CRS declarado",
       "noPlacementNote": "O modelo não tem conversão de mapa, pelo que isto é colocado na origem em vez de alinhado.",
       "formatsHint": "CityJSON, CityGML/GML, GeoJSON ou GeoPackage — edifícios vizinhos, limites de lote, terreno. Contornos planos com altura são extrudidos. Lido nesta aba e nunca enviado.",
-      "clipHint": "Georreferencie o modelo para recortar um ficheiro CityJSON grande à área em seu redor, em vez de ler o ficheiro inteiro."
+      "clipHint": "Georreferencie o modelo para recortar um ficheiro CityJSON ou GML grande à área em seu redor, em vez de carregar o conjunto completo."
     },
     "idsPanel": {
       "title": "Verificação IDS",
@@ -569,6 +714,8 @@
       "authorLabel": "Email do autor para novos tópicos e comentários",
       "authorPlaceholder": "voce@exemplo.com",
       "allTopics": "Todos os tópicos",
+      "editTopic": "Editar {title}",
+      "noViewpoint": "Este tópico não tem um ponto de vista para mostrar.",
       "schemaValid": "Esquema válido — BCF 3.0.",
       "schemaErrors": "{count, plural, one {# erro de esquema} other {# erros de esquema}}: {file} — {message}",
       "validationCouldNotRun": "Não foi possível executar a validação.",
@@ -983,7 +1130,7 @@
     "viewpointCard": {
       "loadModelFirst": "Carregue o modelo no visualizador primeiro — não há nada para onde restaurar.",
       "missingElements": "{count, plural, one {# elemento} other {# elementos}} não presente(s) nos modelos carregados",
-      "skippedPlanes": "{count, plural, one {# plano de corte não alinhado aos eixos} other {# planos de corte não alinhados aos eixos}} ignorado(s)",
+      "skippedPlanes": "{count, plural, one {# plano de corte inclinado não suportado} other {# planos de corte inclinados não suportados}} ignorado(s)",
       "viewpointRestoredWithCaveats": "Ponto de vista restaurado — {caveats}.",
       "viewpointRestored": "Ponto de vista restaurado.",
       "couldNotOpen": "Não foi possível abrir esse ponto de vista.",

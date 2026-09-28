@@ -70,6 +70,10 @@ export function FacetEditor({
     vocabulary?.entityTypes.map((t) => t.type.toUpperCase()) ?? [],
     bsdd?.classes ?? [],
   );
+  const predefinedTypes =
+    facet.kind === "entity" && facet.name.kind === "simple"
+      ? (bsdd?.predefinedTypesFor(facet.name.value) ?? [])
+      : [];
   const psetNames = merge(
     vocabulary?.propertySets.map((set) => set.name) ?? [],
     bsdd?.propertySets ?? [],
@@ -211,6 +215,7 @@ export function FacetEditor({
           <OptionalValue
             label={t("predefinedType")}
             value={facet.predefinedType}
+            suggestions={predefinedTypes}
             placeholder="SOLIDWALL"
             onChange={(predefinedType) => onChange({ ...facet, predefinedType })}
           />

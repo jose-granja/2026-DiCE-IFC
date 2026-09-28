@@ -1,10 +1,12 @@
 "use client";
 
 import { useRef } from "react";
+import { useTranslations } from "next-intl";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { CalendarClock, MessageSquare, Camera } from "lucide-react";
+import { CalendarClock, MessageSquare, Camera, Pencil } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { isClosed } from "@/lib/bcf/filter";
 import { useBcfStore, useVisibleTopics } from "@/lib/bcf/store";
@@ -18,7 +20,15 @@ import { useNow } from "./useNow";
  * Virtualised: a coordination BCF from a weekly clash review runs to a few
  * thousand topics, and rendering them all makes filtering feel broken.
  */
-export function TopicList() {
+export function TopicList({
+  onOpenTopic,
+  onEditTopic,
+  openingGuid,
+}: {
+  onOpenTopic: (topic: BcfTopic) => void;
+  onEditTopic: (topic: BcfTopic) => void;
+  openingGuid: string | null;
+}) {
   // `useVirtualizer` returns functions that read a mutable instance, so the
   // React Compiler cannot memoize this component safely — it says so itself
   // via react-hooks/incompatible-library. Opting this one component out is
@@ -26,11 +36,11 @@ export function TopicList() {
   // stops updating as you scroll. Scoped to this component deliberately.
   "use no memo";
 
+  const t = useTranslations("viewer.bcfPanel");
   const topics = useVisibleTopics();
   const now = useNow();
   const total = useBcfStore((s) => s.file.topics.length);
   const selectedGuid = useBcfStore((s) => s.selectedGuid);
-  const select = useBcfStore((s) => s.select);
   const checked = useBcfStore((s) => s.checked);
   const toggleChecked = useBcfStore((s) => s.toggleChecked);
 
@@ -64,7 +74,7 @@ export function TopicList() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col" data-topic-list>
       <div
         className="text-muted-foreground border-b px-3 py-1.5 text-[11px]"
         role="status"
@@ -107,7 +117,8 @@ export function TopicList() {
 
                   <button
                     type="button"
-                    onClick={() => select(topic.guid)}
+                    onClick={() => onOpenTopic(topic)}
+                    disabled={openingGuid !== null}
                     className="min-w-0 flex-1 text-left"
                     aria-current={selectedGuid === topic.guid}
                   >
@@ -130,6 +141,17 @@ export function TopicList() {
                       <TopicMeta topic={topic} now={now} />
                     </div>
                   </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="mt-0.5"
+                    aria-label={t("editTopic", { title: topic.title })}
+                    title={t("editTopic", { title: topic.title })}
+                    onClick={() => onEditTopic(topic)}
+                  >
+                    <Pencil aria-hidden />
+                  </Button>
                 </div>
               </li>
             );

@@ -19,11 +19,10 @@ import { useBsddStore } from "@/lib/bsdd/store";
 /**
  * Choosing which bSDD dictionaries to author against.
  *
- * A deliberate, explicit choice rather than a default: bSDD carries dozens of
- * national and vendor dictionaries, and suggesting IFC properties to someone
- * working to a Dutch or Portuguese classification is worse than suggesting
- * nothing. Nothing is selected until the author says so, and nothing is
- * requested from bSDD until then either.
+ * IFC 4.3 is the useful default for IDS authoring. Authors can remove it or add
+ * national and project dictionaries, and that explicit choice is persisted.
+ * Merely selecting a dictionary performs no request; searches stay driven by
+ * the facet fields below.
  */
 export function DictionaryPicker() {
   const t = useTranslations("idsCreate.dictionaryPicker");

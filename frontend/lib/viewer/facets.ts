@@ -121,7 +121,13 @@ export function resolveVisible(
 
 /** Flatten a spatial tree into "label → elements beneath it". */
 export function hierarchyFacets(
-  node: { name: string; type: string; elementIds: ExpressId[]; children: unknown[] },
+  node: {
+    expressId?: ExpressId;
+    name: string;
+    type: string;
+    elementIds: ExpressId[];
+    children: unknown[];
+  },
   into: Array<{ value: string; expressIds: ExpressId[] }> = [],
   depth = 0,
 ): Array<{ value: string; expressIds: ExpressId[] }> {
@@ -131,13 +137,16 @@ export function hierarchyFacets(
   // keep the storey's rooms and their contents, which is how people read a
   // tree.
   const collect = (current: typeof node): ExpressId[] => [
+    ...(current.type === "IfcSpace" && current.expressId !== undefined
+      ? [current.expressId]
+      : []),
     ...current.elementIds,
     ...(current.children as Array<typeof node>).flatMap(collect),
   ];
 
   // The project node is every element, which is not a filter.
   if (depth > 0) {
-    const beneath = collect(node);
+    const beneath = [...new Set(collect(node))];
     if (beneath.length > 0) {
       into.push({ value: node.name || node.type, expressIds: beneath });
     }

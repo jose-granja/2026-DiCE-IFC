@@ -35,6 +35,12 @@ export type BsddClass = {
   description?: string;
 };
 
+type BsddClassReference = {
+  uri: string;
+  name?: string;
+  code?: string;
+};
+
 export type BsddAllowedValue = {
   code: string;
   value: string;
@@ -68,9 +74,13 @@ export type BsddProperty = {
 
 export class BsddError extends Error {}
 
-async function get<T>(path: string, params: Record<string, string>): Promise<T> {
+async function get<T>(
+  path: string,
+  params: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<T> {
   const query = new URLSearchParams({ path, ...params });
-  const response = await fetch(`/api/bsdd?${query}`);
+  const response = await fetch(`/api/bsdd?${query}`, { signal });
 
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { error?: string };
@@ -92,45 +102,69 @@ export async function searchClasses(
   dictionaryUris: string[],
   search: string,
   limit = 20,
+  signal?: AbortSignal,
 ): Promise<BsddClass[]> {
   if (dictionaryUris.length === 0 || search.trim().length < 2) return [];
 
-  const data = await get<{ classes?: BsddClass[] }>("/api/Class/Search/v1", {
-    // The API takes the parameter repeated; URLSearchParams would collapse a
-    // joined string, so they are sent comma-separated, which it also accepts.
-    DictionaryUris: dictionaryUris.join(","),
-    SearchText: search.trim(),
-    Limit: String(limit),
-  });
+  const data = await get<{ classes?: BsddClass[] }>(
+    "/api/Class/Search/v1",
+    {
+      // The API takes the parameter repeated; URLSearchParams would collapse a
+      // joined string, so they are sent comma-separated, which it also accepts.
+      DictionaryUris: dictionaryUris.join(","),
+      SearchText: search.trim(),
+      Limit: String(limit),
+    },
+    signal,
+  );
   return data.classes ?? [];
 }
 
-/**
- * One class with its properties.
- *
- * This is the call that makes the feature worth having: it returns every
- * property bSDD knows for the class, with its property set, its data type and —
- * for enumerated ones — the values it accepts.
- */
-export async function getClass(uri: string): Promise<{
-  name: string;
-  referenceCode: string;
-  definition?: string;
-  properties: BsddProperty[];
-}> {
+/** Every property bSDD knows for one class. */
+export async function getClassProperties(
+  uri: string,
+  signal?: AbortSignal,
+): Promise<BsddProperty[]> {
   const data = await get<{
-    name: string;
-    referenceCode: string;
-    definition?: string;
     classProperties?: BsddProperty[];
-  }>("/api/Class/v1", { Uri: uri, IncludeClassProperties: "true" });
+  }>(
+    "/api/Class/Properties/v1",
+    { ClassUri: uri, Limit: "1000" },
+    signal,
+  );
 
-  return {
-    name: data.name,
-    referenceCode: data.referenceCode,
-    definition: data.definition,
-    properties: (data.classProperties ?? []).filter((p) => p.propertyCode),
-  };
+  return (data.classProperties ?? []).filter((property) => property.propertyCode);
+}
+
+/** Standard IFC predefined types represented as child classes in bSDD. */
+export async function getClassPredefinedTypes(
+  uri: string,
+  ifcClass: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const data = await get<{
+    referenceCode?: string;
+    childClassReferences?: BsddClassReference[];
+  }>(
+    "/api/Class/v1",
+    { Uri: uri, IncludeChildClassReferences: "true" },
+    signal,
+  );
+
+  const prefix = data.referenceCode?.trim() || ifcClass.trim();
+  const upperPrefix = prefix.toUpperCase();
+  const values = (data.childClassReferences ?? []).flatMap((child) => {
+    const code = child.code?.trim() ?? "";
+    if (!code.toUpperCase().startsWith(upperPrefix)) return [];
+
+    const suffix = code.slice(prefix.length);
+    // IFC enum children append an uppercase enumerator to the entity code.
+    // A normal subtype such as IfcWallStandardCase remains mixed case and is
+    // therefore not a predefined type.
+    return suffix && /^[A-Z][A-Z0-9_]*$/.test(suffix) ? [suffix] : [];
+  });
+
+  return [...new Set(values)].sort();
 }
 
 /**

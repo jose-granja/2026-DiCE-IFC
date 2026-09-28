@@ -119,6 +119,44 @@ describe("parseCityGml", () => {
     expect(parseCityGml(xml, EPSG).positions.length).toBe(9);
   });
 
+  it("reads the legacy gml:coordinates syntax used by GML 2 exports", () => {
+    const xml = building().replace(
+      /<gml:posList[^>]*>[^<]*<\/gml:posList>/,
+      `<gml:coordinates decimal="." cs="," ts=" ">
+        -38000,165000,100 -37990,165000,100 -37990,165010,100 -38000,165000,100
+      </gml:coordinates>`,
+    );
+
+    const result = parseCityGml(xml, EPSG);
+    expect(result.positions.length).toBe(9);
+    expect(result.sizeMetres).toBeCloseTo(10);
+  });
+
+  it("reads the legacy gml:coord X/Y/Z syntax", () => {
+    const xml = building().replace(
+      /<gml:posList[^>]*>[^<]*<\/gml:posList>/,
+      `<gml:coord><gml:X>-38000</gml:X><gml:Y>165000</gml:Y><gml:Z>100</gml:Z></gml:coord>
+       <gml:coord><gml:X>-37990</gml:X><gml:Y>165000</gml:Y><gml:Z>100</gml:Z></gml:coord>
+       <gml:coord><gml:X>-37990</gml:X><gml:Y>165010</gml:Y><gml:Z>100</gml:Z></gml:coord>
+       <gml:coord><gml:X>-38000</gml:X><gml:Y>165000</gml:Y><gml:Z>100</gml:Z></gml:coord>`,
+    );
+
+    expect(parseCityGml(xml, EPSG).positions.length).toBe(9);
+  });
+
+  it("keeps the GML source CRS when the IFC has no map placement", () => {
+    const result = parseCityGml(building());
+    expect(result.epsg).toBe(EPSG);
+    expect(result.positions.length).toBe(9);
+  });
+
+  it("reads PolygonPatch surfaces used by generic GML application schemas", () => {
+    const xml = building()
+      .replace("<gml:Polygon>", "<gml:PolygonPatch>")
+      .replace("</gml:Polygon>", "</gml:PolygonPatch>");
+    expect(parseCityGml(xml, EPSG).positions.length).toBe(9);
+  });
+
   it("drops interior rings rather than drawing across the hole", () => {
     const xml = building().replace(
       "</gml:exterior>",

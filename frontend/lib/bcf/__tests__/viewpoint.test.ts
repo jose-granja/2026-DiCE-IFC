@@ -98,14 +98,32 @@ describe("cameraToViewer", () => {
       IDENTITY_FRAME,
     );
 
-    // No fov: the viewer has no orthogonal mode, so claiming one would lie.
+    expect(state.projection).toBe("orthographic");
     expect(state.fov).toBeUndefined();
+    expect(state.viewHeight).toBe(40);
     const distance = Math.hypot(
       state.target[0] - state.position[0],
       state.target[1] - state.position[1],
       state.target[2] - state.position[2],
     );
     expect(distance).toBeCloseTo(40, 6);
+  });
+
+  it("round-trips an orthographic viewer camera through BCF", () => {
+    const state = {
+      position: [5, 12, 30] as Vec3,
+      target: [0, 2, 0] as Vec3,
+      projection: "orthographic" as const,
+      viewHeight: 24,
+    };
+    const camera = cameraFromViewer(state, FRAME, 16 / 9);
+    expect(camera.kind).toBe("orthogonal");
+    if (camera.kind !== "orthogonal") throw new Error("Expected orthogonal camera");
+    expect(camera.viewToWorldScale).toBe(24);
+
+    const back = cameraToViewer(camera, FRAME, 1);
+    expect(back.projection).toBe("orthographic");
+    expect(back.viewHeight).toBe(24);
   });
 
   it("round-trips a viewer camera through BCF", () => {
@@ -164,9 +182,20 @@ describe("clipping planes", () => {
     expect(planes[0].position).toBe(3);
   });
 
-  it("reports an oblique plane instead of snapping it to an axis", () => {
+  it("imports an oblique vertical plane as a rotated section", () => {
     const { planes, skipped } = clippingPlanesToSections(
       [{ location: [0, 0, 0], direction: [0.7, 0.7, 0] }],
+      IDENTITY_FRAME,
+    );
+
+    expect(skipped).toBe(0);
+    expect(planes).toHaveLength(1);
+    expect(Math.abs(planes[0].rotation)).toBeGreaterThan(0);
+  });
+
+  it("reports a tilted plane that vertical-axis rotation cannot represent", () => {
+    const { planes, skipped } = clippingPlanesToSections(
+      [{ location: [0, 0, 0], direction: [0.7, 0.2, 0.7] }],
       IDENTITY_FRAME,
     );
 
@@ -179,6 +208,7 @@ describe("clipping planes", () => {
       id: "x-1",
       axis: "x",
       position: 12.5,
+      rotation: 35,
       flipped: true,
       enabled: true,
     };
@@ -187,14 +217,29 @@ describe("clipping planes", () => {
     const { planes } = clippingPlanesToSections([converted], FRAME);
 
     expect(planes[0].axis).toBe("x");
-    expect(planes[0].position).toBeCloseTo(12.5, 6);
-    expect(planes[0].flipped).toBe(true);
+    const original = sectionsToClippingPlanes([section], FRAME)[0];
+    const roundTripped = sectionsToClippingPlanes(planes, FRAME)[0];
+    expect(roundTripped.location).toEqual(
+      expect.arrayContaining(original.location.map((value) => expect.closeTo(value, 6))),
+    );
+    expect(roundTripped.direction).toEqual(
+      expect.arrayContaining(original.direction.map((value) => expect.closeTo(value, 6))),
+    );
   });
 
   it("ignores disabled sections", () => {
     expect(
       sectionsToClippingPlanes(
-        [{ id: "y-1", axis: "y", position: 0, flipped: false, enabled: false }],
+        [
+          {
+            id: "y-1",
+            axis: "y",
+            position: 0,
+            rotation: 0,
+            flipped: false,
+            enabled: false,
+          },
+        ],
         IDENTITY_FRAME,
       ),
     ).toEqual([]);

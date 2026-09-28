@@ -1,6 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { idsDataType, isUnmappedNumeric } from "../client";
+import {
+  getClassPredefinedTypes,
+  getClassProperties,
+  idsDataType,
+  isUnmappedNumeric,
+} from "../client";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 /**
  * The bSDD → IDS data type mapping.
@@ -30,5 +39,84 @@ describe("idsDataType", () => {
     expect(idsDataType(undefined)).toBeUndefined();
     expect(idsDataType("Complex")).toBeUndefined();
     expect(isUnmappedNumeric("String")).toBe(false);
+  });
+});
+
+describe("getClassProperties", () => {
+  it("uses the dedicated properties endpoint instead of the rate-limited class option", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          classProperties: [
+            {
+              name: "Fire Rating",
+              uri: "https://example.test/class/IfcWall/prop/FireRating",
+              propertyCode: "FireRating",
+              propertySet: "Pset_WallCommon",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const classUri =
+      "https://identifier.buildingsmart.org/uri/buildingsmart/ifc/4.3/class/IfcWall";
+    const properties = await getClassProperties(classUri);
+
+    expect(properties).toHaveLength(1);
+    expect(properties[0]?.propertyCode).toBe("FireRating");
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    const requestUrl = new URL(
+      fetchMock.mock.calls[0]?.[0] as string,
+      "http://localhost",
+    );
+    expect(requestUrl.searchParams.get("path")).toBe(
+      "/api/Class/Properties/v1",
+    );
+    expect(requestUrl.searchParams.get("ClassUri")).toBe(classUri);
+    expect(requestUrl.searchParams.get("Limit")).toBe("1000");
+    expect(requestUrl.searchParams.has("IncludeClassProperties")).toBe(false);
+  });
+});
+
+describe("getClassPredefinedTypes", () => {
+  it("extracts IFC enum children and ignores ordinary subtypes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          referenceCode: "IfcWall",
+          childClassReferences: [
+            { code: "IfcWallSHEAR", uri: "https://example.test/SHEAR" },
+            { code: "IfcWallSOLIDWALL", uri: "https://example.test/SOLIDWALL" },
+            {
+              code: "IfcWallStandardCase",
+              uri: "https://example.test/IfcWallStandardCase",
+            },
+            { code: "IfcSlab", uri: "https://example.test/IfcSlab" },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const values = await getClassPredefinedTypes(
+      "https://identifier.buildingsmart.org/uri/buildingsmart/ifc/4.3/class/IfcWall",
+      "IFCWALL",
+    );
+
+    expect(values).toEqual(["SHEAR", "SOLIDWALL"]);
+    const requestUrl = new URL(
+      fetchMock.mock.calls[0]?.[0] as string,
+      "http://localhost",
+    );
+    expect(requestUrl.searchParams.get("path")).toBe("/api/Class/v1");
+    expect(requestUrl.searchParams.get("IncludeChildClassReferences")).toBe(
+      "true",
+    );
+    expect(requestUrl.searchParams.has("IncludeClassProperties")).toBe(false);
   });
 });

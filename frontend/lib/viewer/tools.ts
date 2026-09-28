@@ -25,8 +25,10 @@ export type SectionAxis = "x" | "y" | "z";
 export type SectionPlane = {
   id: string;
   axis: SectionAxis;
-  /** Position along the axis, in render-space metres. */
+  /** Position along the rotated plane normal, in render-space metres. */
   position: number;
+  /** Yaw around the render frame's vertical Y axis, in degrees. */
+  rotation: number;
   /** Which side to keep. False keeps the side below/behind the plane. */
   flipped: boolean;
   enabled: boolean;
@@ -35,7 +37,21 @@ export type SectionPlane = {
 /** A plane in the half-space form three.js clips with: `normal · p + constant > 0` is kept. */
 export type ClipPlane = { normal: Vec3; constant: number };
 
-const AXIS_INDEX: Record<SectionAxis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
+/** Positive direction in which a section plane's position is measured. */
+export function sectionDirection(
+  plane: Pick<SectionPlane, "axis" | "rotation">,
+): Vec3 {
+  const angle = (plane.rotation * Math.PI) / 180;
+  switch (plane.axis) {
+    case "x":
+      return [Math.cos(angle), 0, -Math.sin(angle)];
+    case "z":
+      return [Math.sin(angle), 0, Math.cos(angle)];
+    case "y":
+      // Rotating a horizontal plan around the vertical axis does not change it.
+      return [0, 1, 0];
+  }
+}
 
 /**
  * Convert a section plane to its clipping half-space.
@@ -48,9 +64,13 @@ const AXIS_INDEX: Record<SectionAxis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
  *   normal = (−1, 0, 0), constant = p  →  −x + p > 0  ⇔  x < p
  */
 export function toClipPlane(plane: SectionPlane): ClipPlane {
-  const normal: Vec3 = [0, 0, 0];
+  const direction = sectionDirection(plane);
   const sign = plane.flipped ? 1 : -1;
-  normal[AXIS_INDEX[plane.axis]] = sign;
+  const normal: Vec3 = [
+    zero(direction[0] * sign),
+    zero(direction[1] * sign),
+    zero(direction[2] * sign),
+  ];
 
   // `-sign * 0` is `-0`, which compares equal to `0` but serialises as `-0` in a
   // saved workspace and in a BCF viewpoint's clipping plane. Same reasoning as
@@ -89,23 +109,77 @@ export function defaultSectionPosition(
   axis: SectionAxis,
 ): number {
   if (!bounds) return 0;
-  const index = AXIS_INDEX[axis];
+  const index = { x: 0, y: 1, z: 2 }[axis] as 0 | 1 | 2;
   return (bounds.min[index] + bounds.max[index]) / 2;
 }
 
 export function sectionRange(
   bounds: { min: Vec3; max: Vec3 } | null,
   axis: SectionAxis,
+  rotation = 0,
 ): { min: number; max: number } {
   if (!bounds) return { min: -100, max: 100 };
-  const index = AXIS_INDEX[axis];
+  const direction = sectionDirection({ axis, rotation });
+
+  let min = Infinity;
+  let max = -Infinity;
+  for (const x of [bounds.min[0], bounds.max[0]]) {
+    for (const y of [bounds.min[1], bounds.max[1]]) {
+      for (const z of [bounds.min[2], bounds.max[2]]) {
+        const projection =
+          direction[0] * x + direction[1] * y + direction[2] * z;
+        min = Math.min(min, projection);
+        max = Math.max(max, projection);
+      }
+    }
+  }
 
   // Pad slightly so the extremes can be dragged just past the model, which is
   // how a user checks they have sliced everything.
-  const min = bounds.min[index];
-  const max = bounds.max[index];
   const padding = Math.max((max - min) * 0.02, 0.1);
   return { min: min - padding, max: max + padding };
+}
+
+/** A stable point near the model centre through which the plane passes. */
+export function sectionPlaneCentre(
+  bounds: { min: Vec3; max: Vec3 } | null,
+  plane: Pick<SectionPlane, "axis" | "rotation" | "position">,
+): Vec3 {
+  const centre: Vec3 = bounds
+    ? [
+        (bounds.min[0] + bounds.max[0]) / 2,
+        (bounds.min[1] + bounds.max[1]) / 2,
+        (bounds.min[2] + bounds.max[2]) / 2,
+      ]
+    : [0, 0, 0];
+  const direction = sectionDirection(plane);
+  const correction =
+    direction[0] * centre[0] +
+    direction[1] * centre[1] +
+    direction[2] * centre[2] -
+    plane.position;
+  return [
+    centre[0] - direction[0] * correction,
+    centre[1] - direction[1] * correction,
+    centre[2] - direction[2] * correction,
+  ];
+}
+
+/** Rotate around the plane's visible centre instead of orbiting around (0,0,0). */
+export function rotateSectionPlane(
+  plane: Pick<SectionPlane, "axis" | "rotation" | "position">,
+  rotation: number,
+  bounds: { min: Vec3; max: Vec3 } | null,
+): { rotation: number; position: number } {
+  const centre = sectionPlaneCentre(bounds, plane);
+  const direction = sectionDirection({ axis: plane.axis, rotation });
+  return {
+    rotation,
+    position:
+      direction[0] * centre[0] +
+      direction[1] * centre[1] +
+      direction[2] * centre[2],
+  };
 }
 
 // ---------------------------------------------------------------------------

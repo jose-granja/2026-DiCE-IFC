@@ -59,25 +59,31 @@ export function SpecificationEditor({
     optional: t("cardinality.optional"),
     prohibited: t("cardinality.prohibited"),
   };
-  /*
-    bSDD suggestions are keyed on the classes this specification already names.
-    "Walls must carry a fire rating" starts with IFCWALL, and from that the
-    dictionary knows every property a wall can have — which is the point at
-    which autocomplete becomes worth having. Nothing is requested before a class
-    is named, so no partial typing leaves the deployment.
-  */
-  const classNames = useMemo(
-    () =>
-      specification.applicability.facets
-        .map((entry) => entry.facet)
-        .filter((facet) => facet.kind === "entity")
-        .map((facet) =>
-          facet.name.kind === "simple" ? facet.name.value : "",
-        )
+  /* bSDD searches are shared by every facet in this specification. Property
+     and predefined-type details stay lazy until their fields actually exist. */
+  const bsddContext = useMemo(() => {
+    const facets = [
+      ...specification.applicability.facets.map((entry) => entry.facet),
+      ...specification.requirements.map((entry) => entry.facet),
+    ];
+    const entities = facets.flatMap((facet) => {
+      if (facet.kind === "entity") return [facet];
+      if (facet.kind === "partOf") return [facet.entity];
+      return [];
+    });
+    const simpleName = (entity: (typeof entities)[number]) =>
+      entity.name.kind === "simple" ? entity.name.value : "";
+
+    return {
+      classNames: entities.map(simpleName).filter(Boolean),
+      predefinedTypeClasses: entities
+        .filter((entity) => entity.predefinedType !== undefined)
+        .map(simpleName)
         .filter(Boolean),
-    [specification.applicability.facets],
-  );
-  const bsdd = useBsddSuggestions(classNames);
+      loadProperties: facets.some((facet) => facet.kind === "property"),
+    };
+  }, [specification.applicability.facets, specification.requirements]);
+  const bsdd = useBsddSuggestions(bsddContext.classNames, bsddContext);
   const update = useIdsStore((s) => s.updateSpecification);
   const addFacet = useIdsStore((s) => s.addFacet);
   const updateFacet = useIdsStore((s) => s.updateFacet);

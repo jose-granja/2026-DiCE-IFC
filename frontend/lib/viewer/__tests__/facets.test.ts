@@ -52,6 +52,16 @@ describe("resolveVisible", () => {
     );
   });
 
+  it("allows several IFC classes at the same time", () => {
+    const selection = emptySelection();
+    selection.classes.add("IfcWall");
+    selection.classes.add("IfcSlab");
+
+    expect(resolveVisible([model], selection)).toEqual(
+      new Set(["m1#1", "m1#2", "m1#3", "m1#4"]),
+    );
+  });
+
   it("intersects across dimensions", () => {
     // Concrete walls: concrete is {1,2}, walls are {1,3}, so only 1.
     const selection = emptySelection();
@@ -104,16 +114,24 @@ describe("resolveVisible", () => {
 
 describe("hierarchyFacets", () => {
   const tree = {
+    expressId: 100,
     name: "Project",
     type: "IfcProject",
     elementIds: [],
     children: [
       {
+        expressId: 101,
         name: "Level 0",
         type: "IfcBuildingStorey",
         elementIds: [1],
         children: [
-          { name: "Room A", type: "IfcSpace", elementIds: [2], children: [] },
+          {
+            expressId: 102,
+            name: "Room A",
+            type: "IfcSpace",
+            elementIds: [2],
+            children: [],
+          },
         ],
       },
     ],
@@ -124,7 +142,33 @@ describe("hierarchyFacets", () => {
     // which is how anyone reads a tree.
     const facets = hierarchyFacets(tree);
     const level = facets.find((f) => f.value === "Level 0")!;
-    expect(level.expressIds).toEqual([1, 2]);
+    expect(level.expressIds).toEqual([1, 102, 2]);
+  });
+
+  it("includes the IfcSpace node in its own hierarchy facet", () => {
+    const facets = hierarchyFacets(tree);
+    const room = facets.find((facet) => facet.value === "Room A")!;
+    expect(room.expressIds).toEqual([102, 2]);
+  });
+
+  it("combines an IfcSpace class filter with a hierarchy filter", () => {
+    const spaceModel: ModelFacets = {
+      modelId: "spaces",
+      hierarchy: hierarchyFacets(tree),
+      facets: {
+        classes: [{ value: "IfcSpace", expressIds: [102] }],
+        types: [],
+        materials: [],
+        groups: [],
+      },
+    };
+    const selection = emptySelection();
+    selection.classes.add("IfcSpace");
+    selection.hierarchy.add("Level 0");
+
+    expect(resolveVisible([spaceModel], selection)).toEqual(
+      new Set(["spaces#102"]),
+    );
   });
 
   it("skips the root, which is not a filter", () => {

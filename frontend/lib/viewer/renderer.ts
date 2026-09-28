@@ -29,6 +29,14 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { getGlobeCanvas } from "./globe-canvas";
 import type { Globe } from "./globe";
 import type { WgsPoint } from "@/lib/georef/transform";
+import {
+  orthographicPlanes,
+  perspectiveDistance,
+  perspectiveViewHeight,
+  standardViewDirection,
+  type CameraProjection,
+  type StandardView,
+} from "./camera";
 
 /**
  * Far plane while a 3D tile set is loaded.
@@ -61,6 +69,10 @@ import {
   midpoint,
   NEGLIGIBLE_LEG,
   polygonCentroid,
+  rotateSectionPlane,
+  sectionDirection,
+  sectionPlaneCentre,
+  sectionRange,
   snapThresholdFor,
   snapToTriangle,
   subtract,
@@ -85,6 +97,13 @@ const MEASURE_COLOUR = new THREE.Color("#1b6ea8");
 const ANGLE_COLOUR = new THREE.Color("#e0af68");
 const AREA_COLOUR = new THREE.Color("#9ece6a");
 const VOLUME_BOX_COLOUR = new THREE.Color("#bb9af7");
+const SECTION_MOVE_COLOUR = new THREE.Color("#7aa2f7");
+const SECTION_ROTATE_COLOUR = new THREE.Color("#e0af68");
+const ORIGIN_AXIS_COLOURS = {
+  x: new THREE.Color("#f7768e"),
+  y: new THREE.Color("#9ece6a"),
+  z: new THREE.Color("#7aa2f7"),
+};
 // Requested explicitly as the snap-preview colour: bright yellow, distinct
 // from both the placed-point blue above and the orange selection highlight,
 // so a hover marker never gets mistaken for either.
@@ -125,6 +144,112 @@ function createSnapMarkerTexture(shape: "square" | "triangle" | "circle"): THREE
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
   return texture;
+}
+
+/** A small screen-readable label at the end of one model-origin axis. */
+function createOriginAxisLabel(
+  label: "X" | "Y" | "Z",
+  colour: THREE.Color,
+): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext("2d")!;
+  context.font = "700 44px system-ui, sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillStyle = `#${colour.getHexString()}`;
+  context.fillText(label, 32, 34);
+
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map,
+      depthTest: false,
+      depthWrite: false,
+      transparent: true,
+      toneMapped: false,
+    }),
+  );
+  sprite.scale.setScalar(0.32);
+  sprite.renderOrder = 1001;
+  sprite.frustumCulled = false;
+  return sprite;
+}
+
+/**
+ * IFC-axis tripod at a model's authored (0,0,0).
+ *
+ * IFC is Z-up while the renderer is Y-up: IFC +X → render +X, IFC +Y →
+ * render -Z, and IFC +Z → render +Y. The familiar red/green/blue labels keep
+ * that authored frame visible after the conversion.
+ */
+function createModelOriginMarker(): THREE.Group {
+  const marker = new THREE.Group();
+  const axes: Array<{
+    label: "X" | "Y" | "Z";
+    direction: THREE.Vector3;
+    colour: THREE.Color;
+  }> = [
+    { label: "X", direction: new THREE.Vector3(1, 0, 0), colour: ORIGIN_AXIS_COLOURS.x },
+    { label: "Y", direction: new THREE.Vector3(0, 0, -1), colour: ORIGIN_AXIS_COLOURS.y },
+    { label: "Z", direction: new THREE.Vector3(0, 1, 0), colour: ORIGIN_AXIS_COLOURS.z },
+  ];
+
+  const centre = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 14, 10),
+    new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+  );
+  centre.renderOrder = 1000;
+  centre.frustumCulled = false;
+  marker.add(centre);
+
+  for (const { label, direction, colour } of axes) {
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(),
+      direction.clone().multiplyScalar(0.82),
+    ]);
+    const line = new THREE.Line(
+      lineGeometry,
+      new THREE.LineBasicMaterial({
+        color: colour,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    );
+    line.renderOrder = 1000;
+    line.frustumCulled = false;
+    marker.add(line);
+
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(0.075, 0.22, 12),
+      new THREE.MeshBasicMaterial({
+        color: colour,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    );
+    cone.position.copy(direction).multiplyScalar(0.89);
+    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+    cone.renderOrder = 1000;
+    cone.frustumCulled = false;
+    marker.add(cone);
+
+    const axisLabel = createOriginAxisLabel(label, colour);
+    axisLabel.position.copy(direction).multiplyScalar(1.18);
+    marker.add(axisLabel);
+  }
+
+  marker.visible = false;
+  return marker;
 }
 
 /**
@@ -247,6 +372,8 @@ type Batch = {
 type ModelScene = {
   modelId: string;
   group: THREE.Group;
+  /** IFC (0,0,0), expressed in this model's RTC-shifted render frame. */
+  originMarker: THREE.Group;
   batches: Batch[];
   /** expressId → the vertex ranges holding it, for colour updates. */
   ranges: Map<number, Array<VertexSpan & { batch: number }>>;
@@ -273,17 +400,50 @@ export type PointPick = {
 /** Where a world point lands on screen, for HTML overlays. */
 export type ScreenPoint = { x: number; y: number; visible: boolean };
 
+type ViewerCamera = THREE.PerspectiveCamera | THREE.OrthographicCamera;
+
+export type ViewerCameraState = {
+  position: Vec3;
+  target: Vec3;
+  projection?: CameraProjection;
+  fov?: number;
+  /** Visible vertical span in world units for an orthographic camera. */
+  viewHeight?: number;
+};
+
+export type SectionGizmoUpdate = {
+  id: string;
+  patch: Pick<SectionPlane, "position"> & Partial<Pick<SectionPlane, "rotation">>;
+};
+
+type SectionGizmoDrag = {
+  id: string;
+  kind: "translate" | "rotate";
+  plane: SectionPlane;
+  bounds: { min: Vec3; max: Vec3 } | null;
+  centre: THREE.Vector3;
+  pointerStart: THREE.Vector2;
+  screenDirection: THREE.Vector2;
+  worldPerPixel: number;
+  ringAngleStart: number | null;
+};
+
 export class ViewerRenderer {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
-  private camera: THREE.PerspectiveCamera;
-  private controls: OrbitControls;
+  private camera: ViewerCamera;
+  private controls: OrbitControls<THREE.Camera>;
   private raycaster = new THREE.Raycaster();
   private models = new Map<string, ModelScene>();
   private resizeObserver: ResizeObserver;
   private frame = 0;
   private disposed = false;
   private clipPlanes: THREE.Plane[] = [];
+  private sectionGizmoGroup = new THREE.Group();
+  private sectionGizmoTargets: THREE.Mesh[] = [];
+  private sectionPlaneState = new Map<string, SectionPlane>();
+  private sectionBounds: { min: Vec3; max: Vec3 } | null = null;
+  private sectionGizmoDrag: SectionGizmoDrag | null = null;
   private measurementGroup = new THREE.Group();
   /** Angle measurements: the two rays plus an arc, per measurement — rebuilt on every change, same as `measurementGroup`. */
   private angleGroup = new THREE.Group();
@@ -311,6 +471,12 @@ export class ViewerRenderer {
   private backgroundColour = "#1a1b26";
   /** Far plane for the model alone, restored when the globe is switched off. */
   private modelFar = 10_000;
+  private perspectiveFov = 60;
+  private originsVisible = false;
+  private projectionListeners = new Set<(projection: CameraProjection) => void>();
+  private cameraRotationListeners = new Set<
+    (rotation: { azimuth: number; elevation: number }) => void
+  >();
 
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -337,9 +503,10 @@ export class ViewerRenderer {
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 10_000);
     this.camera.position.set(20, 20, 20);
 
-    this.controls = new OrbitControls(this.camera, canvas);
+    this.controls = new OrbitControls<THREE.Camera>(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.1;
+    this.controls.addEventListener("change", this.notifyCameraRotation);
 
     // Two lights and an ambient term. Meshes are double-sided with unreliable
     // winding (see MeshView.indices), so lighting must not depend on normals
@@ -360,6 +527,7 @@ export class ViewerRenderer {
     this.scene.add(this.areaGroup);
     this.volumeGroup.renderOrder = 999;
     this.scene.add(this.volumeGroup);
+    this.scene.add(this.sectionGizmoGroup);
 
     this.snapPreviewMarkers = {
       corner: this.createSnapPreviewMarker("square"),
@@ -398,7 +566,19 @@ export class ViewerRenderer {
     const { clientWidth, clientHeight } = this.canvas;
     if (clientWidth === 0 || clientHeight === 0) return;
     this.renderer.setSize(clientWidth, clientHeight, false);
-    this.camera.aspect = clientWidth / clientHeight;
+    const aspect = clientWidth / clientHeight;
+    if (this.camera instanceof THREE.PerspectiveCamera) {
+      this.camera.aspect = aspect;
+    } else {
+      const viewHeight =
+        (this.camera.top - this.camera.bottom) / this.camera.zoom;
+      const planes = orthographicPlanes(viewHeight, aspect);
+      this.camera.left = planes.left;
+      this.camera.right = planes.right;
+      this.camera.top = planes.top;
+      this.camera.bottom = planes.bottom;
+      this.camera.zoom = 1;
+    }
     this.camera.updateProjectionMatrix();
   }
 
@@ -406,6 +586,8 @@ export class ViewerRenderer {
     if (this.disposed) return;
     this.frame = requestAnimationFrame(this.animate);
     this.controls.update();
+    this.updateOriginMarkerScales();
+    this.updateSectionGizmoScales();
     // Before the draw: the tile set streams from where the camera is now, and
     // updating after would render a frame behind the camera every frame.
     if (this.globe && this.globeOrigin) {
@@ -432,7 +614,11 @@ export class ViewerRenderer {
   setModelGeometry(
     modelId: string,
     meshes: MeshView[],
-    options: { tint?: THREE.ColorRepresentation; tintAmount?: number } = {},
+    options: {
+      tint?: THREE.ColorRepresentation;
+      tintAmount?: number;
+      originShift?: Vec3;
+    } = {},
   ) {
     this.removeModel(modelId);
 
@@ -442,6 +628,11 @@ export class ViewerRenderer {
 
     const tint = options.tint ? new THREE.Color(options.tint) : null;
     const tintAmount = options.tintAmount ?? 0;
+    const originShift = options.originShift ?? [0, 0, 0];
+    const originMarker = createModelOriginMarker();
+    originMarker.position.set(-originShift[0], -originShift[1], -originShift[2]);
+    originMarker.visible = this.originsVisible;
+    group.add(originMarker);
 
     planBatches(meshes).forEach((group_, batchIndex) => {
       const merged = mergeMeshes(group_, {
@@ -481,7 +672,13 @@ export class ViewerRenderer {
     for (const batch of batches) batch.mesh.material = this.material();
 
     this.scene.add(group);
-    this.models.set(modelId, { modelId, group, batches, ranges });
+    this.models.set(modelId, {
+      modelId,
+      group,
+      originMarker,
+      batches,
+      ranges,
+    });
   }
 
   private material(): THREE.Material {
@@ -514,6 +711,7 @@ export class ViewerRenderer {
       batch.geometry.dispose();
       (batch.mesh.material as THREE.Material).dispose();
     }
+    disposeObject(model.originMarker);
     this.models.delete(modelId);
   }
 
@@ -529,6 +727,34 @@ export class ViewerRenderer {
   setModelVisible(modelId: string, visible: boolean) {
     const model = this.models.get(modelId);
     if (model) model.group.visible = visible;
+  }
+
+  /** Show or hide the authored IFC origin of every loaded model. */
+  setOriginsVisible(visible: boolean) {
+    this.originsVisible = visible;
+    for (const model of this.models.values()) {
+      model.originMarker.visible = visible;
+    }
+  }
+
+  /** Keep every origin tripod approximately 68 CSS pixels long on screen. */
+  private updateOriginMarkerScales() {
+    if (!this.originsVisible || this.canvas.clientHeight === 0) return;
+
+    const markerWorldPosition = new THREE.Vector3();
+    for (const model of this.models.values()) {
+      model.originMarker.getWorldPosition(markerWorldPosition);
+      const worldPerPixel =
+        this.camera instanceof THREE.PerspectiveCamera
+          ? (2 *
+              this.camera.position.distanceTo(markerWorldPosition) *
+              Math.tan((this.camera.fov * Math.PI) / 360)) /
+            this.canvas.clientHeight
+          : ((this.camera.top - this.camera.bottom) / this.camera.zoom) /
+            this.canvas.clientHeight;
+      const parentScale = Math.max(Math.abs(model.group.scale.x), 0.0001);
+      model.originMarker.scale.setScalar((worldPerPixel * 68) / parentScale);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -618,19 +844,53 @@ export class ViewerRenderer {
     const size = box.getSize(new THREE.Vector3());
     const radius = Math.max(size.length() / 2, 1);
 
-    const distance = radius / Math.sin((this.camera.fov * Math.PI) / 360);
+    const distance =
+      radius / Math.sin((this.perspectiveFov * Math.PI) / 360);
     // Far plane follows the model, or a 40 km infrastructure alignment clips.
     // Remembered, so switching 3D tiles off restores the model's own range
     // rather than leaving the camera at planet scale.
     this.modelFar = Math.max(distance * 10, 10_000);
     this.camera.far = this.globe ? EARTH_SCALE_FAR : this.modelFar;
     this.camera.near = Math.max(distance / 10_000, 0.01);
+    if (this.camera instanceof THREE.OrthographicCamera) {
+      // A bounding sphere must fit both axes; portrait viewports therefore
+      // need more vertical span so the horizontal diameter is not clipped.
+      const viewHeight =
+        (radius * 2.2) / Math.min(1, Math.max(this.aspectRatio, 0.0001));
+      const planes = orthographicPlanes(viewHeight, this.aspectRatio);
+      this.camera.left = planes.left;
+      this.camera.right = planes.right;
+      this.camera.top = planes.top;
+      this.camera.bottom = planes.bottom;
+      this.camera.zoom = 1;
+    }
     this.camera.updateProjectionMatrix();
 
     const direction = new THREE.Vector3(1, 0.8, 1).normalize();
     this.camera.position.copy(centre).addScaledVector(direction, distance);
     this.controls.target.copy(centre);
     this.controls.update();
+  }
+
+  /** Frame visible model geometry together with every visible model origin. */
+  fitToBoundsAndOrigins(bounds: { min: Vec3; max: Vec3 } | null) {
+    const box = bounds
+      ? new THREE.Box3(
+          new THREE.Vector3(...bounds.min),
+          new THREE.Vector3(...bounds.max),
+        )
+      : new THREE.Box3();
+    const origin = new THREE.Vector3();
+    for (const model of this.models.values()) {
+      if (!model.group.visible) continue;
+      model.originMarker.getWorldPosition(origin);
+      box.expandByPoint(origin);
+    }
+    if (box.isEmpty()) return;
+    this.fitToBounds({
+      min: box.min.toArray() as Vec3,
+      max: box.max.toArray() as Vec3,
+    });
   }
 
   /**
@@ -936,12 +1196,141 @@ export class ViewerRenderer {
   }
 
   /** Camera state, for BCF viewpoints and workspace persistence. */
-  getCameraState() {
+  getCameraState(): ViewerCameraState {
     return {
       position: this.camera.position.toArray() as Vec3,
       target: this.controls.target.toArray() as Vec3,
-      fov: this.camera.fov,
+      projection: this.projection,
+      fov:
+        this.camera instanceof THREE.PerspectiveCamera
+          ? this.camera.fov
+          : undefined,
+      viewHeight: this.camera instanceof THREE.OrthographicCamera
+        ? (this.camera.top - this.camera.bottom) / this.camera.zoom
+        : undefined,
     };
+  }
+
+  get projection(): CameraProjection {
+    return this.camera instanceof THREE.OrthographicCamera
+      ? "orthographic"
+      : "perspective";
+  }
+
+  /**
+   * Swap the real three.js camera while keeping the same target and apparent
+   * scale. OrbitControls can manage either camera through its `object` field,
+   * so its listeners and camera-settled subscriptions remain attached.
+   */
+  setProjection(projection: CameraProjection) {
+    if (projection === this.projection) return;
+
+    const current = this.camera;
+    const target = this.controls.target.clone();
+    const direction = current.position.clone().sub(target).normalize();
+    const distance = Math.max(current.position.distanceTo(target), 0.001);
+    const far = current.far;
+    const near = current.near;
+    let next: ViewerCamera;
+
+    if (projection === "orthographic") {
+      const viewHeight = perspectiveViewHeight(distance, this.perspectiveFov);
+      const planes = orthographicPlanes(viewHeight, this.aspectRatio);
+      next = new THREE.OrthographicCamera(
+        planes.left,
+        planes.right,
+        planes.top,
+        planes.bottom,
+        near,
+        far,
+      );
+    } else {
+      const viewHeight = current instanceof THREE.OrthographicCamera
+        ? (current.top - current.bottom) / current.zoom
+        : perspectiveViewHeight(distance, this.perspectiveFov);
+      const perspectiveDistanceToTarget = perspectiveDistance(
+        viewHeight,
+        this.perspectiveFov,
+      );
+      next = new THREE.PerspectiveCamera(
+        this.perspectiveFov,
+        this.aspectRatio,
+        near,
+        far,
+      );
+      next.position
+        .copy(target)
+        .addScaledVector(direction, perspectiveDistanceToTarget);
+    }
+
+    if (projection === "orthographic") next.position.copy(current.position);
+    next.up.copy(current.up);
+    next.quaternion.copy(current.quaternion);
+    next.updateProjectionMatrix();
+
+    this.camera = next;
+    this.controls.object = next;
+    this.controls.update();
+    for (const listener of this.projectionListeners) listener(projection);
+  }
+
+  onProjectionChange(
+    listener: (projection: CameraProjection) => void,
+  ): () => void {
+    this.projectionListeners.add(listener);
+    return () => this.projectionListeners.delete(listener);
+  }
+
+  /** Live orbit angles used by the orientation cube. */
+  onCameraRotationChange(
+    listener: (rotation: { azimuth: number; elevation: number }) => void,
+  ): () => void {
+    this.cameraRotationListeners.add(listener);
+    listener(this.cameraRotation());
+    return () => this.cameraRotationListeners.delete(listener);
+  }
+
+  private cameraRotation() {
+    return {
+      azimuth: (this.controls.getAzimuthalAngle() * 180) / Math.PI,
+      elevation: 90 - (this.controls.getPolarAngle() * 180) / Math.PI,
+    };
+  }
+
+  private notifyCameraRotation = () => {
+    const rotation = this.cameraRotation();
+    for (const listener of this.cameraRotationListeners) listener(rotation);
+  };
+
+  /** Orbit by cube-drag deltas expressed in degrees. */
+  orbit(deltaX: number, deltaY: number) {
+    this.controls.rotateLeft((deltaX * Math.PI) / 180);
+    this.controls.rotateUp((deltaY * Math.PI) / 180);
+    this.controls.update();
+  }
+
+  /** Move to a named building view without changing zoom or orbit target. */
+  setStandardView(view: StandardView) {
+    const direction = new THREE.Vector3(...standardViewDirection(view)).normalize();
+    const distance = Math.max(
+      this.camera.position.distanceTo(this.controls.target),
+      0.001,
+    );
+
+    this.camera.position
+      .copy(this.controls.target)
+      .addScaledVector(direction, distance);
+    this.camera.up.set(
+      0,
+      Math.abs(direction.y) > 0.999 ? 0 : 1,
+      direction.y > 0.999 ? -1 : direction.y < -0.999 ? 1 : 0,
+    );
+    this.camera.lookAt(this.controls.target);
+    this.controls.update();
+    // OrbitControls normally emits `change`, but an exact preset can compare
+    // equal to its last internal state. The cube still needs the authoritative
+    // camera angles immediately after every face click.
+    this.notifyCameraRotation();
   }
 
   /**
@@ -981,6 +1370,12 @@ export class ViewerRenderer {
     this.globe = globe;
     this.globeOrigin = origin;
     this.globeNorthCorrection = northCorrection;
+    globe?.setSectionPlanes(
+      this.clipPlanes.map((plane) => ({
+        normal: plane.normal.toArray() as Vec3,
+        constant: plane.constant,
+      })),
+    );
     // The proxy stands in for terrain that is no longer drawn; leaving it would
     // punch an invisible hole in the model.
     if (!globe) this.setDepthProxy(null);
@@ -1009,9 +1404,12 @@ export class ViewerRenderer {
    * pop through a hill at the edge of the view.
    */
   visibleGroundMetres(): number {
-    const distance = this.camera.position.distanceTo(this.controls.target);
-    const across =
-      2 * distance * Math.tan((this.camera.fov * Math.PI) / 360) * this.camera.aspect;
+    const across = this.camera instanceof THREE.PerspectiveCamera
+      ? 2 *
+        this.camera.position.distanceTo(this.controls.target) *
+        Math.tan((this.camera.fov * Math.PI) / 360) *
+        this.camera.aspect
+      : (this.camera.right - this.camera.left) / this.camera.zoom;
     // Floored so a close-up still gets the slope it is standing on, and capped
     // so a zoomed-out view does not ask for a continent.
     return Math.min(Math.max(across * 2, 500), 20_000);
@@ -1057,6 +1455,7 @@ export class ViewerRenderer {
         colorWrite: false,
         depthWrite: true,
         depthTest: true,
+        clippingPlanes: this.clipPlanes,
         // Terrain is a surface, not a solid: seen from below it should still
         // occlude, or a model under an overhang pops through.
         side: THREE.DoubleSide,
@@ -1121,6 +1520,7 @@ export class ViewerRenderer {
         // City models are surface soups rather than closed solids, so a
         // back-face cull leaves holes wherever a winding disagrees.
         side: THREE.DoubleSide,
+        clippingPlanes: this.clipPlanes,
       }),
     );
     mesh.position.set(offset[0], offset[1], offset[2]);
@@ -1165,13 +1565,27 @@ export class ViewerRenderer {
     return rect.height > 0 ? rect.width / rect.height : 16 / 9;
   }
 
-  setCameraState(state: { position: Vec3; target: Vec3; fov?: number }) {
+  setCameraState(state: ViewerCameraState) {
+    if (state.projection) this.setProjection(state.projection);
     this.camera.position.set(...state.position);
     this.controls.target.set(...state.target);
-    if (state.fov) {
+    if (state.fov && this.camera instanceof THREE.PerspectiveCamera) {
+      this.perspectiveFov = state.fov;
       this.camera.fov = state.fov;
-      this.camera.updateProjectionMatrix();
     }
+    if (
+      state.viewHeight &&
+      state.viewHeight > 0 &&
+      this.camera instanceof THREE.OrthographicCamera
+    ) {
+      const planes = orthographicPlanes(state.viewHeight, this.aspectRatio);
+      this.camera.left = planes.left;
+      this.camera.right = planes.right;
+      this.camera.top = planes.top;
+      this.camera.bottom = planes.bottom;
+      this.camera.zoom = 1;
+    }
+    this.camera.updateProjectionMatrix();
     this.controls.update();
   }
 
@@ -1182,7 +1596,10 @@ export class ViewerRenderer {
    * mutated in place — replacing it would leave existing batches clipping
    * against the old array.
    */
-  setSectionPlanes(planes: SectionPlane[]) {
+  setSectionPlanes(
+    planes: SectionPlane[],
+    bounds: { min: Vec3; max: Vec3 } | null = null,
+  ) {
     this.clipPlanes.length = 0;
     for (const plane of planes) {
       if (!plane.enabled) continue;
@@ -1192,6 +1609,322 @@ export class ViewerRenderer {
       );
     }
     this.renderer.localClippingEnabled = this.clipPlanes.length > 0;
+    this.globe?.setSectionPlanes(
+      this.clipPlanes.map((plane) => ({
+        normal: plane.normal.toArray() as Vec3,
+        constant: plane.constant,
+      })),
+    );
+    this.sectionPlaneState = new Map(
+      planes.map((plane) => [plane.id, { ...plane }]),
+    );
+    this.sectionBounds = bounds;
+    this.rebuildSectionGizmos(planes, bounds);
+  }
+
+  /** Draw the cut itself plus screen-sized translation and yaw handles. */
+  private rebuildSectionGizmos(
+    planes: SectionPlane[],
+    bounds: { min: Vec3; max: Vec3 } | null,
+  ) {
+    disposeObject(this.sectionGizmoGroup);
+    this.sectionGizmoTargets = [];
+
+    const diagonal = bounds
+      ? Math.hypot(
+          bounds.max[0] - bounds.min[0],
+          bounds.max[1] - bounds.min[1],
+          bounds.max[2] - bounds.min[2],
+        )
+      : 10;
+    const planeSize = Math.max(diagonal * 0.65, 1);
+
+    for (const plane of planes) {
+      if (!plane.enabled) continue;
+      const centre = new THREE.Vector3(...sectionPlaneCentre(bounds, plane));
+      const direction = new THREE.Vector3(...sectionDirection(plane));
+      const root = new THREE.Group();
+      root.position.copy(centre);
+      root.userData.sectionPlaneId = plane.id;
+
+      const surface = new THREE.Mesh(
+        new THREE.PlaneGeometry(planeSize, planeSize),
+        new THREE.MeshBasicMaterial({
+          color: SECTION_MOVE_COLOUR,
+          transparent: true,
+          opacity: 0.055,
+          depthTest: false,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        }),
+      );
+      surface.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 0, 1),
+        direction,
+      );
+      surface.renderOrder = 995;
+      root.add(surface);
+
+      const outline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(surface.geometry),
+        new THREE.LineBasicMaterial({
+          color: SECTION_MOVE_COLOUR,
+          transparent: true,
+          opacity: 0.55,
+          depthTest: false,
+        }),
+      );
+      outline.quaternion.copy(surface.quaternion);
+      outline.renderOrder = 996;
+      root.add(outline);
+
+      const move = new THREE.Group();
+      move.userData.sectionHandleScale = true;
+      move.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+      const moveMaterial = new THREE.MeshBasicMaterial({
+        color: SECTION_MOVE_COLOUR,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const shaft = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.035, 0.035, 0.8, 12),
+        moveMaterial,
+      );
+      shaft.position.y = 0.4;
+      const head = new THREE.Mesh(
+        new THREE.ConeGeometry(0.12, 0.3, 16),
+        moveMaterial,
+      );
+      head.position.y = 0.95;
+      head.userData.sectionHandleAnchor = true;
+      for (const part of [shaft, head]) {
+        part.userData.sectionPlaneId = plane.id;
+        part.userData.sectionHandleKind = "translate";
+        part.renderOrder = 1001;
+        this.sectionGizmoTargets.push(part);
+        move.add(part);
+      }
+      root.add(move);
+
+      if (plane.axis !== "y") {
+        const rotate = new THREE.Group();
+        rotate.userData.sectionHandleScale = true;
+        rotate.rotation.x = Math.PI / 2;
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(0.78, 0.045, 10, 64),
+          new THREE.MeshBasicMaterial({
+            color: SECTION_ROTATE_COLOUR,
+            depthTest: false,
+            depthWrite: false,
+          }),
+        );
+        ring.userData.sectionPlaneId = plane.id;
+        ring.userData.sectionHandleKind = "rotate";
+        ring.userData.sectionHandleAnchor = true;
+        ring.renderOrder = 1000;
+        rotate.add(ring);
+        root.add(rotate);
+        this.sectionGizmoTargets.push(ring);
+      }
+
+      this.sectionGizmoGroup.add(root);
+    }
+    this.updateSectionGizmoScales();
+  }
+
+  /** Keep the handles usable at every zoom without scaling the plane surface. */
+  private updateSectionGizmoScales() {
+    if (this.canvas.clientHeight === 0) return;
+    const point = new THREE.Vector3();
+    this.sectionGizmoGroup.traverse((child) => {
+      if (!child.userData.sectionHandleScale) return;
+      child.getWorldPosition(point);
+      child.scale.setScalar(this.worldPerPixelAt(point) * 72);
+    });
+    this.publishSectionGizmoMarkers();
+  }
+
+  /**
+   * Browser tests cannot inspect a WebGL scene. Publish the first gizmo's
+   * projected handle points on the viewer container so a real pointer drag can
+   * exercise the same raycast path a person uses.
+   */
+  private publishSectionGizmoMarkers() {
+    const marker = this.canvas.parentElement;
+    if (!marker) return;
+    marker.dataset.sectionGizmoCount = String(this.sectionGizmoGroup.children.length);
+    delete marker.dataset.sectionHandleCentre;
+    delete marker.dataset.sectionMoveHandle;
+    delete marker.dataset.sectionRotateHandle;
+    delete marker.dataset.sectionRotateTarget;
+
+    const root = this.sectionGizmoGroup.children[0];
+    if (!root) return;
+    this.sectionGizmoGroup.updateMatrixWorld(true);
+    const encode = (point: THREE.Vector3) => {
+      const screen = this.projectPoint(point.toArray() as Vec3);
+      return `${screen.x.toFixed(2)},${screen.y.toFixed(2)}`;
+    };
+    marker.dataset.sectionHandleCentre = encode(
+      root.getWorldPosition(new THREE.Vector3()),
+    );
+
+    const move = this.sectionGizmoTargets.find(
+      (target) =>
+        target.userData.sectionHandleKind === "translate" &&
+        target.userData.sectionHandleAnchor,
+    );
+    if (move) {
+      marker.dataset.sectionMoveHandle = encode(
+        move.getWorldPosition(new THREE.Vector3()),
+      );
+    }
+
+    const rotate = this.sectionGizmoTargets.find(
+      (target) =>
+        target.userData.sectionHandleKind === "rotate" &&
+        target.userData.sectionHandleAnchor,
+    );
+    if (rotate) {
+      marker.dataset.sectionRotateHandle = encode(
+        rotate.localToWorld(new THREE.Vector3(0, 0.78, 0)),
+      );
+      marker.dataset.sectionRotateTarget = encode(
+        rotate.localToWorld(new THREE.Vector3(-0.78, 0, 0)),
+      );
+    }
+  }
+
+  private worldPerPixelAt(point: THREE.Vector3): number {
+    if (this.camera instanceof THREE.PerspectiveCamera) {
+      return (
+        (2 *
+          this.camera.position.distanceTo(point) *
+          Math.tan((this.camera.fov * Math.PI) / 360)) /
+        Math.max(this.canvas.clientHeight, 1)
+      );
+    }
+    return (
+      (this.camera.top - this.camera.bottom) /
+      this.camera.zoom /
+      Math.max(this.canvas.clientHeight, 1)
+    );
+  }
+
+  private rayFromCanvas(offsetX: number, offsetY: number) {
+    const rect = this.canvas.getBoundingClientRect();
+    this.raycaster.setFromCamera(
+      new THREE.Vector2(
+        (offsetX / rect.width) * 2 - 1,
+        -(offsetY / rect.height) * 2 + 1,
+      ),
+      this.camera,
+    );
+  }
+
+  private horizontalPointerAngle(
+    offsetX: number,
+    offsetY: number,
+    centre: THREE.Vector3,
+  ): number | null {
+    this.rayFromCanvas(offsetX, offsetY);
+    const hit = this.raycaster.ray.intersectPlane(
+      new THREE.Plane(new THREE.Vector3(0, 1, 0), -centre.y),
+      new THREE.Vector3(),
+    );
+    return hit ? Math.atan2(hit.z - centre.z, hit.x - centre.x) : null;
+  }
+
+  /** Start dragging a section handle. Coordinates are canvas-relative CSS pixels. */
+  beginSectionGizmoDrag(offsetX: number, offsetY: number): boolean {
+    if (this.sectionGizmoTargets.length === 0) return false;
+    this.sectionGizmoGroup.updateMatrixWorld(true);
+    this.rayFromCanvas(offsetX, offsetY);
+    const hit = this.raycaster.intersectObjects(this.sectionGizmoTargets, false)[0];
+    if (!hit) return false;
+
+    const id = hit.object.userData.sectionPlaneId as string | undefined;
+    const kind = hit.object.userData.sectionHandleKind as
+      | "translate"
+      | "rotate"
+      | undefined;
+    const plane = id ? this.sectionPlaneState.get(id) : undefined;
+    if (!id || !kind || !plane) return false;
+
+    const centre = new THREE.Vector3(
+      ...sectionPlaneCentre(this.sectionBounds, plane),
+    );
+    const direction = new THREE.Vector3(...sectionDirection(plane));
+    const distance = this.worldPerPixelAt(centre) * 100;
+    const start = this.projectPoint(centre.toArray() as Vec3);
+    const along = this.projectPoint(
+      centre.clone().addScaledVector(direction, distance).toArray() as Vec3,
+    );
+    const screenDirection = new THREE.Vector2(
+      along.x - start.x,
+      along.y - start.y,
+    );
+    if (screenDirection.lengthSq() < 1e-6) screenDirection.set(1, 0);
+    else screenDirection.normalize();
+
+    this.sectionGizmoDrag = {
+      id,
+      kind,
+      plane: { ...plane },
+      bounds: this.sectionBounds,
+      centre,
+      pointerStart: new THREE.Vector2(offsetX, offsetY),
+      screenDirection,
+      worldPerPixel: this.worldPerPixelAt(centre),
+      ringAngleStart:
+        kind === "rotate"
+          ? this.horizontalPointerAngle(offsetX, offsetY, centre)
+          : null,
+    };
+    this.controls.enabled = false;
+    return true;
+  }
+
+  /** Update the active section drag and return the store patch to apply. */
+  updateSectionGizmoDrag(
+    offsetX: number,
+    offsetY: number,
+  ): SectionGizmoUpdate | null {
+    const drag = this.sectionGizmoDrag;
+    if (!drag) return null;
+
+    if (drag.kind === "translate") {
+      const delta = new THREE.Vector2(offsetX, offsetY)
+        .sub(drag.pointerStart)
+        .dot(drag.screenDirection);
+      const range = sectionRange(
+        drag.bounds,
+        drag.plane.axis,
+        drag.plane.rotation,
+      );
+      const position = THREE.MathUtils.clamp(
+        drag.plane.position + delta * drag.worldPerPixel,
+        range.min,
+        range.max,
+      );
+      return { id: drag.id, patch: { position } };
+    }
+
+    const angle = this.horizontalPointerAngle(offsetX, offsetY, drag.centre);
+    const deltaDegrees =
+      angle !== null && drag.ringAngleStart !== null
+        ? (-normaliseRadians(angle - drag.ringAngleStart) * 180) / Math.PI
+        : (offsetX - drag.pointerStart.x) * 0.5;
+    const rotation = normaliseDegrees(drag.plane.rotation + deltaDegrees);
+    return {
+      id: drag.id,
+      patch: rotateSectionPlane(drag.plane, rotation, drag.bounds),
+    };
+  }
+
+  endSectionGizmoDrag() {
+    this.sectionGizmoDrag = null;
+    this.controls.enabled = true;
   }
 
   // -------------------------------------------------------------------------
@@ -1653,12 +2386,16 @@ export class ViewerRenderer {
     cancelAnimationFrame(this.frame);
     this.resizeObserver.disconnect();
     this.setGlobe(null, null);
+    this.controls.removeEventListener("change", this.notifyCameraRotation);
+    this.cameraRotationListeners.clear();
+    this.projectionListeners.clear();
     this.controls.dispose();
     for (const modelId of [...this.models.keys()]) this.removeModel(modelId);
     disposeGroup(this.measurementGroup);
     disposeGroup(this.angleGroup);
     disposeGroup(this.areaGroup);
     disposeGroup(this.volumeGroup);
+    disposeObject(this.sectionGizmoGroup);
     for (const preview of Object.values(this.snapPreviewMarkers)) {
       preview.geometry.dispose();
       const material = preview.material as THREE.PointsMaterial;
@@ -1667,6 +2404,15 @@ export class ViewerRenderer {
     }
     this.renderer.dispose();
   }
+}
+
+function normaliseRadians(value: number): number {
+  return Math.atan2(Math.sin(value), Math.cos(value));
+}
+
+function normaliseDegrees(value: number): number {
+  const normalised = ((value + 180) % 360 + 360) % 360 - 180;
+  return normalised === -180 ? 180 : normalised;
 }
 
 /** Release the geometries and materials of an overlay group. */
@@ -1679,4 +2425,23 @@ function disposeGroup(group: THREE.Group) {
     else material?.dispose();
   }
   group.clear();
+}
+
+/** Dispose a nested helper, including sprite textures. */
+function disposeObject(root: THREE.Object3D) {
+  root.traverse((child) => {
+    const drawable = child as THREE.Mesh | THREE.Line | THREE.Points | THREE.Sprite;
+    drawable.geometry?.dispose();
+    const material = drawable.material as
+      | (THREE.Material & { map?: THREE.Texture | null })
+      | Array<THREE.Material & { map?: THREE.Texture | null }>
+      | undefined;
+    const disposeMaterial = (item: THREE.Material & { map?: THREE.Texture | null }) => {
+      item.map?.dispose();
+      item.dispose();
+    };
+    if (Array.isArray(material)) material.forEach(disposeMaterial);
+    else if (material) disposeMaterial(material);
+  });
+  root.clear();
 }

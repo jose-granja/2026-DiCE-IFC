@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueries } from "@tanstack/react-query";
-import { ChevronRight, Filter, Loader2, X } from "lucide-react";
+import { ChevronRight, Eye, EyeOff, Filter, Loader2, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getModelHandle } from "@/lib/viewer/loader";
-import { useViewerStore } from "@/lib/viewer/store";
+import { useViewerStore, type EntityRef } from "@/lib/viewer/store";
 import {
   FACET_DIMENSIONS,
   emptySelection,
@@ -43,6 +43,9 @@ export function FilterPanel() {
   const t = useTranslations("viewer.filterPanel");
   const models = useViewerStore((s) => s.models);
   const setFacetVisible = useViewerStore((s) => s.setFacetVisible);
+  const hidden = useViewerStore((s) => s.hidden);
+  const hide = useViewerStore((s) => s.hide);
+  const show = useViewerStore((s) => s.show);
 
   // `FACET_LABELS` in `lib/viewer/facets.ts` stays English: it is a plain,
   // non-component module (other consumers use it for IDS logic, not just
@@ -103,8 +106,15 @@ export function FilterPanel() {
    * Merged across models: a federation is filtered as one thing, and a
    * material that appears in two models should be one tickbox, not two.
    */
-  const options = (() => {
+  const { options, refsByDimension } = (() => {
     const merged: Record<FacetDimension, Map<string, number>> = {
+      hierarchy: new Map(),
+      classes: new Map(),
+      types: new Map(),
+      materials: new Map(),
+      groups: new Map(),
+    };
+    const refs: Record<FacetDimension, Map<string, EntityRef[]>> = {
       hierarchy: new Map(),
       classes: new Map(),
       types: new Map(),
@@ -126,11 +136,22 @@ export function FilterPanel() {
             entry.value,
             (merged[dimension].get(entry.value) ?? 0) + entry.expressIds.length,
           );
+          // Visibility actions need the actual members, not only the count
+          // shown in the badge. Keep model ids here because the same value can
+          // occur in several files in a federation.
+          const current = refs[dimension].get(entry.value) ?? [];
+          current.push(
+            ...entry.expressIds.map((expressId) => ({
+              modelId: model.modelId,
+              expressId,
+            })),
+          );
+          refs[dimension].set(entry.value, current);
         }
       }
     }
 
-    return merged;
+    return { options: merged, refsByDimension: refs };
   })();
 
   /**
@@ -264,6 +285,12 @@ export function FilterPanel() {
                       <ul className="max-h-56 space-y-0.5 overflow-auto">
                         {shown.map(([value, count]) => {
                           const id = `facet-${dimension}-${value}`;
+                          const refs = refsByDimension[dimension].get(value) ?? [];
+                          const valueIsHidden =
+                            refs.length > 0 &&
+                            refs.every((ref) =>
+                              hidden.has(`${ref.modelId}#${ref.expressId}`),
+                            );
                           return (
                             <li key={value} className="flex items-center gap-2">
                               <Checkbox
@@ -278,6 +305,29 @@ export function FilterPanel() {
                               >
                                 {value}
                               </Label>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground"
+                                aria-label={t(
+                                  valueIsHidden ? "showValue" : "hideValue",
+                                  { name: value },
+                                )}
+                                title={t(
+                                  valueIsHidden ? "showValue" : "hideValue",
+                                  { name: value },
+                                )}
+                                onClick={() =>
+                                  valueIsHidden ? show(refs) : hide(refs)
+                                }
+                              >
+                                {valueIsHidden ? (
+                                  <EyeOff aria-hidden />
+                                ) : (
+                                  <Eye aria-hidden />
+                                )}
+                              </Button>
                               <Badge
                                 variant="secondary"
                                 className="h-4 px-1 text-[10px] font-normal"

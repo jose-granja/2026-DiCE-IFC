@@ -46,6 +46,7 @@ describe("section planes", () => {
     const [plane] = useViewerStore.getState().sectionPlanes;
     expect(plane.axis).toBe("y");
     expect(plane.position).toBeCloseTo(2, 6); // bounds 0..4
+    expect(plane.rotation).toBe(0);
     expect(plane.enabled).toBe(true);
     expect(plane.flipped).toBe(false);
   });

@@ -100,6 +100,37 @@ test("filtering hides elements in the viewport, and clearing brings them back", 
   await expect(page.getByRole("button", { name: /Clear/ })).toHaveCount(0);
 });
 
+test("every filter value can be hidden and shown from its row", async ({ page }) => {
+  await openFilters(page);
+  await expect(visibleEntities(page)).toHaveAttribute("data-visible-entities", "3/3");
+
+  const values = [
+    { dimension: "hierarchy", value: "Level 1", visible: "2/3" },
+    { dimension: "classes", value: "IfcWall", visible: "1/3" },
+    { dimension: "types", value: "Basic Wall 200", visible: "1/3" },
+    { dimension: "materials", value: "Concrete C30/37", visible: "1/3" },
+    { dimension: "groups", value: "Fire compartment 1", visible: "1/3" },
+  ];
+
+  // Check the renderer after every action, rather than only checking that an
+  // eye icon changed. Showing the value again also prevents one row's hidden
+  // members from affecting the next assertion.
+  for (const { dimension, value, visible } of values) {
+    await expand(page, dimension);
+    await page.getByRole("button", { name: `Hide ${value}` }).click();
+    await expect(visibleEntities(page)).toHaveAttribute(
+      "data-visible-entities",
+      visible,
+    );
+
+    await page.getByRole("button", { name: `Show ${value}` }).click();
+    await expect(visibleEntities(page)).toHaveAttribute(
+      "data-visible-entities",
+      "3/3",
+    );
+  }
+});
+
 test("unions within a dimension and intersects across them", async ({ page }) => {
   // The rule that is easy to write backwards. Concrete is both walls; IfcSlab
   // is the slab; together they are nothing — and that must hide everything

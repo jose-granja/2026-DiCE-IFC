@@ -151,6 +151,13 @@ export function runAdapterConformance(
       const storey = building.children[0];
       expect(storey).toBeDefined();
 
+      // The engine stores these as numeric enum values. The adapter boundary
+      // must expose canonical IFC names so filters can recognise IfcSpace.
+      expect(root.type).toBe("IfcProject");
+      expect(site.type).toBe("IfcSite");
+      expect(building.type).toBe("IfcBuilding");
+      expect(storey.type).toBe("IfcBuildingStorey");
+
       expect(storey.elevation).toBeCloseTo(0, 6);
       // The three elements are contained in the storey, not in the building.
       expect(storey.elementIds).toHaveLength(3);

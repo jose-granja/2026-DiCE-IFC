@@ -25,6 +25,7 @@ import type {
   LoadModelInput,
   LoadProgress,
   ModelId,
+  QuantityQuery,
   StepExportOptions,
   VocabularyOptions,
   IdsValidationProgress,
@@ -86,6 +87,10 @@ const api = {
 
   getElementInfo(modelId: ModelId, expressId: ExpressId) {
     return adapter.getElementInfo(modelId, expressId);
+  },
+
+  evaluateQuantityQuery(modelId: ModelId, query: QuantityQuery) {
+    return adapter.evaluateQuantityQuery(modelId, query);
   },
 
   /**

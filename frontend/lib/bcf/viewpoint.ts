@@ -37,6 +37,8 @@ import {
   normalizeZeros,
 } from "@/lib/viewer/federation";
 import type { SectionAxis, SectionPlane } from "@/lib/viewer/tools";
+import { toClipPlane } from "@/lib/viewer/tools";
+import type { CameraProjection } from "@/lib/viewer/camera";
 import type {
   BcfCamera,
   BcfClippingPlane,
@@ -86,7 +88,9 @@ export function renderDirectionToBcf(direction: Vec3): Vec3 {
 export type CameraState = {
   position: Vec3;
   target: Vec3;
+  projection?: CameraProjection;
   fov?: number;
+  viewHeight?: number;
 };
 
 /**
@@ -116,18 +120,17 @@ export function cameraToViewer(
   return {
     position,
     target: normalizeZeros(addVec(position, scale(direction, distance))),
+    projection: camera.kind === "orthogonal" ? "orthographic" : "perspective",
     // BCF's FieldOfView is the vertical angle in degrees, which is exactly what
     // a three.js PerspectiveCamera means by `fov` — no conversion.
     fov: camera.kind === "perspective" ? camera.fieldOfView : undefined,
+    viewHeight:
+      camera.kind === "orthogonal" ? camera.viewToWorldScale : undefined,
   };
 }
 
 /**
- * Turn the viewer's camera into a BCF perspective camera.
- *
- * Always perspective: the viewer has no orthogonal mode, and writing an
- * `OrthogonalCamera` with a made-up `ViewToWorldScale` would be a lie that
- * another tool would faithfully restore.
+ * Turn the viewer's active camera into its matching BCF camera.
  */
 export function cameraFromViewer(
   state: CameraState,
@@ -135,6 +138,17 @@ export function cameraFromViewer(
   aspectRatio: number,
 ): BcfCamera {
   const direction = normalize(subVec(state.target, state.position));
+
+  if (state.projection === "orthographic") {
+    return {
+      kind: "orthogonal",
+      viewPoint: renderPointToBcf(state.position, frame),
+      direction: renderDirectionToBcf(direction),
+      upVector: renderDirectionToBcf(upFor(direction)),
+      viewToWorldScale: Math.max(state.viewHeight ?? 1, 0.0001),
+      aspectRatio: aspectRatio > 0 ? aspectRatio : 1,
+    };
+  }
 
   return {
     kind: "perspective",
@@ -171,10 +185,9 @@ function upFor(direction: Vec3): Vec3 {
 /**
  * BCF clipping planes → the viewer's section planes.
  *
- * The viewer only has axis-aligned sections, while BCF allows any plane. An
- * oblique plane is therefore **reported, not approximated**: snapping it to the
- * nearest axis would silently show the wrong part of the model, which is worse
- * than saying it could not be applied.
+ * The viewer can rotate vertical sections around Y, so every vertical BCF
+ * plane is represented exactly. A tilted plane whose normal has both vertical
+ * and horizontal components is still reported rather than approximated.
  */
 export type ClippingConversion = {
   planes: SectionPlane[];
@@ -192,24 +205,47 @@ export function clippingPlanesToSections(
   planes.forEach((plane, index) => {
     const normal = normalize(bcfDirectionToRender(plane.direction));
     const axis = axisOf(normal);
+    const location = bcfPointToRender(plane.location, frame);
 
-    if (!axis) {
-      skipped += 1;
+    if (axis) {
+      const component = AXIS_INDEX[axis];
+      sections.push({
+        id: `bcf-${index}`,
+        axis,
+        position: location[component],
+        rotation: 0,
+        // The viewer keeps the side *below* the plane unless flipped; BCF keeps
+        // the side the normal points away from.
+        flipped: normal[component] > 0,
+        enabled: true,
+      });
       return;
     }
 
-    const location = bcfPointToRender(plane.location, frame);
-    const component = AXIS_INDEX[axis];
-
-    sections.push({
-      id: `bcf-${index}`,
-      axis,
-      position: location[component],
-      // The viewer keeps the side *below* the plane unless flipped; BCF keeps
-      // the side the normal points away from.
-      flipped: normal[component] > 0,
-      enabled: true,
-    });
+    // A horizontal normal means a vertical section. Express it as an X plane
+    // yawed around Y. Choose the equivalent orientation nearest rotation zero
+    // so the panel does not open at an unnecessary ±180°.
+    if (Math.abs(normal[1]) < 1e-3) {
+      let direction: Vec3 = [normal[0], 0, normal[2]];
+      let rotation = (Math.atan2(-direction[2], direction[0]) * 180) / Math.PI;
+      let flipped = true;
+      if (rotation > 90 || rotation < -90) {
+        direction = [-direction[0], 0, -direction[2]];
+        rotation = (Math.atan2(-direction[2], direction[0]) * 180) / Math.PI;
+        flipped = false;
+      }
+      sections.push({
+        id: `bcf-${index}`,
+        axis: "x",
+        position:
+          direction[0] * location[0] + direction[2] * location[2],
+        rotation,
+        flipped,
+        enabled: true,
+      });
+    } else {
+      skipped += 1;
+    }
   });
 
   return { planes: sections, skipped };
@@ -222,24 +258,25 @@ export function sectionsToClippingPlanes(
   return sections
     .filter((section) => section.enabled)
     .map((section) => {
-      const component = AXIS_INDEX[section.axis];
-
-      const location: Vec3 = [0, 0, 0];
-      location[component] = section.position;
-
-      const direction: Vec3 = [0, 0, 0];
-      direction[component] = section.flipped ? 1 : -1;
+      const { normal, constant } = toClipPlane(section);
+      // With a unit normal, `normal * -constant` is the point on the plane
+      // nearest the render origin. BCF accepts any point on the plane.
+      const location: Vec3 = [
+        normal[0] * -constant,
+        normal[1] * -constant,
+        normal[2] * -constant,
+      ];
 
       return {
         location: renderPointToBcf(location, frame),
-        direction: renderDirectionToBcf(direction),
+        direction: renderDirectionToBcf(normal),
       };
     });
 }
 
 const AXIS_INDEX: Record<SectionAxis, number> = { x: 0, y: 1, z: 2 };
 
-/** The axis a normal lies on, or null when it is oblique. */
+/** The axis a normal lies on, or null when it is not axis aligned. */
 function axisOf(normal: Vec3): SectionAxis | null {
   const tolerance = 1e-3;
 

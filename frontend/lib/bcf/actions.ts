@@ -74,7 +74,7 @@ function referenceFrame(fileName?: string): {
 export type RestoreOutcome = {
   /** GlobalIds the viewpoint named that no loaded model contains. */
   missing: number;
-  /** Clipping planes the viewer's axis-aligned sections cannot represent. */
+  /** Tilted clipping planes vertical-axis rotation cannot represent. */
   skippedPlanes: number;
   /** False when no model is loaded, so there was nothing to restore into. */
   applied: boolean;
@@ -149,6 +149,7 @@ export async function restoreViewpoint(
     if (target) {
       store.updateSectionPlane(target.id, {
         position: plane.position,
+        rotation: plane.rotation,
         flipped: plane.flipped,
       });
     }

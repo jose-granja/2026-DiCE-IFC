@@ -465,6 +465,38 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   BCF bulk editing
+   ---------------------------------------------------------------------------
+   The BCF editor can fill the page or live in a resizable viewer panel. Its
+   fields therefore follow the width of the bar itself instead of viewport
+   media queries. */
+.bcf-bulk-edit {
+  container: bcf-bulk-edit / inline-size;
+}
+
+.bcf-bulk-edit-fields {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container bcf-bulk-edit (min-width: 18rem) {
+  .bcf-bulk-edit-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container bcf-bulk-edit (min-width: 42rem) {
+  .bcf-bulk-edit-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container bcf-bulk-edit (min-width: 64rem) {
+  .bcf-bulk-edit-fields {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 /*
  * The bit of Cesium's widget stylesheet that actually matters here.
  *

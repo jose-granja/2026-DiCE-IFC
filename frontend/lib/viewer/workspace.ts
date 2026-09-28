@@ -22,6 +22,7 @@
 
 import { OPFS_NAMESPACES, readJson, remove, writeJson } from "@/lib/storage/opfs";
 import type { Vec3 } from "@/lib/ifc/types";
+import type { CameraProjection } from "./camera";
 
 const WORKSPACE_KEY = "current";
 const HANDLE_DB = "dice-ifc-workspace";
@@ -39,7 +40,9 @@ export type WorkspaceModelEntry = {
 export type WorkspaceCamera = {
   position: Vec3;
   target: Vec3;
+  projection?: CameraProjection;
   fov?: number;
+  viewHeight?: number;
 };
 
 export type Workspace = {

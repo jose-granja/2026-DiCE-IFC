@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Load a CityJSON file as surrounding context.
+ * Load a geospatial file as surrounding context.
  *
  * A basemap answers "is the building in the right place". It does not answer
  * "is it the right height beside its neighbours" — that needs the neighbours,
@@ -33,10 +33,12 @@ import { parseGeoPackage } from "@/lib/georef/geopackage";
 import type { ContextGeometry } from "@/lib/georef/context-geometry";
 import { mapToLocal, type Placement, type WgsPoint } from "@/lib/georef/transform";
 import { clipCityJson } from "@/lib/workers/cityjson-client";
+import { clipLargeGml } from "@/lib/workers/gml-client";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
 import type { Vec3 } from "@/lib/ifc/types";
 
 const DEFAULT_CLIP_RADIUS_METRES = 100;
+const LARGE_TEXT_FILE_BYTES = 64 * 1024 * 1024;
 
 export function ContextModel({
   placement,
@@ -53,13 +55,15 @@ export function ContextModel({
 }) {
   const t = useTranslations("viewer.contextModel");
   /**
-   * Every reader but CityJSON needs to know what to project into, and that
-   * comes from the model's own map conversion.
+   * GeoJSON and GeoPackage need to know what to project into, and that comes
+   * from the model's own map conversion. GML declares its source CRS and can
+   * therefore still be displayed at the local origin when the IFC has none.
    */
   const NEEDS_PLACEMENT = t("needsPlacement");
 
   const input = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const [loaded, setLoaded] = useState<ContextGeometry | null>(null);
   const [visible, setVisible] = useState(true);
   const [clipEnabled, setClipEnabled] = useState(true);
@@ -132,6 +136,35 @@ export function ContextModel({
       return parseGeoPackage(new Uint8Array(await file.arrayBuffer()), epsg);
     }
 
+    // Detect XML from a small prefix. A national CityGML delivery can be
+    // several gigabytes, which is larger than the browser's maximum string;
+    // calling `File.text()` before this decision is what produced the false
+    // “neither JSON nor XML” message.
+    const prefix = await file.slice(0, 64 * 1024).text();
+    if (prefix.trimStart().startsWith("<")) {
+      if (file.size > LARGE_TEXT_FILE_BYTES) {
+        if (
+          epsg === null ||
+          !clipEnabled ||
+          !referencePoint ||
+          !radiusValid
+        ) {
+          throw new Error(t("largeGmlNeedsClip"));
+        }
+        setProgress(0);
+        return clipLargeGml(
+          file,
+          {
+            targetEpsg: epsg,
+            reference: referencePoint,
+            radiusMetres,
+          },
+          setProgress,
+        );
+      }
+      return parseCityGml(await file.text(), epsg);
+    }
+
     const text = await file.text();
     return readText(text, file.name, epsg);
   };
@@ -145,7 +178,6 @@ export function ContextModel({
     // character, and trying to sniff a CityGML file as JSON only to report
     // "neither JSON nor XML" would name the wrong problem.
     if (text.trimStart().startsWith("<")) {
-      if (epsg === null) throw new Error(NEEDS_PLACEMENT);
       return parseCityGml(text, epsg);
     }
 
@@ -202,6 +234,7 @@ export function ContextModel({
       );
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -221,6 +254,11 @@ export function ContextModel({
           <Boxes className="h-3.5 w-3.5" aria-hidden />
           {t("title")}
           {loading && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
+          {loading && progress !== null && (
+            <span className="text-muted-foreground font-normal tabular-nums">
+              {t("readingProgress", { percent: progress })}
+            </span>
+          )}
         </Label>
 
         {loaded ? (
@@ -258,6 +296,7 @@ export function ContextModel({
 
       <input
         ref={input}
+        data-context-file-input
         type="file"
         accept=".json,.city.json,.cityjson,.geojson,.gml,.xml,.citygml,.gpkg,application/json,application/geo+json,application/gml+xml,text/xml"
         className="hidden"

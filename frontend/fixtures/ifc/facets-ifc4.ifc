@@ -106,5 +106,10 @@ DATA;
 #152= IFCPROPERTYSET('2FacetPset00000000001',#5,'Pset_WallCommon',$,(#150,#151));
 #153= IFCRELDEFINESBYPROPERTIES('2FacetRelDefByProps01',#5,$,$,(#100,#101),#152);
 
+/* A shared base quantity, used by the configurable quantity-query panel. */
+#170= IFCQUANTITYAREA('NetSideArea',$,$,12.5);
+#171= IFCELEMENTQUANTITY('2FacetElementQuantity1',#5,'Qto_WallBaseQuantities',$,$,(#170));
+#172= IFCRELDEFINESBYPROPERTIES('2FacetRelDefByQto0001',#5,$,$,(#100,#101),#171);
+
 ENDSEC;
 END-ISO-10303-21;

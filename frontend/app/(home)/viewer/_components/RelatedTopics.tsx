@@ -16,21 +16,27 @@
 
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Pencil } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { getModelHandle } from "@/lib/viewer/loader";
 import { useBcfStore } from "@/lib/bcf/store";
 import { useViewerStore } from "@/lib/viewer/store";
 import type { BcfTopic } from "@/lib/bcf/types";
 
-export function RelatedTopics() {
+export function RelatedTopics({
+  onOpenTopic,
+  onEditTopic,
+}: {
+  onOpenTopic: (topic: BcfTopic) => void;
+  onEditTopic: (topic: BcfTopic) => void;
+}) {
   const t = useTranslations("viewer.relatedTopics");
   const selection = useViewerStore((s) => s.selection);
   const ref = selection[selection.length - 1] ?? null;
 
   const topics = useBcfStore((s) => s.file.topics);
-  const select = useBcfStore((s) => s.select);
   const selectedTopic = useBcfStore((s) => s.selectedGuid);
 
   // The GlobalId of the selected element. Cheap, and cached per element.
@@ -68,15 +74,27 @@ export function RelatedTopics() {
       <ul className="space-y-0.5">
         {related.map((topic) => (
           <li key={topic.guid}>
-            <button
-              type="button"
-              onClick={() => select(topic.guid)}
-              aria-current={topic.guid === selectedTopic ? "true" : undefined}
-              className="hover:bg-accent w-full truncate rounded px-1.5 py-1 text-left text-[11px]"
-              title={topic.title}
-            >
-              {topic.title}
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onOpenTopic(topic)}
+                aria-current={topic.guid === selectedTopic ? "true" : undefined}
+                className="hover:bg-accent min-w-0 flex-1 truncate rounded px-1.5 py-1 text-left text-[11px]"
+                title={topic.title}
+              >
+                {topic.title}
+              </button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={t("edit", { title: topic.title })}
+                title={t("edit", { title: topic.title })}
+                onClick={() => onEditTopic(topic)}
+              >
+                <Pencil aria-hidden />
+              </Button>
+            </div>
           </li>
         ))}
       </ul>

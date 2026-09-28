@@ -1,16 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Eye, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { restoreViewpoint } from "@/lib/bcf/actions";
 import { useBcfStore } from "@/lib/bcf/store";
 import { describeViewpoint } from "@/lib/bcf/viewpoint";
 import type { BcfTopic, BcfViewpoint } from "@/lib/bcf/types";
 import { useSnapshotUrl } from "@/lib/bcf/use-snapshot-url";
+import { useOpenViewpoint } from "./useOpenViewpoint";
 
 /**
  * One viewpoint: its snapshot, what it will do, and the button that does it.
@@ -26,40 +24,8 @@ export function ViewpointCard({
 }) {
   const t = useTranslations("bcf.viewpointCard");
   const removeViewpoint = useBcfStore((s) => s.removeViewpoint);
-  const [opening, setOpening] = useState(false);
+  const { openViewpoint, openingGuid } = useOpenViewpoint();
   const snapshotUrl = useSnapshotUrl(viewpoint);
-
-  const onOpen = async () => {
-    setOpening(true);
-    try {
-      const outcome = await restoreViewpoint(
-        viewpoint,
-        topic.headerFiles[0]?.filename,
-      );
-
-      if (!outcome.applied) {
-        toast.warning(t("loadModelFirst"));
-        return;
-      }
-
-      const caveats: string[] = [];
-      if (outcome.missing > 0) {
-        caveats.push(t("missingElements", { count: outcome.missing }));
-      }
-      if (outcome.skippedPlanes > 0) {
-        caveats.push(t("skippedPlanes", { count: outcome.skippedPlanes }));
-      }
-
-      if (caveats.length > 0) toast.warning(t("viewpointRestoredWithCaveats", { caveats: caveats.join("; ") }));
-      else toast.success(t("viewpointRestored"));
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : t("couldNotOpen"),
-      );
-    } finally {
-      setOpening(false);
-    }
-  };
 
   return (
     <div className="overflow-hidden rounded-md border">
@@ -85,7 +51,12 @@ export function ViewpointCard({
         </p>
 
         <div className="flex shrink-0 items-center gap-1">
-          <Button size="sm" className="h-7 px-2 text-xs" onClick={onOpen} disabled={opening}>
+          <Button
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() => openViewpoint(topic, viewpoint)}
+            disabled={openingGuid === viewpoint.guid}
+          >
             <Eye className="h-3.5 w-3.5" />
             {t("openViewpoint")}
           </Button>

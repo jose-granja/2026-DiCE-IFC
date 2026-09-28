@@ -2,10 +2,14 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { FlipHorizontal, Plus, Scissors, Trash2 } from "lucide-react";
+import { FlipHorizontal, Plus, RotateCw, Scissors, Trash2 } from "lucide-react";
 
 import { useViewerStore } from "@/lib/viewer/store";
-import { sectionRange, type SectionAxis } from "@/lib/viewer/tools";
+import {
+  rotateSectionPlane,
+  sectionRange,
+  type SectionAxis,
+} from "@/lib/viewer/tools";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
@@ -83,7 +87,7 @@ export function SectionPanel() {
       ) : (
         <ul className="divide-y overflow-auto">
           {planes.map((plane) => {
-            const range = sectionRange(bounds, plane.axis);
+            const range = sectionRange(bounds, plane.axis, plane.rotation);
             const label =
               AXES.find((a) => a.axis === plane.axis)?.label ?? plane.axis;
 
@@ -146,10 +150,41 @@ export function SectionPanel() {
                     {plane.position.toFixed(2)} m
                   </span>
                 </div>
+
+                {plane.axis !== "y" && (
+                  <div className="flex items-center gap-3">
+                    <RotateCw
+                      className="text-muted-foreground h-3.5 w-3.5 shrink-0"
+                      aria-hidden
+                    />
+                    <Slider
+                      aria-label={t("rotationLabel", { label })}
+                      min={-180}
+                      max={180}
+                      step={1}
+                      value={[plane.rotation]}
+                      disabled={!plane.enabled}
+                      onValueChange={([rotation]) =>
+                        updateSectionPlane(
+                          plane.id,
+                          rotateSectionPlane(plane, rotation, bounds),
+                        )
+                      }
+                    />
+                    <span className="text-muted-foreground w-16 shrink-0 text-right text-xs tabular-nums">
+                      {plane.rotation.toFixed(0)}°
+                    </span>
+                  </div>
+                )}
               </li>
             );
           })}
         </ul>
+      )}
+      {planes.some((plane) => plane.enabled) && (
+        <p className="text-muted-foreground border-t p-2 text-[11px]">
+          {t("handlesHint")}
+        </p>
       )}
     </div>
   );

@@ -467,6 +467,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
           // Centre of the model, not the origin: a federation offset into a
           // projected CRS would otherwise get a plane that misses it entirely.
           position: defaultSectionPosition(get().federationBounds(), axis),
+          rotation: 0,
           flipped: false,
           enabled: true,
         },

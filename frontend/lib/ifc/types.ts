@@ -198,6 +198,12 @@ export type ModelVocabulary = {
   entityTypes: Array<{ type: string; count: number }>;
   /** Property sets, each with the property names found in them. */
   propertySets: Array<{ name: string; properties: string[] }>;
+  /** Quantity sets, each with the quantities found in them. */
+  quantitySets: Array<{ name: string; quantities: string[] }>;
+  /** Occurrence `PredefinedType` values authored in the model. */
+  predefinedTypes: string[];
+  /** Occurrence `ObjectType` values authored in the model. */
+  objectTypes: string[];
   /** Classification systems referenced by the model. */
   classificationSystems: string[];
   /** Material names assigned anywhere in the model. */
@@ -239,6 +245,79 @@ export type FilterFacets = {
   materials: FilterFacetValue[];
   /** `IfcGroup`, `IfcZone` and `IfcSystem` membership. */
   groups: FilterFacetValue[];
+};
+
+// ---------------------------------------------------------------------------
+// Quantity queries
+// ---------------------------------------------------------------------------
+
+export type QuantityQueryOperator =
+  | "equals"
+  | "notEquals"
+  | "contains"
+  | "greaterThan"
+  | "greaterOrEqual"
+  | "lessThan"
+  | "lessOrEqual"
+  | "exists";
+
+export type QuantityQueryPropertyCondition = {
+  setName: string;
+  propertyName: string;
+  operator: QuantityQueryOperator;
+  /** Not used by `exists`. Kept as text so TRUE/FALSE and numbers survive input. */
+  value: string;
+};
+
+export type QuantityQueryFilters = {
+  /** Values inside one field are ORed; populated fields are ANDed together. */
+  classes: string[];
+  predefinedTypes: string[];
+  objectTypes: string[];
+  materials: string[];
+  /** Property conditions use AND by default; imported tables may list alternatives. */
+  propertyCombination?: "all" | "any";
+  properties: QuantityQueryPropertyCondition[];
+};
+
+export type QuantityQuerySource = {
+  id: string;
+  /** Identifier used by the formula, e.g. `area` in `area * rate`. */
+  alias: string;
+  kind: "count" | "property" | "quantity";
+  setName?: string;
+  valueName?: string;
+};
+
+export type QuantityQuery = {
+  filters: QuantityQueryFilters;
+  sources: QuantityQuerySource[];
+  /** Optional when there is exactly one source. Supports +, -, *, /, ^ and parentheses. */
+  formula?: string;
+  /** Display/export label. Values are not converted automatically. */
+  unit?: string;
+};
+
+export type QuantityQueryRow = {
+  expressId: ExpressId;
+  type: string;
+  globalId: string;
+  name: string;
+  predefinedType: string;
+  objectType: string;
+  materials: string[];
+  inputs: Record<string, PropertyValue>;
+  value: PropertyValue;
+};
+
+export type QuantityQueryResult = {
+  modelId: ModelId;
+  matchedCount: number;
+  valueCount: number;
+  missingValueCount: number;
+  /** Sum of numeric row results. Null when no row has a numeric result. */
+  total: number | null;
+  rows: QuantityQueryRow[];
 };
 
 /**
@@ -554,6 +633,12 @@ export interface IfcEngineAdapter {
    * quietly leave things on screen that the user asked to hide.
    */
   getFilterFacets(modelId: ModelId): Promise<FilterFacets>;
+
+  /** Evaluate a configurable quantity takeoff without moving IFC data to the UI thread. */
+  evaluateQuantityQuery(
+    modelId: ModelId,
+    query: QuantityQuery,
+  ): Promise<QuantityQueryResult>;
 
   /**
    * Tessellated geometry for the whole model.

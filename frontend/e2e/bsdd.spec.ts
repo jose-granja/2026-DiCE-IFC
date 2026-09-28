@@ -23,39 +23,102 @@ test("the proxy refuses an endpoint that is not allow-listed", async ({ request 
   expect(response.status()).toBe(400);
 });
 
-test("no dictionary is chosen until the author picks one", async ({ page }) => {
-  // Suggesting IFC properties to someone working to a national classification
-  // is worse than suggesting nothing, so nothing is selected by default — and
-  // nothing is requested from bSDD either.
+test("IFC 4.3 is selected by default without an eager request", async ({ page }) => {
   const calls: string[] = [];
   page.on("request", (r) => {
     if (r.url().includes("/api/bsdd")) calls.push(r.url());
   });
 
   await page.goto("/ids/create");
-  await expect(page.getByRole("button", { name: "Use a dictionary" })).toBeVisible();
+  await expect(page.getByText(/^IFC 4\.3$/)).toBeVisible();
   await page.waitForTimeout(1500);
 
   expect(calls).toEqual([]);
 });
 
-test("picking a dictionary suggests classes, property sets and values", async ({
+test("debounces IFC class typing and suggests its predefined types", async ({
+  page,
+}) => {
+  const calls: Array<{ path: string | null; search: string | null }> = [];
+  await page.route("**/api/bsdd?*", async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.searchParams.get("path");
+    calls.push({ path, search: url.searchParams.get("SearchText") });
+
+    if (path === "/api/Class/Search/v1") {
+      await route.fulfill({
+        json: {
+          classes: [
+            {
+              uri: "https://identifier.buildingsmart.org/uri/buildingsmart/ifc/4.3/class/IfcWall",
+              name: "IfcWall",
+              referenceCode: "IfcWall",
+              dictionaryName: "IFC",
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (path === "/api/Class/v1") {
+      await route.fulfill({
+        json: {
+          referenceCode: "IfcWall",
+          childClassReferences: [
+            {
+              uri: "https://example.test/IfcWallSHEAR",
+              name: "Shear",
+              code: "IfcWallSHEAR",
+            },
+            {
+              uri: "https://example.test/IfcWallSOLIDWALL",
+              name: "Solid Wall",
+              code: "IfcWallSOLIDWALL",
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    await route.abort();
+  });
+
+  await page.goto("/ids/create");
+  await page.getByRole("button", { name: "Add specification" }).click();
+  await page.getByRole("button", { name: "Add facet" }).first().click();
+  await page.getByRole("menuitem", { name: "Entity" }).click();
+  const ifcClass = page.getByLabel("IFC class");
+  for (const partial of ["I", "IF", "IFC", "IFCW", "IFCWA", "IFCWAL", "IFCWALL"]) {
+    await ifcClass.fill(partial);
+    await page.waitForTimeout(50);
+  }
+
+  await expect
+    .poll(() => calls.length)
+    .toBe(1);
+  await page.waitForTimeout(500);
+
+  expect(calls).toEqual([{ path: "/api/Class/Search/v1", search: "IFCWALL" }]);
+  await expect(page.locator("datalist option[value='IFCWALL']")).toHaveCount(1);
+
+  await page.getByRole("button", { name: /Predefined type/ }).click();
+  await expect.poll(() => calls.length).toBe(2);
+  expect(calls[1]).toEqual({ path: "/api/Class/v1", search: null });
+  await expect(page.locator("datalist option[value='SHEAR']")).toHaveCount(1);
+  await expect(page.locator("datalist option[value='SOLIDWALL']")).toHaveCount(1);
+});
+
+test("the default IFC dictionary suggests classes, property sets and values", async ({
   page,
 }) => {
   await page.goto("/ids/create");
-
-  await page.getByRole("button", { name: "Use a dictionary" }).click();
-  await page.getByLabel("Search dictionaries").fill("IFC");
-  const ifc = page.getByRole("button", { name: /^IFC 4\.3/ }).first();
-  await expect(ifc).toBeVisible({ timeout: 30_000 });
-  await ifc.click();
-  await page.keyboard.press("Escape");
-
   await expect(page.getByText(/^IFC 4\.3/)).toBeVisible();
 
   // Name a class, which is what keys every suggestion below.
   await page.getByRole("button", { name: "Add specification" }).click();
-  const appliesTo = page.locator("section").filter({ hasText: "Applies to" }).first();
+  const appliesTo = page.locator("section").filter({ hasText: "Filters" }).first();
   await appliesTo.getByRole("button", { name: "Add facet" }).click();
   await page.getByRole("menuitem", { name: "Entity" }).click();
   await page.getByLabel("IFC class").fill("IFCWALL");
@@ -90,15 +153,8 @@ test("fills the data type and offers the URI when a bSDD property is named", asy
 }) => {
   await page.goto("/ids/create");
 
-  await page.getByRole("button", { name: "Use a dictionary" }).click();
-  await page.getByLabel("Search dictionaries").fill("IFC");
-  const ifc = page.getByRole("button", { name: /^IFC 4\.3/ }).first();
-  await expect(ifc).toBeVisible({ timeout: 30_000 });
-  await ifc.click();
-  await page.keyboard.press("Escape");
-
   await page.getByRole("button", { name: "Add specification" }).click();
-  const appliesTo = page.locator("section").filter({ hasText: "Applies to" }).first();
+  const appliesTo = page.locator("section").filter({ hasText: "Filters" }).first();
   await appliesTo.getByRole("button", { name: "Add facet" }).click();
   await page.getByRole("menuitem", { name: "Entity" }).click();
   await page.getByLabel("IFC class").fill("IFCWALL");
@@ -146,15 +202,8 @@ test("does not guess a measure for a property bSDD only calls Real", async ({
   // empty set, so the editor explains instead of guessing.
   await page.goto("/ids/create");
 
-  await page.getByRole("button", { name: "Use a dictionary" }).click();
-  await page.getByLabel("Search dictionaries").fill("IFC");
-  const ifc = page.getByRole("button", { name: /^IFC 4\.3/ }).first();
-  await expect(ifc).toBeVisible({ timeout: 30_000 });
-  await ifc.click();
-  await page.keyboard.press("Escape");
-
   await page.getByRole("button", { name: "Add specification" }).click();
-  const appliesTo = page.locator("section").filter({ hasText: "Applies to" }).first();
+  const appliesTo = page.locator("section").filter({ hasText: "Filters" }).first();
   await appliesTo.getByRole("button", { name: "Add facet" }).click();
   await page.getByRole("menuitem", { name: "Entity" }).click();
   await page.getByLabel("IFC class").fill("IFCWALL");

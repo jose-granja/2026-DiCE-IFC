@@ -70,6 +70,12 @@ export type DepthProxy = {
   indices: Uint32Array;
 };
 
+/** A section plane in the viewer's render coordinate frame. */
+export type GlobeSectionPlane = {
+  normal: [number, number, number];
+  constant: number;
+};
+
 export type Globe = {
   /**
    * A depth-only surface matching the terrain, for the model to test against.
@@ -84,10 +90,12 @@ export type Globe = {
   ) => Promise<DepthProxy | null>;
   /** Keep Cesium's camera on the three.js one. Called every frame. */
   sync: (
-    camera: THREE.PerspectiveCamera,
+    camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
     origin: WgsPoint,
     northCorrection?: number,
   ) => void;
+  /** Apply the viewer's render-space section planes to terrain and 3D Tiles. */
+  setSectionPlanes: (planes: GlobeSectionPlane[]) => void;
   /** Swap what is drawn. Rejects with a message fit to show the user. */
   setLayer: (layer: GlobeLayer) => Promise<void>;
   /** Required by ion's and Google's terms wherever their data is shown. */
@@ -267,6 +275,12 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
   scene.screenSpaceCameraController.enableInputs = false;
   scene.backgroundColor = Cesium.Color.TRANSPARENT;
   scene.globe.depthTestAgainstTerrain = true;
+  const globeClippingPlanes = new Cesium.ClippingPlaneCollection({
+    enabled: false,
+    // Match three.js local clipping: a point outside any enabled plane is cut.
+    unionClippingRegions: true,
+  });
+  scene.globe.clippingPlanes = globeClippingPlanes;
 
   /*
     Base imagery: MapTiler's OpenStreetMap raster style, opt-in.
@@ -301,10 +315,17 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
     }
   }
 
-  let current: { destroy?: () => void; primitive?: unknown } | null = null;
+  type TilesetWithClipOrigin = InstanceType<typeof Cesium.Cesium3DTileset> & {
+    /** Cesium's object frame used before a collection's additional matrix. */
+    readonly clippingPlanesOriginMatrix: InstanceType<typeof Cesium.Matrix4>;
+  };
+
+  let current: { primitive: TilesetWithClipOrigin } | null = null;
   let ready = false;
   /** What is showing, for the attribution line. */
   let layerKind: GlobeLayer["kind"] = "terrain";
+  let sectionPlanes: GlobeSectionPlane[] = [];
+  let renderToEcefForClipping: InstanceType<typeof Cesium.Matrix4> | null = null;
 
   const removeCurrent = () => {
     if (current?.primitive) {
@@ -340,6 +361,62 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
       new THREE.Matrix4().makeRotationY(-northCorrection),
     );
 
+  const fillClippingPlanes = (
+    collection: InstanceType<typeof Cesium.ClippingPlaneCollection>,
+  ) => {
+    collection.removeAll();
+    for (const plane of sectionPlanes) {
+      collection.add(
+        new Cesium.ClippingPlane(
+          new Cesium.Cartesian3(...plane.normal),
+          plane.constant,
+        ),
+      );
+    }
+    collection.enabled = sectionPlanes.length > 0;
+  };
+
+  const createTilesetClippingPlanes = () => {
+    const collection = new Cesium.ClippingPlaneCollection({
+      unionClippingRegions: true,
+    });
+    fillClippingPlanes(collection);
+    return collection;
+  };
+
+  /**
+   * Put render-space planes into the world frame used by each Cesium object.
+   * The globe accepts ECEF directly. A tileset first applies its own clipping
+   * origin matrix, so its collection receives the relative transform that
+   * makes the combined result the same render→ECEF matrix.
+   */
+  const updateClippingTransforms = () => {
+    if (!renderToEcefForClipping) return;
+    Cesium.Matrix4.clone(
+      renderToEcefForClipping,
+      globeClippingPlanes.modelMatrix,
+    );
+
+    const tileset = current?.primitive;
+    if (!tileset) return;
+    const inverseOrigin = Cesium.Matrix4.inverse(
+      tileset.clippingPlanesOriginMatrix,
+      new Cesium.Matrix4(),
+    );
+    Cesium.Matrix4.multiply(
+      inverseOrigin,
+      renderToEcefForClipping,
+      tileset.clippingPlanes.modelMatrix,
+    );
+  };
+
+  const addTileset = (tileset: InstanceType<typeof Cesium.Cesium3DTileset>) => {
+    const primitive = scene.primitives.add(tileset) as TilesetWithClipOrigin;
+    primitive.clippingPlanes = createTilesetClippingPlanes();
+    current = { primitive };
+    updateClippingTransforms();
+  };
+
   return {
     sync(camera, origin, northCorrection = 0) {
       // render → ECEF for this model's location.
@@ -351,10 +428,17 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
         ),
       );
 
-      const enuToEcefThree = new THREE.Matrix4().fromArray(
-        Cesium.Matrix4.toArray(enuToEcef) as number[],
+      const renderToEcefCesium = Cesium.Matrix4.multiply(
+        enuToEcef,
+        Cesium.Matrix4.fromArray(renderToEnu(northCorrection).toArray()),
+        new Cesium.Matrix4(),
       );
-      const renderToEcef = enuToEcefThree.multiply(renderToEnu(northCorrection));
+      renderToEcefForClipping = renderToEcefCesium;
+      updateClippingTransforms();
+
+      const renderToEcef = new THREE.Matrix4().fromArray(
+        Cesium.Matrix4.toArray(renderToEcefCesium) as number[],
+      );
 
       const position = camera.position.clone().applyMatrix4(renderToEcef);
 
@@ -382,21 +466,36 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
         },
       });
 
-      // three.js `fov` is vertical; Cesium's `fov` is horizontal whenever the
-      // viewport is wider than it is tall. Passing one as the other is a
-      // mismatch you only notice as the globe sliding against the model when
-      // the window is resized.
-      const frustum = scene.camera.frustum as {
-        fov?: number;
-        aspectRatio?: number;
-      };
-      if (typeof frustum.fov === "number") {
+      if (camera instanceof THREE.OrthographicCamera) {
+        if (!(scene.camera.frustum instanceof Cesium.OrthographicFrustum)) {
+          scene.camera.frustum = new Cesium.OrthographicFrustum();
+        }
+        const frustum = scene.camera.frustum as InstanceType<
+          typeof Cesium.OrthographicFrustum
+        >;
+        frustum.width = (camera.right - camera.left) / camera.zoom;
+        frustum.aspectRatio =
+          (camera.right - camera.left) / (camera.top - camera.bottom);
+        frustum.near = camera.near;
+        frustum.far = camera.far;
+      } else {
+        if (!(scene.camera.frustum instanceof Cesium.PerspectiveFrustum)) {
+          scene.camera.frustum = new Cesium.PerspectiveFrustum();
+        }
+        // three.js `fov` is vertical; Cesium's `fov` is horizontal whenever
+        // the viewport is wider than it is tall. Passing one as the other is a
+        // mismatch visible as the globe sliding against the model on resize.
+        const frustum = scene.camera.frustum as InstanceType<
+          typeof Cesium.PerspectiveFrustum
+        >;
         const vertical = (camera.fov * Math.PI) / 180;
         frustum.aspectRatio = camera.aspect;
         frustum.fov =
           camera.aspect >= 1
             ? 2 * Math.atan(Math.tan(vertical / 2) * camera.aspect)
             : vertical;
+        frustum.near = camera.near;
+        frustum.far = camera.far;
       }
 
       // No `scene.render()` here: the widget runs its own loop. Calling it
@@ -406,6 +505,16 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
 
 
       ready = true;
+    },
+
+    setSectionPlanes(planes) {
+      sectionPlanes = planes.map((plane) => ({
+        normal: [...plane.normal],
+        constant: plane.constant,
+      }));
+      fillClippingPlanes(globeClippingPlanes);
+      if (current) fillClippingPlanes(current.primitive.clippingPlanes);
+      updateClippingTransforms();
     },
 
     async setLayer(layer) {
@@ -433,7 +542,7 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
 
         case "osm-buildings": {
           const tileset = await Cesium.createOsmBuildingsAsync();
-          current = { primitive: scene.primitives.add(tileset) };
+          addTileset(tileset);
           break;
         }
 
@@ -443,7 +552,7 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
           // Google's geocoder, which is not what this does — asserting it would
           // be a false statement about our own usage.
           const tileset = await Cesium.createGooglePhotorealistic3DTileset();
-          current = { primitive: scene.primitives.add(tileset) };
+          addTileset(tileset);
           break;
         }
 
@@ -455,13 +564,13 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
             );
           }
           const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(id);
-          current = { primitive: scene.primitives.add(tileset) };
+          addTileset(tileset);
           break;
         }
 
         case "tileset-url": {
           const tileset = await Cesium.Cesium3DTileset.fromUrl(layer.url);
-          current = { primitive: scene.primitives.add(tileset) };
+          addTileset(tileset);
           break;
         }
       }
@@ -483,25 +592,20 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
         writes depth without writing colour. The model then occludes and is
         occluded correctly, while Cesium still draws whatever is actually seen.
 
-        `clampToHeightMostDetailed` rather than `sampleTerrainMostDetailed`:
-        the latter only ever asks the terrain provider, so an OSM-buildings or
-        ion-asset layer (no terrain provider of its own — `setLayer` leaves
-        `scene.globe.terrainProvider` as the bare ellipsoid for those) got no
-        occluder at all, and the model always drew in front of a building that
-        should have hidden it. `clampToHeightMostDetailed` instead reads
-        whatever the scene actually rendered at each point — terrain, 3D Tiles,
-        or both — so one code path occludes against any layer kind.
+        Cesium has two different height paths and they are not interchangeable:
+
+        - `sampleTerrainMostDetailed` reads the globe terrain provider;
+        - `clampToHeightMostDetailed` ray-picks rendered 3D Tiles.
+
+        The old implementation used only the second path. On the terrain and
+        imagery layer every sample therefore came back undefined and this
+        function returned null, leaving the IFC with no depth occluder at all.
+        Select the source that corresponds to the active layer instead.
 
         Coarse on purpose: this is an occluder, not the picture. A 48×48 grid
         over the visible ground is a few thousand triangles and resolves the
         "behind that hill/building" question, which is the one being asked.
       */
-      if (!scene.clampToHeightSupported) {
-        // No way to ask what is in front of the model — a worse picture, not
-        // a broken one.
-        return null;
-      }
-
       const steps = 48;
       const half = metresAcross / 2;
 
@@ -511,37 +615,56 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
       const metresPerDegreeLon =
         metresPerDegreeLat * Math.cos((origin.latitude * Math.PI) / 180);
 
-      // Cast from comfortably above anything the scene could render here —
-      // terrain relief and the tallest realistic building both fit inside
-      // 5 km — down onto whatever surface `clampToHeightMostDetailed` finds.
-      const startHeight = anchorHeight(origin) + 5000;
-
-      const cartesians: Array<InstanceType<typeof Cesium.Cartesian3>> = [];
+      const locations: Array<{ longitude: number; latitude: number }> = [];
       for (let row = 0; row <= steps; row += 1) {
         for (let column = 0; column <= steps; column += 1) {
           const north = -half + (metresAcross * row) / steps;
           const east = -half + (metresAcross * column) / steps;
-          cartesians.push(
-            Cesium.Cartesian3.fromDegrees(
-              origin.longitude + east / metresPerDegreeLon,
-              origin.latitude + north / metresPerDegreeLat,
-              startHeight,
-            ),
-          );
+          locations.push({
+            longitude: origin.longitude + east / metresPerDegreeLon,
+            latitude: origin.latitude + north / metresPerDegreeLat,
+          });
         }
       }
 
-      let clamped: Array<InstanceType<typeof Cesium.Cartesian3> | undefined>;
-      try {
-        clamped = await scene.clampToHeightMostDetailed(cartesians);
-      } catch {
-        return null;
-      }
+      let surface: Array<InstanceType<typeof Cesium.Cartesian3> | undefined>;
 
-      if (clamped.every((point) => point === undefined)) {
-        // Nothing rendered anywhere in the sample area — the bare ellipsoid,
-        // which occludes nothing a flat ground plane would not.
-        return null;
+      if (layerKind === "terrain") {
+        try {
+          const sampled = await Cesium.sampleTerrainMostDetailed(
+            scene.globe.terrainProvider,
+            locations.map(({ longitude, latitude }) =>
+              Cesium.Cartographic.fromDegrees(longitude, latitude),
+            ),
+          );
+          surface = sampled.map((point) =>
+            Number.isFinite(point.height)
+              ? Cesium.Cartesian3.fromRadians(
+                  point.longitude,
+                  point.latitude,
+                  point.height,
+                )
+              : undefined,
+          );
+        } catch {
+          return null;
+        }
+      } else {
+        if (!scene.clampToHeightSupported) return null;
+
+        // Cast from comfortably above anything the scene could render here —
+        // terrain relief and the tallest realistic building both fit inside
+        // 5 km — down onto the active 3D Tiles surface.
+        const startHeight = anchorHeight(origin) + 5000;
+        const castStarts = locations.map(({ longitude, latitude }) =>
+          Cesium.Cartesian3.fromDegrees(longitude, latitude, startHeight),
+        );
+        try {
+          surface = await scene.clampToHeightMostDetailed(castStarts);
+        } catch {
+          return null;
+        }
+        if (surface.every((point) => point === undefined)) return null;
       }
 
       // Same frame as everything else: ECEF → east-north-up at the model →
@@ -563,14 +686,20 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
       const positions = new Float32Array((steps + 1) * (steps + 1) * 3);
       const enuVector = new THREE.Vector3();
 
-      clamped.forEach((point, index) => {
+      surface.forEach((point, index) => {
         // A gap in the sampled layer (e.g. the street between two OSM
         // buildings) — hold it at the anchor's own height rather than
         // punching a hole or spiking the mesh into the point that started
-        // the cast. `local.x`/`local.y` (east/north) are correct either way:
-        // the cast point sits directly above the same longitude/latitude the
-        // clamp was asked for, clamped or not — only the height can differ.
-        const resolved = point ?? cartesians[index]!;
+        // the cast. Keep a separate fallback because Cesium mutates a failed
+        // clamp input entry to `undefined`.
+        const location = locations[index]!;
+        const resolved =
+          point ??
+          Cesium.Cartesian3.fromDegrees(
+            location.longitude,
+            location.latitude,
+            anchorHeight(origin),
+          );
         const local = Cesium.Matrix4.multiplyByPoint(
           ecefToEnu,
           resolved,

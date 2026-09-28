@@ -49,12 +49,8 @@ export function BulkEditBar() {
   };
 
   return (
-    <div className="bg-accent/60 flex flex-wrap items-end gap-3 border-b p-3">
-      <p className="text-xs font-medium">
-        {t("topicsSelected", { count })}
-      </p>
-
-      <div className="grid flex-1 grid-cols-2 gap-2 lg:grid-cols-5">
+    <div className="bcf-bulk-edit bg-accent/60 flex flex-col items-end gap-3 border-b p-3">
+      <div className="bcf-bulk-edit-fields grid w-full gap-2">
         <VocabularyInput
           label={t("status")}
           value={patch.topicStatus}
@@ -86,20 +82,25 @@ export function BulkEditBar() {
           onChange={(value) => set("stage", value)}
         />
       </div>
+      <div className="flex w-full items-center justify-between gap-2">
+        <p className="text-xs font-medium">
+          {t("topicsSelected", { count })}
+        </p>
 
-      <div className="flex items-center gap-1.5">
-        <Button size="sm" className="h-8" onClick={apply}>
-          {t("applyTo", { count })}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={clearChecked}
-          aria-label={t("clearSelection")}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" className="h-8" onClick={apply}>
+            {t("applyTo", { count })}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={clearChecked}
+            aria-label={t("clearSelection")}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

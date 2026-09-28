@@ -207,6 +207,7 @@
       "models": "Models",
       "structure": "Structure",
       "classes": "Classes",
+      "quantities": "Quantities",
       "geo": "Geo",
       "section": "Section",
       "measure": "Measure",
@@ -262,7 +263,9 @@
       "flipNearSide": "Keeping the near side — flip to keep the far side",
       "flipWhichSide": "Flip which side is kept",
       "removePlane": "Remove section plane",
-      "positionLabel": "{label} position"
+      "positionLabel": "{label} position",
+      "rotationLabel": "{label} rotation around the vertical axis",
+      "handlesHint": "In the viewer, drag the blue arrow to move a plane and the gold ring to rotate a vertical section."
     },
     "classFilter": {
       "loadModel": "Load a model to filter by IFC class.",
@@ -292,7 +295,117 @@
       "recordsNone": "This model records no {dimension}.",
       "searchDimension": "Search {dimension}",
       "nothingMatches": "Nothing matches “{search}”.",
+      "hideValue": "Hide {name}",
+      "showValue": "Show {name}",
       "combineRule": "Showing elements that match <strong>every</strong> chosen category, and <strong>any</strong> value within one."
+    },
+    "quantityQuery": {
+      "title": "Quantity query",
+      "loadModel": "Load a model to configure and run a quantity query.",
+      "modelUnavailable": "A model is no longer loaded.",
+      "add": "Add",
+      "set": "Set",
+      "property": "Property",
+      "quantity": "Quantity",
+      "value": "Value",
+      "removeCondition": "Remove property condition",
+      "removeSource": "Remove result source",
+      "formula": "Formula",
+      "formulaHint": "Use source aliases with +, -, *, /, ^ and parentheses. Leave empty when there is one source.",
+      "unit": "Result unit",
+      "unitHint": "A label for display and export; values are not converted automatically.",
+      "run": "Run query",
+      "running": "Running…",
+      "tabs": {
+        "filters": "Filters",
+        "values": "Values",
+        "results": "Results"
+      },
+      "list": {
+        "title": "Query list",
+        "new": "New",
+        "add": "Add to list",
+        "update": "Update",
+        "edit": "Edit",
+        "duplicate": "Duplicate",
+        "remove": "Remove",
+        "runAll": "Run all",
+        "empty": "No saved queries. Configure the fields below, then add the query to this list.",
+        "code": "Code",
+        "description": "Description",
+        "defaultDescription": "Quantity {number}",
+        "copyDescription": "{description} copy",
+        "notRun": "Not run",
+        "selectHint": "Select a quantity to view it, or create a new one.",
+        "viewItem": "View {description}",
+        "editItem": "Edit {description}",
+        "duplicateItem": "Duplicate {description}",
+        "deleteItem": "Delete {description}",
+        "matchCount": "{count, plural, one {# match} other {# matches}}",
+        "itemError": "{description}: {message}"
+      },
+      "workbook": {
+        "import": "Import Excel",
+        "download": "Download Excel",
+        "imported": "Imported {count, plural, one {# quantity} other {# quantities}} from Excel.",
+        "downloaded": "Downloaded the quantity table and element values.",
+        "importFailed": "That Excel file could not be imported. Use a .xlsx table with Description and Quantity columns.",
+        "exportFailed": "The Excel quantity table could not be created."
+      },
+      "filters": {
+        "title": "Filters",
+        "rule": "Fields combine with AND. Comma-separated values inside one field combine with OR.",
+        "class": "IFC class",
+        "predefinedType": "Predefined type",
+        "objectType": "Object type",
+        "material": "Material",
+        "multipleHint": "Separate alternatives with commas.",
+        "propertyConditions": "Property conditions",
+        "propertyRule": "Property condition rule",
+        "propertyAll": "All",
+        "propertyAny": "Any",
+        "noConditions": "No property conditions."
+      },
+      "operators": {
+        "equals": "equals",
+        "notEquals": "does not equal",
+        "contains": "contains",
+        "greaterThan": "greater than",
+        "greaterOrEqual": "at least",
+        "lessThan": "less than",
+        "lessOrEqual": "at most",
+        "exists": "exists"
+      },
+      "sources": {
+        "title": "Result values",
+        "hint": "Give each count, property or quantity a short alias. A formula can combine those aliases per element.",
+        "alias": "Formula alias",
+        "count": "Element count",
+        "property": "Property",
+        "quantity": "Quantity"
+      },
+      "errors": {
+        "alias": "Aliases must start with a letter or underscore and contain only letters, numbers and underscores.",
+        "duplicateAlias": "Each source needs a unique alias.",
+        "sourceFields": "Choose a set and value for every property or quantity source.",
+        "formulaRequired": "Add a formula to combine multiple sources.",
+        "conditionFields": "Choose a set and property for every condition.",
+        "run": "The query could not be completed."
+      },
+      "results": {
+        "title": "Results",
+        "summary": "{matched, number} matched · {values, number} values · {missing, number} missing",
+        "total": "Total",
+        "select": "Select",
+        "isolate": "Isolate",
+        "downloadCsv": "Download this query's rows as CSV",
+        "runHint": "Run the query to see its quantity values.",
+        "none": "No elements match this query.",
+        "element": "Element",
+        "class": "Class",
+        "value": "Result",
+        "previewLimit": "Showing the first 250 of {count, number} rows. The CSV contains all rows."
+      }
     },
     "spatialTree": {
       "loadModel": "Load a model to see its spatial structure.",
@@ -300,6 +413,10 @@
       "readingStructure": "Reading structure…",
       "collapse": "Collapse",
       "expand": "Expand",
+      "hide": "Hide {name}",
+      "show": "Show {name}",
+      "isolate": "Isolate {name}",
+      "clearIsolation": "Clear isolation for {name}",
       "moreElements": "+ {count, number} more — use the class filter to narrow this down."
     },
     "propertyPanel": {
@@ -319,11 +436,37 @@
     },
     "relatedTopics": {
       "none": "No topic refers to the selected element.",
-      "about": "About the selected element"
+      "about": "About the selected element",
+      "edit": "Edit {title}"
     },
     "canvas": {
       "dropHint": "Drop IFC files here, or use “Add models”.",
       "fitView": "Fit view",
+      "showOrigins": "Show model origins",
+      "hideOrigins": "Hide model origins",
+      "viewCube": {
+        "label": "View orientation and projection",
+        "projection": "Projection",
+        "perspective": "Perspective",
+        "orthographic": "Orthographic",
+        "views": {
+          "isometric": "Isometric view",
+          "top": "Top view",
+          "bottom": "Bottom view",
+          "front": "Front view",
+          "back": "Back view",
+          "left": "Left view",
+          "right": "Right view"
+        },
+        "short": {
+          "top": "TOP",
+          "front": "FRONT",
+          "right": "RIGHT",
+          "left": "LEFT",
+          "back": "BACK",
+          "bottom": "BTM"
+        }
+      },
       "webgpu": {
         "noWebGpu": "This browser has no WebGPU. Rendering uses WebGL, which is slower on very large federations.",
         "available": "WebGPU is available.",
@@ -494,10 +637,12 @@
       "title": "Context model",
       "remove": "Remove the context model",
       "loadContext": "Load context",
-      "clipToModel": "Clip CityJSON to the model",
+      "clipToModel": "Clip context to the model",
       "clipRadiusLabel": "Clip radius in metres",
       "needsPlacement": "This data is georeferenced, so the model needs a map conversion before it can be placed against it.",
       "neitherJsonNorXml": "{name} is neither JSON nor XML, so it is none of the formats this reads.",
+      "largeGmlNeedsClip": "This GML is too large to load in full. Keep clipping enabled and georeference the IFC model so only nearby geometry is read.",
+      "readingProgress": "{percent}%",
       "loaded": "Loaded {count} objects — {summary}.",
       "crsMismatch": "The city model is in EPSG:{resultEpsg} but the IFC is in EPSG:{placementEpsg}. It is placed without reprojection, so it may be offset.",
       "readFailed": "That file could not be read.",
@@ -506,7 +651,7 @@
       "summaryNoCrs": ", no CRS declared",
       "noPlacementNote": "The model has no map conversion, so this is placed at the origin rather than aligned.",
       "formatsHint": "CityJSON, CityGML/GML, GeoJSON or GeoPackage — neighbouring buildings, plot boundaries, terrain. Flat footprints carrying a height are extruded. Read in this tab and never uploaded.",
-      "clipHint": "Georeference the model to clip a large CityJSON file to the area around it instead of reading the whole thing."
+      "clipHint": "Georeference the model to clip a large CityJSON or GML file to the area around it instead of loading the whole dataset."
     },
     "idsPanel": {
       "title": "IDS verification",
@@ -569,6 +714,8 @@
       "authorLabel": "Author email for new topics and comments",
       "authorPlaceholder": "you@example.com",
       "allTopics": "All topics",
+      "editTopic": "Edit {title}",
+      "noViewpoint": "This topic has no viewpoint to show.",
       "schemaValid": "Schema-valid BCF 3.0.",
       "schemaErrors": "{count, plural, one {# schema error} other {# schema errors}}: {file} — {message}",
       "validationCouldNotRun": "Validation could not run.",
@@ -983,7 +1130,7 @@
     "viewpointCard": {
       "loadModelFirst": "Load the model in the viewer first — there is nothing to restore into.",
       "missingElements": "{count, plural, one {# element} other {# elements}} not in the loaded models",
-      "skippedPlanes": "{count, plural, one {# non-axis-aligned clipping plane} other {# non-axis-aligned clipping planes}} skipped",
+      "skippedPlanes": "{count, plural, one {# unsupported tilted clipping plane} other {# unsupported tilted clipping planes}} skipped",
       "viewpointRestoredWithCaveats": "Viewpoint restored — {caveats}.",
       "viewpointRestored": "Viewpoint restored.",
       "couldNotOpen": "That viewpoint could not be opened.",

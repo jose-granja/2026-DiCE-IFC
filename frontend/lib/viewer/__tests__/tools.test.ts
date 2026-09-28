@@ -25,6 +25,7 @@ import {
   midpoint,
   polygonArea,
   polygonCentroid,
+  rotateSectionPlane,
   sectionRange,
   snapThresholdFor,
   snapToTriangle,
@@ -42,6 +43,7 @@ function plane(overrides: Partial<SectionPlane> = {}): SectionPlane {
     id: "p",
     axis: "y",
     position: 0,
+    rotation: 0,
     flipped: false,
     enabled: true,
     ...overrides,
@@ -79,6 +81,16 @@ describe("section planes", () => {
     expect(flipped.normal).toEqual([0, 0, 1]);
     expect(unflipped.normal).toEqual([0, 0, -1]);
     expect(flipped.constant).toBe(-unflipped.constant);
+  });
+
+  it("rotates a vertical plane around the Y axis", () => {
+    const rotated = toClipPlane(
+      plane({ axis: "x", position: 2, rotation: 90 }),
+    );
+    expect(rotated.normal[0]).toBeCloseTo(0, 8);
+    expect(rotated.normal[1]).toBe(0);
+    expect(rotated.normal[2]).toBeCloseTo(1, 8);
+    expect(rotated.constant).toBe(2);
   });
 
   it("never emits a negative zero, which would serialise into a workspace", () => {
@@ -131,6 +143,29 @@ describe("section planes", () => {
     const bounds = { min: [5, 0, 0] as Vec3, max: [5, 0, 0] as Vec3 };
     const range = sectionRange(bounds, "x");
     expect(range.max).toBeGreaterThan(range.min);
+  });
+
+  it("projects the slider range onto a rotated normal", () => {
+    const bounds = { min: [0, 0, 0] as Vec3, max: [10, 2, 20] as Vec3 };
+    const range = sectionRange(bounds, "x", 90);
+    expect(range.min).toBeLessThan(-20);
+    expect(range.max).toBeGreaterThan(0);
+  });
+
+  it("rotates around the plane point nearest the model centre", () => {
+    const bounds = {
+      min: [100, 0, 200] as Vec3,
+      max: [140, 20, 260] as Vec3,
+    };
+    const rotated = rotateSectionPlane(
+      plane({ axis: "x", position: 120 }),
+      90,
+      bounds,
+    );
+    expect(rotated.rotation).toBe(90);
+    // The original plane crosses the model centre at [120, 10, 230]. A 90°
+    // yaw measures position along -Z, so keeping that pivot gives -230.
+    expect(rotated.position).toBeCloseTo(-230, 6);
   });
 });
 

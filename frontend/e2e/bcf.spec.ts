@@ -30,13 +30,18 @@ function topicCount(page: Page) {
 }
 
 /**
- * Open the first topic.
+ * Edit the first topic.
  *
- * The panel is narrow, so it shows the list *or* a detail; the wide page that
- * showed both is gone. Tests that assert on topic fields have to open one.
+ * Clicking the topic itself restores its viewpoint. Tests that assert on topic
+ * fields use the explicit pencil action instead.
  */
 async function openFirstTopic(page: Page) {
-  await page.getByRole("list").getByRole("button").first().click();
+  await page
+    .locator("[data-topic-list]")
+    .getByRole("listitem")
+    .first()
+    .getByRole("button", { name: /^Edit / })
+    .click();
   await expect(page.getByLabel("Topic title")).toBeVisible();
 }
 
@@ -62,7 +67,7 @@ test("imports a BCF 3.0 file and lists its topics", async ({ page }) => {
   await openBcf(page);
   await importFiles(page, [LABELS]);
 
-  // Selecting a topic swaps the list for its detail.
+  // The pencil swaps the list for the topic editor.
   await openFirstTopic(page);
   await expect(page.getByLabel("Topic title")).not.toHaveValue("");
 });
@@ -220,15 +225,42 @@ test("exports a .bcf file named after the project", async ({ page }) => {
 test("says so when a viewpoint has no model to restore into", async ({ page }) => {
   await openBcf(page);
   await importFiles(page, [LABELS]);
-  await openFirstTopic(page);
-
   await page
-    .getByRole("button", { name: "Open viewpoint", exact: true })
+    .locator("[data-topic-list]")
+    .getByRole("listitem")
     .first()
+    .getByRole("button", { name: /^Labels/ })
     .click();
   await expect(
     page.getByText(/Load the model in the viewer first/),
   ).toBeVisible();
+  await expect(page.getByLabel("Topic title")).toHaveCount(0);
+});
+
+test("clicking a topic opens its first viewpoint and the pencil opens its editor", async ({
+  page,
+}) => {
+  await page.goto("/viewer");
+  await page.setInputFiles('input[type="file"]', [IFC4]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({
+    timeout: 60_000,
+  });
+  await page.getByRole("tab", { name: "BCF" }).click();
+  await importFiles(page, [LABELS]);
+
+  const row = page
+    .locator("[data-topic-list]")
+    .getByRole("listitem")
+    .first();
+  await row.getByRole("button", { name: /^Labels/ }).click();
+  await expect(page.getByText(/Viewpoint restored/)).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByLabel("Topic title")).toHaveCount(0);
+  await expect(topicCount(page)).toBeVisible();
+
+  await row.getByRole("button", { name: "Edit Labels" }).click();
+  await expect(page.getByLabel("Topic title")).toHaveValue("Labels");
 });
 
 test("raises a topic from the viewer, carrying a viewpoint", async ({ page }) => {

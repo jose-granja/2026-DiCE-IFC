@@ -28,6 +28,8 @@ import type {
   LoadProgress,
   ModelSummary,
   PropertySetView,
+  QuantityQuery,
+  QuantityQueryResult,
   SpatialNodeView,
   StepExportOptions,
   StepExportResult,
@@ -53,6 +55,8 @@ export type ModelHandle = {
   getFilterFacets(): Promise<FilterFacets>;
   /** Everything the information panel shows for one element, in one read. */
   getElementInfo(expressId: ExpressId): Promise<ElementInfo>;
+  /** Evaluate filters and calculated quantities in the model worker. */
+  evaluateQuantityQuery(query: QuantityQuery): Promise<QuantityQueryResult>;
   /** Takes XML; parsing happens here on the main thread. */
   validateIds(
     idsXml: string,
@@ -126,6 +130,7 @@ export async function openModel(
     getSpatialTree: () => api.getSpatialTree(summary.id),
     getFilterFacets: () => api.getFilterFacets(summary.id),
     getElementInfo: (expressId) => api.getElementInfo(summary.id, expressId),
+    evaluateQuantityQuery: (query) => api.evaluateQuantityQuery(summary.id, query),
     validateIds: (idsXml, options) =>
       api.validateIds(
         summary.id,

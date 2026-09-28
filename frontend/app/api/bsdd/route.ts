@@ -34,6 +34,7 @@ const ALLOWED = new Set([
   "/api/Dictionary/v1",
   "/api/Class/Search/v1",
   "/api/Class/v1",
+  "/api/Class/Properties/v1",
 ]);
 
 /** bSDD data changes on the order of months; an hour is conservative. */
@@ -49,6 +50,13 @@ export async function GET(request: NextRequest) {
   if (!ALLOWED.has(path)) {
     return NextResponse.json(
       { error: `bSDD endpoint "${path}" is not proxied.` },
+      { status: 400 },
+    );
+  }
+
+  if (path === "/api/Class/v1" && searchParams.has("IncludeClassProperties")) {
+    return NextResponse.json(
+      { error: "Use the dedicated bSDD class-properties endpoint." },
       { status: 400 },
     );
   }

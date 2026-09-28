@@ -24,13 +24,14 @@ import {
 import { BCF_FILE_EXTENSIONS } from "@/config";
 import { bcfFileName, serializeBcf } from "@/lib/bcf/serialize";
 import { useBcfStore, useSelectedTopic } from "@/lib/bcf/store";
-import { createTopic } from "@/lib/bcf/types";
+import { createTopic, type BcfTopic } from "@/lib/bcf/types";
 import { validateAgainstSchema } from "@/lib/bcf/validate";
 
 import BulkEditBar from "@/app/(home)/bcf/_components/BulkEditBar";
 import FilterBar from "@/app/(home)/bcf/_components/FilterBar";
 import TopicDetail from "@/app/(home)/bcf/_components/TopicDetail";
 import TopicList from "@/app/(home)/bcf/_components/TopicList";
+import { useOpenViewpoint } from "@/app/(home)/bcf/_components/useOpenViewpoint";
 import RelatedTopics from "./RelatedTopics";
 
 /**
@@ -40,10 +41,9 @@ import RelatedTopics from "./RelatedTopics";
  * viewpoint, raise a new one from the current view — both need the viewport.
  * Having them a navigation apart was the same mistake as the IDS page.
  *
- * The panel is narrow, so it is a list *or* a detail rather than both at once:
- * selecting a topic replaces the list, and a back button returns. The wide
- * three-pane arrangement stays available at `/bcf`… which is now this, so it
- * does not. That is the trade for having the model beside it.
+ * The panel is narrow, so editing is a list *or* a detail rather than both at
+ * once. Clicking a topic restores its first viewpoint and keeps the list in
+ * place; its pencil button explicitly enters the detail editor.
  */
 export function BcfPanel() {
   const t = useTranslations("viewer.bcfPanel");
@@ -63,6 +63,24 @@ export function BcfPanel() {
 
   const fileInput = useRef<HTMLInputElement>(null);
   const [validating, setValidating] = useState(false);
+  const [editingGuid, setEditingGuid] = useState<string | null>(null);
+  const { openViewpoint, openingGuid } = useOpenViewpoint();
+
+  const onOpenTopic = (topic: BcfTopic) => {
+    setEditingGuid(null);
+    select(topic.guid);
+    const viewpoint = topic.viewpoints[0];
+    if (!viewpoint) {
+      toast.info(t("noViewpoint"));
+      return;
+    }
+    void openViewpoint(topic, viewpoint);
+  };
+
+  const onEditTopic = (topic: BcfTopic) => {
+    select(topic.guid);
+    setEditingGuid(topic.guid);
+  };
 
   /** Schema-check the archive we would export, with libxml2 in a worker. */
   const onValidate = async () => {
@@ -138,6 +156,7 @@ export function BcfPanel() {
         })),
       );
       importArchives(archives);
+      setEditingGuid(null);
       toast.success(t("imported", { count: files.length }));
     } catch (error) {
       toast.error(
@@ -241,16 +260,16 @@ export function BcfPanel() {
             size="sm"
             className="h-7 px-2 text-xs"
             aria-label={t("newTopic")}
-            onClick={() =>
-              addTopic(
-                createTopic({
+            onClick={() => {
+              const topic = createTopic({
                   title: t("defaultTopicTitle"),
                   author: author || t("unknownAuthor"),
                   topicType: file.extensions.topicTypes[0] ?? "Issue",
                   topicStatus: file.extensions.topicStatuses[0] ?? "Open",
-                }),
-              )
-            }
+                });
+              addTopic(topic);
+              setEditingGuid(topic.guid);
+            }}
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
           </Button>
@@ -284,14 +303,17 @@ export function BcfPanel() {
         ))}
       </div>
 
-      {selected ? (
+      {selected && editingGuid === selected.guid ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="border-b p-2">
             <Button
               variant="ghost"
               size="sm"
               className="h-7 px-2 text-xs"
-              onClick={() => select(null)}
+              onClick={() => {
+                setEditingGuid(null);
+                select(null);
+              }}
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               {t("allTopics")}
@@ -309,12 +331,19 @@ export function BcfPanel() {
             enough to squeeze the topic list to zero height — checking a topic
             made the list disappear.
           */}
-          <div className="max-h-[45%] shrink-0 overflow-auto">
+          <div className="max-w-full shrink-0 overflow-auto">
             <BulkEditBar />
           </div>
           <FilterBar />
-          <RelatedTopics />
-          <TopicList />
+          <RelatedTopics
+            onOpenTopic={onOpenTopic}
+            onEditTopic={onEditTopic}
+          />
+          <TopicList
+            onOpenTopic={onOpenTopic}
+            onEditTopic={onEditTopic}
+            openingGuid={openingGuid}
+          />
         </>
       )}
 

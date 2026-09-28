@@ -124,6 +124,50 @@ function ringPoints(ring: Element, defaultDimension: number): Point[] {
       points.push([numbers[0], numbers[1], numbers[2] ?? 0]);
     }
   }
+  if (points.length > 0) return points;
+
+  /*
+    GML 2 and a large amount of cadastral data still use `coordinates`:
+
+      <gml:coordinates cs="," ts=" ">100,200,3 110,200,3 …</gml:coordinates>
+
+    `cs` separates ordinates and `ts` separates coordinate tuples. They are
+    attributes rather than fixed punctuation, although comma/whitespace is by
+    far the most common spelling.
+  */
+  const coordinates = byLocalName(ring, "coordinates")[0];
+  if (coordinates) {
+    const coordinateSeparator = coordinates.getAttribute("cs") ?? ",";
+    const tupleSeparator = coordinates.getAttribute("ts") ?? " ";
+    const decimal = coordinates.getAttribute("decimal") ?? ".";
+    const content = (coordinates.textContent ?? "").trim();
+    const tuples = tupleSeparator.trim()
+      ? content.split(tupleSeparator)
+      : content.split(/\s+/);
+
+    for (const tuple of tuples) {
+      const values = tuple
+        .trim()
+        .split(coordinateSeparator)
+        .map((value) => Number(decimal === "." ? value : value.replace(decimal, ".")));
+      if (values.length >= 2 && values.every(Number.isFinite)) {
+        points.push([values[0], values[1], values[2] ?? 0]);
+      }
+    }
+    if (points.length > 0) return points;
+  }
+
+  // The other legacy GML 2 spelling is one `coord` element per point with
+  // child X/Y/Z values. It remains common in land-registry exports.
+  for (const coordinate of byLocalName(ring, "coord")) {
+    const x = Number(localChild(coordinate, "X")?.textContent);
+    const y = Number(localChild(coordinate, "Y")?.textContent);
+    const zText = localChild(coordinate, "Z")?.textContent;
+    const z = zText === null || zText === undefined ? 0 : Number(zText);
+    if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
+      points.push([x, y, z]);
+    }
+  }
   return points;
 }
 
@@ -137,7 +181,10 @@ function featureNameOf(element: Element): string {
   return "Feature";
 }
 
-export function parseCityGml(text: string, targetEpsg: number): ContextGeometry {
+export function parseCityGml(
+  text: string,
+  targetEpsg: number | null = null,
+): ContextGeometry {
   const document_ = new DOMParser().parseFromString(text, "application/xml");
   if (document_.querySelector("parsererror")) {
     throw new CityGmlError("That file is not well-formed XML.");
@@ -161,6 +208,7 @@ export function parseCityGml(text: string, targetEpsg: number): ContextGeometry 
       "This file does not say which coordinate system it is in (no srsName), so its coordinates cannot be placed.",
     );
   }
+  const outputEpsg = targetEpsg ?? sourceEpsg;
 
   const defaultDimension =
     Number(
@@ -168,7 +216,11 @@ export function parseCityGml(text: string, targetEpsg: number): ContextGeometry 
         byLocalName(root, "Envelope")[0]?.getAttribute("srsDimension"),
     ) || 3;
 
-  const polygons = byLocalName(root, "Polygon");
+  const polygons = [
+    ...byLocalName(root, "Polygon"),
+    ...byLocalName(root, "PolygonPatch"),
+    ...byLocalName(root, "Triangle"),
+  ];
   if (polygons.length === 0) {
     throw new CityGmlError(
       "This file has no gml:Polygon geometry — it may hold only metadata, or geometry in a form this reader does not cover.",
@@ -183,14 +235,14 @@ export function parseCityGml(text: string, targetEpsg: number): ContextGeometry 
     national grid the model is placed in.
   */
   const reproject =
-    sourceEpsg === targetEpsg
+    sourceEpsg === outputEpsg
       ? null
       : (point: Point): Point => {
           const wgs = mapToWgs84(
             { easting: point[0], northing: point[1], height: point[2] },
             sourceEpsg,
           );
-          const map = wgs84ToMap(wgs, targetEpsg);
+          const map = wgs84ToMap(wgs, outputEpsg);
           return [map.easting, map.northing, point[2]];
         };
 
@@ -255,7 +307,7 @@ export function parseCityGml(text: string, targetEpsg: number): ContextGeometry 
     positions,
     colours,
     origin,
-    epsg: targetEpsg,
+    epsg: outputEpsg,
     // Surfaces, not buildings: a CityGML building is many polygons, and
     // counting them as objects would overstate what was read.
     objectCount: ready.length,

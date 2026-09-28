@@ -80,7 +80,7 @@ export default function SignVerifyPage() {
         }
       />
 
-      <div className="max-w-4xl space-y-4 p-4">
+      <div className="max-w-full space-y-4 p-4">
         {!result && (
           <div className="text-muted-foreground rounded-md border border-dashed p-10 text-center text-sm">
             <p className="font-medium">{t("noContainerOpened")}</p>

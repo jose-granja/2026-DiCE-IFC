@@ -12,6 +12,7 @@
 import {
   IfcParser,
   extractEntityAttributesOnDemand,
+  extractAllEntityAttributes,
   extractPropertiesOnDemand,
   extractGeoreferencingOnDemand,
   extractClassificationSystemsOnDemand,
@@ -25,7 +26,11 @@ import {
   normalizeIfcTypeName,
   type IfcDataStore,
 } from "@ifc-lite/parser";
-import type { IfcAttributeValue, SpatialNode } from "@ifc-lite/data";
+import {
+  IfcTypeEnum,
+  type IfcAttributeValue,
+  type SpatialNode,
+} from "@ifc-lite/data";
 import { GeometryProcessor } from "@ifc-lite/geometry";
 import type { AABB as IfcLiteAabb, Vec3 as IfcLiteVec3 } from "@ifc-lite/geometry";
 import { MutablePropertyView, StoreEditor } from "@ifc-lite/mutations";
@@ -58,6 +63,8 @@ import {
   type IdsValidationOptions,
   type ModelSummary,
   type PropertySetView,
+  type QuantityQuery,
+  type QuantityQueryResult,
   type RepresentationContextView,
   type SiteLocationView,
   type SpatialNodeView,
@@ -66,6 +73,12 @@ import {
   type Vec3,
   type VocabularyOptions,
 } from "./types";
+import {
+  asFiniteNumber,
+  compileQuantityExpression,
+  findSetValue,
+  matchesPropertyCondition,
+} from "./quantity-query";
 
 type LoadedModel = {
   summary: ModelSummary;
@@ -345,7 +358,7 @@ function toSpatialNodeView(node: SpatialNode): SpatialNodeView {
   return {
     expressId: node.expressId,
     // `type` is an enum ordinal in the engine's tree; the adapter speaks names.
-    type: String(node.type),
+    type: IfcTypeEnum[node.type] ?? String(node.type),
     name: node.longName ? `${node.name} — ${node.longName}` : node.name,
     elevation: node.elevation,
     children: node.children.map(toSpatialNodeView),
@@ -498,7 +511,10 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
 
     const stride = Math.max(1, Math.ceil(candidates.length / sampleSize));
     const propertySets = new Map<string, Set<string>>();
+    const quantitySets = new Map<string, Set<string>>();
     const materials = new Set<string>();
+    const predefinedTypes = new Set<string>();
+    const objectTypes = new Set<string>();
 
     for (let i = 0; i < candidates.length; i += stride) {
       const expressId = candidates[i];
@@ -507,6 +523,28 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
         const properties = propertySets.get(set.name) ?? new Set<string>();
         for (const property of set.properties) properties.add(property.name);
         propertySets.set(set.name, properties);
+      }
+
+      const type = extractTypePropertiesOnDemand(store, expressId);
+      for (const set of type?.properties ?? []) {
+        const properties = propertySets.get(set.name) ?? new Set<string>();
+        for (const property of set.properties) properties.add(property.name);
+        propertySets.set(set.name, properties);
+      }
+
+      for (const set of extractQuantitiesOnDemand(store, expressId)) {
+        const quantities = quantitySets.get(set.name) ?? new Set<string>();
+        for (const quantity of set.quantities) quantities.add(quantity.name);
+        quantitySets.set(set.name, quantities);
+      }
+
+      const attributes = extractEntityAttributesOnDemand(store, expressId);
+      if (attributes.objectType?.trim()) objectTypes.add(attributes.objectType.trim());
+      const predefinedType = extractAllEntityAttributes(store, expressId).find(
+        (attribute) => attribute.name.toLocaleLowerCase() === "predefinedtype",
+      )?.value;
+      if (predefinedType !== undefined && String(predefinedType).trim()) {
+        predefinedTypes.add(String(predefinedType).trim());
       }
 
       for (const material of extractAllMaterialsOnDemand(store, expressId)) {
@@ -522,6 +560,14 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
           properties: [...properties].sort(),
         }))
         .sort((a, b) => a.name.localeCompare(b.name)),
+      quantitySets: [...quantitySets.entries()]
+        .map(([name, quantities]) => ({
+          name,
+          quantities: [...quantities].sort(),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      predefinedTypes: [...predefinedTypes].sort(),
+      objectTypes: [...objectTypes].sort(),
       classificationSystems: extractClassificationSystemsOnDemand(store).sort(),
       materials: [...materials].sort(),
     };
@@ -637,6 +683,10 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
       // and every entity in the file — units, directions, placements — ended
       // up offered as a filter.
       const walk = (node: SpatialNodeView) => {
+        // Spaces are spatial nodes themselves, rather than entries in their
+        // own `elementIds`. Include the node so IfcSpace appears under Class
+        // and can be combined with hierarchy, type, material and group facets.
+        if (node.type === "IfcSpace") placed.add(node.expressId);
         for (const id of node.elementIds) placed.add(id);
         for (const child of node.children) walk(child);
       };
@@ -717,6 +767,196 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
       types: toFacet(types),
       materials: toFacet(materials),
       groups: toFacet(groups),
+    };
+  },
+
+  async evaluateQuantityQuery(
+    modelId: ModelId,
+    query: QuantityQuery,
+  ): Promise<QuantityQueryResult> {
+    const { store } = must(modelId);
+
+    if (query.sources.length === 0) throw new Error("A quantity query needs at least one result source.");
+    const aliases = new Set<string>();
+    for (const source of query.sources) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(source.alias)) {
+        throw new Error(`Invalid source alias “${source.alias}”.`);
+      }
+      if (aliases.has(source.alias)) throw new Error(`Duplicate source alias “${source.alias}”.`);
+      aliases.add(source.alias);
+      if (source.kind !== "count" && (!source.setName?.trim() || !source.valueName?.trim())) {
+        throw new Error(`Source “${source.alias}” needs a set and value name.`);
+      }
+    }
+
+    const formula = query.formula?.trim() ?? "";
+    if (!formula && query.sources.length !== 1) {
+      throw new Error("Add a formula when the query has more than one result source.");
+    }
+    for (const identifier of formula.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? []) {
+      if (!aliases.has(identifier)) throw new Error(`The formula uses unknown source “${identifier}”.`);
+    }
+    const calculate = formula ? compileQuantityExpression(formula) : null;
+
+    // Query only product occurrences. The spatial hierarchy is the model's
+    // own declaration of those occurrences and also includes IfcSpace nodes.
+    const placed = new Set<number>();
+    if (store.spatialHierarchy) {
+      const walk = (node: SpatialNodeView) => {
+        if (node.type === "IfcSpace") placed.add(node.expressId);
+        for (const id of node.elementIds) placed.add(id);
+        for (const child of node.children) walk(child);
+      };
+      walk(toSpatialNodeView(store.spatialHierarchy.project));
+    }
+
+    const normalize = (value: string) => value.trim().toLocaleLowerCase();
+    const wanted = (values: string[]) => new Set(values.map(normalize).filter(Boolean));
+    const wantedClasses = wanted(query.filters.classes);
+    const wantedPredefinedTypes = wanted(query.filters.predefinedTypes);
+    const wantedObjectTypes = wanted(query.filters.objectTypes);
+    const wantedMaterials = wanted(query.filters.materials);
+
+    const candidateIds: number[] = [];
+    for (const [rawType, ids] of store.entityIndex.byType) {
+      const type = normalizeIfcTypeName(rawType);
+      if (wantedClasses.size > 0 && !wantedClasses.has(normalize(type))) continue;
+      for (const id of ids) {
+        if (placed.size === 0 || placed.has(id)) candidateIds.push(id);
+      }
+    }
+    candidateIds.sort((a, b) => a - b);
+
+    const rows: QuantityQueryResult["rows"] = [];
+    for (const expressId of candidateIds) {
+      const entity = store.getEntity(expressId);
+      if (!entity) continue;
+      const type = normalizeIfcTypeName(entity.type);
+      const attributes = extractEntityAttributesOnDemand(store, expressId);
+      const predefinedType = String(
+        extractAllEntityAttributes(store, expressId).find(
+          (attribute) => attribute.name.toLocaleLowerCase() === "predefinedtype",
+        )?.value ?? "",
+      ).trim();
+      const objectType = attributes.objectType?.trim() ?? "";
+      if (
+        wantedPredefinedTypes.size > 0 &&
+        !wantedPredefinedTypes.has(normalize(predefinedType))
+      ) continue;
+      if (wantedObjectTypes.size > 0 && !wantedObjectTypes.has(normalize(objectType))) continue;
+
+      const materials = [
+        ...new Set(
+          extractAllMaterialsOnDemand(store, expressId)
+            .map((material) => material.name?.trim())
+            .filter((name): name is string => Boolean(name)),
+        ),
+      ];
+      if (
+        wantedMaterials.size > 0 &&
+        !materials.some((material) => wantedMaterials.has(normalize(material)))
+      ) continue;
+
+      const toView = (
+        sets: Array<{ name: string; properties: Array<{ name: string; value: unknown }> }>,
+      ): PropertySetView[] =>
+        sets.map((set) => ({
+          name: set.name,
+          properties: set.properties.map((property) => ({
+            name: property.name,
+            value: (property.value ?? null) as PropertyValue,
+          })),
+        }));
+
+      const occurrenceProperties = toView(extractPropertiesOnDemand(store, expressId));
+      const inherited = extractTypePropertiesOnDemand(store, expressId);
+      const properties = [
+        ...occurrenceProperties,
+        ...toView(inherited?.properties ?? []),
+      ];
+      const propertyMatches = query.filters.properties.map((condition) =>
+          matchesPropertyCondition(
+            findSetValue(properties, condition.setName, condition.propertyName),
+            condition.operator,
+            condition.value,
+          ));
+      if (
+        query.filters.propertyCombination === "any"
+          ? propertyMatches.length > 0 && !propertyMatches.some(Boolean)
+          : !propertyMatches.every(Boolean)
+      ) continue;
+
+      const quantities = toView(
+        extractQuantitiesOnDemand(store, expressId).map((set) => ({
+          name: set.name,
+          properties: set.quantities,
+        })),
+      );
+      const inputs: Record<string, PropertyValue> = {};
+      for (const source of query.sources) {
+        if (source.kind === "count") inputs[source.alias] = 1;
+        else if (source.kind === "property") {
+          inputs[source.alias] =
+            findSetValue(properties, source.setName!, source.valueName!) ?? null;
+        } else {
+          inputs[source.alias] =
+            findSetValue(quantities, source.setName!, source.valueName!) ?? null;
+        }
+      }
+
+      let value: PropertyValue = inputs[query.sources[0].alias] ?? null;
+      if (calculate) {
+        const variables: Record<string, number> = {};
+        let complete = true;
+        for (const source of query.sources) {
+          const numeric = asFiniteNumber(inputs[source.alias]);
+          if (numeric === null) {
+            complete = false;
+            break;
+          }
+          variables[source.alias] = numeric;
+        }
+        if (!complete) value = null;
+        else {
+          try {
+            value = calculate(variables);
+          } catch {
+            value = null;
+          }
+        }
+      }
+
+      rows.push({
+        expressId,
+        type,
+        globalId: attributes.globalId,
+        name: attributes.name,
+        predefinedType,
+        objectType,
+        materials,
+        inputs,
+        value,
+      });
+    }
+
+    let total = 0;
+    let numericValues = 0;
+    let valueCount = 0;
+    for (const row of rows) {
+      if (row.value !== null && row.value !== "") valueCount += 1;
+      const numeric = asFiniteNumber(row.value);
+      if (numeric === null) continue;
+      total += numeric;
+      numericValues += 1;
+    }
+
+    return {
+      modelId,
+      matchedCount: rows.length,
+      valueCount,
+      missingValueCount: rows.length - valueCount,
+      total: numericValues > 0 ? total : null,
+      rows,
     };
   },
 

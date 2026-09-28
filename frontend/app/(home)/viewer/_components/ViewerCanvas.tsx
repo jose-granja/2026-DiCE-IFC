@@ -11,9 +11,16 @@ import { useViewerStore } from "@/lib/viewer/store";
 import { hasAnySnapTarget } from "@/lib/viewer/tools";
 import MeasurementLabels from "./MeasurementLabels";
 import { Button } from "@/components/ui/button";
-import { Maximize2 } from "lucide-react";
+import { Axis3D, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { setGlobeCanvas } from "@/lib/viewer/globe-canvas";
+import type { CameraProjection } from "@/lib/viewer/camera";
+import ViewCube, { type ViewCubeRef } from "./ViewCube";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 /**
  * Above this many CSS pixels of movement between pointerdown and pointerup,
@@ -41,10 +48,14 @@ export function ViewerCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const globeRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<ViewerRenderer | null>(null);
+  const viewCubeRef = useRef<ViewCubeRef | null>(null);
   // Where the current gesture started, so `onPointerUp` can tell a click from
   // a drag; see `onPointerDown`.
   const pointerDownPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const sectionGizmoDraggingRef = useRef(false);
   const [ready, setReady] = useState(false);
+  const [projection, setProjection] = useState<CameraProjection>("perspective");
+  const [originsVisible, setOriginsVisible] = useState(false);
   // What the scene actually holds, which is not always what the store holds.
   const [renderedModels, setRenderedModels] = useState(0);
 
@@ -115,15 +126,25 @@ export function ViewerCanvas() {
     rendererRef.current = renderer;
     setActiveRenderer(renderer);
     setReady(true);
+    const stopProjectionListener = renderer.onProjectionChange(setProjection);
+    const stopRotationListener = renderer.onCameraRotationChange(
+      ({ azimuth, elevation }) =>
+        viewCubeRef.current?.updateRotation(-elevation, -azimuth),
+    );
 
     detectWebGpu().then((support) => {
       if (!support.available) {
         // A warning, not a blocker: the WebGL path is the shipped one.
-        toast.info(t(`webgpu.${support.reason}`), { id: "webgpu", duration: 8000 });
+        toast.info(t(`webgpu.${support.reason}`), {
+          id: "webgpu",
+          duration: 8000,
+        });
       }
     });
 
     return () => {
+      stopProjectionListener();
+      stopRotationListener();
       renderer.dispose();
       rendererRef.current = null;
       setActiveRenderer(null);
@@ -178,7 +199,8 @@ export function ViewerCanvas() {
     for (const model of models) {
       const modelId = model.summary.id;
       if (requested.current.has(modelId)) continue;
-      if (model.load.status === "failed" || model.load.status === "parsing") continue;
+      if (model.load.status === "failed" || model.load.status === "parsing")
+        continue;
 
       requested.current.add(modelId);
       const handle = getModelHandle(modelId);
@@ -194,6 +216,7 @@ export function ViewerCanvas() {
           renderer.setModelGeometry(modelId, geometry.meshes, {
             tint: model.colour,
             tintAmount: 0.35,
+            originShift: geometry.coordinates.originShift,
           });
           useViewerStore.getState().updateModel(modelId, {
             coordinates: geometry.coordinates,
@@ -206,7 +229,8 @@ export function ViewerCanvas() {
         .catch((error: unknown) => {
           requested.current.delete(modelId);
           if (!mounted.current) return;
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           useViewerStore.getState().updateModel(modelId, {
             hasGeometry: false,
             load: { status: "failed", error: message },
@@ -267,8 +291,11 @@ export function ViewerCanvas() {
 
   // ---- section planes
   useEffect(() => {
-    rendererRef.current?.setSectionPlanes(sectionPlanes);
-  }, [sectionPlanes]);
+    rendererRef.current?.setSectionPlanes(
+      sectionPlanes,
+      useViewerStore.getState().federationBounds(),
+    );
+  }, [sectionPlanes, models, placements]);
 
   // ---- measurement overlays
   useEffect(() => {
@@ -276,15 +303,24 @@ export function ViewerCanvas() {
   }, [measurements, pendingPoint]);
 
   useEffect(() => {
-    rendererRef.current?.setAngleMeasurements(angleMeasurements, pendingAnglePoints);
+    rendererRef.current?.setAngleMeasurements(
+      angleMeasurements,
+      pendingAnglePoints,
+    );
   }, [angleMeasurements, pendingAnglePoints]);
 
   useEffect(() => {
-    rendererRef.current?.setAreaMeasurements(areaMeasurements, pendingAreaPoints);
+    rendererRef.current?.setAreaMeasurements(
+      areaMeasurements,
+      pendingAreaPoints,
+    );
   }, [areaMeasurements, pendingAreaPoints]);
 
   useEffect(() => {
-    rendererRef.current?.setVolumeMeasurements(volumeMeasurements, pendingBoxCorner);
+    rendererRef.current?.setVolumeMeasurements(
+      volumeMeasurements,
+      pendingBoxCorner,
+    );
   }, [volumeMeasurements, pendingBoxCorner]);
 
   // Leaving a point-picking tool, or turning off every snap target, drops the
@@ -315,7 +351,8 @@ export function ViewerCanvas() {
           else store.setTool("select");
           return;
         case "measureAngle":
-          if (store.pendingAnglePoints.length > 0) store.cancelAngleMeasurement();
+          if (store.pendingAnglePoints.length > 0)
+            store.cancelAngleMeasurement();
           else store.setTool("select");
           return;
         case "measureArea":
@@ -346,16 +383,41 @@ export function ViewerCanvas() {
    * lets a click still act while a drag does not.
    */
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const renderer = rendererRef.current;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (
+      renderer?.beginSectionGizmoDrag(
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+      )
+    ) {
+      sectionGizmoDraggingRef.current = true;
+      pointerDownPositionRef.current = null;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      return;
+    }
     pointerDownPositionRef.current = { x: event.clientX, y: event.clientY };
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const renderer = rendererRef.current;
+    if (sectionGizmoDraggingRef.current) {
+      sectionGizmoDraggingRef.current = false;
+      renderer?.endSectionGizmoDrag();
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      return;
+    }
     const down = pointerDownPositionRef.current;
     pointerDownPositionRef.current = null;
     if (!renderer || !down) return;
 
-    const dragDistance = Math.hypot(event.clientX - down.x, event.clientY - down.y);
+    const dragDistance = Math.hypot(
+      event.clientX - down.x,
+      event.clientY - down.y,
+    );
     if (dragDistance > CLICK_DRAG_THRESHOLD_PX) return;
 
     const rect = event.currentTarget.getBoundingClientRect();
@@ -387,7 +449,10 @@ export function ViewerCanvas() {
           // Reuses the ordinary selection highlight the same way volume's
           // "element" mode does, so the measured element is visibly obvious
           // alongside the face's own green fill.
-          store.select([{ modelId: result.modelId, expressId: result.expressId }], "replace");
+          store.select(
+            [{ modelId: result.modelId, expressId: result.expressId }],
+            "replace",
+          );
         } else {
           const point = renderer.pickPoint(x, y, store.snapTargets);
           if (point) store.addAreaPoint(point.point);
@@ -402,7 +467,12 @@ export function ViewerCanvas() {
           if (!hit) return;
           const result = renderer.getElementVolume(hit.modelId, hit.expressId);
           if (!result) return;
-          store.addElementVolume(hit.modelId, hit.expressId, result.volume, result.centroid);
+          store.addElementVolume(
+            hit.modelId,
+            hit.expressId,
+            result.volume,
+            result.centroid,
+          );
           // Reuses the ordinary selection highlight as the "this is what got
           // measured" feedback, rather than building a second, redundant one.
           store.select([hit], "replace");
@@ -437,6 +507,20 @@ export function ViewerCanvas() {
     const renderer = rendererRef.current;
     if (!renderer) return;
 
+    if (sectionGizmoDraggingRef.current) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const update = renderer.updateSectionGizmoDrag(
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+      );
+      if (update) {
+        useViewerStore
+          .getState()
+          .updateSectionPlane(update.id, update.patch);
+      }
+      return;
+    }
+
     const store = useViewerStore.getState();
     const pointPicking =
       store.tool === "measureDistance" ||
@@ -450,11 +534,23 @@ export function ViewerCanvas() {
     const y = event.clientY - rect.top;
 
     const result = renderer.pickPoint(x, y, store.snapTargets);
-    renderer.setSnapPreview(result?.snapType ? result.point : null, result?.snapType ?? null);
+    renderer.setSnapPreview(
+      result?.snapType ? result.point : null,
+      result?.snapType ?? null,
+    );
   };
 
   const onPointerLeave = () => {
     rendererRef.current?.setSnapPreview(null, null);
+  };
+
+  const onPointerCancel = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!sectionGizmoDraggingRef.current) return;
+    sectionGizmoDraggingRef.current = false;
+    rendererRef.current?.endSectionGizmoDrag();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   };
 
   // Every loaded model has its geometry in the renderer. Exposed on the DOM so
@@ -462,8 +558,6 @@ export function ViewerCanvas() {
   // "Fit" button can be disabled until there is something to fit to.
   const geometryReady =
     models.length > 0 && models.every((m) => m.load.status === "ready");
-
-
 
   return (
     <div
@@ -503,6 +597,7 @@ export function ViewerCanvas() {
         onPointerUp={onPointerUp}
         onPointerMove={onPointerMove}
         onPointerLeave={onPointerLeave}
+        onPointerCancel={onPointerCancel}
         className={cn(
           "h-full w-full touch-none",
           tool !== "select" && "cursor-crosshair",
@@ -519,6 +614,16 @@ export function ViewerCanvas() {
         </div>
       )}
 
+      <ViewCube
+        ref={viewCubeRef}
+        projection={projection}
+        onProjectionChange={(nextProjection) =>
+          rendererRef.current?.setProjection(nextProjection)
+        }
+        onViewChange={(view) => rendererRef.current?.setStandardView(view)}
+        onDrag={(deltaX, deltaY) => rendererRef.current?.orbit(deltaX, deltaY)}
+      />
+
       {/*
         Bottom-centre of this element, which since the side panels became
         docked (`page.tsx`) is exactly the visible canvas area — no longer a
@@ -526,6 +631,32 @@ export function ViewerCanvas() {
         centre of the space this canvas actually has.
       */}
       <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={originsVisible ? "secondary" : "ghost"}
+              size="sm"
+              disabled={models.length === 0}
+              aria-pressed={originsVisible}
+              onClick={() => {
+                const visible = !originsVisible;
+                setOriginsVisible(visible);
+                const renderer = rendererRef.current;
+                renderer?.setOriginsVisible(visible);
+                if (visible) {
+                  renderer?.fitToBoundsAndOrigins(
+                    useViewerStore.getState().federationBounds(),
+                  );
+                }
+              }}
+            >
+              <Axis3D className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {originsVisible ? t("hideOrigins") : t("showOrigins")}
+          </TooltipContent>
+        </Tooltip>
         <Button
           variant="secondary"
           size="sm"

@@ -18,6 +18,15 @@ import type { BsddDictionary } from "./client";
 
 const KEY = "dice-ifc.bsdd.dictionaries";
 
+/** The IFC schema dictionary used by default for IDS authoring. */
+export const IFC_4_3_DICTIONARY: BsddDictionary = {
+  uri: "https://identifier.buildingsmart.org/uri/buildingsmart/ifc/4.3",
+  name: "IFC",
+  code: "ifc",
+  version: "4.3",
+  organizationNameOwner: "buildingSMART",
+};
+
 type BsddState = {
   /** Chosen dictionaries, in the order they were added. */
   selected: BsddDictionary[];
@@ -38,10 +47,15 @@ export const useBsddStore = create<BsddState>((set, get) => ({
     if (get().hydrated) return;
     try {
       const raw = window.localStorage.getItem(KEY);
-      set({ selected: raw ? (JSON.parse(raw) as BsddDictionary[]) : [], hydrated: true });
+      set({
+        selected: raw
+          ? (JSON.parse(raw) as BsddDictionary[])
+          : [IFC_4_3_DICTIONARY],
+        hydrated: true,
+      });
     } catch {
-      // A corrupt entry is not worth failing the editor over.
-      set({ selected: [], hydrated: true });
+      // A corrupt entry is not worth losing the useful IFC default over.
+      set({ selected: [IFC_4_3_DICTIONARY], hydrated: true });
     }
   },
 

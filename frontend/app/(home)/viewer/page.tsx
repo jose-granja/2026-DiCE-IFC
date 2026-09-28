@@ -12,6 +12,7 @@ import {
   Ruler,
   Scissors,
   Shapes,
+  Sigma,
 } from "lucide-react";
 
 /** Tabs `?panel=` may open. */
@@ -19,6 +20,7 @@ const PANELS = [
   "models",
   "structure",
   "classes",
+  "quantities",
   "section",
   "measure",
   "ids",
@@ -44,6 +46,7 @@ import GeorefPanel from "./_components/GeorefPanel";
 import BcfPanel from "./_components/BcfPanel";
 import ModelDropZone, { AddModelsButton } from "./_components/ModelDropZone";
 import WorkspaceActions from "./_components/WorkspaceActions";
+import { QuantityQueryPanel } from "./_components/QuantityQueryPanel";
 
 /**
  * The federated IFC viewer.
@@ -137,7 +140,7 @@ export default function ViewerPage() {
                 every case — `getByRole("tab", { name: "Classes" })` works
                 whichever is showing, and so does a screen reader.
               */}
-              <TabsList className="m-2 grid grid-cols-8 bg-transparent p-0">
+              <TabsList className="m-2 grid grid-cols-9 bg-transparent p-0">
                 <TabsTrigger value="models" className="text-xs">
                   <Boxes className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
                   <span className="panel-tab-text">{t("tabs.models")}</span>
@@ -154,6 +157,10 @@ export default function ViewerPage() {
                 <TabsTrigger value="classes" className="text-xs">
                   <Shapes className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
                   <span className="panel-tab-text">{t("tabs.classes")}</span>
+                </TabsTrigger>
+                <TabsTrigger value="quantities" className="text-xs">
+                  <Sigma className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
+                  <span className="panel-tab-text">{t("tabs.quantities")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="georef" className="text-xs">
                   <Globe className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
@@ -186,6 +193,9 @@ export default function ViewerPage() {
               <TabsContent value="classes" className="min-h-0 flex-1 overflow-hidden">
                 <FilterPanel />
               </TabsContent>
+              <TabsContent value="quantities" className="min-h-0 flex-1 overflow-hidden">
+                <QuantityQueryPanel />
+              </TabsContent>
               <TabsContent value="section" className="min-h-0 flex-1 overflow-hidden">
                 <SectionPanel />
               </TabsContent>
@@ -195,7 +205,17 @@ export default function ViewerPage() {
               <TabsContent value="ids" className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <IdsPanel />
               </TabsContent>
-              <TabsContent value="georef" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              {/*
+                Keep the georeferencing panel mounted while another viewer tab
+                is active. Its globe and context-model controls own long-lived
+                renderer resources; unmounting this content used to dispose
+                both as soon as the user opened Sections to cut them.
+              */}
+              <TabsContent
+                value="georef"
+                forceMount
+                className="flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
+              >
                 <GeorefPanel />
               </TabsContent>
               <TabsContent value="bcf" className="flex min-h-0 flex-1 flex-col overflow-hidden">

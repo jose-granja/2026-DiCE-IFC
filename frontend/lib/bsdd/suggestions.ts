@@ -18,14 +18,22 @@
  * autocomplete stops being decoration.
  */
 
+import { useEffect, useMemo, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 
-import { getClass, searchClasses, type BsddProperty } from "./client";
+import {
+  getClassPredefinedTypes,
+  getClassProperties,
+  searchClasses,
+  type BsddProperty,
+} from "./client";
 import { useBsddStore } from "./store";
 
 export type BsddSuggestions = {
   /** IFC class names, e.g. `IFCWALL`. */
   classes: string[];
+  /** Standard predefined types for one exact IFC class. */
+  predefinedTypesFor: (ifcClass: string) => string[];
   propertySets: string[];
   /** Property names within a set; every known property when none is named. */
   propertiesFor: (propertySet: string) => string[];
@@ -44,6 +52,7 @@ export type BsddSuggestions = {
 
 const EMPTY: BsddSuggestions = {
   classes: [],
+  predefinedTypesFor: () => [],
   propertySets: [],
   propertiesFor: () => [],
   valuesFor: () => [],
@@ -54,46 +63,94 @@ const EMPTY: BsddSuggestions = {
 /**
  * Look up the classes a specification names, and everything bSDD knows of them.
  *
- * `classNames` comes from the specification's own entity facets. Nothing is
- * requested until the author has both chosen a dictionary and named a class —
- * there is no search-as-you-type here, so no stream of keystrokes leaves the
- * deployment.
+ * `classNames` comes from the specification's own entity facets. Partial input
+ * is debounced, and properties are requested only after the search has found
+ * an exact class. This keeps ordinary typing from becoming a burst of bSDD
+ * requests while still offering class matches from the search response.
  */
-export function useBsddSuggestions(classNames: string[]): BsddSuggestions {
+export function useBsddSuggestions(
+  classNames: string[],
+  {
+    loadProperties,
+    predefinedTypeClasses,
+  }: {
+    loadProperties: boolean;
+    predefinedTypeClasses: string[];
+  },
+): BsddSuggestions {
   const dictionaries = useBsddStore((s) => s.selected);
   const uris = dictionaries.map((entry) => entry.uri);
 
-  const wanted = [...new Set(classNames.map((name) => name.trim()).filter(Boolean))];
+  const namesKey = JSON.stringify(
+    [...new Set(classNames.map((name) => name.trim()).filter(Boolean))],
+  );
+  const [debouncedNamesKey, setDebouncedNamesKey] = useState(namesKey);
 
-  const lookups = useQueries({
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedNamesKey(namesKey), 400);
+    return () => window.clearTimeout(timeout);
+  }, [namesKey]);
+
+  const wanted = useMemo(
+    () => JSON.parse(debouncedNamesKey) as string[],
+    [debouncedNamesKey],
+  );
+
+  const searches = useQueries({
     queries: wanted.map((name) => ({
-      queryKey: ["bsdd-class", uris, name],
+      queryKey: ["bsdd-class-search", uris, name],
       enabled: uris.length > 0,
       staleTime: Infinity,
       retry: false,
-      queryFn: async () => {
-        // Search first: an IDS names `IFCWALL`, bSDD keys on a URI.
-        const matches = await searchClasses(uris, name, 5);
-        const exact =
-          matches.find(
-            (entry) => entry.referenceCode?.toUpperCase() === name.toUpperCase(),
-          ) ?? matches[0];
-        if (!exact) return null;
-        return getClass(exact.uri);
-      },
+      queryFn: ({ signal }) => searchClasses(uris, name, 20, signal),
     })),
   });
 
-  if (uris.length === 0) return EMPTY;
+  const exactClasses = searches.flatMap((query, index) => {
+    const name = wanted[index];
+    if (!name) return [];
+    const exact = query.data?.find(
+      (entry) => entry.referenceCode?.toUpperCase() === name.toUpperCase(),
+    );
+    return exact ? [exact] : [];
+  });
 
-  const properties: BsddProperty[] = lookups.flatMap(
-    (query) => query.data?.properties ?? [],
+  const propertyLookups = useQueries({
+    queries: (loadProperties ? exactClasses : []).map((entry) => ({
+      queryKey: ["bsdd-class-properties", entry.uri],
+      staleTime: Infinity,
+      retry: false,
+      queryFn: ({ signal }) => getClassProperties(entry.uri, signal),
+    })),
+  });
+
+  const wantedPredefinedTypes = new Set(
+    predefinedTypeClasses.map((name) => name.trim().toUpperCase()),
   );
+  const predefinedClasses = exactClasses.filter((entry) =>
+    wantedPredefinedTypes.has(entry.referenceCode.toUpperCase()),
+  );
+  const predefinedTypeLookups = useQueries({
+    queries: predefinedClasses.map((entry) => ({
+      queryKey: ["bsdd-class-predefined-types", entry.uri],
+      staleTime: Infinity,
+      retry: false,
+      queryFn: ({ signal }) =>
+        getClassPredefinedTypes(entry.uri, entry.referenceCode, signal),
+    })),
+  });
+
+  const properties: BsddProperty[] = propertyLookups.flatMap(
+    (query) => query.data ?? [],
+  );
+
+  if (uris.length === 0) return EMPTY;
 
   const classes = [
     ...new Set(
-      lookups
-        .map((query) => query.data?.referenceCode?.toUpperCase())
+      searches
+        .flatMap((query) => query.data ?? [])
+        .map((entry) => entry.referenceCode?.toUpperCase())
         .filter((value): value is string => Boolean(value)),
     ),
   ];
@@ -108,8 +165,18 @@ export function useBsddSuggestions(classNames: string[]): BsddSuggestions {
 
   return {
     classes,
+    predefinedTypesFor: (ifcClass: string) => {
+      const index = predefinedClasses.findIndex(
+        (entry) =>
+          entry.referenceCode.toUpperCase() === ifcClass.trim().toUpperCase(),
+      );
+      return index < 0 ? [] : (predefinedTypeLookups[index]?.data ?? []);
+    },
     propertySets,
-    loading: lookups.some((query) => query.isLoading),
+    loading:
+      searches.some((query) => query.isLoading) ||
+      propertyLookups.some((query) => query.isLoading) ||
+      predefinedTypeLookups.some((query) => query.isLoading),
 
     propertiesFor: (propertySet: string) => {
       const inSet = propertySet

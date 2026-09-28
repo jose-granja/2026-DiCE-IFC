@@ -45,6 +45,16 @@ async function canvasCentre(page: Page) {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
+/** A WebGL gizmo point projected into page coordinates by the renderer. */
+async function sectionHandlePoint(page: Page, attribute: string) {
+  const viewer = page.locator("[data-rendered-models]");
+  await expect(viewer).toHaveAttribute(attribute, /-?\d+(?:\.\d+)?,-?\d/);
+  const encoded = await viewer.getAttribute(attribute);
+  const [x, y] = encoded!.split(",").map(Number);
+  const canvas = (await page.locator("[data-model-canvas]").boundingBox())!;
+  return { x: canvas.x + x, y: canvas.y + y };
+}
+
 /**
  * Whether the snap preview marker is currently showing.
  *
@@ -118,6 +128,46 @@ test.describe("section planes", () => {
     await expect(
       page.getByRole("button", { name: "Remove section plane" }),
     ).toHaveCount(2);
+  });
+
+  test("rotates and moves a vertical plane with viewer handles", async ({ page }) => {
+    await loadModel(page);
+    await page.getByRole("tab", { name: "Section" }).click();
+    await page.getByRole("button", { name: /Section X/ }).click();
+
+    const viewer = page.locator("[data-rendered-models]");
+    const position = page.getByRole("slider", { name: /Section X position/i });
+    const rotation = page.getByRole("slider", {
+      name: /Section X rotation around the vertical axis/i,
+    });
+    await expect(viewer).toHaveAttribute("data-section-gizmo-count", "1");
+    await expect(rotation).toHaveAttribute("aria-valuenow", "0");
+
+    const positionBefore = await position.getAttribute("aria-valuenow");
+    const centre = await sectionHandlePoint(page, "data-section-handle-centre");
+    const move = await sectionHandlePoint(page, "data-section-move-handle");
+    const length = Math.hypot(move.x - centre.x, move.y - centre.y);
+    const dx = (move.x - centre.x) / length;
+    const dy = (move.y - centre.y) / length;
+    await page.mouse.move(move.x, move.y);
+    await page.mouse.down();
+    await page.mouse.move(move.x + dx * 28, move.y + dy * 28, { steps: 5 });
+    await page.mouse.up();
+    await expect(position).not.toHaveAttribute("aria-valuenow", positionBefore!);
+
+    const rotateFrom = await sectionHandlePoint(
+      page,
+      "data-section-rotate-handle",
+    );
+    const rotateTo = await sectionHandlePoint(
+      page,
+      "data-section-rotate-target",
+    );
+    await page.mouse.move(rotateFrom.x, rotateFrom.y);
+    await page.mouse.down();
+    await page.mouse.move(rotateTo.x, rotateTo.y, { steps: 8 });
+    await page.mouse.up();
+    await expect(rotation).not.toHaveAttribute("aria-valuenow", "0");
   });
 
   test("renders without errors while sectioning", async ({ page }) => {
