@@ -18,6 +18,12 @@ export type ClashGroup = {
   name: string;
   /** Optional discipline label, like the first row of a Solibri matrix. */
   discipline?: string;
+  /**
+   * What the project still has to say for this group to select the right
+   * elements — shown on the group, not used by the engine. A template sets it
+   * where the IFC class alone cannot tell two groups apart.
+   */
+  note?: string;
   filter: ElementFilter;
 };
 

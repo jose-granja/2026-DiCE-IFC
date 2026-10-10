@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 
@@ -211,4 +212,29 @@ test("a stored panel width is restored on load", async ({ page }) => {
   await expect
     .poll(() => page.locator("aside").first().evaluate((el) => el.getBoundingClientRect().width))
     .toBeCloseTo(460, 0);
+});
+
+test("opens more models than there are workers", async ({ page }, testInfo) => {
+  // The parser pool has at most four workers, and each open model used to hold
+  // one for as long as it was open: the fifth sat at "parsing" for ever. Seven
+  // models, three of them the same file under another name, is more than any pool.
+  const fixtures = path.resolve(__dirname, "../fixtures/ifc");
+  const files = [
+    "georeferenced-wall-ifc4.ifc",
+    "bridge-ifc4x3.ifc",
+    "clash-ifc4.ifc",
+    "facets-ifc4.ifc",
+    "spaces-ifc4.ifc",
+  ].map((name) => path.join(fixtures, name));
+  const copies = ["copy-a.ifc", "copy-b.ifc"].map((name) => {
+    const copy = testInfo.outputPath(name);
+    fs.copyFileSync(IFC4, copy);
+    return copy;
+  });
+
+  await page.setInputFiles('input[type="file"]', [...files, ...copies]);
+
+  await expect(page.locator("[data-rendered-models]")).toHaveAttribute("data-rendered-models", "7", {
+    timeout: 90_000,
+  });
 });

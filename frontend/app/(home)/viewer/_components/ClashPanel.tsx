@@ -436,8 +436,22 @@ function GroupCard({
         <p className="text-warning px-2 pb-1.5 text-[10px]">{t("groups.noFilter")}</p>
       )}
 
+      {group.note && !open && (
+        <p
+          className="text-muted-foreground px-2 pb-1.5 text-[10px] leading-snug"
+          data-clash-group-note
+        >
+          {group.note}
+        </p>
+      )}
+
       {open && (
         <div className="space-y-2 border-t p-2">
+          {group.note && (
+            <p className="bg-muted/50 rounded p-1.5 text-[10px] leading-snug" data-clash-group-note>
+              {group.note}
+            </p>
+          )}
           <div className="space-y-1">
             <Label htmlFor={`${group.id}-discipline`} className="text-[11px]">
               {t("groups.discipline")}

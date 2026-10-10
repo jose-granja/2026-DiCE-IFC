@@ -129,12 +129,14 @@ test("the residential template fills an empty matrix and finds the duct through 
 
   await expect(page.getByText(/Residential template loaded/)).toBeVisible();
   // The groups tab now lists the template's groups…
-  await expect(page.locator('input[value="Ducts (HVAC)"]')).toBeVisible();
+  await expect(page.locator('input[value="HVAC ducts"]')).toBeVisible();
+  // Groups that share IFC classes say what the project still has to filter.
+  await expect(page.locator("[data-clash-group-note]").first()).toContainText(/model|system|CLZ_/i);
   // …the matrix tab shows them as a grid with cells filled in…
   await page.getByRole("tab", { name: /^Matrix/ }).click();
   const grid = page.locator("[data-clash-matrix]");
   await expect(grid).toBeVisible();
-  expect(await grid.locator("select").count()).toBeGreaterThan(20);
+  expect(await grid.locator("select").count()).toBeGreaterThan(150);
   // …and the model can be checked against it straight away.
   await page.getByRole("button", { name: "Run", exact: true }).click();
   await expect(page.getByText(/\d+ clash(es)? in/)).toBeVisible({ timeout: 60_000 });
@@ -145,11 +147,11 @@ test("loading the template over an existing matrix can be undone", async ({ page
   await expect(page.locator('input[value="Slabs"]')).toBeVisible();
 
   await page.getByRole("button", { name: "Use residential template" }).click();
-  await expect(page.locator('input[value="Ducts (HVAC)"]')).toBeVisible();
+  await expect(page.locator('input[value="HVAC ducts"]')).toBeVisible();
   await expect(page.locator('input[value="Slabs"]')).toHaveCount(0);
 
   await page.getByRole("button", { name: "Undo" }).click();
-  await expect(page.locator('input[value="Ducts (HVAC)"]')).toHaveCount(0);
+  await expect(page.locator('input[value="HVAC ducts"]')).toHaveCount(0);
   await expect(page.locator('input[value="Slabs"]')).toBeVisible();
 });
 

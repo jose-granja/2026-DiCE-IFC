@@ -1,14 +1,28 @@
 /**
  * Ready-made clash matrices.
  *
- * A matrix is a lot of typing before the first useful run: a dozen groups of
- * IFC classes and the tolerance for each pair of them. For a residential
- * building the answer is nearly always the same, so it is offered as a starting
- * point — not a rule. Every group, tolerance and cell can be edited afterwards,
- * and the result exports like any other matrix.
+ * A matrix is a lot of typing before the first useful run: a couple of dozen
+ * groups of IFC classes and the tolerance for each pair of them. The residential
+ * one below is a coordination baseline for a house or apartment block —
+ * architecture, structure, HVAC, plumbing, electrical, fire protection, ELV,
+ * lifts, site utilities and two kinds of clearance zone — with the tests worth
+ * running between them and the tolerance each should use.
  *
- * The words (discipline, group and tolerance names) are passed in so the matrix
- * reads in the user's language; the structure is the same in both.
+ * It comes from a residential coordination workbook (its Test Register, Filters,
+ * Tolerances and General Requirements sheets): the 172 tests that workbook
+ * enables are the cells here, and the 31 it leaves disabled are left empty.
+ * What the workbook also carries — priority, run stage, reviewer, intent and
+ * permitted exceptions per test — is a coordination register and has no place in
+ * a matrix, so it is not here.
+ *
+ * It is a *baseline*, not a rule. Several groups select the same IFC classes
+ * (the five kinds of pipework, architectural versus structural walls and
+ * slabs), and what tells them apart is project-specific: which model, which
+ * system. Those groups carry a note saying so, and they need a filter before
+ * the results mean anything. Every group, tolerance and cell stays editable.
+ *
+ * The words (discipline, group, tolerance and note text) are passed in so the
+ * matrix reads in the user's language; the structure is the same in both.
  */
 
 import { EMPTY_ELEMENT_FILTER } from "@/lib/ifc/types";
@@ -29,140 +43,271 @@ export const TEMPLATE_IDS: readonly TemplateId[] = ["residential"];
 export type TemplateLabel = (key: string) => string;
 
 type GroupSpec = {
+  /** The workbook's own code (A01, S02, H03…), lower-cased. */
   key: string;
-  discipline: "architecture" | "structure" | "mep";
+  discipline:
+    | "architecture"
+    | "structure"
+    | "hvac"
+    | "plumbing"
+    | "electrical"
+    | "fire"
+    | "elv"
+    | "transport"
+    | "civil"
+    | "zones";
   classes: string[];
+  predefinedTypes?: string[];
+  names?: string[];
 };
 
 /**
  * Wildcards, because a class and its subtypes belong together: `IfcWall*` is
  * `IfcWall`, `IfcWallStandardCase` and `IfcWallElementedCase`.
  *
- * What is deliberately not here: a "structural slab" or "structural wall".
- * Those are the same IFC classes as the architect's, and what tells them apart
- * (a load-bearing flag, a layer name) is not written consistently enough to
- * build a default on. Add one with a property filter once your models agree.
+ * The two clearance-zone groups select only solids *named* `CLZ_MAINT_*` or
+ * `CLZ_EGRESS_*`. Left to the class alone they would select every room in the
+ * building (`IfcSpace`), and the zone is something the project models on
+ * purpose.
  */
 const GROUPS: GroupSpec[] = [
-  // Architecture
-  { key: "walls", discipline: "architecture", classes: ["IfcWall*", "IfcCurtainWall"] },
-  { key: "floorsRoofs", discipline: "architecture", classes: ["IfcSlab*", "IfcRoof"] },
-  { key: "doors", discipline: "architecture", classes: ["IfcDoor*"] },
-  { key: "windows", discipline: "architecture", classes: ["IfcWindow*"] },
-  { key: "stairs", discipline: "architecture", classes: ["IfcStair*", "IfcRamp*"] },
-  { key: "ceilings", discipline: "architecture", classes: ["IfcCovering"] },
-  // Structure
-  { key: "columns", discipline: "structure", classes: ["IfcColumn*"] },
-  { key: "beams", discipline: "structure", classes: ["IfcBeam*"] },
-  { key: "foundations", discipline: "structure", classes: ["IfcFooting*", "IfcPile*"] },
-  // Services
-  { key: "ducts", discipline: "mep", classes: ["IfcDuctSegment*", "IfcDuctFitting*"] },
-  { key: "pipes", discipline: "mep", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] },
-  {
-    key: "cableways",
-    discipline: "mep",
-    classes: ["IfcCableCarrierSegment*", "IfcCableCarrierFitting*", "IfcCableSegment*", "IfcCableFitting*"],
-  },
-  {
-    key: "equipment",
-    discipline: "mep",
-    classes: [
-      "IfcFlowController*",
-      "IfcFlowMovingDevice*",
-      "IfcFlowStorageDevice*",
-      "IfcFlowTreatmentDevice*",
-      "IfcEnergyConversionDevice*",
-      "IfcElectricDistributionBoard*",
-    ],
-  },
-  {
-    key: "terminals",
-    discipline: "mep",
-    classes: ["IfcFlowTerminal*", "IfcAirTerminal*", "IfcSanitaryTerminal*", "IfcLightFixture*", "IfcOutlet*"],
-  },
+  { key: "a01", discipline: "architecture", classes: ["IfcWall*", "IfcCurtainWall"] }, // Walls & partitions
+  { key: "a02", discipline: "architecture", classes: ["IfcSlab*", "IfcRoof*"] }, // Floors & roofs
+  { key: "a03", discipline: "architecture", classes: ["IfcDoor*"] }, // Doors
+  { key: "a04", discipline: "architecture", classes: ["IfcWindow*"] }, // Windows & glazing
+  { key: "a05", discipline: "architecture", classes: ["IfcStair*", "IfcRamp*", "IfcRailing*"] }, // Stairs, ramps & railings
+  { key: "a06", discipline: "architecture", classes: ["IfcCovering*"], predefinedTypes: ["CEILING"] }, // Suspended ceilings
+  { key: "a07", discipline: "architecture", classes: ["IfcFurnishingElement*", "IfcSystemFurnitureElement*", "IfcBuildingElementProxy*"] }, // Fixed joinery
+  { key: "s01", discipline: "structure", classes: ["IfcWall*", "IfcSlab*"] }, // Structural slabs & walls
+  { key: "s02", discipline: "structure", classes: ["IfcColumn*", "IfcBeam*", "IfcMember*"] }, // Columns & beams
+  { key: "s03", discipline: "structure", classes: ["IfcFooting*", "IfcPile*"] }, // Foundations & piles
+  { key: "h01", discipline: "hvac", classes: ["IfcDuctSegment*", "IfcDuctFitting*"] }, // HVAC ducts
+  { key: "h02", discipline: "hvac", classes: ["IfcAirTerminal*", "IfcAirTerminalBox*", "IfcFan*", "IfcDamper*", "IfcUnitaryEquipment*", "IfcEnergyConversionDevice*"] }, // Air terminals & HVAC plant
+  { key: "h03", discipline: "hvac", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Heating / cooling pipes
+  { key: "p01", discipline: "plumbing", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Domestic water pipes
+  { key: "p02", discipline: "plumbing", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Waste / rainwater pipes
+  { key: "p03", discipline: "plumbing", classes: ["IfcSanitaryTerminal*", "IfcWasteTerminal*", "IfcTank*", "IfcPump*"] }, // Plumbing fixtures & pumps
+  { key: "e01", discipline: "electrical", classes: ["IfcCableCarrierSegment*", "IfcCableCarrierFitting*"] }, // Cable trays & conduits
+  { key: "e02", discipline: "electrical", classes: ["IfcElectricDistributionBoard*", "IfcTransformer*", "IfcSwitchingDevice*", "IfcProtectiveDevice*"] }, // Boards & electrical plant
+  { key: "e03", discipline: "electrical", classes: ["IfcLightFixture*", "IfcOutlet*", "IfcJunctionBox*"] }, // Lighting & power devices
+  { key: "f01", discipline: "fire", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Sprinkler pipework
+  { key: "f02", discipline: "fire", classes: ["IfcFireSuppressionTerminal*", "IfcAlarm*", "IfcSensor*"] }, // Sprinkler heads & fire devices
+  { key: "l01", discipline: "elv", classes: ["IfcCommunicationsAppliance*", "IfcAlarm*", "IfcSensor*", "IfcAudioVisualAppliance*"] }, // ELV / security devices
+  { key: "v01", discipline: "transport", classes: ["IfcTransportElement*"] }, // Lifts & transport
+  { key: "c01", discipline: "civil", classes: ["IfcPipeSegment*", "IfcPipeFitting*", "IfcDistributionChamberElement*"] }, // External utilities
+  { key: "z01", discipline: "zones", classes: ["IfcSpace*", "IfcBuildingElementProxy*"], names: ["CLZ_MAINT_*"] }, // Plant maintenance zones
+  { key: "z02", discipline: "zones", classes: ["IfcSpace*", "IfcBuildingElementProxy*"], names: ["CLZ_EGRESS_*"] }, // Egress / door swing zones
 ];
 
+/** The groups that need the project to say which of the same-class elements they mean. */
+export const GROUPS_NEEDING_SETUP: ReadonlySet<string> = new Set(["a01", "a02", "a07", "s01", "h03", "p01", "p02", "f01", "c01", "z01", "z02"]);
+
+/** Distances in metres. Clearance mode ignores the overlap depth; hard mode ignores the gap. */
 const TOLERANCES: Array<Omit<ClashTolerance, "name"> & { key: string }> = [
-  // An overlap that is not deeper than this is two elements meeting, not clashing.
-  { key: "hard10", id: "hard10", mode: "hard", horizontal: 0.01, vertical: 0.01, clearance: 0.05, useVolume: false, volume: 0.01 },
-  // Finishes and structure routinely overlap by a couple of centimetres at a joint.
-  { key: "hard25", id: "hard25", mode: "hard", horizontal: 0.025, vertical: 0.025, clearance: 0.05, useVolume: false, volume: 0.01 },
-  // Room to insulate, to hang and to service.
-  { key: "clearance50", id: "clearance50", mode: "clearance", horizontal: 0.01, vertical: 0.01, clearance: 0.05, useVolume: false, volume: 0.01 },
+  { key: "hard5", id: "hard5", mode: "hard", horizontal: 0.005, vertical: 0.005, clearance: 0, useVolume: false, volume: 0 },
+  { key: "hard10", id: "hard10", mode: "hard", horizontal: 0.01, vertical: 0.01, clearance: 0, useVolume: false, volume: 0 },
+  { key: "hard25", id: "hard25", mode: "hard", horizontal: 0.025, vertical: 0.025, clearance: 0, useVolume: false, volume: 0 },
+  { key: "clearance50", id: "clearance50", mode: "clearance", horizontal: 0.005, vertical: 0.005, clearance: 0.05, useVolume: false, volume: 0 },
+  { key: "clearance100", id: "clearance100", mode: "clearance", horizontal: 0.005, vertical: 0.005, clearance: 0.1, useVolume: false, volume: 0 },
+  { key: "clearance150", id: "clearance150", mode: "clearance", horizontal: 0.005, vertical: 0.005, clearance: 0.15, useVolume: false, volume: 0 },
+  { key: "clearance300", id: "clearance300", mode: "clearance", horizontal: 0.005, vertical: 0.005, clearance: 0.3, useVolume: false, volume: 0 },
+  { key: "clearance600", id: "clearance600", mode: "clearance", horizontal: 0.005, vertical: 0.005, clearance: 0.6, useVolume: false, volume: 0 },
 ];
 
 type Cell = [a: string, b: string, tolerance: string];
 
 /**
- * The cells. Pairs not listed are not tested: walls against slabs is how a
- * building is made, not a clash.
+ * The enabled tests. A pair not listed is not tested: walls resting on a slab,
+ * or a door in its wall, is how a building is made rather than a clash.
  */
 const RULES: Cell[] = [
-  // Architecture × structure: overlaps of a few centimetres where finishes meet frame.
-  ["walls", "columns", "hard25"],
-  ["walls", "beams", "hard25"],
-  ["walls", "foundations", "hard25"],
-  ["floorsRoofs", "columns", "hard25"],
-  ["floorsRoofs", "beams", "hard25"],
-  ["floorsRoofs", "foundations", "hard25"],
-  ["stairs", "columns", "hard25"],
-  ["stairs", "beams", "hard25"],
-  ["doors", "columns", "hard10"],
-  ["doors", "beams", "hard10"],
-  ["windows", "columns", "hard10"],
-  ["windows", "beams", "hard10"],
-  ["ceilings", "columns", "hard10"],
-  ["ceilings", "beams", "hard10"],
-
-  // Services × structure: the classic. A pipe through a beam is a clash; a pipe
-  // through a slab is one until someone models the opening.
-  ["ducts", "columns", "hard10"],
-  ["ducts", "beams", "hard10"],
-  ["ducts", "foundations", "hard10"],
-  ["pipes", "columns", "hard10"],
-  ["pipes", "beams", "hard10"],
-  ["pipes", "foundations", "hard10"],
-  ["cableways", "columns", "hard10"],
-  ["cableways", "beams", "hard10"],
-  ["equipment", "columns", "hard10"],
-  ["equipment", "beams", "hard10"],
-  ["terminals", "columns", "hard10"],
-  ["terminals", "beams", "hard10"],
-
-  // Services × architecture: penetrations and things in the way.
-  ["ducts", "walls", "hard10"],
-  ["ducts", "floorsRoofs", "hard10"],
-  ["pipes", "walls", "hard10"],
-  ["pipes", "floorsRoofs", "hard10"],
-  ["cableways", "walls", "hard10"],
-  ["cableways", "floorsRoofs", "hard10"],
-  ["equipment", "walls", "hard10"],
-  ["equipment", "floorsRoofs", "hard10"],
-  ["ducts", "doors", "hard10"],
-  ["ducts", "windows", "hard10"],
-  ["pipes", "doors", "hard10"],
-  ["pipes", "windows", "hard10"],
-  ["ducts", "stairs", "hard10"],
-  ["pipes", "stairs", "hard10"],
-  ["ducts", "ceilings", "clearance50"],
-  ["pipes", "ceilings", "clearance50"],
-
-  // Services × services: kept apart, not merely not touching.
-  ["ducts", "pipes", "clearance50"],
-  ["ducts", "cableways", "clearance50"],
-  ["pipes", "cableways", "clearance50"],
-  ["equipment", "ducts", "hard10"],
-  ["equipment", "pipes", "hard10"],
-  ["equipment", "cableways", "hard10"],
+  ["s02", "a01", "hard10"],
+  ["h01", "a01", "hard10"],
+  ["p02", "a01", "hard10"],
+  ["f01", "a01", "hard10"],
+  ["z01", "a01", "hard5"],
+  ["z02", "a01", "hard5"],
+  ["h01", "a02", "hard10"],
+  ["h03", "a02", "hard10"],
+  ["p01", "a02", "hard10"],
+  ["p02", "a02", "hard10"],
+  ["e01", "a02", "hard10"],
+  ["f01", "a02", "hard10"],
+  ["a05", "a03", "hard10"],
+  ["a07", "a03", "hard10"],
+  ["s01", "a03", "hard10"],
+  ["s02", "a03", "hard10"],
+  ["h01", "a03", "hard10"],
+  ["e02", "a03", "hard10"],
+  ["z01", "a03", "hard5"],
+  ["a05", "a04", "hard10"],
+  ["s01", "a04", "hard10"],
+  ["s02", "a04", "hard10"],
+  ["h01", "a04", "hard10"],
+  ["e02", "a04", "hard10"],
+  ["a06", "a05", "hard10"],
+  ["a07", "a05", "hard10"],
+  ["s01", "a05", "hard10"],
+  ["s02", "a05", "hard10"],
+  ["h01", "a05", "hard10"],
+  ["h02", "a05", "hard10"],
+  ["p02", "a05", "hard10"],
+  ["e01", "a05", "hard10"],
+  ["f01", "a05", "hard10"],
+  ["z01", "a05", "hard5"],
+  ["z02", "a05", "hard5"],
+  ["s02", "a06", "hard10"],
+  ["h01", "a06", "hard10"],
+  ["h02", "a06", "hard10"],
+  ["h03", "a06", "hard10"],
+  ["p02", "a06", "hard10"],
+  ["e01", "a06", "hard10"],
+  ["f01", "a06", "hard10"],
+  ["h02", "a07", "hard10"],
+  ["e02", "a07", "hard10"],
+  ["z01", "a07", "hard5"],
+  ["z02", "a07", "hard5"],
+  ["h01", "s01", "hard10"],
+  ["h02", "s01", "hard10"],
+  ["h03", "s01", "hard5"],
+  ["p01", "s01", "hard5"],
+  ["p02", "s01", "hard10"],
+  ["p03", "s01", "hard5"],
+  ["e01", "s01", "hard5"],
+  ["e02", "s01", "hard10"],
+  ["e03", "s01", "hard5"],
+  ["f01", "s01", "hard10"],
+  ["f02", "s01", "hard5"],
+  ["l01", "s01", "hard5"],
+  ["v01", "s01", "hard10"],
+  ["c01", "s01", "hard10"],
+  ["z01", "s01", "hard5"],
+  ["z02", "s01", "hard5"],
+  ["h01", "s02", "hard10"],
+  ["h02", "s02", "hard10"],
+  ["h03", "s02", "hard5"],
+  ["p01", "s02", "hard5"],
+  ["p02", "s02", "hard10"],
+  ["p03", "s02", "hard5"],
+  ["e01", "s02", "hard5"],
+  ["e02", "s02", "hard10"],
+  ["e03", "s02", "hard5"],
+  ["f01", "s02", "hard10"],
+  ["f02", "s02", "hard5"],
+  ["l01", "s02", "hard5"],
+  ["v01", "s02", "hard10"],
+  ["z01", "s02", "hard5"],
+  ["z02", "s02", "hard5"],
+  ["h03", "s03", "hard5"],
+  ["p01", "s03", "hard5"],
+  ["p02", "s03", "hard10"],
+  ["f01", "s03", "hard10"],
+  ["v01", "s03", "hard10"],
+  ["c01", "s03", "hard10"],
+  ["z01", "s03", "hard5"],
+  ["h03", "h01", "clearance100"],
+  ["p01", "h01", "clearance100"],
+  ["p02", "h01", "clearance100"],
+  ["p03", "h01", "hard10"],
+  ["e01", "h01", "clearance50"],
+  ["e02", "h01", "hard10"],
+  ["e03", "h01", "hard10"],
+  ["f01", "h01", "clearance100"],
+  ["f02", "h01", "clearance100"],
+  ["l01", "h01", "hard10"],
+  ["v01", "h01", "hard10"],
+  ["z01", "h01", "hard5"],
+  ["z02", "h01", "hard5"],
+  ["h03", "h02", "hard10"],
+  ["p01", "h02", "hard10"],
+  ["p02", "h02", "hard10"],
+  ["p03", "h02", "hard10"],
+  ["e01", "h02", "hard10"],
+  ["e02", "h02", "hard10"],
+  ["e03", "h02", "clearance50"],
+  ["f01", "h02", "hard10"],
+  ["f02", "h02", "clearance100"],
+  ["l01", "h02", "hard10"],
+  ["z01", "h02", "hard5"],
+  ["z02", "h02", "hard5"],
+  ["p01", "h03", "clearance50"],
+  ["p02", "h03", "clearance50"],
+  ["p03", "h03", "hard10"],
+  ["e01", "h03", "clearance50"],
+  ["e02", "h03", "hard10"],
+  ["f01", "h03", "clearance50"],
+  ["f02", "h03", "clearance100"],
+  ["c01", "h03", "clearance100"],
+  ["z01", "h03", "hard5"],
+  ["z02", "h03", "hard5"],
+  ["p02", "p01", "clearance50"],
+  ["e01", "p01", "clearance50"],
+  ["e02", "p01", "clearance150"],
+  ["f01", "p01", "clearance50"],
+  ["f02", "p01", "clearance100"],
+  ["c01", "p01", "clearance100"],
+  ["z01", "p01", "hard5"],
+  ["z02", "p01", "hard5"],
+  ["p03", "p02", "hard10"],
+  ["e01", "p02", "clearance100"],
+  ["e02", "p02", "clearance150"],
+  ["e03", "p02", "hard10"],
+  ["f01", "p02", "clearance50"],
+  ["f02", "p02", "clearance100"],
+  ["l01", "p02", "hard10"],
+  ["v01", "p02", "hard10"],
+  ["c01", "p02", "clearance100"],
+  ["z01", "p02", "hard5"],
+  ["z02", "p02", "hard5"],
+  ["e01", "p03", "hard10"],
+  ["e02", "p03", "clearance150"],
+  ["e03", "p03", "hard10"],
+  ["f01", "p03", "hard10"],
+  ["z01", "p03", "hard5"],
+  ["z02", "p03", "hard5"],
+  ["e02", "e01", "hard10"],
+  ["e03", "e01", "hard10"],
+  ["f01", "e01", "clearance50"],
+  ["f02", "e01", "clearance100"],
+  ["l01", "e01", "hard10"],
+  ["v01", "e01", "hard10"],
+  ["c01", "e01", "clearance100"],
+  ["z01", "e01", "hard5"],
+  ["z02", "e01", "hard5"],
+  ["f01", "e02", "clearance150"],
+  ["f02", "e02", "clearance150"],
+  ["l01", "e02", "clearance50"],
+  ["v01", "e02", "hard10"],
+  ["z01", "e02", "hard5"],
+  ["z02", "e02", "hard5"],
+  ["f01", "e03", "hard10"],
+  ["f02", "e03", "clearance100"],
+  ["l01", "e03", "hard10"],
+  ["z02", "e03", "hard5"],
+  ["v01", "f01", "hard10"],
+  ["c01", "f01", "clearance100"],
+  ["z01", "f01", "hard5"],
+  ["z02", "f01", "hard5"],
+  ["l01", "f02", "clearance50"],
+  ["z02", "f02", "hard5"],
+  ["z02", "l01", "hard5"],
+  ["z01", "v01", "hard5"],
+  ["z02", "v01", "hard5"],
 ];
 
-/** A typical residential building: architecture, structure, HVAC, plumbing and electrical. */
+/** A typical residential building, from the coordination workbook described above. */
 export function residentialMatrix(label: TemplateLabel): ClashMatrix {
   const groups: ClashGroup[] = GROUPS.map((spec) => ({
     id: `tpl-${spec.key}`,
     name: label(`groups.${spec.key}`),
     discipline: label(`disciplines.${spec.discipline}`),
-    filter: { ...EMPTY_ELEMENT_FILTER, classes: [...spec.classes] },
+    filter: {
+      ...EMPTY_ELEMENT_FILTER,
+      classes: [...spec.classes],
+      predefinedTypes: [...(spec.predefinedTypes ?? [])],
+      names: [...(spec.names ?? [])],
+    },
+    ...(GROUPS_NEEDING_SETUP.has(spec.key) ? { note: label(`notes.${spec.key}`) } : {}),
   }));
 
   const tolerances: ClashTolerance[] = TOLERANCES.map(({ key, ...tolerance }) => ({
@@ -187,9 +332,12 @@ export function residentialMatrix(label: TemplateLabel): ClashMatrix {
     rules,
     settings: {
       ...DEFAULT_CLASH_SETTINGS,
-      // Discipline models are federated, and clashes inside one model are its
-      // author's to fix, not the coordinator's.
-      ignoreSameModel: true,
+      // The workbook's own General Requirements: all three checks on, and
+      // elements of the same model are still tested against each other.
+      checkOverlap: true,
+      checkInside: true,
+      checkDuplicate: true,
+      ignoreSameModel: false,
     },
   };
 }

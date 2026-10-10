@@ -129,7 +129,7 @@ export function createClashWorkbook(matrix: ClashMatrix): Uint8Array {
     {
       name: FILTERS_SHEET,
       rows: [
-        ["Group", "Discipline", "Classes", "Names", "Predefined types", "Object types", "Materials", "Material categories", "Properties", "Property rule"],
+        ["Group", "Discipline", "Classes", "Names", "Predefined types", "Object types", "Materials", "Material categories", "Properties", "Property rule", "Setup note"],
         ...groups.map((group) => [
           group.name,
           group.discipline ?? "",
@@ -141,9 +141,10 @@ export function createClashWorkbook(matrix: ClashMatrix): Uint8Array {
           joinList(group.filter.materialCategories),
           propertyText(group.filter),
           group.filter.propertyCombination === "any" ? "ANY" : "ALL",
+          group.note ?? "",
         ]),
       ],
-      widths: [28, 18, 24, 24, 20, 20, 24, 22, 40, 12],
+      widths: [28, 18, 24, 24, 20, 20, 24, 22, 40, 12, 60],
     },
   ]);
 }
@@ -223,6 +224,8 @@ export function readClashWorkbook(bytes: Uint8Array): ClashMatrix {
 
     const group = newGroup(label || `Group ${j + 1}`);
     group.discipline = discipline || undefined;
+    const note = (fromFilters?.[10] ?? "").trim();
+    if (note) group.note = note;
     group.filter = fromFilters
       ? {
           ...EMPTY_ELEMENT_FILTER,

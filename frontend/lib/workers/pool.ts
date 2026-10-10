@@ -4,8 +4,18 @@
  * A tiny worker pool.
  *
  * Loading a federation means parsing N files, and one worker would serialise
- * them. This runs up to `size` workers, hands each task to the least-busy one,
- * and queues the rest.
+ * them. This runs up to `size` workers and spreads work across them.
+ *
+ * Two different things are handed out, and they must not be confused:
+ *
+ * - `run` is a *task*: it needs a free worker for its duration and queues when
+ *   they are all busy.
+ * - `lease` is *residency*: a loaded model lives in a worker for as long as the
+ *   file is open, which can be the whole session. It never waits. It goes to the
+ *   worker holding the fewest, so a federation of twelve models is three per
+ *   worker rather than four models and eight files stuck behind them. (It used
+ *   to reserve a worker exclusively, which capped the viewer at `size` models
+ *   and left the fifth silently "parsing" until one was closed.)
  *
  * Deliberately not a generic job queue: tasks are opaque functions that receive
  * a Comlink proxy, so the pool knows nothing about IFC and the worker API stays
@@ -21,6 +31,8 @@ type Slot<TApi> = {
   api: Comlink.Remote<TApi>;
   /** Tasks currently in flight on this worker. */
   inFlight: number;
+  /** Models (or anything else leased) currently living in this worker. */
+  resident: number;
 };
 
 export type PoolOptions = {
@@ -55,12 +67,18 @@ export class WorkerPool<TApi> {
         worker,
         api: Comlink.wrap<TApi>(worker),
         inFlight: 0,
+        resident: 0,
       });
     }
   }
 
   get size(): number {
     return this.slots.length;
+  }
+
+  /** How many leases each worker holds — for tests and diagnostics. */
+  get residents(): number[] {
+    return this.slots.map((slot) => slot.resident);
   }
 
   /**
@@ -85,8 +103,12 @@ export class WorkerPool<TApi> {
 
   /**
    * Pin work to one worker for a sequence of calls — the normal case for a
-   * loaded model. Returns the proxy and a release function; the slot stays
-   * reserved until you call it.
+   * loaded model. Returns the proxy and a release function.
+   *
+   * Does not wait: the worker with the fewest residents takes it. Memory, not
+   * the worker count, is what limits how many models can be open, and spreading
+   * them keeps any one worker's WebAssembly heap (4 GB at most) from filling
+   * while others sit empty.
    */
   async lease(): Promise<{
     api: Comlink.Remote<TApi>;
@@ -94,8 +116,10 @@ export class WorkerPool<TApi> {
   }> {
     if (this.disposed) throw new Error("WorkerPool has been terminated");
 
-    const slot = await this.acquire();
-    slot.inFlight += 1;
+    const slot = this.slots.reduce((best, candidate) =>
+      candidate.resident < best.resident ? candidate : best,
+    );
+    slot.resident += 1;
 
     let released = false;
     return {
@@ -103,8 +127,7 @@ export class WorkerPool<TApi> {
       release: () => {
         if (released) return;
         released = true;
-        slot.inFlight -= 1;
-        this.release();
+        slot.resident -= 1;
       },
     };
   }
