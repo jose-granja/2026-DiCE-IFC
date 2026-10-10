@@ -1,0 +1,1621 @@
+{
+  "app": {
+    "name": "DiCE-IFC",
+    "tagline": "Uma ferramenta BIM que nunca envia os seus modelos",
+    "description": "Visualização e federação de IFC, georreferenciação, criação e validação de IDS, gestão de BCF e assinatura qualificada com o Cartão de Cidadão. Tudo é processado no seu navegador.",
+    "seeWhatLeaves": "o que sai efetivamente do seu dispositivo",
+    "metaDescription": "Ferramenta BIM baseada no navegador: visualização e federação de IFC, georreferenciação, criação e validação de IDS, gestão de BCF e assinatura qualificada com o Cartão de Cidadão. Os modelos nunca saem do seu dispositivo."
+  },
+  "privacy": {
+    "badge": "Processado localmente — nada é enviado",
+    "badgeTitle": "O que sai do seu dispositivo",
+    "pageTitle": "O que sai do seu dispositivo",
+    "intro": "Esta página é exaustiva de propósito. Se o DiCE-IFC alguma vez enviar algo que não conste desta lista, é um erro — por favor comunique-o.",
+    "sent": "Tudo o que é enviado",
+    "notSent": "Tudo o que não é",
+    "enforcement": "Como isto é garantido",
+    "columns": {
+      "what": "O quê",
+      "when": "Quando",
+      "where": "Para onde",
+      "why": "Porquê"
+    },
+    "localTitle": "Fica na sua máquina, mas sai do separador",
+    "localIntro": "Um navegador não consegue falar com um cartão inteligente, por isso assinar implica um salto para fora do separador. Leva um resumo criptográfico e não vai além do loopback.",
+    "leaves": [
+      {
+        "what": "O texto de pesquisa no dicionário e os nomes de classes IFC que a sua especificação já menciona — IFCWALL, e nunca um valor",
+        "when": "Apenas no editor de IDS, e apenas depois de escolher um dicionário bSDD. Nada está selecionado por omissão",
+        "where": "O buildingSMART Data Dictionary (api.bsdd.buildingsmart.org), através da API desta aplicação como proxy",
+        "why": "Para sugerir os conjuntos de propriedades, os nomes de propriedades e os valores admissíveis de uma classe, para que uma especificação não deixe silenciosamente de se aplicar a nada por causa de uma gralha. O bSDD não envia cabeçalhos CORS, por isso o pedido passa pela API desta aplicação — o que também significa que o bSDD vê o endereço desta instalação e não o seu. As consultas partem de uma classe que já nomeou, não de cada tecla. Nenhum modelo, ficheiro IDS ou valor de propriedade é enviado, e o editor funciona normalmente com o bSDD inacessível."
+      },
+      {
+        "what": "Mosaicos de mapa",
+        "when": "No mapa de georreferenciação",
+        "where": "O fornecedor de mosaicos configurado. Por omissão, Protomaps alojado localmente, que é a origem da própria aplicação; esta instalação está configurada para o OpenFreeMap (tiles.openfreemap.org)",
+        "why": "Para desenhar um mapa base sob a implantação do modelo na georreferenciação. Os pedidos de mosaicos revelam aproximadamente onde está a olhar — neste módulo, onde fica o edifício — e é por isso que um fornecedor alojado localmente é a opção por omissão. O OpenFreeMap não exige conta e declara que não regista os pedidos, mas continua a ser um terceiro. Remover NEXT_PUBLIC_MAP_STYLE_URL desliga o mapa base; a georreferenciação em si não precisa dele. Quando existe uma chave MapTiler configurada, o painel oferece também Streets, OpenStreetMap e Satélite a partir de api.maptiler.com; esses pedidos ficam associados a essa chave de conta. O mapa base cobre agora aquilo para onde a câmara está a olhar, pelo que deslocar e afastar vai buscar mosaicos da área para onde se move. Escolher os edifícios 3D transmite geometria 3D a partir do Cesium ion (api.cesium.com e assets.ion.cesium.com) com um token ion; esses pedidos ficam associados a esse token e a atribuição do ion permanece visível enquanto os mosaicos são mostrados."
+      }
+    ],
+    "localOnly": [
+      {
+        "what": "Um resumo dos metadados da própria assinatura — 32 a 64 bytes",
+        "where": "O companion de assinatura do DiCE-IFC, em http://127.0.0.1",
+        "why": "A chave de assinatura está no seu Cartão de Cidadão e um navegador não consegue falar com um cartão inteligente. O companion entrega o resumo ao cartão e devolve a assinatura. Não tem qualquer ponto de acesso que aceite um documento e recusa tudo o que seja maior do que alguns kilobytes. Cada pedido tem de trazer um token que o companion gera de novo sempre que arranca, e só o entrega à origem desta própria aplicação — é por isso que nunca precisa de copiar nenhum, e por isso que outra página web não o pode usar para comandar o seu cartão."
+      }
+    ],
+    "never": [
+      "Modelos IFC — geometria, propriedades, quantidades, classificações, tudo",
+      "Conjuntos de questões BCF, comentários, pontos de vista ou capturas",
+      "Especificações IDS, criadas aqui ou importadas",
+      "Resultados de validação, relatórios e as entidades que falharam",
+      "Coordenadas, pontos de controlo ou parâmetros de georreferenciação",
+      "O PIN de assinatura — é o middleware Autenticação.gov que o pede, não esta aplicação",
+      "A sua chave privada — nunca sai do Cartão de Cidadão",
+      "O valor da assinatura e o contentor assinado"
+    ],
+    "enforce1": "Os ficheiros são lidos com a File System Access API ou por arrastar-e-largar, analisados por WebAssembly dentro de Web Workers, guardados em cache no Origin Private File System (uma área isolada por site que nenhum outro site e nenhum servidor consegue ler) e desenhados por WebGPU ou WebGL. Tudo isso é local ao navegador por construção.",
+    "enforce2": "Além disso, o código proíbe passar um File, Blob ou ArrayBuffer a qualquer chamada de rede — uma regra de lint faz falhar a compilação a quem tentar — e uma Content-Security-Policy bloqueia ligações a origens que não sejam a da própria aplicação, os fornecedores de mapa e 3D configurados e o companheiro de assinatura em loopback. O bSDD é alcançado através do servidor desta aplicação e não a partir do separador, pelo que esse serviço nunca vê o seu navegador nem o seu endereço. Não há conta, base de dados de projetos nem outro backend: a aplicação é um front end estático.",
+    "enforce3": "A assinatura funciona da mesma forma. O documento é resumido no separador; apenas o resumo dos metadados da própria assinatura é entregue a uma aplicação companion local, que o passa ao cartão através do middleware Autenticação.gov. É o middleware que lhe pede o PIN de assinatura — esta aplicação não tem campo de PIN e nunca vê nenhum. O contentor assinado é montado e comprimido no separador e guardado diretamente no seu disco.",
+    "enforce4": "Limpar os dados do site remove a cache OPFS e todos os rascunhos aí guardados.",
+    "metaDescription": "Exatamente que dados o DiCE-IFC envia pela rede, e que dados nunca envia.",
+    "operatorTitle": "Quem é responsável",
+    "operatorText": "{name} opera esta instalação e é responsável pelo tratamento descrito nesta página. Contacto:",
+    "rights": "Tem os direitos que o RGPD lhe confere sobre os dados pessoais que lhe digam respeito: acesso, retificação, apagamento e oposição, e o direito de apresentar reclamação a uma autoridade de controlo (em Portugal, a CNPD, cnpd.pt). Os únicos dados pessoais que esta instalação normalmente guarda são os que constam dos registos de acesso do servidor.",
+    "serverTitle": "No servidor",
+    "serverText": "Como qualquer sítio web, o servidor que entrega esta aplicação vê o seu endereço IP e as páginas que pede, e mantém registos de acesso habituais para segurança e deteção de falhas. São guardados por quem opera esta instalação, durante o tempo que a sua própria política indicar. Nunca contêm um modelo, um conjunto de questões ou uma especificação: esses nunca são enviados.",
+    "storageTitle": "Cookies e armazenamento local",
+    "storage": [
+      "Um cookie, dice-locale, memoriza se escolheu português ou inglês. É necessário para a escolha se manter e não contém identificador.",
+      "O armazenamento do navegador guarda o tema, a largura dos painéis, a matriz de colisões e as definições guardadas, e o trabalho em rascunho no Origin Private File System. Fica no seu navegador; limpar os dados do sítio remove-o.",
+      "Não há cookies de análise, publicidade ou rastreio."
+    ]
+  },
+  "nav": {
+    "language": "Idioma",
+    "whatLeaves": "O que sai do meu dispositivo?",
+    "theme": "Tema",
+    "loading": "A carregar…",
+    "about": "Sobre"
+  },
+  "modules": {
+    "viewer": {
+      "title": "Visualizador",
+      "description": "Carregar, federar e validar modelos IFC"
+    },
+    "georef": {
+      "title": "Georreferenciação",
+      "description": "Validar e posicionar um modelo no mapa"
+    },
+    "idsCreate": {
+      "title": "IDS — Criar",
+      "description": "Criar uma especificação IDS 1.0"
+    },
+    "idsValidate": {
+      "title": "IDS — Validar",
+      "description": "Verificar modelos contra um IDS e exportar BCF"
+    },
+    "bcf": {
+      "title": "BCF",
+      "description": "Ler, editar e juntar conjuntos de questões BCF"
+    },
+    "signIfc": {
+      "title": "Assinar IFC",
+      "description": "Assinar modelos com o Cartão de Cidadão"
+    },
+    "signBcf": {
+      "title": "Assinar BCF",
+      "description": "Assinar conjuntos de questões com o Cartão de Cidadão"
+    },
+    "verify": {
+      "title": "Verificar",
+      "description": "Verificar um contentor assinado, offline"
+    },
+    "signingSetup": {
+      "title": "Configuração de assinatura",
+      "description": "O que tem de estar instalado para assinar"
+    }
+  },
+  "auth": {
+    "signInOnlyNotice": "Apenas início de sessão. Os seus modelos nunca chegam a este servidor.",
+    "signInTitle": "Entrar",
+    "signInDescription": "A conta serve apenas para os metadados dos projetos e para o registo de assinaturas. A ferramenta em si corre inteiramente no seu navegador.",
+    "signUpTitle": "Criar conta",
+    "signUpDescription": "Guardamos o seu nome e email. Nunca guardamos os seus modelos, questões ou especificações.",
+    "email": "Email",
+    "password": "Palavra-passe",
+    "confirmPassword": "Confirmar palavra-passe",
+    "firstName": "Nome",
+    "lastName": "Apelido",
+    "forgotPassword": "Esqueceu-se da palavra-passe?",
+    "createAccount": "Criar conta",
+    "haveAccount": "Já tem conta? Entrar",
+    "backToSignIn": "Voltar a entrar",
+    "resetTitle": "Repor a palavra-passe",
+    "resetDescription": "Enviamos-lhe um link por email para definir uma nova palavra-passe.",
+    "resetSent": "Se esse email tiver conta, o link de reposição está a caminho.",
+    "newPassword": "Nova palavra-passe",
+    "passwordHint": "Pelo menos 8 caracteres.",
+    "signInAction": "Entrar",
+    "signingIn": "A entrar…",
+    "signedIn": "Sessão iniciada.",
+    "signInFailed": "Ocorreu um erro ao entrar.",
+    "fixErrors": "Corrija os erros do formulário.",
+    "emailPlaceholder": "voce@exemplo.pt",
+    "creatingAccount": "A criar a sua conta…",
+    "accountCreated": "Conta criada — verifique o email para a ativar.",
+    "createFailed": "Ocorreu um erro ao criar a conta.",
+    "creating": "A criar…",
+    "sending": "A enviar…",
+    "sendResetLink": "Enviar link de reposição",
+    "sendFailed": "Ocorreu um erro ao enviar o email.",
+    "linkIncomplete": "O link está incompleto",
+    "requestNewLink": "Pedir um novo link",
+    "chooseNewPassword": "Escolha uma nova palavra-passe",
+    "confirmNewPassword": "Confirmar a nova palavra-passe",
+    "settingPassword": "A definir a nova palavra-passe…",
+    "passwordUpdated": "Palavra-passe atualizada — já pode entrar.",
+    "resetFailed": "Ocorreu um erro ao repor a palavra-passe.",
+    "saving": "A guardar…",
+    "setPassword": "Definir palavra-passe"
+  },
+  "signing": {
+    "cardOnly": "Apenas o Cartão de Cidadão físico é aceite.",
+    "cmdNotSupported": "A Chave Móvel Digital não é suportada. Para assinar com CMD, use a aplicação oficial Autenticação.gov.",
+    "pinNotice": "O PIN de Assinatura é pedido pelo middleware do Cartão de Cidadão. Esta aplicação nunca vê nem guarda o seu PIN.",
+    "setupTitle": "Preparar a assinatura",
+    "checkReader": "Leitor de cartões",
+    "checkMiddleware": "Middleware Autenticação.gov",
+    "checkExtension": "Extensão do navegador",
+    "checkNativeHost": "Aplicação local",
+    "checkCard": "Cartão inserido"
+  },
+  "errors": {
+    "generic": "Algo correu mal.",
+    "fixForm": "Corrija os erros do formulário.",
+    "webgpuMissing": "Este navegador não suporta WebGPU; será usado o modo WebGL, mais lento em modelos grandes."
+  },
+  "viewer": {
+    "header": {
+      "title": "Visualizador",
+      "description": "Carregue vários modelos IFC e coordene-os numa só vista. A seleção, visibilidade e cor são partilhadas com o validador IDS e o gestor BCF."
+    },
+    "tabs": {
+      "models": "Modelos",
+      "structure": "Estrutura",
+      "filters": "Filtros",
+      "quantities": "MQT",
+      "geo": "Geo",
+      "section": "Corte",
+      "measure": "Medir",
+      "ids": "IDS",
+      "bcf": "BCF",
+      "clash": "Conflitos"
+    },
+    "clash": {
+      "loadModel": "Carregue pelo menos um modelo para detetar conflitos.",
+      "run": "Executar",
+      "running": "A executar…",
+      "stop": "Parar",
+      "importMatrix": "Importar matriz (.xlsx)",
+      "exportMatrix": "Exportar matriz (.xlsx)",
+      "clearResults": "Limpar resultados",
+      "matrixImported": "Importados {groups, plural, one {# grupo} other {# grupos}} e {cells, plural, one {# célula} other {# células}}.",
+      "importFailed": "Não foi possível ler esse ficheiro.",
+      "undo": "Anular",
+      "tabs": {
+        "groups": "Grupos",
+        "matrix": "Matriz",
+        "results": "Resultados"
+      },
+      "progress": {
+        "selecting": "A selecionar elementos…",
+        "geometry": "A ler geometria…",
+        "detecting": "A detetar conflitos…"
+      },
+      "groups": {
+        "add": "Adicionar grupo",
+        "empty": "Ainda sem grupos. Um grupo é um conjunto de elementos escolhido por filtros; a matriz indica que grupos são testados entre si.",
+        "name": "Nome do grupo",
+        "discipline": "Disciplina",
+        "duplicate": "Duplicar grupo",
+        "remove": "Remover grupo",
+        "noFilter": "Ainda sem filtro — este grupo não seleciona nada.",
+        "elements": "{count, plural, one {# elemento} other {# elementos}}"
+      },
+      "filter": {
+        "classes": "Classe IFC",
+        "names": "Atributo Name",
+        "predefinedTypes": "Tipo predefinido",
+        "objectTypes": "Tipo de objeto",
+        "materials": "Material",
+        "materialCategories": "Categoria do material",
+        "hint": "Separe alternativas com vírgulas. Use * como caráter universal, p. ex. IfcWall*, ou /regex/ para um padrão. Todos os campos preenchidos têm de coincidir.",
+        "properties": "Propriedade num conjunto",
+        "addCondition": "Adicionar",
+        "removeCondition": "Remover condição",
+        "operator": "Operador",
+        "set": "Conjunto",
+        "property": "Propriedade",
+        "value": "Valor",
+        "combination": "Condições",
+        "all": "Todas",
+        "any": "Qualquer"
+      },
+      "tolerances": {
+        "title": "Tolerâncias",
+        "add": "Adicionar tolerância",
+        "remove": "Remover tolerância",
+        "name": "Nome",
+        "mode": "Modo",
+        "hard": "Conflito físico",
+        "clearance": "Afastamento",
+        "horizontal": "Horizontal (mm)",
+        "vertical": "Vertical (mm)",
+        "clearanceMm": "Distância (mm)",
+        "useVolume": "Ignorar sobreposições menores que",
+        "volume": "Tolerância de volume (m³)",
+        "hint": "Um conflito físico é ignorado quando os elementos se sobrepõem no máximo pela tolerância — quanto um teria de se mover para libertar o outro, não a extensão do contacto, pelo que uma lâmina fina junto à ligação de paredes não conta. Com a opção de volume, é também ignorado quando o volume partilhado é menor que o limite. Faces em contacto nunca são assinaladas. Uma regra de afastamento assinala elementos mais próximos do que a sua distância."
+      },
+      "settings": {
+        "title": "Requisitos gerais",
+        "checkOverlap": "Verificar sobreposição (conflitos físicos)",
+        "checkInside": "Verificar interior (um elemento dentro de outro)",
+        "checkDuplicate": "Verificar duplicados",
+        "ignoreSameModel": "Ignorar elementos do mesmo modelo",
+        "maxClashes": "Parar após este número de conflitos"
+      },
+      "matrix": {
+        "title": "Matriz de conflitos",
+        "hint": "Escolha uma tolerância para cada par de grupos a testar. Uma célula vale nos dois sentidos, por isso só se mostra a metade inferior.",
+        "none": "—",
+        "empty": "Adicione primeiro grupos; a matriz tem uma linha e uma coluna por grupo.",
+        "cell": "{row} × {column}"
+      },
+      "results": {
+        "empty": "Ainda sem resultados. Execute a matriz para encontrar conflitos.",
+        "summary": "{count, plural, one {# conflito} other {# conflitos}} em {seconds} s",
+        "none": "Nenhum conflito encontrado.",
+        "truncated": "Parou em {max} conflitos. Restrinja a matriz ou aumente o limite.",
+        "withoutGeometry": "{count, plural, one {# elemento selecionado não tem} other {# elementos selecionados não têm}} geometria e não puderam ser testados.",
+        "kind": {
+          "hard": "Físico",
+          "clearance": "Afastamento",
+          "inside": "Interior",
+          "duplicate": "Duplicado"
+        },
+        "gap": "folga de {mm} mm",
+        "depth": "{mm} mm de profundidade",
+        "region": "{size} m",
+        "ignore": "Deixar fora da exportação",
+        "isolate": "Isolar estes dois elementos",
+        "show": "Mostrar no visualizador",
+        "ignored": "{count} deixados de fora"
+      },
+      "export": {
+        "title": "Exportar para BCF",
+        "snapshots": "Capturar uma imagem por conflito",
+        "snapshotsHint": "Enquadra cada conflito e guarda a vista como imagem do tópico, até {max} tópicos. Lento com muitos conflitos.",
+        "isolate": "Mostrar apenas os dois elementos na imagem",
+        "button": "Exportar BCF",
+        "exporting": "A exportar…",
+        "progress": "A capturar {done} de {total}…",
+        "exported": "{count, plural, one {Exportado # tópico} other {Exportados # tópicos}} como BCF 3.0. Aberto no gestor de BCF.",
+        "budget": "Só os primeiros {max} conflitos têm imagem; os restantes são tópicos sem ela.",
+        "none": "Não há conflitos para exportar.",
+        "failed": "A exportação BCF falhou."
+      },
+      "template": {
+        "title": "Modelo de edifício residencial",
+        "hint": "Uma matriz típica para uma moradia ou prédio de habitação: arquitetura, estruturas, AVAC, águas e esgotos e eletricidade, com tolerâncias e os pares que vale a pena testar. Substitui a matriz atual; todos os grupos, tolerâncias e células continuam editáveis.",
+        "use": "Usar modelo residencial",
+        "download": "Descarregar em Excel",
+        "applied": "Modelo residencial carregado — {groups, plural, one {# grupo} other {# grupos}}, {cells, plural, one {# célula} other {# células}}.",
+        "disciplines": {
+          "architecture": "Arquitetura",
+          "structure": "Estruturas",
+          "mep": "Instalações"
+        },
+        "groups": {
+          "walls": "Paredes",
+          "floorsRoofs": "Pavimentos e coberturas",
+          "doors": "Portas",
+          "windows": "Janelas",
+          "stairs": "Escadas e rampas",
+          "ceilings": "Tetos e revestimentos",
+          "columns": "Pilares",
+          "beams": "Vigas",
+          "foundations": "Fundações",
+          "ducts": "Condutas (AVAC)",
+          "pipes": "Tubagens (águas e esgotos)",
+          "cableways": "Caminhos de cabos e tubos",
+          "equipment": "Equipamentos",
+          "terminals": "Terminais e aparelhos"
+        },
+        "tolerances": {
+          "hard10": "Rígida 10 mm",
+          "hard25": "Rígida 25 mm",
+          "clearance50": "Folga 50 mm"
+        }
+      }
+    },
+    "resize": {
+      "sidePanel": "Redimensionar o painel lateral",
+      "propertiesPanel": "Redimensionar o painel de propriedades"
+    },
+    "dropZone": {
+      "loaded": "{count, plural, one {# modelo carregado.} other {# modelos carregados.}}",
+      "failedItem": "{file}: {error}",
+      "noneFound": "Não foram encontrados ficheiros IFC nem nuvens de pontos. Esperado: {extensions}.",
+      "hint": "Largue ficheiros IFC, nuvens de pontos (.las .laz .ply .pcd .e57 .pts .xyz) ou uma pasta",
+      "addModels": "Adicionar modelos"
+    },
+    "workspaceActions": {
+      "save": "Guardar",
+      "restore": "Restaurar",
+      "saved": "{count, plural, one {Espaço de trabalho guardado — # modelo.} other {Espaço de trabalho guardado — # modelos.}}",
+      "unsaveable": "Não guardado: {names}. Ficheiros adicionados por arrastar ou pelo seletor de ficheiros não podem ser reabertos mais tarde — use “Adicionar modelos” num navegador com a File System Access API.",
+      "saveFailed": "Não foi possível guardar o espaço de trabalho.",
+      "noSavedWorkspace": "Sem espaço de trabalho guardado.",
+      "restored": "{count, plural, one {# modelo restaurado.} other {# modelos restaurados.}}",
+      "restoreFailed": "Não foi possível restaurar o espaço de trabalho."
+    },
+    "modelList": {
+      "aligned": "Alinhado",
+      "approximate": "Aproximado",
+      "notAligned": "Não alinhado",
+      "noModelsLoaded": "Nenhum modelo carregado.",
+      "originFromMapConversion": "Origem da federação a partir de",
+      "originFromSite": "Origem da federação a partir de IfcSite — aproximada.",
+      "noGeoreferencing": "Não foi encontrada georreferenciação. Os modelos são apresentados nas suas próprias coordenadas e podem não coincidir.",
+      "entityCount": "{count, number} entidades",
+      "parsing": "A processar — {phase}",
+      "buildingGeometry": "A construir geometria…",
+      "hideModel": "Ocultar {name}",
+      "showModel": "Mostrar {name}",
+      "closeModel": "Fechar {name}"
+    },
+    "pointClouds": {
+      "title": "Nuvens de pontos",
+      "pointCount": "{count, number} pontos",
+      "thinned": "{shown, number} de {total, number} pontos — reduzida de forma uniforme para manter o visualizador fluido",
+      "reading": "A ler… {percent}%",
+      "zoomTo": "Ajustar a vista a {name}",
+      "hide": "Ocultar {name}",
+      "show": "Mostrar {name}",
+      "remove": "Remover {name}",
+      "cancel": "Cancelar o carregamento de {name}",
+      "colour": "Cor",
+      "size": "Tamanho do ponto",
+      "coordinates": "Coordenadas",
+      "modes": {
+        "rgb": "Cor capturada",
+        "intensity": "Intensidade",
+        "height": "Altura",
+        "flat": "Cor única"
+      },
+      "frames": {
+        "map": "Mapa (CRS projetado)",
+        "model": "Modelo (eixos IFC)"
+      },
+      "problems": {
+        "no-world-origin": "Não há nenhum modelo georreferenciado onde colocar coordenadas de mapa, por isso é desenhada na origem. Carregue um modelo com IfcMapConversion, ou leia as coordenadas como as do próprio modelo.",
+        "no-model": "Não há nenhum modelo carregado onde a colocar, por isso é desenhada na origem."
+      }
+    },
+    "sectionPanel": {
+      "axes": {
+        "plan": {
+          "label": "Planta",
+          "hint": "Corte horizontal — vista de cima de um nível"
+        },
+        "x": {
+          "label": "Corte X",
+          "hint": "Corte vertical ao longo do eixo X"
+        },
+        "z": {
+          "label": "Corte Z",
+          "hint": "Corte vertical ao longo do eixo Z"
+        }
+      },
+      "loadModel": "Carregue um modelo para lhe fazer cortes.",
+      "clear": "Limpar",
+      "noPlanes": "Sem planos de corte. Adicione um para cortar a federação; vários planos intersetam-se, por isso cada um remove mais.",
+      "flipFarSide": "A manter o lado mais afastado — inverta para manter o lado mais próximo",
+      "flipNearSide": "A manter o lado mais próximo — inverta para manter o lado mais afastado",
+      "flipWhichSide": "Inverter o lado mantido",
+      "removePlane": "Remover plano de corte",
+      "positionLabel": "Posição de {label}",
+      "rotationLabel": "Rotação de {label} em torno do eixo vertical",
+      "handlesHint": "Na vista, arraste a seta azul para mover um plano e o anel dourado para rodar um corte vertical.",
+      "capFill": {
+        "label": "Mostrar preenchimento do corte",
+        "patternLabel": "Padrão de preenchimento",
+        "patterns": {
+          "solid": "Sólido",
+          "diagonal": "Tracejado diagonal",
+          "crossHatch": "Tracejado cruzado",
+          "horizontal": "Tracejado horizontal",
+          "vertical": "Tracejado vertical"
+        },
+        "settings": {
+          "title": "Estilo do preenchimento",
+          "open": "Definições do preenchimento",
+          "reset": "Repor",
+          "fill": "Preenchimento",
+          "hatch": "Tracejado",
+          "spacing": "Espaçamento (m)",
+          "width": "Largura (m)",
+          "border": "Contorno",
+          "borderColour": "Cor",
+          "borderWidth": "Largura (px)"
+        }
+      }
+    },
+    "classFilter": {
+      "loadModel": "Carregue um modelo para filtrar por classe IFC.",
+      "filterPlaceholder": "Filtrar classes…",
+      "filterAriaLabel": "Filtrar classes IFC",
+      "clear": "Limpar",
+      "applying": "A aplicar…",
+      "showingOnly": "{count, plural, one {A mostrar apenas # classe.} other {A mostrar apenas # classes.}}",
+      "noClassesMatch": "Nenhuma classe corresponde a “{search}”.",
+      "hide": "Ocultar",
+      "isolate": "Isolar",
+      "showAll": "Mostrar tudo"
+    },
+    "typeVisibility": {
+      "button": "Visibilidade",
+      "buttonAriaLabel": "Abrir definições de visibilidade IFC",
+      "title": "Visibilidade",
+      "enabled": "{enabled}/{total}",
+      "reset": "Repor",
+      "spaces": {
+        "label": "Espaços",
+        "description": "Volumes de compartimentos (IfcSpace)",
+        "toggle": "Mostrar espaços"
+      },
+      "spatialZones": {
+        "label": "Zonas espaciais",
+        "description": "Volumes de área bruta (IfcSpatialZone)",
+        "toggle": "Mostrar zonas espaciais"
+      },
+      "openings": {
+        "label": "Aberturas",
+        "description": "Vazios de portas e janelas",
+        "toggle": "Mostrar aberturas"
+      },
+      "virtualElements": {
+        "label": "Elementos virtuais",
+        "description": "Limites não físicos",
+        "toggle": "Mostrar elementos virtuais"
+      },
+      "site": {
+        "label": "Terreno",
+        "description": "Terreno e contexto do modelo",
+        "toggle": "Mostrar terreno"
+      },
+      "annotations": {
+        "label": "Anotações",
+        "description": "Texto, dimensões e chamadas",
+        "toggle": "Mostrar anotações"
+      },
+      "grids": {
+        "label": "Grelhas",
+        "description": "Eixos estruturais",
+        "toggle": "Mostrar grelhas"
+      }
+    },
+    "displaySettings": {
+      "button": "Visualização",
+      "buttonAriaLabel": "Abrir definições de visualização",
+      "title": "Visualização",
+      "reset": "Repor",
+      "lightingHeading": "Iluminação",
+      "lightIntensityLabel": "Intensidade da luz",
+      "brightnessLabel": "Exposição",
+      "edgesHeading": "Arestas",
+      "edgesToggle": "Mostrar arestas",
+      "edgeWidthLabel": "Largura das arestas"
+    },
+    "filterPanel": {
+      "dimensions": {
+        "hierarchy": "Hierarquia",
+        "classes": "Classe",
+        "types": "Tipo",
+        "materials": "Material",
+        "groups": "Grupo"
+      },
+      "loadModel": "Carregue um modelo para o filtrar.",
+      "filters": "Filtros",
+      "clearCount": "Limpar {count}",
+      "pickedOfTotal": "{picked} de {total}",
+      "readingModel": "A ler o modelo…",
+      "recordsNone": "Este modelo não regista {dimension}.",
+      "searchDimension": "Pesquisar {dimension}",
+      "nothingMatches": "Nada corresponde a “{search}”.",
+      "hideValue": "Ocultar {name}",
+      "showValue": "Mostrar {name}",
+      "combineRule": "A mostrar elementos que correspondem a <strong>todas</strong> as categorias escolhidas, e a <strong>qualquer</strong> valor dentro de cada uma."
+    },
+    "quantityQuery": {
+      "title": "Consulta de quantidades",
+      "loadModel": "Carregue um modelo para configurar e executar uma consulta de quantidades.",
+      "modelUnavailable": "Um modelo já não está carregado.",
+      "add": "Adicionar",
+      "set": "Conjunto",
+      "property": "Propriedade",
+      "quantity": "Quantidade",
+      "value": "Valor",
+      "removeCondition": "Remover condição de propriedade",
+      "removeSource": "Remover origem do resultado",
+      "formula": "Fórmula",
+      "formulaHint": "Use os nomes curtos com +, -, *, /, ^ e parênteses. Deixe vazio quando existir uma só origem.",
+      "unit": "Unidade do resultado",
+      "unitHint": "Etiqueta para apresentação e exportação; os valores não são convertidos automaticamente.",
+      "run": "Executar consulta",
+      "running": "A executar…",
+      "tabs": {
+        "filters": "Filtros",
+        "values": "Valores",
+        "results": "Resultados"
+      },
+      "list": {
+        "title": "Lista de consultas",
+        "new": "Nova",
+        "add": "Adicionar à lista",
+        "update": "Atualizar",
+        "edit": "Editar",
+        "duplicate": "Duplicar",
+        "remove": "Remover",
+        "runAll": "Executar todas",
+        "empty": "Sem consultas guardadas. Configure os campos abaixo e adicione a consulta a esta lista.",
+        "code": "Código",
+        "description": "Descrição",
+        "defaultDescription": "Quantidade {number}",
+        "copyDescription": "Cópia de {description}",
+        "notRun": "Não executada",
+        "selectHint": "Selecione uma quantidade para a consultar ou crie uma nova.",
+        "viewItem": "Consultar {description}",
+        "editItem": "Editar {description}",
+        "duplicateItem": "Duplicar {description}",
+        "deleteItem": "Eliminar {description}",
+        "matchCount": "{count, plural, one {# correspondência} other {# correspondências}}",
+        "itemError": "{description}: {message}"
+      },
+      "workbook": {
+        "import": "Importar Excel",
+        "download": "Descarregar Excel",
+        "imported": "Importadas {count, plural, one {# quantidade} other {# quantidades}} do Excel.",
+        "downloaded": "Foi descarregada a tabela de quantidades com os valores dos elementos.",
+        "importFailed": "Não foi possível importar esse ficheiro Excel. Use uma tabela .xlsx com as colunas Descrição e Quantidade.",
+        "exportFailed": "Não foi possível criar a tabela Excel de quantidades."
+      },
+      "filters": {
+        "title": "Filtros",
+        "rule": "Os campos combinam-se com E. Valores separados por vírgulas no mesmo campo combinam-se com OU.",
+        "class": "Classe IFC",
+        "predefinedType": "Tipo predefinido",
+        "objectType": "Tipo de objeto",
+        "material": "Material",
+        "materialCategory": "Categoria do material",
+        "multipleHint": "Separe alternativas com vírgulas. Escreva /regex/ para uma expressão regular, p. ex. /^IfcWall/ (o texto fixo tem de coincidir exatamente).",
+        "propertyConditions": "Condições de propriedade",
+        "propertyRule": "Regra das condições de propriedade",
+        "propertyAll": "Todas",
+        "propertyAny": "Qualquer",
+        "noConditions": "Sem condições de propriedade."
+      },
+      "operators": {
+        "equals": "é igual a",
+        "notEquals": "é diferente de",
+        "contains": "contém",
+        "greaterThan": "é maior que",
+        "greaterOrEqual": "é pelo menos",
+        "lessThan": "é menor que",
+        "lessOrEqual": "é no máximo",
+        "exists": "existe"
+      },
+      "sources": {
+        "title": "Valores do resultado",
+        "hint": "Dê um nome curto a cada contagem, propriedade ou quantidade. Uma fórmula pode combinar esses nomes por elemento.",
+        "alias": "Nome na fórmula",
+        "count": "Contagem de elementos",
+        "property": "Propriedade",
+        "quantity": "Quantidade"
+      },
+      "errors": {
+        "alias": "Os nomes devem começar por uma letra ou sublinhado e conter apenas letras, números e sublinhados.",
+        "duplicateAlias": "Cada origem precisa de um nome único.",
+        "sourceFields": "Escolha um conjunto e um valor para cada origem de propriedade ou quantidade.",
+        "formulaRequired": "Adicione uma fórmula para combinar várias origens.",
+        "conditionFields": "Escolha um conjunto e uma propriedade para cada condição.",
+        "run": "Não foi possível concluir a consulta."
+      },
+      "results": {
+        "title": "Resultados",
+        "summary": "{matched, number} correspondências · {values, number} valores · {missing, number} em falta",
+        "total": "Total",
+        "select": "Selecionar",
+        "isolate": "Isolar",
+        "downloadCsv": "Descarregar as linhas desta consulta em CSV",
+        "runHint": "Execute a consulta para ver os valores das quantidades.",
+        "none": "Nenhum elemento corresponde a esta consulta.",
+        "element": "Elemento",
+        "class": "Classe",
+        "value": "Resultado",
+        "previewLimit": "A mostrar as primeiras 250 de {count, number} linhas. O CSV contém todas as linhas."
+      }
+    },
+    "spatialTree": {
+      "loadModel": "Carregue um modelo para ver a sua estrutura espacial.",
+      "treeLabel": "Estrutura espacial federada",
+      "readingStructure": "A ler a estrutura…",
+      "collapse": "Recolher",
+      "expand": "Expandir",
+      "hide": "Ocultar {name}",
+      "show": "Mostrar {name}",
+      "isolate": "Isolar {name}",
+      "clearIsolation": "Limpar isolamento de {name}",
+      "moreElements": "+ {count, number} mais — use o filtro de classes para reduzir esta lista.",
+      "unknownClass": "Classe não especificada"
+    },
+    "propertyPanel": {
+      "selectElement": "Selecione um elemento na vista 3D ou na árvore.",
+      "filterProperties": "Filtrar propriedades",
+      "attributes": "Atributos",
+      "materials": "Materiais",
+      "classification": "Classificação",
+      "propertySets": "Propriedades",
+      "noPropertySets": "Este elemento não tem conjuntos de propriedades.",
+      "quantities": "Quantidades",
+      "fromItsType": "Tipo",
+      "fromItsTypeHint": "Definido uma vez no tipo e partilhado por todas as ocorrências.",
+      "noMaterials": "Este elemento não tem materiais.",
+      "noMaterialProperties": "Este material não tem conjuntos de propriedades.",
+      "noQuantities": "Este elemento não tem quantidades.",
+      "noTypeProperties": "Este elemento não tem propriedades do seu tipo.",
+      "noClassification": "Este elemento não tem classificação.",
+      "copyExpressId": "Copiar id express {id}",
+      "yes": "Sim",
+      "no": "Não"
+    },
+    "relatedTopics": {
+      "none": "Nenhum tópico se refere ao elemento selecionado.",
+      "about": "Sobre o elemento selecionado",
+      "edit": "Editar {title}"
+    },
+    "canvas": {
+      "dropHint": "Largue aqui ficheiros IFC ou nuvens de pontos, ou use “Adicionar modelos”.",
+      "fitView": "Ajustar vista",
+      "showOrigins": "Mostrar origens dos modelos",
+      "hideOrigins": "Ocultar origens dos modelos",
+      "viewCube": {
+        "label": "Orientação e projeção da vista",
+        "projection": "Projeção",
+        "perspective": "Perspetiva",
+        "orthographic": "Ortográfica",
+        "views": {
+          "isometric": "Vista isométrica",
+          "top": "Vista superior",
+          "bottom": "Vista inferior",
+          "front": "Vista frontal",
+          "back": "Vista traseira",
+          "left": "Vista esquerda",
+          "right": "Vista direita"
+        },
+        "short": {
+          "top": "CIMA",
+          "front": "FRENTE",
+          "right": "DIR",
+          "left": "ESQ",
+          "back": "TRÁS",
+          "bottom": "INF"
+        }
+      },
+      "webgpu": {
+        "noWebGpu": "Este navegador não tem WebGPU. A renderização usa WebGL, mais lenta em federações muito grandes.",
+        "available": "WebGPU está disponível.",
+        "noAdapter": "WebGPU está presente mas não foi concedido nenhum adaptador; a renderização usa WebGL.",
+        "probeFailed": "Falha ao detetar WebGPU; a renderização usa WebGL."
+      }
+    },
+    "measureLabels": {
+      "plan": "Planta",
+      "vertical": "Vertical"
+    },
+    "measurePanel": {
+      "clear": "Limpar",
+      "loadModel": "Carregue um modelo para o medir.",
+      "noneYet": "Ainda sem medições.",
+      "tools": {
+        "distance": "Distância",
+        "angle": "Ângulo",
+        "area": "Área",
+        "volume": "Volume"
+      },
+      "snap": {
+        "snapTo": "Fixar a",
+        "corners": "Cantos",
+        "cornersNoun": "cantos",
+        "edgeMidpoints": "Pontos médios de aresta",
+        "edgeMidpointsNoun": "pontos médios de aresta",
+        "edges": "Arestas",
+        "edgesNoun": "arestas",
+        "and": "e",
+        "hintOn": "Os pontos fixam-se a {list} próximos.",
+        "hintOff": "A fixação está desligada — os pontos ficam exatamente onde clicar."
+      },
+      "distance": {
+        "sectionTitle": "Distâncias",
+        "hintSecondPoint": "Clique num segundo ponto. Esc cancela.",
+        "hint": "Clique em dois pontos do modelo. {snapHint}",
+        "rowDetail": "Planta {plan} · Vertical {vertical}",
+        "remove": "Remover distância {index}"
+      },
+      "angle": {
+        "sectionTitle": "Ângulos",
+        "hintFirst": "Clique no primeiro ponto, no vértice, e depois no segundo ponto. {snapHint} Esc cancela.",
+        "hintCorner": "Clique no vértice do ângulo. Esc cancela.",
+        "hintSecond": "Clique no segundo ponto. Esc cancela.",
+        "remove": "Remover ângulo {index}"
+      },
+      "area": {
+        "sectionTitle": "Áreas",
+        "of": "Área de",
+        "clickedFace": "Face clicada",
+        "pointsIClick": "Pontos que eu clico",
+        "hintFace": "Clique em qualquer face plana para medir a sua área — uma parede, o topo de uma laje.",
+        "hintPoints": "Clique em pontos em torno da área. {snapHint} Esc cancela.",
+        "hintPointsCanFinish": "Clique em pontos em torno da área. {snapHint} Esc cancela, Enter termina.",
+        "finish": "Terminar ({count} pontos)",
+        "pointCount": "{count, plural, one {# ponto} other {# pontos}}",
+        "remove": "Remover área {index}"
+      },
+      "volume": {
+        "sectionTitle": "Volumes",
+        "of": "Volume de",
+        "clickedElement": "Elemento clicado",
+        "boxBetweenTwoPoints": "Caixa entre dois pontos",
+        "box": "Caixa",
+        "hintElement": "Clique em qualquer elemento para medir o seu próprio volume sólido.",
+        "hintFirstCorner": "Clique num canto da caixa. {snapHint}",
+        "hintSecondCorner": "Clique no canto oposto. Esc cancela.",
+        "remove": "Remover volume {index}"
+      }
+    },
+    "georefPanel": {
+      "loadModel": "Carregue um modelo para verificar a sua georreferenciação.",
+      "tabs": {
+        "report": "Relatório",
+        "place": "Colocar",
+        "points": "Pontos"
+      },
+      "readingGeoreferencing": "A ler a georreferenciação do modelo…",
+      "reportPanel": {
+        "verticalDatum": "Datum vertical",
+        "verticalDatumNotSet": "Não definido — as alturas ortogonais não têm referência.",
+        "siteDisagreement": "IfcSite e IfcMapConversion não coincidem",
+        "siteDisagreementDetail": "A latitude/longitude do IfcSite está a cerca de {metres} m a {direction} da origem do IfcMapConversion. Ferramentas que leiam uma ou outra mostrarão o modelo em sítios diferentes.",
+        "logeoref": "LoGeoRef {level}",
+        "notMappableHint": "É necessária uma conversão de mapa e um CRS projetado antes de este modelo poder ser colocado num mapa ou federado com confiança.",
+        "pass": "Aprovado",
+        "warning": "Aviso",
+        "fail": "Reprovado"
+      },
+      "controlPoints": {
+        "addPoint": "Adicionar ponto",
+        "fitPlacement": "Ajustar colocação",
+        "fitPlacementHint": "São necessários pelo menos dois pontos para resolver a rotação e a escala",
+        "clear": "Limpar",
+        "lockScale": "Escala = 1",
+        "lockRotation": "Rotação = 0°",
+        "lockPrefix": "Fixar {label}",
+        "fittedFrom": "Ajustado a partir de {count} pontos — RMSE {rmse}.",
+        "fitDidNotConverge": "O ajuste não convergiu.",
+        "rmse": "RMSE",
+        "worstPoint": "Pior ponto",
+        "rotation": "Rotação",
+        "scale": "Escala",
+        "noneYet": "Sem pontos de controlo. Adicione pelo menos dois pares — um ponto no modelo e o mesmo ponto tal como levantado — para resolver a colocação.",
+        "pointLabel": "Ponto {index}",
+        "horizontalResidual": "Resíduo horizontal",
+        "removePoint": "Remover ponto {index}",
+        "modelLegend": "Modelo (unidades do projeto × {scale})",
+        "surveyedLegend": "Levantado (mapa, metros)"
+      },
+      "crsPicker": {
+        "choosePlaceholder": "Escolha um sistema de referência de coordenadas",
+        "searchPlaceholder": "Pesquisar por código, nome ou datum…",
+        "searchAll": "Escreva para pesquisar todos os {count, number} sistemas EPSG.",
+        "noMatches": "Nenhum sistema de coordenadas corresponde a “{query}”."
+      },
+      "placementEditor": {
+        "accuracyApproximate": "Este sistema liga-se ao WGS84 por uma transformação de sete parâmetros, com precisão de alguns metros. Ferramentas oficiais que usam grelhas de datum podem diferir cerca de um metro.",
+        "accuracyUncertain": "Este sistema não tem transformação de datum definida, pelo que a posição no mapa pode estar errada em dezenas a centenas de metros.",
+        "siteLegend": "Localização do IfcSite",
+        "siteLatitude": "Latitude",
+        "siteElevation": "Elevação",
+        "siteLongitude": "Longitude",
+        "siteOutOfRange": "Tem de estar entre −{limit} e {limit} graus.",
+        "siteHint": "Escrito em IfcSite.RefLatitude, RefLongitude e RefElevation (na unidade de comprimento do ficheiro). É mostrado como um alfinete junto com as origens do modelo.",
+        "siteFromOrigin": "Usar a posição da origem do modelo",
+        "crsDetailsLegend": "Detalhes do CRS projetado",
+        "geodeticDatum": "Datum geodésico",
+        "mapProjection": "Projeção do mapa",
+        "mapZone": "Zona do mapa",
+        "verticalDatum": {
+          "label": "Datum vertical",
+          "placeholder": "p. ex. EPSG:5780",
+          "search": "Pesquisar sistemas verticais EPSG",
+          "searchPlaceholder": "Pesquisar por nome, código ou país…",
+          "noMatches": "Nenhum sistema vertical corresponde a “{query}”.",
+          "loading": "A carregar o índice EPSG…",
+          "filled": "Datum vertical definido: {datum}",
+          "filledNamed": "Datum vertical definido: {datum} — {name}",
+          "empty": "Não definido — as alturas não têm superfície de referência."
+        },
+        "selectModel": "Selecione um modelo para editar a sua georreferenciação.",
+        "crsLabel": "Sistema de referência de coordenadas",
+        "outsideCrsWarning": "A origem do modelo cai fora da área de uso de {crs}. Isto normalmente significa um CRS errado, ou coordenadas E/N trocadas.",
+        "originLegend": "Origem do modelo, em coordenadas de mapa",
+        "eastings": "Este (E)",
+        "northings": "Norte (N)",
+        "orthogonalHeight": "Altura ortogonal",
+        "orientationLegend": "Orientação e escala",
+        "gridRotation": "Rotação da grelha",
+        "scale": "Escala",
+        "scaleHint": "A escala é um fator de escala da grelha, não uma conversão de unidades — a unidade de comprimento do projeto já trata das unidades.",
+        "originLandsAt": "A origem do modelo situa-se em",
+        "revertToFile": "Reverter para os valores do ficheiro"
+      },
+      "writeBack": {
+        "modelNoLongerLoaded": "Esse modelo já não está carregado.",
+        "writingModel": "A escrever o modelo corrigido…",
+        "exportedEntities": "Exportadas {count, number} entidades.",
+        "exportFailed": "A exportação falhou.",
+        "exporting": "A exportar…",
+        "exportCorrectedIfc": "Exportar IFC corrigido",
+        "exportHint": "Escreve um novo ficheiro. O modelo carregado e os seus bytes originais ficam intocados, pelo que ainda pode ser assinado tal como recebido.",
+        "nothingToCompare": "Nada para comparar ainda.",
+        "changesToBeWritten": "Alterações a escrever",
+        "noChanges": "Sem alterações — corresponde ao ficheiro",
+        "fieldColumn": "Campo",
+        "beforeColumn": "Antes",
+        "afterColumn": "Depois",
+        "eastings": "Este (E)",
+        "northings": "Norte (N)",
+        "gridRotation": "Rotação da grelha",
+        "scale": "Escala"
+      }
+    },
+    "globeControls": {
+      "title": "Contexto mundial 3D",
+      "worldContext": "Contexto mundial",
+      "loadFailed": "Não foi possível carregar o mundo.",
+      "layers": {
+        "terrain": "Terreno",
+        "terrainAndImagery": "Terreno e imagem",
+        "osmBuildings": "Edifícios OSM",
+        "googlePhotorealistic": "Google Fotorrealista 3D",
+        "ionAsset": "Recurso do Cesium ion…",
+        "tilesetUrl": "URL de 3D Tiles…"
+      },
+      "ionAssetIdLabel": "ID do recurso Cesium ion",
+      "ionAssetIdHint": "O número da sua lista de recursos ion — o seu próprio modelo de cidade, levantamento ou nuvem de pontos, não só os da Cesium.",
+      "tilesetUrlLabel": "URL de 3D Tiles",
+      "tilesetUrlHint": "Qualquer conjunto 3D Tiles, incluindo um alojado por si — essa via não envolve terceiros.",
+      "noTokenHint": "Defina <code>NEXT_PUBLIC_CESIUM_ION_TOKEN</code> para mostrar terreno, imagem e edifícios 3D sob o modelo. O resto deste painel funciona sem ele.",
+      "noOriginHint": "Este modelo ainda não tem uma conversão de mapa utilizável, por isso não há onde o colocar na Terra.",
+      "googleTerms": "Os Google Photorealistic 3D Tiles são fornecidos pela Google e usados ao abrigo dos termos da Google Maps Platform, incluindo as suas condições de atribuição e de utilização."
+    },
+    "contextModel": {
+      "title": "Modelo de contexto",
+      "remove": "Remover o modelo de contexto",
+      "loadContext": "Carregar contexto",
+      "clipToModel": "Recortar contexto ao modelo",
+      "clipRadiusLabel": "Raio de recorte em metros",
+      "needsPlacement": "Estes dados estão georreferenciados, pelo que o modelo precisa de uma conversão de mapa antes de poder ser colocado em relação a eles.",
+      "neitherJsonNorXml": "{name} não é JSON nem XML, pelo que não corresponde a nenhum dos formatos suportados.",
+      "largeGmlNeedsClip": "Este GML é demasiado grande para ser carregado por inteiro. Mantenha o recorte ativo e georreferencie o modelo IFC para ler apenas a geometria próxima.",
+      "readingProgress": "{percent}%",
+      "loaded": "Carregados {count} objetos — {summary}.",
+      "crsMismatch": "O modelo de cidade está em EPSG:{resultEpsg} mas o IFC está em EPSG:{placementEpsg}. É colocado sem reprojeção, pelo que pode estar desalinhado.",
+      "readFailed": "Não foi possível ler esse ficheiro.",
+      "summary": "{count, number} objetos, {metres, number} m de extensão{crs}.",
+      "summaryCrs": ", EPSG:{epsg}",
+      "summaryNoCrs": ", sem CRS declarado",
+      "noPlacementNote": "O modelo não tem conversão de mapa, pelo que isto é colocado na origem em vez de alinhado.",
+      "formatsHint": "CityJSON, CityGML/GML, GeoJSON ou GeoPackage — edifícios vizinhos, limites de lote, terreno. Contornos planos com altura são extrudidos. Lido nesta aba e nunca enviado.",
+      "clipHint": "Georreferencie o modelo para recortar um ficheiro CityJSON ou GML grande à área em seu redor, em vez de carregar o conjunto completo."
+    },
+    "idsPanel": {
+      "title": "Verificação IDS",
+      "loadIds": "Carregar .ids",
+      "useDraftTitle": "Usar a especificação aberta no editor de IDS",
+      "draft": "Rascunho",
+      "stop": "Parar",
+      "validate": "Validar",
+      "noSpecificationLoaded": "Nenhuma especificação carregada",
+      "fromEditor": "do editor",
+      "loadModelToValidate": "Carregue um modelo para validar.",
+      "modelProgress": "Modelo {index} de {total}",
+      "specificationProgress": "especificação {index} de {total}",
+      "allSatisfied": "Todas as especificações satisfeitas",
+      "someNotSatisfied": "{failed} de {total} não satisfeitas",
+      "emptyHint": "Carregue um ficheiro <code>.ids</code>, ou use o rascunho do editor, e depois clique em Validar. As falhas são listadas aqui e cada uma pode isolar o seu elemento na vista 3D.",
+      "loaded": "Carregado {name}.",
+      "readFailed": "Não foi possível ler esse ficheiro.",
+      "noSpecifications": "O editor de autoria ainda não tem especificações.",
+      "untitledSpecification": "Especificação sem título",
+      "failureTable": {
+        "nothingFailed": "Nada falhou.",
+        "noFailuresForSpecification": "Sem falhas para a especificação selecionada.",
+        "failingElementCount": "{count, plural, one {# elemento em falha} other {# elementos em falha}}",
+        "inThisSpecification": " nesta especificação",
+        "show": "Mostrar",
+        "modelNotLoaded": "{name} não está carregado no visualizador."
+      },
+      "exportBar": {
+        "htmlReport": "Relatório HTML",
+        "printPdf": "Imprimir / PDF",
+        "reportDownloaded": "Relatório transferido.",
+        "allowPopups": "Permita pop-ups para imprimir o relatório.",
+        "exporting": "A exportar…",
+        "exportBcf": "Exportar BCF",
+        "oneTopicPer": "Um tópico por",
+        "topicGrouping": "Agrupamento de tópicos",
+        "failingElement": "Elemento em falha",
+        "specification": "Especificação",
+        "elementLevelTopics": "{count, number} tópicos ao nível do elemento — uma coisa a corrigir em cada um.",
+        "summaryTopics": "{count, number} tópicos-resumo, cada um nomeando todos os elementos em falha.",
+        "captureSnapshot": "Capturar uma imagem por tópico",
+        "captureSnapshotHint": "Enquadra cada elemento em falha no visualizador e captura a tela. Isto usa o renderizador real uma vez por tópico, por isso é lento — e é o que faz cada problema abrir no local certo em qualquer ferramenta compatível com BCF. Limitado aos primeiros {max} tópicos; os restantes são exportados na mesma, apenas sem ponto de vista.",
+        "export": "Exportar",
+        "capturingViewpoints": "A capturar pontos de vista… {done}/{total}",
+        "snapshotBudgetExceeded": "Apenas os primeiros {max} tópicos receberam uma imagem — os restantes não têm nenhuma. Exporte \"Um tópico por Especificação\" em alternativa, ou divida a execução, para manter o ponto de vista de cada tópico.",
+        "exportedBcf": "{count, plural, one {Exportado # tópico como BCF 3.0.} other {Exportados # tópicos como BCF 3.0.}} Aberto no gestor BCF.",
+        "bcfExportFailed": "A exportação BCF falhou."
+      }
+    },
+    "bcfPanel": {
+      "title": "Tópicos BCF",
+      "import": "Importar",
+      "validate": "Validar",
+      "saveDraft": "Guardar rascunho",
+      "exportBcf": "Exportar .bcf",
+      "newTopic": "Novo tópico",
+      "defaultTopicTitle": "Novo tópico",
+      "unknownAuthor": "desconhecido",
+      "authorButton": "Autor",
+      "authorLabel": "Email do autor para novos tópicos e comentários",
+      "authorPlaceholder": "voce@exemplo.com",
+      "allTopics": "Todos os tópicos",
+      "editTopic": "Editar {title}",
+      "noViewpoint": "Este tópico não tem um ponto de vista para mostrar.",
+      "schemaValid": "Esquema válido — BCF 3.0.",
+      "schemaErrors": "{count, plural, one {# erro de esquema} other {# erros de esquema}}: {file} — {message}",
+      "validationCouldNotRun": "Não foi possível executar a validação.",
+      "draftSaved": "Rascunho guardado neste dispositivo.",
+      "imported": "{count, plural, one {# ficheiro importado.} other {# ficheiros importados.}}",
+      "fileCouldNotBeRead": "Não foi possível ler esse ficheiro.",
+      "exported": "Exportado {name} como BCF 3.0.",
+      "conflictBothKept": "“{title}” difere entre {source1} e {source2} — ambos foram mantidos.",
+      "conflictMostRecentKept": "“{title}” diferia entre ficheiros — o mais recente foi mantido."
+    }
+  },
+  "idsCreate": {
+    "header": {
+      "title": "IDS — Criar",
+      "description": "Escreva uma especificação IDS 1.0. Os valores das facetas são autocompletados a partir de um modelo carregado, e o ficheiro é validado contra o esquema da buildingSMART antes de transferir."
+    },
+    "modelForAutocomplete": "Modelo para autocompletar",
+    "autocompleteFromPlaceholder": "Autocompletar a partir de…",
+    "import": "Importar",
+    "newIds": "Novo IDS",
+    "newIdsStarted": "Foi iniciado um novo ficheiro IDS.",
+    "newIdsFailed": "Não foi possível iniciar um novo ficheiro IDS.",
+    "newIdsDialog": {
+      "title": "Iniciar um novo ficheiro IDS?",
+      "description": "Isto limpa o editor atual e o respetivo rascunho guardado. Transfira primeiro o IDS atual se pretender conservá-lo.",
+      "cancel": "Cancelar",
+      "confirm": "Iniciar novo IDS"
+    },
+    "saveDraft": "Guardar rascunho",
+    "draftSaved": "Rascunho guardado neste dispositivo.",
+    "downloadIds": "Transferir .ids",
+    "downloadPdf": "Transferir PDF",
+    "pdfDownloaded": "Transferido {name}",
+    "pdfFailed": "Não foi possível criar o PDF.",
+    "pdf": {
+      "reportTitle": "Relatório IDS em linguagem simples",
+      "metadataHeading": "Metadados do ficheiro",
+      "noSpecifications": "Ainda não foram adicionadas especificações.",
+      "specification": "{number}. {name}",
+      "identifier": "Identificador",
+      "ifcSchemas": "Esquemas IFC",
+      "instructions": "Instruções",
+      "filtersHeading": "Filtros e aplicabilidade",
+      "requirementsHeading": "Requisitos",
+      "requirement": "Requisito {number}",
+      "customOccurrence": "Limites de ocorrência: mínimo {min}, máximo {max}.",
+      "uri": "URI",
+      "page": "Página {page} de {total}",
+      "metadata": {
+        "title": "Título",
+        "description": "Descrição",
+        "author": "Autor",
+        "version": "Versão",
+        "date": "Data",
+        "milestone": "Marco",
+        "purpose": "Finalidade",
+        "copyright": "Direitos de autor"
+      }
+    },
+    "downloaded": "Transferido {name}",
+    "imported": "{count, plural, one {# especificação importada.} other {# especificações importadas.}}",
+    "fileCouldNotBeRead": "Não foi possível ler esse ficheiro.",
+    "fileMetadata": "Metadados do ficheiro",
+    "resize": {
+      "specificationList": "Redimensionar a lista de especificações",
+      "previewPanel": "Redimensionar o painel de pré-visualização"
+    },
+    "documentTitleLabel": "Título do documento *",
+    "descriptionLabel": "Descrição",
+    "authorLabel": "Autor",
+    "authorPlaceholder": "voce@exemplo.com",
+    "versionLabel": "Versão",
+    "versionPlaceholder": "1.0.0",
+    "dateLabel": "Data",
+    "milestoneLabel": "Marco",
+    "milestonePlaceholder": "Fase 4",
+    "purposeLabel": "Finalidade",
+    "copyrightLabel": "Direitos de autor",
+    "noSpecificationSelected": "Nenhuma especificação selecionada.",
+    "addOneHint": "Adicione uma à esquerda, ou importe um ficheiro <code>.ids</code> existente.",
+    "loadModelHint": "Carregue um modelo no visualizador primeiro e os valores das facetas serão autocompletados a partir das classes, conjuntos de propriedades e classificações que ele efetivamente contém.",
+    "specList": {
+      "addSpecification": "Adicionar especificação",
+      "noneYet": "Ainda sem especificações. Adicione uma para começar a descrever o que um modelo deve conter.",
+      "reorder": "Reordenar {name}",
+      "duplicate": "Duplicar {name}",
+      "delete": "Eliminar {name}",
+      "unnamedSpecification": "Especificação {index}",
+      "allEntities": "Todas as entidades",
+      "applicabilityCount": "{count, number} aplicabilidade(s)",
+      "requirementCount": "{count, plural, one {# requisito} other {# requisitos}}"
+    },
+    "previewPanel": {
+      "issues": "Problemas",
+      "xml": "XML",
+      "naturalLanguage": "Linguagem simples",
+      "validating": "A validar…",
+      "validateAgainstSchema": "Validar contra o esquema IDS",
+      "libxml2Hint": "libxml2 em WebAssembly, contra o esquema da buildingSMART incluído. Sem rede, nada enviado.",
+      "validAgainstSchema": "Válido contra o esquema IDS 1.0 da buildingSMART.",
+      "schemaErrorCount": "{count, plural, one {# erro de esquema.} other {# erros de esquema.}}",
+      "schemaErrorCountNoun": "{count, plural, one {# erro de esquema} other {# erros de esquema}}",
+      "schemaValidationFailed": "A validação do esquema falhou.",
+      "schemaValidIds": "Esquema válido — IDS 1.0",
+      "lineNumber": "linha {line}: ",
+      "noAuthoringIssues": "Sem problemas de autoria."
+    },
+    "naturalLanguage": {
+      "unnamed": "Especificação sem nome",
+      "notSet": "ainda não definido",
+      "schemas": "Aplica-se a modelos {versions}.",
+      "appliesTo": "Aplica-se a",
+      "allConditions": "Uma entidade está abrangida quando todas estas condições são verdadeiras:",
+      "allEntities": "Todas as entidades do modelo estão abrangidas.",
+      "applicability": {
+        "required": "Deve existir pelo menos uma entidade correspondente; todas devem cumprir os requisitos.",
+        "optional": "As entidades correspondentes podem estar ausentes; as que existirem devem cumprir os requisitos.",
+        "prohibited": "Não pode existir nenhuma entidade correspondente. Os requisitos são ignorados."
+      },
+      "occurrence": "Entidades correspondentes esperadas: pelo menos {min}, no máximo {max}.",
+      "unbounded": "sem limite",
+      "mustSatisfy": "Deve satisfazer",
+      "noRequirements": "Ainda não foram adicionados requisitos.",
+      "requirementsIgnored": "Os requisitos são ignorados porque as entidades correspondentes são proibidas.",
+      "instructions": "Instruções: {text}",
+      "cardinality": {
+        "required": "Deve cumprir esta condição: {condition}.",
+        "optional": "Se estiver presente, deve cumprir esta condição: {condition}.",
+        "prohibited": "Não deve cumprir esta condição: {condition}."
+      },
+      "entity": "A sua classe IFC é {name}",
+      "entityWithType": "A sua classe IFC é {name} com tipo predefinido {type}",
+      "parentWithType": "{name} com tipo predefinido {type}",
+      "partOf": "Faz parte de uma entidade cuja classe IFC é {parent}",
+      "partOfWithRelation": "Faz parte de uma entidade cuja classe IFC é {parent}, através de {relation}",
+      "classification": "Tem uma classificação no sistema {system}",
+      "classificationWithCode": "Tem a classificação {code} no sistema {system}",
+      "attribute": "Tem o atributo {name}",
+      "attributeWithValue": "Tem o atributo {name} com valor {value}",
+      "property": "Tem a propriedade {name} no conjunto de propriedades {set}",
+      "propertyWithDetails": "{property}, com {details}",
+      "propertyValue": "valor {value}",
+      "propertyDataType": "tipo de dados {type}",
+      "material": "Tem um material atribuído",
+      "materialWithValue": "Tem o material {value}",
+      "oneOf": "um de {values}",
+      "pattern": "correspondente ao padrão {value}",
+      "atLeast": "pelo menos {value}",
+      "greaterThan": "maior que {value}",
+      "atMost": "no máximo {value}",
+      "lessThan": "menor que {value}",
+      "exactLength": "com exatamente {value} caracteres",
+      "minLength": "com pelo menos {value} caracteres",
+      "maxLength": "com no máximo {value} caracteres",
+      "restrictedValue": "um valor {type} que é {constraints}",
+      "anyValueOfType": "qualquer valor {type}"
+    },
+    "dictionaryPicker": {
+      "stopUsing": "Deixar de usar {name}",
+      "useDictionary": "Usar um dicionário",
+      "add": "Adicionar",
+      "description": "Dicionários do buildingSMART Data Dictionary. Os escolhidos sugerem classes, conjuntos de propriedades e valores à medida que escreve.",
+      "searchPlaceholder": "Pesquisar dicionários…",
+      "searchAriaLabel": "Pesquisar dicionários",
+      "loading": "A carregar dicionários…",
+      "worksWithoutThis": "A autoria funciona sem isto; apenas as sugestões ficam em falta.",
+      "noMatches": "Nenhum dicionário corresponde a “{search}”."
+    },
+    "facetKinds": {
+      "entity": "Entidade",
+      "partOf": "Parte de",
+      "classification": "Classificação",
+      "attribute": "Atributo",
+      "property": "Propriedade",
+      "material": "Material"
+    },
+    "facetHints": {
+      "entity": "A classe IFC, e opcionalmente o seu tipo predefinido.",
+      "partOf": "O elemento deve pertencer a um elemento pai através de uma relação IFC.",
+      "classification": "Uma referência de classificação — sistema, e opcionalmente um código.",
+      "attribute": "Um atributo IFC nomeado, e opcionalmente o seu valor.",
+      "property": "Uma propriedade num conjunto de propriedades, e opcionalmente o seu valor e tipo de dados.",
+      "material": "O material atribuído ao elemento."
+    },
+    "specEditor": {
+      "nameLabel": "Nome *",
+      "namePlaceholder": "Paredes estruturais têm classificação de resistência ao fogo",
+      "identifierLabel": "Identificador",
+      "identifierPlaceholder": "SPEC-001",
+      "ifcSchemas": "Esquemas IFC *",
+      "descriptionLabel": "Descrição",
+      "instructionsLabel": "Instruções",
+      "instructionsPlaceholder": "Como satisfazer esta especificação como um todo",
+      "requirementTypeLabel": "Tipo de requisito",
+      "requirementTypeHint": "Cardinalidade da própria especificação: quantas entidades que cumprem os filtros têm de existir. Os novos requisitos começam com este tipo; cada requisito mantém a sua cardinalidade abaixo. Entidade e Parte de não podem ser opcionais.",
+      "filters": "Filtros",
+      "appliesTo": "Aplica-se a",
+      "appliesToHint": "A que entidades esta especificação se refere. Todas as facetas devem corresponder. Deixe vazio para significar todas as entidades do modelo.",
+      "mustSatisfy": "Deve satisfazer",
+      "mustSatisfyHint": "O que as entidades correspondentes são obrigadas a ter. Cada uma tem a sua própria cardinalidade.",
+      "addFacet": "Adicionar faceta",
+      "noFacets": "Sem facetas.",
+      "cardinality": {
+        "required": "Obrigatório",
+        "optional": "Opcional",
+        "prohibited": "Proibido"
+      }
+    },
+    "facetEditor": {
+      "removeFacet": "Remover faceta de {label}",
+      "cardinalityAriaLabel": "Cardinalidade",
+      "ifcClass": "Classe IFC",
+      "predefinedType": "Tipo predefinido",
+      "relationship": "Relação",
+      "anyRelationship": "Qualquer relação",
+      "parentIfcClass": "Classe IFC do elemento pai",
+      "system": "Sistema",
+      "code": "Código",
+      "attributeName": "Nome do atributo",
+      "value": "Valor",
+      "propertySet": "Conjunto de propriedades",
+      "propertyName": "Nome da propriedade",
+      "valuesFromBsddCount": "{count, plural, one {# valor do bSDD:} other {# valores do bSDD:}}",
+      "dataType": "Tipo de dados",
+      "replaceWith": "Substituir por",
+      "use": "Usar",
+      "useThe": "Usar o",
+      "replaceWithThe": "Substituir pelo",
+      "fromBsddSuffix": "do bSDD",
+      "numericUnknownHint": "O bSDD diz que isto é um número real mas não qual a medida IFC — isso é específico de cada propriedade, pelo que tem de ser escolhido aqui (<code>IFCTHERMALTRANSMITTANCEMEASURE</code>, <code>IFCPOSITIVELENGTHMEASURE</code>, …). Uma medida errada não corresponde a nenhum elemento e reporta um sucesso sobre nada.",
+      "material": "Material",
+      "materialHint": "Deixe vazio para exigir qualquer material.",
+      "instructionsLabel": "Instruções",
+      "requirementInstructionsPlaceholder": "Como satisfazer este requisito",
+      "uri": "URI",
+      "uriPlaceholder": "https://identifier.buildingsmart.org/uri/…",
+      "addUri": "+ URI",
+      "clear": "Limpar",
+      "bsddUri": "URI do bSDD"
+    },
+    "valueEditor": {
+      "value": "Valor",
+      "restriction": "Restrição",
+      "remove": "Remover {label}",
+      "family": {
+        "enumeration": "Um de",
+        "pattern": "Corresponde a",
+        "bounds": "Entre",
+        "length": "Comprimento"
+      },
+      "baseType": "Tipo base de {label}",
+      "allowedValue": "Valor permitido de {label}",
+      "addAllowedValuePlaceholder": "Adicionar um valor permitido",
+      "removeValue": "Remover {value}",
+      "patternAriaLabel": "Padrão de {label}",
+      "patternPlaceholder": "EF_25_10(_\\d+)?",
+      "invalidRegex": "Não é uma expressão regular válida.",
+      "regexHint": "Regex XSD. É ancorada ao valor inteiro — não é preciso ^ ou $.",
+      "boundsMinInclusive": "Mín (≥)",
+      "boundsMaxInclusive": "Máx (≤)",
+      "boundsMinExclusive": "Mín (>)",
+      "boundsMaxExclusive": "Máx (<)",
+      "lengthExactly": "Exatamente",
+      "lengthMinLength": "Pelo menos",
+      "lengthMaxLength": "No máximo"
+    }
+  },
+  "signSetup": {
+    "title": "Configuração da assinatura",
+    "description": "O que tem de estar instalado nesta máquina antes de um Cartão de Cidadão poder assinar.",
+    "checking": "A verificar…",
+    "checkAgain": "Verificar novamente",
+    "cmdNotSupportedTitle": "A Chave Móvel Digital não é suportada",
+    "cmdNotSupportedBody": "Esta aplicação assina apenas com o <strong>Cartão de Cidadão físico</strong>. A Chave Móvel Digital é um serviço de assinatura remota: usá-la significaria enviar um resumo (digest) do seu modelo para fora desta máquina, exatamente o que esta aplicação foi construída para não fazer. Para assinar com CMD, use a aplicação de ambiente de trabalho oficial Autenticação.gov.",
+    "autenticacaoGovLink": "Aplicação de ambiente de trabalho Autenticação.gov",
+    "onThisMachine": "Nesta máquina",
+    "signingCompanionTitle": "O companheiro de assinatura",
+    "signingCompanionBody": "Um navegador não consegue comunicar com um cartão inteligente, por isso um pequeno programa local trata disso. Instale-o uma vez; ele arranca consigo e esta página emparelha com ele sozinha. Não há nada para copiar.",
+    "noInstallerPublished": "Não há instalador publicado para esta implementação. Compile um com <code>companion/packaging/build_macos.sh</code> ou <code>build_windows.ps1</code>, ou execute a partir do código-fonte com <code>pip install ./companion &amp;&amp; dice-companion</code>. Veja <code>companion/packaging/README.md</code>.",
+    "differentMachine": "Máquina diferente?",
+    "pairedAndReady": "Emparelhado e pronto.",
+    "companionDigestOnly": "O companheiro assina um resumo (digest) e nada mais — o seu modelo nunca o alcança, nem o seu PIN, que o middleware do cartão pede na sua própria janela.",
+    "whatEachPieceDoes": "O que faz cada peça",
+    "cardReaderTitle": "Leitor de cartões",
+    "cardReaderBody": "Qualquer leitor CCID. Um CC v2 também pode ser lido sem contacto, o que precisa do CAN impresso no cartão.",
+    "middlewareTitle": "Middleware Autenticação.gov",
+    "middlewareBody": "Fornece o <code>pteidpkcs11</code>, o módulo PKCS#11 que comunica com o cartão. Ele levanta a sua própria janela de PIN — esta aplicação nunca vê, transporta ou guarda o seu PIN.",
+    "extensionTitle": "Extensão do navegador e aplicação nativa",
+    "extensionBody": "Um navegador não consegue alcançar um cartão inteligente: o WebCrypto não tem acesso ao token e o WebAuthn não consegue operar uma chave de assinatura qualificada. Um companheiro instalado localmente é inevitável.",
+    "getIt": "Obter",
+    "statusPresent": " — presente",
+    "statusMissing": " — em falta",
+    "statusUnknown": " — não pode ser detetado a partir do navegador",
+    "noProviderLabel": "Fornecedor de assinatura",
+    "noProviderRemedy": "Não foi possível carregar nenhum fornecedor de assinatura neste navegador."
+  },
+  "signVerify": {
+    "title": "Verificar uma assinatura",
+    "description": "Largue um contentor assinado para recalcular o resumo (hash) do seu conteúdo e verificar a assinatura. Nada é enviado.",
+    "checking": "A verificar…",
+    "openContainer": "Abrir contentor",
+    "fileCouldNotBeRead": "Não foi possível ler esse ficheiro.",
+    "noContainerOpened": "Nenhum contentor aberto.",
+    "openSignedHint": "Abra um <code>.ifczip</code> ou <code>.bcf</code> assinado.",
+    "dropHint": "Ou largue-o aqui.",
+    "unsupportedFile": "Não é possível verificar {names}. Esperado: {extensions}.",
+    "onlyOne": "Só se verifica um contentor de cada vez — a verificar {name}.",
+    "signatureValid": "Assinatura válida — o conteúdo é exatamente o que foi assinado",
+    "signatureNotValid": "Assinatura inválida",
+    "notATrustDecision": "<strong>Isto não é uma decisão de confiança.</strong> Prova que o conteúdo não mudou desde que foi assinado, e que o assinante detinha a chave do certificado abaixo. Se esse certificado é um certificado qualificado português genuíno, e se foi revogado, precisa da lista de confiança e de um respondedor OCSP — dados que um navegador não consegue obter diretamente. Essa verificação ainda não está implementada.",
+    "contents": "Conteúdo",
+    "valid": "Válida",
+    "invalid": "Inválida",
+    "signedBy": "Assinado por",
+    "issuedBy": "Emitido por",
+    "serial": "Número de série",
+    "signingTime": "Hora da assinatura",
+    "certificateValid": "Certificado válido",
+    "certificateValidRange": "{from} a {to}",
+    "signatureMaths": "Matemática da assinatura",
+    "verified": "Verificada",
+    "failed": "Falhou",
+    "whatItCovers": "O que cobre",
+    "signedProperties": "Propriedades assinadas (hora de assinatura e certificado)",
+    "notInContainer": "— não está no contentor",
+    "contentChanged": "— conteúdo alterado"
+  },
+  "signModule": {
+    "signedReady": "Assinado. O contentor está pronto para transferir.",
+    "signedCount": "Assinados {count} contentores.",
+    "signingFailed": "A assinatura falhou.",
+    "addFiles": "Adicionar ficheiros",
+    "signing": "A assinar…",
+    "sign": "Assinar",
+    "signingWithProvider": "A assinar com o fornecedor <strong>{provider}</strong>. Estas assinaturas são criptograficamente válidas mas não têm valor legal — não foram feitas com um Cartão de Cidadão.",
+    "signatureMode": "Modo de assinatura",
+    "oneSignatureAllFiles": "Uma assinatura sobre todos os ficheiros",
+    "oneSignaturePerFile": "Uma assinatura por ficheiro",
+    "theFilesWord": "os",
+    "theFilesPhrase": "os ficheiros",
+    "combinedModeHint": "<strong>Uma introdução de PIN.</strong> Todos os {count} ficheiros entram num único contentor coberto por uma assinatura. Retirar um ficheiro do contentor faz com que deixe de ser verificável de forma independente.",
+    "perFileModeHint": "<strong>Uma introdução de PIN por ficheiro.</strong> Cada ficheiro tem o seu próprio contentor que pode ser verificado, e enviado, inteiramente por si só.",
+    "filesQueued": "Ficheiros em fila para assinatura",
+    "fileColumn": "Ficheiro",
+    "sizeColumn": "Tamanho",
+    "removeFile": "Remover {name}",
+    "pinInOwnWindow": "O middleware do cartão está a pedir o seu PIN de assinatura na sua própria janela. Esta aplicação nunca o vê.",
+    "checkSigningSetup": "Verifique a sua configuração de assinatura",
+    "signedContainers": "Contentores assinados",
+    "fileCount": "{count, plural, one {# ficheiro} other {# ficheiros}}",
+    "download": "Transferir",
+    "stillValidContainer": "Cada contentor continua a ser um {kind} válido — outras ferramentas leem-no sem alterações, e ferramentas que reconhecem assinaturas leem<code> META-INF/</code>. <verifyLink>Verifique um</verifyLink>.",
+    "noFilesSelected": "Nenhum ficheiro selecionado.",
+    "addFilesHint": "Adicione {kind} para os assinar com o Cartão de Cidadão.",
+    "dropHint": "Ou largue os ficheiros aqui.",
+    "unsupportedFiles": "Não aceite: {names}. Esperado: {extensions}.",
+    "ifcModels": "modelos IFC",
+    "bcfIssueSets": "conjuntos de problemas BCF",
+    "phaseCertificate": "A ler o certificado de assinatura do cartão…",
+    "phasePreparing": "A calcular o resumo de {fileName}…",
+    "phaseAwaitingPin": "A aguardar o PIN de assinatura ({current} de {total})…",
+    "phaseAssembling": "A montar o contentor…",
+    "phaseDone": "Concluído.",
+    "errorNotReady": "O companheiro do cartão não está disponível. Verifique a sua configuração de assinatura.",
+    "errorCancelled": "A assinatura foi cancelada.",
+    "errorPinIncorrect": "O PIN não foi aceite pelo cartão.",
+    "errorPinBlocked": "O PIN de assinatura está bloqueado. Desbloqueie-o com a aplicação Autenticação.gov.",
+    "errorCardChanged": "O cartão mudou durante a assinatura. Nada foi assinado — tente novamente."
+  },
+  "signPages": {
+    "ifc": {
+      "title": "Assinar IFC",
+      "description": "Assine modelos com o Cartão de Cidadão. O contentor mantém-se um ifcZIP válido; a assinatura vai em META-INF/."
+    },
+    "bcf": {
+      "title": "Assinar BCF",
+      "description": "Assine conjuntos de problemas com o Cartão de Cidadão. O contentor mantém-se um zip BCF válido; a assinatura vai em META-INF/."
+    }
+  },
+  "bcf": {
+    "topicDetail": {
+      "loadModelFirst": "Abra o visualizador e carregue um modelo primeiro.",
+      "viewpointCaptured": "Ponto de vista capturado da vista atual.",
+      "topicTitle": "Título do tópico",
+      "delete": "Eliminar",
+      "status": "Estado",
+      "priority": "Prioridade",
+      "type": "Tipo",
+      "assignedTo": "Atribuído a",
+      "stage": "Fase",
+      "dueDate": "Data limite",
+      "description": "Descrição",
+      "descriptionPlaceholder": "O que está errado, e o que precisa de acontecer?",
+      "viewpoints": "Pontos de vista",
+      "captureCurrentView": "Capturar vista atual",
+      "noViewpoints": "Sem pontos de vista. Enquadre uma vista no visualizador e capture-a aqui.",
+      "documents": "Documentos",
+      "relatedTopics": "Tópicos relacionados",
+      "notInThisFile": "{guid}… (não está neste ficheiro)",
+      "createdBy": "Criado a {date} por {author}",
+      "modified": "modificado a {date}",
+      "attachedDocument": "Documento anexado",
+      "labels": "Etiquetas",
+      "removeLabel": "Remover etiqueta {label}",
+      "addLabelPlaceholder": "Adicionar uma etiqueta…",
+      "comments": "Comentários",
+      "deleteComment": "Eliminar comentário",
+      "unknownAuthor": "desconhecido",
+      "addCommentPlaceholder": "Adicionar um comentário…",
+      "newComment": "Novo comentário",
+      "addComment": "Adicionar comentário",
+      "unknownDate": "desconhecida"
+    },
+    "viewpointCard": {
+      "loadModelFirst": "Carregue o modelo no visualizador primeiro — não há nada para onde restaurar.",
+      "missingElements": "{count, plural, one {# elemento} other {# elementos}} não presente(s) nos modelos carregados",
+      "skippedPlanes": "{count, plural, one {# plano de corte inclinado não suportado} other {# planos de corte inclinados não suportados}} ignorado(s)",
+      "viewpointRestoredWithCaveats": "Ponto de vista restaurado — {caveats}.",
+      "viewpointRestored": "Ponto de vista restaurado.",
+      "couldNotOpen": "Não foi possível abrir esse ponto de vista.",
+      "snapshotFor": "Imagem de {title}",
+      "noSnapshot": "Sem imagem",
+      "openViewpoint": "Abrir ponto de vista",
+      "deleteViewpoint": "Eliminar ponto de vista"
+    },
+    "filterBar": {
+      "status": "Estado",
+      "priority": "Prioridade",
+      "type": "Tipo",
+      "assignedTo": "Atribuído a",
+      "label": "Etiqueta",
+      "searchPlaceholder": "Pesquisar títulos, descrições e comentários…",
+      "searchTopics": "Pesquisar tópicos",
+      "filters": "Filtros",
+      "dueDate": "Data limite",
+      "any": "Qualquer",
+      "overdue": "Em atraso",
+      "dueWithinWeek": "Vence numa semana",
+      "noDueDate": "Sem data limite",
+      "sortBy": "Ordenar por",
+      "created": "Criado",
+      "modifiedSort": "Modificado",
+      "titleSort": "Título",
+      "index": "Índice",
+      "sortDescending": "Ordenar decrescente",
+      "sortAscending": "Ordenar crescente",
+      "clearFilters": "Limpar filtros"
+    },
+    "bulkEditBar": {
+      "setOneField": "Defina pelo menos um campo para aplicar.",
+      "updatedCount": "{count, plural, one {Atualizado # tópico.} other {Atualizados # tópicos.}}",
+      "topicsSelected": "{count, plural, one {# tópico selecionado} other {# tópicos selecionados}}",
+      "status": "Estado",
+      "priority": "Prioridade",
+      "type": "Tipo",
+      "assignedTo": "Atribuído a",
+      "stage": "Fase",
+      "dueDate": "Data limite",
+      "applyTo": "Aplicar a {count}",
+      "clearSelection": "Limpar seleção"
+    }
+  },
+  "signatureBadge": {
+    "checkingSignature": "A verificar a assinatura…",
+    "signatureValid": "{count, plural, one {Assinatura válida — # assinante} other {Assinatura válida — # assinantes}}",
+    "signatureNotValid": "Assinatura inválida",
+    "trustCaveat": "O conteúdo não foi alterado desde a assinatura. Se o certificado é genuíno e qualificado não é verificado."
+  },
+  "themeToggle": {
+    "toggleTheme": "Alternar tema",
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Sistema"
+  },
+  "formInputPassword": {
+    "hidePassword": "Ocultar palavra-passe",
+    "showPassword": "Mostrar palavra-passe"
+  },
+  "idsFailureDescription": {
+    "expected": "esperado {value}",
+    "found": "encontrado {value}",
+    "failedUnspecified": "Falhou um requisito não especificado."
+  },
+  "idsReport": {
+    "reportTitle": "Relatório IDS — {title}",
+    "generatedBy": "Relatório de validação IDS · gerado {date} · DiCE-IFC",
+    "localOnlyNote": "Todos os modelos neste relatório foram validados no navegador. Nenhum ficheiro foi enviado.",
+    "allSatisfied": "Todas as especificações satisfeitas",
+    "notSatisfied": "{count, plural, one {# especificação não satisfeita} other {# especificações não satisfeitas}}",
+    "passed": "Aprovados",
+    "failed": "Reprovados",
+    "notApplicable": "Não aplicável",
+    "failingElements": "Elementos em falha",
+    "checks": "Verificações",
+    "passRate": "Taxa de sucesso",
+    "models": "Modelos",
+    "modelCol": "Modelo",
+    "schemaCol": "Esquema",
+    "entitiesCol": "Entidades",
+    "specifications": "Especificações",
+    "specificationCol": "Especificação",
+    "statusCol": "Estado",
+    "applicableCol": "Aplicável",
+    "statusPass": "Aprovado",
+    "statusFail": "Reprovado",
+    "statusNA": "N/A",
+    "elementCol": "Elemento",
+    "classCol": "Classe",
+    "whyFailedCol": "Motivo da falha",
+    "andMore": "…e mais {count}. Exporte BCF para o conjunto completo.",
+    "footerModels": "{count, plural, one {# modelo} other {# modelos}}",
+    "footerSpecifications": "{count, plural, one {# especificação} other {# especificações}}",
+    "footerValidated": "validado {start}–{end}"
+  },
+  "about": {
+    "metaDescription": "Licença, créditos de terceiros, atribuições de dados e avisos legais do DiCE-IFC.",
+    "title": "Sobre, créditos e licenças",
+    "intro": "O DiCE-IFC é um conjunto de ferramentas BIM que corre no navegador. Esta página diz em que se baseia, de quem são os dados que pode mostrar e o que não deve ser tomado como garantia.",
+    "operator": {
+      "title": "Responsável",
+      "name": "Operado por {name}.",
+      "contact": "Contacto:"
+    },
+    "licence": {
+      "title": "Licença",
+      "body": "O DiCE-IFC é software livre, distribuído sob a licença MIT: pode usá-lo, copiá-lo, modificá-lo e distribuí-lo, desde que mantenha o aviso de direitos de autor e de licença. Não tem qualquer garantia.",
+      "source": "Código-fonte e licença"
+    },
+    "thirdParty": {
+      "title": "Software de código aberto",
+      "intro": "O DiCE-IFC assenta no software abaixo e em várias centenas de pacotes mais pequenos. Cada um mantém a sua própria licença.",
+      "columns": {
+        "component": "Componente",
+        "licence": "Licença",
+        "role": "O que faz aqui"
+      },
+      "fullList": "Textos das licenças de todos os pacotes que esta aplicação inclui (ficheiro de texto)",
+      "mpl": "Os pacotes IFC-Lite (@ifc-lite/*) estão licenciados sob a Mozilla Public License 2.0. São usados sem modificações e o seu código-fonte está disponível no repositório do projeto.",
+      "roles": {
+        "ifclite": "Lê e escreve IFC, BCF e IDS; constrói a geometria dos modelos",
+        "three": "Renderização 3D",
+        "cesium": "Globo 3D, terreno e 3D Tiles",
+        "proj4": "Transformações de coordenadas",
+        "laz": "Lê nuvens de pontos .laz comprimidas",
+        "sqlite": "Lê ficheiros GeoPackage",
+        "libxml2": "Valida XML segundo os esquemas da buildingSMART",
+        "next": "Framework da aplicação",
+        "react": "Interface",
+        "radix": "Componentes de interface acessíveis",
+        "lucide": "Ícones",
+        "geist": "Tipos de letra"
+      }
+    },
+    "data": {
+      "title": "Dados e serviços",
+      "intro": "Algumas funcionalidades podem mostrar dados de outros fornecedores. Tudo é opcional e está desligado até o ativar; o que lhes é enviado está listado na página de privacidade.",
+      "rows": {
+        "osm": {
+          "name": "OpenStreetMap",
+          "text": "© OpenStreetMap contributors. Os dados do mapa estão disponíveis sob a Open Database Licence (ODbL). Mostrados nos edifícios OSM e na imagem e mapas de base assentes no OpenStreetMap."
+        },
+        "openfreemap": {
+          "name": "OpenFreeMap",
+          "text": "Mosaicos do mapa de base, quando configurado: OpenFreeMap © OpenMapTiles, dados do OpenStreetMap."
+        },
+        "maptiler": {
+          "name": "MapTiler",
+          "text": "Ruas, OpenStreetMap e imagem de satélite, quando existe uma chave MapTiler configurada: © MapTiler © OpenStreetMap contributors. Sujeito aos termos da MapTiler."
+        },
+        "cesium": {
+          "name": "Cesium ion e Cesium World Terrain",
+          "text": "O terreno e os edifícios OSM são transmitidos pelo Cesium ion, cujo crédito se mantém no ecrã enquanto são mostrados. Usado ao abrigo dos termos de serviço do Cesium ion."
+        },
+        "google": {
+          "name": "Google Photorealistic 3D Tiles",
+          "text": "Apenas quando selecionado. Fornecido pela Google e sujeito aos termos de serviço da Google Maps Platform, incluindo as suas condições de atribuição e de utilização."
+        },
+        "egm96": {
+          "name": "Geoide EGM96",
+          "text": "Usado para converter entre alturas ortométricas e elipsoidais. Derivado do modelo de domínio público da National Geospatial-Intelligence Agency dos EUA; aproximado (grelha de 1°) e inadequado para trabalho topográfico de precisão."
+        },
+        "epsg": {
+          "name": "EPSG Geodetic Parameter Dataset",
+          "text": "Definições de sistemas de referência de coordenadas, © IOGP (epsg.org). Fornecidas sem garantia."
+        },
+        "buildingsmart": {
+          "name": "buildingSMART",
+          "text": "Esquemas IDS e BCF e o buildingSMART Data Dictionary. Cada dicionário tem a sua própria licença, indicada no bSDD. IFC, BCF, IDS e bSDD são nomes da buildingSMART International; esta aplicação não é por ela apoiada nem a ela está associada."
+        }
+      }
+    },
+    "disclaimers": {
+      "title": "Avisos legais",
+      "items": [
+        {
+          "title": "Sem garantia",
+          "text": "Este software é fornecido “tal como está”, sem garantia de qualquer tipo, como a licença MIT estabelece. Os seus responsáveis não respondem por qualquer perda decorrente da sua utilização."
+        },
+        {
+          "title": "Os resultados são um auxílio, não uma certificação",
+          "text": "A deteção de colisões, a validação IDS, as verificações de georreferenciação e as consultas de quantidades dependem dos modelos fornecidos e das definições escolhidas. Verifique os resultados antes de neles se basear para decisões de projeto, contratuais ou de segurança."
+        },
+        {
+          "title": "Precisão da georreferenciação",
+          "text": "As transformações de coordenadas usam o proj4 e as definições EPSG creditadas acima. Não são oferecidos sistemas que exijam uma grelha de transformação de datum, e as alturas usam uma grelha de geoide grosseira. Não use para trabalho topográfico de precisão nem para delimitação legal de propriedade."
+        },
+        {
+          "title": "Assinaturas digitais",
+          "text": "Um resultado válido significa que o conteúdo é exatamente o que foi assinado e que o signatário detinha a chave privada do certificado incluído no contentor. Não demonstra que o certificado é de confiança, estava válido quando foi usado ou não foi revogado, e estas assinaturas não têm selo temporal de confiança. O efeito legal de uma assinatura depende da lei aplicável e do formato exigido; peça aconselhamento jurídico quando for importante. Assinar exige o seu próprio Cartão de Cidadão, o respetivo PIN de assinatura e o middleware da Autenticação.gov, que esta aplicação não inclui. Nunca vê o seu PIN."
+        },
+        {
+          "title": "O companion de assinatura",
+          "text": "Um pequeno programa que instala no seu próprio computador. Ainda não está assinado digitalmente, pelo que o macOS e o Windows avisam antes de o executar; a página de configuração explica porquê."
+        },
+        {
+          "title": "Sem associação nem apoio",
+          "text": "Cartão de Cidadão e Autenticação.gov pertencem ao Estado Português e à AMA; buildingSMART, IFC, BCF e IDS à buildingSMART International; Google, MapTiler, Cesium e OpenStreetMap aos seus titulares. São nomeados para dizer com o que esta aplicação funciona, e nenhum a apoia. Os logótipos do ISISE e da Universidade do Minho pertencem a essas instituições."
+        }
+      ]
+    },
+    "accessibility": {
+      "title": "Acessibilidade",
+      "text": "A interface é construída com componentes acessíveis e os controlos têm etiquetas de texto, mas não foi auditada formalmente segundo as WCAG. A vista 3D requer um ponteiro; a árvore do modelo e as listas oferecem um caminho por teclado para selecionar e inspecionar elementos.",
+      "contact": "Se algo não for acessível para si, diga-nos:"
+    }
+  }
+}

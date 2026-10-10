@@ -1,0 +1,6 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Shell scripts execute inside Linux containers. CRLF makes the kernel look
+# for an interpreter named `/bin/sh\r` and produces a misleading ENOENT error.
+*.sh text eol=lf

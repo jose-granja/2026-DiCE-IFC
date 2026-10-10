@@ -1,0 +1,36 @@
+# Development: the Next.js dev server on http://localhost:3000. There is no
+# backend and no database — see docker-compose.yml.
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      PORT: 3000
+    env_file:
+      - ./.env.dev
+    expose:
+      - "3000"
+    ports:
+      - 3000:3000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      # Turbopack stores a database of small SST files in `.next/dev`. Keeping
+      # that database on a Windows bind mount can expose partially synced files
+      # to the Linux container and produce broken client chunks. Keep all Next
+      # build output in the container, just like node_modules.
+      - /app/.next
+    # Reconcile node_modules against package.json on every start.
+    #
+    # `/app/node_modules` is an anonymous volume, so it survives `up --build`
+    # and keeps whatever was installed the first time this container was
+    # created. Add a dependency on the host and the container never sees it:
+    # the bind mount shows it the new source and the new package.json, while
+    # the volume still holds the old modules. The result is
+    # "Module not found: <package>" for a package that is plainly in
+    # package.json — which cost a debugging round for `3d-tiles-renderer`.
+    #
+    # `npm install` is a no-op when nothing changed, so this costs a second at
+    # start and removes a whole class of confusing failure.
+    command: sh -c "npm install --no-audit --no-fund && rm -rf .next/dev/cache/turbopack && npm run dev -- --hostname 0.0.0.0"

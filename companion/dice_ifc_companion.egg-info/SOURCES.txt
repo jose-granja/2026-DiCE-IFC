@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+dice_companion/__init__.py
+dice_companion/__main__.py
+dice_companion/card.py
+dice_companion/origins.py
+dice_companion/server.py
+dice_ifc_companion.egg-info/PKG-INFO
+dice_ifc_companion.egg-info/SOURCES.txt
+dice_ifc_companion.egg-info/dependency_links.txt
+dice_ifc_companion.egg-info/entry_points.txt
+dice_ifc_companion.egg-info/requires.txt
+dice_ifc_companion.egg-info/top_level.txt
+tests/test_companion.py

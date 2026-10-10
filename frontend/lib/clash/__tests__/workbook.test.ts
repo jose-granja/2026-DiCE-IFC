@@ -1,0 +1,86 @@
+// @vitest-environment jsdom
+
+import { existsSync, readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+import { EMPTY_ELEMENT_FILTER } from "@/lib/ifc/types";
+import { emptyMatrix, findRule, newGroup, setRule } from "../matrix";
+import type { ClashGroup, ClashMatrix } from "../types";
+import { createClashWorkbook, readClashWorkbook } from "../workbook";
+
+describe("clash workbook", () => {
+  it("round-trips groups, filters, tolerances, cells and settings", () => {
+    const base = emptyMatrix();
+    const walls: ClashGroup = {
+      ...newGroup("Walls"),
+      discipline: "Architectural",
+      filter: {
+        classes: ["IfcWall*"],
+        names: [],
+        predefinedTypes: ["SOLIDWALL"],
+        objectTypes: [],
+        materials: ["Concrete*"],
+        materialCategories: ["Concrete"],
+        propertyCombination: "any" as const,
+        properties: [
+          { setName: "Pset_WallCommon", propertyName: "IsExternal", operator: "equals" as const, value: "TRUE" },
+          { setName: "Pset_WallCommon", propertyName: "FireRating", operator: "exists" as const, value: "" },
+        ],
+      },
+    };
+    const ducts: ClashGroup = {
+      ...newGroup("Ducts"),
+      discipline: "MEP",
+      filter: { ...EMPTY_ELEMENT_FILTER, classes: ["IfcDuct*"] },
+    };
+    let matrix: ClashMatrix = { ...base, groups: [walls, ducts] };
+    matrix = setRule(matrix, walls.id, ducts.id, matrix.tolerances[1].id);
+    matrix = setRule(matrix, walls.id, walls.id, matrix.tolerances[0].id);
+    matrix = {
+      ...matrix,
+      tolerances: matrix.tolerances.map((t, i) => (i === 0 ? { ...t, useVolume: true, volume: 0.02 } : t)),
+      settings: { ...matrix.settings, checkInside: false, ignoreSameModel: true },
+    };
+
+    const back = readClashWorkbook(createClashWorkbook(matrix));
+
+    expect(back.groups.map((g) => g.name)).toEqual(["Walls", "Ducts"]);
+    expect(back.groups[0].discipline).toBe("Architectural");
+    expect(back.groups[0].filter).toMatchObject({
+      classes: ["IfcWall*"],
+      predefinedTypes: ["SOLIDWALL"],
+      materials: ["Concrete*"],
+      materialCategories: ["Concrete"],
+      propertyCombination: "any",
+    });
+    expect(back.groups[0].filter.properties).toEqual(walls.filter.properties);
+    expect(back.tolerances.map((t) => t.name)).toEqual(matrix.tolerances.map((t) => t.name));
+    expect(back.tolerances[1]).toMatchObject({ mode: "clearance", clearance: 0.05, useVolume: false });
+    expect(back.tolerances[0]).toMatchObject({ useVolume: true, volume: 0.02 });
+    expect(back.rules).toHaveLength(2);
+    const cross = findRule(back, back.groups[0].id, back.groups[1].id);
+    expect(back.tolerances.find((t) => t.id === cross?.toleranceId)?.name).toBe("Clearance 50 mm");
+    expect(back.settings).toMatchObject({ checkInside: false, ignoreSameModel: true, checkDuplicate: true });
+  });
+
+  const EXAMPLE = "/Users/josegranja/Downloads/Clash Detection Matrix Report.xlsx";
+  it.skipIf(!existsSync(EXAMPLE))("reads a Solibri clash detection matrix", () => {
+    const matrix = readClashWorkbook(new Uint8Array(readFileSync(EXAMPLE)));
+    expect(matrix.groups.length).toBeGreaterThan(50);
+    expect(matrix.groups[0]).toMatchObject({ discipline: "Architectural" });
+    expect(matrix.groups[0].filter.classes).toEqual(["IfcBeam*"]);
+    expect(matrix.tolerances.map((t) => t.name)).toContain("G");
+    expect(matrix.tolerances.find((t) => t.name === "G")).toMatchObject({
+      horizontal: 0.01,
+      vertical: 0.01,
+      useVolume: false,
+      volume: 0.01,
+    });
+    expect(matrix.rules.length).toBeGreaterThan(1000);
+    // "IfcColumn*" × "IfcBeam*" is marked in the sheet.
+    const beam = matrix.groups.find((g) => g.filter.classes[0] === "IfcBeam*" && g.discipline === "Architectural")!;
+    const column = matrix.groups.find((g) => g.filter.classes[0] === "IfcColumn*" && g.discipline === "Architectural")!;
+    expect(findRule(matrix, beam.id, column.id)).toBeDefined();
+    expect(matrix.settings).toMatchObject({ checkDuplicate: true, checkInside: true, checkOverlap: true });
+  });
+});

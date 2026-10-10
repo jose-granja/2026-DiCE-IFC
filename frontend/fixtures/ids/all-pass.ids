@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Every wall in the fixture has a Name, so this passes cleanly. -->
+<ids xmlns="http://standards.buildingsmart.org/IDS" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://standards.buildingsmart.org/IDS http://standards.buildingsmart.org/IDS/1.0/ids.xsd">
+  <info>
+    <title>Walls are named</title>
+  </info>
+  <specifications>
+    <specification name="Walls have a name" ifcVersion="IFC4">
+      <applicability minOccurs="0" maxOccurs="unbounded">
+        <entity>
+          <name><simpleValue>IFCWALL</simpleValue></name>
+        </entity>
+      </applicability>
+      <requirements>
+        <attribute cardinality="required">
+          <name><simpleValue>Name</simpleValue></name>
+        </attribute>
+      </requirements>
+    </specification>
+  </specifications>
+</ids>

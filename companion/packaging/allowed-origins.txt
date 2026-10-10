@@ -1,0 +1,17 @@
+# Web addresses allowed to talk to the companion this installer installs.
+#
+# One origin per line: scheme, host and, if not the default, port — no path.
+# Add the address your DiCE-IFC is served from, then rebuild:
+#
+#   https://dice.example.com
+#   http://192.168.1.20:9880
+#
+# `http://localhost:3000` is always allowed, for development. Wildcards are
+# refused on purpose: an origin on this list is allowed to drive the citizen's
+# card, so it should be a site you run.
+#
+# A machine can add one without rebuilding: put the same kind of line in
+# ~/.dice-ifc/allowed-origins.txt, or set DICE_COMPANION_ORIGINS.
+
+https://viewer.dicebim.pt
+http://localhost:9881

@@ -1,0 +1,36 @@
+# Production: the Next.js front end behind nginx. There is no backend — models,
+# issues and specifications are processed in the browser, and the front end's own
+# server only serves pages and proxies bSDD (frontend/AGENTS.md §1).
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      # NEXT_PUBLIC_* is inlined by Next at build time, so these must be build
+      # args. `env_file` below applies at runtime only and arrives far too late
+      # — which is why the basemap was missing from every built image.
+      args:
+        NEXT_PUBLIC_TILE_ORIGIN: ${NEXT_PUBLIC_TILE_ORIGIN:-}
+        NEXT_PUBLIC_MAP_STYLE_URL: ${NEXT_PUBLIC_MAP_STYLE_URL:-}
+        NEXT_PUBLIC_MAPTILER_KEY: ${NEXT_PUBLIC_MAPTILER_KEY:-}
+        NEXT_PUBLIC_CESIUM_ION_TOKEN: ${NEXT_PUBLIC_CESIUM_ION_TOKEN:-}
+        NEXT_PUBLIC_CESIUM_ION_ASSET_ID: ${NEXT_PUBLIC_CESIUM_ION_ASSET_ID:-}
+        NEXT_PUBLIC_SIGNING_PROVIDER: ${NEXT_PUBLIC_SIGNING_PROVIDER:-companion}
+        NEXT_PUBLIC_OPERATOR_NAME: ${NEXT_PUBLIC_OPERATOR_NAME:-}
+        NEXT_PUBLIC_OPERATOR_CONTACT: ${NEXT_PUBLIC_OPERATOR_CONTACT:-}
+        NEXT_PUBLIC_SOURCE_URL: ${NEXT_PUBLIC_SOURCE_URL:-}
+    env_file:
+      - stack.env
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    depends_on:
+      - frontend
+    ports:
+      - "9881:80"
+    restart: unless-stopped

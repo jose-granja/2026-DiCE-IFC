@@ -1,0 +1,76 @@
+name: Companion installers
+
+# Builds one installer per operating system and attaches both to a release.
+#
+# Each job runs on its target OS because PyKCS11 is a compiled extension —
+# there is no cross-compiling, and a wrong-architecture build fails at the
+# moment someone inserts a card rather than at build time.
+
+on:
+  push:
+    tags: ["companion-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    # Both architectures: an Intel Mac cannot run an arm64 build, and plenty of
+    # the machines this lands on are still Intel.
+    strategy:
+      matrix:
+        include:
+          - runner: macos-14   # Apple Silicon
+          - runner: macos-13   # Intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: ./packaging/build_macos.sh
+        working-directory: companion
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.runner }}
+          path: companion/dist_mac/*.pkg
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - run: powershell -ExecutionPolicy Bypass -File packaging\build_windows.ps1
+        working-directory: companion
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: companion/dist_win/*.exe
+
+  release:
+    needs: [macos, windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          # Says out loud what the installers cannot say for themselves.
+          body: |
+            The DiCE-IFC signing companion.
+
+            **These installers are not code-signed.** macOS will say
+            "unidentified developer" — right-click the .pkg and choose Open.
+            Windows SmartScreen will warn on first run — choose "More info",
+            then "Run anyway". See `companion/packaging/README.md`.
+
+            Install, then return to Signing setup in DiCE-IFC. There is nothing
+            to copy or paste: the page pairs with the companion by itself.

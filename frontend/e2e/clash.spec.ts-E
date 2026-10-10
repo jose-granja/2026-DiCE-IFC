@@ -1,0 +1,165 @@
+import fs from "node:fs";
+import path from "node:path";
+import { expect, test } from "@playwright/test";
+import { unzipSync, strFromU8 } from "fflate";
+
+/**
+ * Clash detection, end to end: a matrix saved in the browser, two models'
+ * worth of filters run against real geometry, the results walked in the
+ * viewer, and an issue set exported with an image per clash.
+ */
+
+const FIXTURE = path.resolve(__dirname, "../fixtures/ifc/clash-ifc4.ifc");
+
+const empty = {
+  classes: [],
+  names: [],
+  predefinedTypes: [],
+  objectTypes: [],
+  materials: [],
+  materialCategories: [],
+  properties: [],
+};
+
+/** Walls × ducts (hard) and walls × pipes (clearance), as the panel would store them. */
+const MATRIX = {
+  groups: [
+    { id: "g-walls", name: "Walls", discipline: "Architectural", filter: { ...empty, classes: ["IfcWall*"] } },
+    { id: "g-ducts", name: "Ducts", discipline: "MEP", filter: { ...empty, classes: ["IfcDuctSegment"] } },
+    { id: "g-pipes", name: "Pipes", discipline: "MEP", filter: { ...empty, names: ["Pipe*"] } },
+    { id: "g-slab", name: "Slabs", filter: { ...empty, classes: ["IfcSlab"] } },
+  ],
+  tolerances: [
+    { id: "t-hard", name: "Hard", mode: "hard", horizontal: 0.01, vertical: 0.01, clearance: 0 },
+    { id: "t-gap", name: "Gap 200 mm", mode: "clearance", horizontal: 0, vertical: 0, clearance: 0.2 },
+  ],
+  rules: [
+    { a: "g-walls", b: "g-ducts", toleranceId: "t-hard" },
+    { a: "g-walls", b: "g-pipes", toleranceId: "t-gap" },
+    { a: "g-walls", b: "g-slab", toleranceId: "t-hard" },
+  ],
+  settings: { checkOverlap: true, checkInside: true, checkDuplicate: true, ignoreSameModel: false, maxClashes: 100 },
+};
+
+async function open(page: import("@playwright/test").Page) {
+  await page.addInitScript((matrix) => {
+    window.localStorage.setItem("dice-ifc.clash-matrix.v1", JSON.stringify(matrix));
+  }, MATRIX);
+  await page.goto("/viewer?panel=clash");
+  await page.setInputFiles('input[type="file"]', [FIXTURE]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+}
+
+test("finds the duct through the wall and the pipe too close to it", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await open(page);
+
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect(page.getByText(/2 clashes in/)).toBeVisible({ timeout: 60_000 });
+
+  const items = page.locator("[data-clash-item]");
+  await expect(items).toHaveCount(2);
+  await expect(page.locator("[data-clash-list]").first()).toContainText("Hard");
+  // The wall and the far-away slab never meet.
+  await expect(page.getByText("Walls × Slabs")).toHaveCount(0);
+  await expect(page.getByText(/100 mm gap/)).toBeVisible();
+
+  // Clicking a clash selects both elements.
+  await items.first().getByRole("button").first().click();
+  expect(errors).toEqual([]);
+});
+
+test("exports the clashes to BCF with an image each", async ({ page }) => {
+  await open(page);
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect(page.getByText(/2 clashes in/)).toBeVisible({ timeout: 60_000 });
+
+  const download = page.waitForEvent("download", { timeout: 120_000 });
+  await page.getByRole("button", { name: /^Export BCF/ }).click();
+  const file = await download;
+
+  const zip = unzipSync(new Uint8Array(fs.readFileSync(await file.path())));
+  const names = Object.keys(zip);
+  const markups = names.filter((name) => name.endsWith("markup.bcf"));
+  expect(markups).toHaveLength(2);
+  expect(names.filter((name) => name.endsWith(".png"))).toHaveLength(2);
+  const text = markups.map((name) => strFromU8(zip[name])).join("\n");
+  expect(text).toContain("Duct crossing the wall");
+  expect(text).toContain("Pipe near the wall");
+  expect(text).toMatch(/TopicType="Clash"/);
+
+  // And it lands in the BCF manager.
+  await page.getByRole("tab", { name: "BCF" }).click();
+  await expect(page.getByText(/Duct crossing the wall|Pipe near the wall/).first()).toBeVisible();
+});
+
+test("an empty group is refused instead of selecting the whole model", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "dice-ifc.clash-matrix.v1",
+      JSON.stringify({
+        groups: [
+          { id: "a", name: "A", filter: { classes: [], names: [], predefinedTypes: [], objectTypes: [], materials: [], materialCategories: [], properties: [] } },
+          { id: "b", name: "B", filter: { classes: ["IfcWall"], names: [], predefinedTypes: [], objectTypes: [], materials: [], materialCategories: [], properties: [] } },
+        ],
+        tolerances: [{ id: "t", name: "T", mode: "hard", horizontal: 0, vertical: 0, clearance: 0 }],
+        rules: [{ a: "a", b: "b", toleranceId: "t" }],
+      }),
+    );
+  });
+  await page.goto("/viewer?panel=clash");
+  await page.setInputFiles('input[type="file"]', [FIXTURE]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect(page.locator("p[role=alert]")).toContainText("has no filter");
+});
+
+test("the residential template fills an empty matrix and finds the duct through the wall", async ({ page }) => {
+  // No stored matrix: this is what someone sees the first time.
+  await page.goto("/viewer?panel=clash");
+  await page.setInputFiles('input[type="file"]', [FIXTURE]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+
+  await expect(page.getByRole("button", { name: "Run", exact: true })).toBeDisabled();
+  const offer = page.locator("[data-clash-template-offer]");
+  await expect(offer).toBeVisible();
+  await offer.getByRole("button", { name: "Use residential template" }).click();
+
+  await expect(page.getByText(/Residential template loaded/)).toBeVisible();
+  // The groups tab now lists the template's groups…
+  await expect(page.getByDisplayValue("Ducts (HVAC)")).toBeVisible();
+  // …the matrix tab shows them as a grid with cells filled in…
+  await page.getByRole("tab", { name: /^Matrix/ }).click();
+  const grid = page.locator("[data-clash-matrix]");
+  await expect(grid).toBeVisible();
+  expect(await grid.locator("select").count()).toBeGreaterThan(20);
+  // …and the model can be checked against it straight away.
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect(page.getByText(/\d+ clash(es)? in/)).toBeVisible({ timeout: 60_000 });
+});
+
+test("loading the template over an existing matrix can be undone", async ({ page }) => {
+  await open(page);
+  await expect(page.getByDisplayValue("Slabs")).toBeVisible();
+
+  await page.getByRole("button", { name: "Use residential template" }).click();
+  await expect(page.getByDisplayValue("Ducts (HVAC)")).toBeVisible();
+  await expect(page.getByDisplayValue("Slabs")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByDisplayValue("Ducts (HVAC)")).toHaveCount(0);
+  await expect(page.getByDisplayValue("Slabs")).toBeVisible();
+});
+
+test("the template can be taken as an Excel workbook", async ({ page }) => {
+  await page.goto("/viewer?panel=clash");
+  await page.setInputFiles('input[type="file"]', [FIXTURE]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+
+  const download = page.waitForEvent("download");
+  await page.locator("[data-clash-template-offer]").getByRole("button", { name: "Download as Excel" }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("clash-matrix-residential-template.xlsx");
+});
