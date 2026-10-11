@@ -1130,6 +1130,15 @@
         "viewpointMissing": "A viewpoint file is missing from the archive; its camera was lost.",
         "viewpointRecovered": "A viewpoint file was not listed in the markup; it was recovered."
       }
+    },
+    "contextMenu": {
+      "hideSelected": "Hide selected",
+      "selectSameClass": "Select all {type}",
+      "selectSameClassUnknown": "Select all of the same IFC class",
+      "selectSameFloor": "Select all on the same floor",
+      "noFloor": "Not on any floor",
+      "selectedClass": "{count, plural, one {Selected # element} other {Selected # elements}} of class {type}.",
+      "selectedFloor": "{count, plural, one {Selected # element} other {Selected # elements}} on {floor}."
     }
   },
   "idsCreate": {

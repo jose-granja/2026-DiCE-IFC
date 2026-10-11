@@ -1130,6 +1130,15 @@
         "viewpointMissing": "Falta no arquivo um ficheiro de ponto de vista; a sua câmara perdeu-se.",
         "viewpointRecovered": "Um ficheiro de ponto de vista não estava listado no markup; foi recuperado."
       }
+    },
+    "contextMenu": {
+      "hideSelected": "Ocultar selecionados",
+      "selectSameClass": "Selecionar todos os {type}",
+      "selectSameClassUnknown": "Selecionar todos da mesma classe IFC",
+      "selectSameFloor": "Selecionar todos no mesmo piso",
+      "noFloor": "Não pertence a nenhum piso",
+      "selectedClass": "{count, plural, one {# elemento selecionado} other {# elementos selecionados}} da classe {type}.",
+      "selectedFloor": "{count, plural, one {# elemento selecionado} other {# elementos selecionados}} em {floor}."
     }
   },
   "idsCreate": {

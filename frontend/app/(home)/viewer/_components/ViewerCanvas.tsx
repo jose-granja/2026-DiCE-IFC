@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { setGlobeCanvas } from "@/lib/viewer/globe-canvas";
 import type { CameraProjection } from "@/lib/viewer/camera";
 import ViewCube, { type ViewCubeRef } from "./ViewCube";
+import ViewerContextMenu, { type ViewerContextMenuState } from "./ViewerContextMenu";
 import {
   Tooltip,
   TooltipContent,
@@ -55,6 +56,10 @@ export function ViewerCanvas() {
   // a drag; see `onPointerDown`.
   const pointerDownPositionRef = useRef<{ x: number; y: number } | null>(null);
   const sectionGizmoDraggingRef = useRef(false);
+  // The right button pans the camera as well as opening the menu, so like the
+  // primary one it only counts as a click if the pointer stayed put.
+  const secondaryDownRef = useRef<{ x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<ViewerContextMenuState>(null);
   const [ready, setReady] = useState(false);
   usePointClouds(rendererRef, ready);
   const cloudCount = usePointCloudStore((state) => state.clouds.length);
@@ -416,6 +421,11 @@ export function ViewerCanvas() {
    */
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const renderer = rendererRef.current;
+    if (event.button === 2) {
+      secondaryDownRef.current = { x: event.clientX, y: event.clientY };
+      pointerDownPositionRef.current = null;
+      return;
+    }
     const rect = event.currentTarget.getBoundingClientRect();
     if (
       renderer?.beginSectionGizmoDrag(
@@ -432,6 +442,33 @@ export function ViewerCanvas() {
     pointerDownPositionRef.current = { x: event.clientX, y: event.clientY };
   };
 
+  /**
+   * Right-click on an element, in the select tool: make it the selection (unless
+   * it already is part of one) and open the menu beside the pointer. Empty space,
+   * a drag, and the measuring tools — which spend clicks on points — do nothing.
+   */
+  const openContextMenu = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const renderer = rendererRef.current;
+    const down = secondaryDownRef.current;
+    secondaryDownRef.current = null;
+    if (!renderer || !down) return;
+    if (Math.hypot(event.clientX - down.x, event.clientY - down.y) > CLICK_DRAG_THRESHOLD_PX) return;
+
+    const store = useViewerStore.getState();
+    if (store.tool !== "select") return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const hit = renderer.pick(event.clientX - rect.left, event.clientY - rect.top);
+    if (!hit) {
+      setContextMenu(null);
+      return;
+    }
+
+    const target = { modelId: hit.modelId, expressId: hit.expressId };
+    if (!store.isSelected(target)) store.select([target], "replace");
+    setContextMenu({ x: event.clientX, y: event.clientY, target });
+  };
+
   const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const renderer = rendererRef.current;
     if (sectionGizmoDraggingRef.current) {
@@ -440,6 +477,10 @@ export function ViewerCanvas() {
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
+      return;
+    }
+    if (event.button === 2) {
+      openContextMenu(event);
       return;
     }
     const down = pointerDownPositionRef.current;
@@ -630,6 +671,9 @@ export function ViewerCanvas() {
         onPointerMove={onPointerMove}
         onPointerLeave={onPointerLeave}
         onPointerCancel={onPointerCancel}
+        // The camera's own right-button pan is what the menu must not get in the
+        // way of, and the browser's menu has nothing to offer a 3D view.
+        onContextMenu={(event) => event.preventDefault()}
         className={cn(
           "h-full w-full touch-none",
           tool !== "select" && "cursor-crosshair",
@@ -639,6 +683,8 @@ export function ViewerCanvas() {
       />
 
       <MeasurementLabels />
+
+      <ViewerContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
 
       {models.length === 0 && cloudCount === 0 && (
         <div className="text-muted-foreground pointer-events-none absolute inset-0 flex items-center justify-center text-sm">
