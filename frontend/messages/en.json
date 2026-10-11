@@ -837,7 +837,79 @@
         "notMappableHint": "A map conversion and a projected CRS are needed before this model can be placed on a map or federated with confidence.",
         "pass": "Pass",
         "warning": "Warning",
-        "fail": "Fail"
+        "fail": "Fail",
+        "levels": {
+          "0": "Not georeferenced",
+          "20": "Located — approximate latitude and longitude only",
+          "30": "Placed — site elevation and placement, but no orientation",
+          "40": "Oriented — true north is known, but there is no map conversion",
+          "50": "Fully georeferenced — map conversion and projected CRS"
+        },
+        "checks": {
+          "siteLatLongMissing": {
+            "detail": "The site declares no latitude or longitude.",
+            "remedy": "Set the site's reference latitude and longitude, or georeference the model fully with an IfcMapConversion."
+          },
+          "siteLatLongZero": {
+            "detail": "Latitude and longitude are both exactly 0°, which is a placeholder rather than a location.",
+            "remedy": "Set the real site coordinates."
+          },
+          "siteLatLongRange": {
+            "detail": "Coordinates are out of range ({latitude}°, {longitude}°).",
+            "remedy": "Check that the compound-degree values are correct."
+          },
+          "elevationMissing": {
+            "detail": "No reference elevation, so heights are relative to the model origin only.",
+            "remedy": "Set the site's reference elevation above the vertical datum."
+          },
+          "elevationValue": {
+            "detail": "{value} (project units)"
+          },
+          "worldCoordinateSystemMissing": {
+            "detail": "The Model context declares no world coordinate system.",
+            "remedy": "Not required, but an explicit identity placement documents the intent."
+          },
+          "worldCoordinateSystemIdentity": {
+            "detail": "Identity — the model origin is the context origin."
+          },
+          "worldCoordinateSystemOffset": {
+            "detail": "Offset by ({offset})."
+          },
+          "trueNorthMissing": {
+            "detail": "The Model context declares no true north, so the model's orientation is unknown.",
+            "remedy": "Set TrueNorth on the Model representation context, or supply an IfcMapConversion, whose grid rotation supersedes it."
+          },
+          "trueNorthZero": {
+            "detail": "TrueNorth is a zero-length direction, which carries no orientation.",
+            "remedy": "Set a non-zero direction, e.g. (0, 1) when project north is true north."
+          },
+          "trueNorthDirection": {
+            "detail": "Direction ({x}, {y})."
+          },
+          "trueNorthDegrees": {
+            "detail": "{degrees}° from project north."
+          },
+          "mapConversionMissing": {
+            "detail": "No map conversion, so the model cannot be placed in a projected CRS.",
+            "remedy": "Add an IfcMapConversion with the eastings, northings and height of the model origin."
+          },
+          "mapConversionPlaceholder": {
+            "detail": "Eastings and northings are both 0, which is a placeholder in every real projected CRS.",
+            "remedy": "Set the real map coordinates of the model origin."
+          },
+          "mapConversionScale": {
+            "detail": "Scale is {scale}, not 1.",
+            "remedy": "Confirm this is a deliberate grid scale factor and not a unit conversion that belongs in the project units."
+          },
+          "projectedCrsMissing": {
+            "detail": "No projected CRS, so the map coordinates have no stated meaning.",
+            "remedy": "Add an IfcProjectedCRS naming the EPSG code, e.g. EPSG:3763."
+          },
+          "projectedCrsUnrecognised": {
+            "detail": "Name is “{name}”, which is not a recognisable EPSG code or a known CRS name.",
+            "remedy": "Name the CRS as an EPSG code so any tool can resolve it unambiguously."
+          }
+        }
       },
       "controlPoints": {
         "addPoint": "Add point",
@@ -1037,7 +1109,27 @@
       "fileCouldNotBeRead": "That file could not be read.",
       "exported": "Exported {name} as BCF 3.0.",
       "conflictBothKept": "“{title}” differs between {source1} and {source2} — both were kept.",
-      "conflictMostRecentKept": "“{title}” differed between files — the most recent was kept."
+      "conflictMostRecentKept": "“{title}” differed between files — the most recent was kept.",
+      "noTopics": "No topics yet. Import a <code>.bcf</code> file, or create a topic from a view in the viewer.",
+      "noTopicsMatch": "No topics match the current filters.",
+      "comments": "Comments:",
+      "viewpoints": "Viewpoints:",
+      "overdue": "Overdue",
+      "topicCount": "{count, plural, one {# topic} other {# topics}}",
+      "topicCountFiltered": "{shown} of {count, plural, one {# topic} other {# topics}}",
+      "selectForBulkEdit": "Select {title} for bulk editing",
+      "importNotes": {
+        "noTopics": "No topics were found in this archive.",
+        "noVersionFile": "No version file; the archive was read as BCF 3.0.",
+        "unknownVersion": "Unknown BCF version “{version}”; the archive was read as BCF 3.0.",
+        "noTopicElement": "No <Topic> element; the folder was skipped.",
+        "topicNoGuid": "Topic had no GUID; the folder name “{folder}” was used instead.",
+        "documentMissing": "Document “{document}” is referenced but not present in the archive; kept as a link.",
+        "documentPromoted": "Document “{document}” was moved into the BCF 3.0 document library.",
+        "commentNoGuid": "A comment had no GUID; one was generated.",
+        "viewpointMissing": "A viewpoint file is missing from the archive; its camera was lost.",
+        "viewpointRecovered": "A viewpoint file was not listed in the markup; it was recovered."
+      }
     }
   },
   "idsCreate": {
@@ -1122,7 +1214,58 @@
       "requirementCount": "{count, plural, one {# requirement} other {# requirements}}"
     },
     "previewPanel": {
-      "issues": "Issues",
+      "issues": {
+        "codes": {
+          "titleMissing": "The document needs a title.",
+          "authorNotEmail": "The author must be an email address.",
+          "dateFormat": "The date must be in YYYY-MM-DD form.",
+          "noSpecifications": "There are no specifications, so this file checks nothing.",
+          "specNameMissing": "This specification needs a name.",
+          "duplicateName": "Another specification has the same name, which makes a validation report ambiguous.",
+          "noSchema": "This specification declares no IFC schema.",
+          "noRequirements": "This specification has no requirements, so it will pass for every model.",
+          "applicabilityEmptyProhibits": "Applicability is empty, so this specification prohibits every entity in the model.",
+          "applicabilityEmptyRequires": "Applicability is empty, so these requirements apply to every entity in the model. That is rarely intended.",
+          "occursOrder": "minOccurs ({min}) is greater than maxOccurs ({max}).",
+          "facetMissing": "{facet} is missing its {field}.",
+          "facetEmpty": "{facet} has an empty {field}.",
+          "restrictionEmpty": "{facet}'s {field} is a restriction with no conditions.",
+          "patternInvalid": "{facet}'s {field} has a pattern that is not valid regex.",
+          "boundsOrder": "{facet}'s {field} has a minimum above its maximum.",
+          "dataTypeUppercase": "Property data type must be all uppercase, e.g. IFCLABEL."
+        },
+        "scoped": "{scope} — {problem}",
+        "scopes": {
+          "applicability": "Applicability",
+          "requirement": "Requirement"
+        },
+        "where": {
+          "document": "Document",
+          "specification": "Specification {index}"
+        },
+        "facets": {
+          "entity": "Entity",
+          "partOf": "Part of",
+          "classification": "Classification",
+          "attribute": "Attribute",
+          "property": "Property",
+          "material": "Material"
+        },
+        "fields": {
+          "entityName": "entity name",
+          "predefinedType": "predefined type",
+          "parentEntityName": "parent entity name",
+          "parentPredefinedType": "parent predefined type",
+          "classificationSystem": "classification system",
+          "classificationValue": "classification value",
+          "attributeName": "attribute name",
+          "attributeValue": "attribute value",
+          "propertySet": "property set",
+          "propertyName": "property name",
+          "propertyValue": "property value",
+          "materialValue": "material value"
+        }
+      },
       "xml": "XML",
       "naturalLanguage": "Plain language",
       "validating": "Validating…",
@@ -1134,7 +1277,13 @@
       "schemaValidationFailed": "Schema validation failed.",
       "schemaValidIds": "Schema-valid IDS 1.0",
       "lineNumber": "line {line}: ",
-      "noAuthoringIssues": "No authoring issues."
+      "noAuthoringIssues": "No authoring issues.",
+      "tabs": {
+        "issues": "Issues",
+        "xml": "Live XML",
+        "natural": "Plain-language reading of this specification",
+        "naturalDisabled": "Select a specification to read it in plain language"
+      }
     },
     "naturalLanguage": {
       "unnamed": "Unnamed specification",
@@ -1323,7 +1472,56 @@
     "statusMissing": " — missing",
     "statusUnknown": " — cannot be detected from the browser",
     "noProviderLabel": "Signing provider",
-    "noProviderRemedy": "No signing provider could be loaded in this browser."
+    "noProviderRemedy": "No signing provider could be loaded in this browser.",
+    "download": {
+      "macos-arm64": "Download for macOS (Apple Silicon)",
+      "macos-x64": "Download for macOS (Intel)",
+      "windows": "Download for Windows"
+    },
+    "platform": {
+      "macos-arm64": "macOS (Apple Silicon)",
+      "macos-x64": "macOS (Intel)",
+      "windows": "Windows"
+    },
+    "warning": {
+      "macos": "Not signed by Apple yet, so macOS will say “unidentified developer”. Right-click the downloaded file and choose Open.",
+      "windows": {
+        "installer": "Not code-signed yet, so SmartScreen will warn on first run. Choose “More info”, then “Run anyway”.",
+        "program": "The program itself, not an installer: run it and keep it running (it does not start with Windows yet). Not code-signed, so SmartScreen will warn on first run — choose “More info”, then “Run anyway”."
+      }
+    },
+    "checks": {
+      "companion": {
+        "label": "DiCE-IFC signing companion"
+      },
+      "companionNotRunning": {
+        "remedy": "Not running. Download and install it below, then start it — this page pairs with it by itself."
+      },
+      "companionRefusing": {
+        "remedy": "The companion is running, but it does not accept this site ({origin}). Install the companion offered below, which is built for this site — or add {origin} to the companion's allowed origins (see companion/packaging/README.md) and restart it."
+      },
+      "middleware": {
+        "label": "Autenticação.gov middleware (pteid)",
+        "remedy": "Install the Autenticação.gov application — it provides the PKCS#11 module the card needs."
+      },
+      "reader": {
+        "label": "Smart card reader",
+        "remedy": "Connect a card reader, or use a contactless reader with the card's CAN."
+      },
+      "readerNamed": {
+        "label": "Reader — {reader}"
+      },
+      "card": {
+        "label": "Cartão de Cidadão",
+        "remedy": "Insert the card into the reader."
+      },
+      "paired": {
+        "label": "Paired with this browser"
+      },
+      "notPaired": {
+        "remedy": "The companion is running but did not pair. Update it — versions before {version} have no /pair endpoint and needed a token pasted by hand."
+      }
+    }
   },
   "signVerify": {
     "title": "Verify a signature",

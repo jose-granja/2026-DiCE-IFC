@@ -272,15 +272,48 @@ test("setup offers an installer, or says how to build one", async ({ page }) => 
 
   // Which of the two depends on NEXT_PUBLIC_COMPANION_DOWNLOAD_BASE. What must
   // never happen is a download button pointing at a URL that 404s.
-  const button = page.getByRole("link", { name: /Download for / });
+  const button = page.getByRole("link", { name: /Download for |Descarregar para / });
   if ((await button.count()) > 0) {
     await expect(button.first()).toHaveAttribute("href", /\.(pkg|exe)$/);
     // Unsigned installers warn on both platforms; saying so beforehand is the
     // difference between an expected warning and an abandoned install.
-    await expect(page.getByText(/unidentified developer|SmartScreen/)).toBeVisible();
+    await expect(page.locator("[data-companion-warning]")).toContainText(/unidentified developer|SmartScreen|programador não identificado/);
   } else {
     await expect(page.getByText(/No installer is published/)).toBeVisible();
   }
+});
+
+test("setup's checklist reads in Portuguese, remedies included", async ({ page, context }) => {
+  await context.addCookies([
+    { name: "dice-locale", value: "pt", url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT ?? "3000"}` },
+  ]);
+  await page.goto("/sign/setup");
+
+  const reader = page.locator('[data-check="reader"]');
+  await expect(reader).toContainText("Leitor de cartões");
+  await expect(reader).toContainText(/Ligue um leitor/);
+  await expect(page.locator('[data-check="card"]')).toContainText(/Introduza o cartão/);
+  await expect(page.locator('[data-check="native-host"]')).toContainText(/Companion de assinatura/);
+  // None of the English the provider produces may show through.
+  await expect(page.locator("[data-check]").first()).toBeVisible();
+  const text = await page.locator("[data-check]").allInnerTexts();
+  expect(text.join("\n")).not.toMatch(/Smart card reader|Insert the card|Not running|Connect a card reader|Paired with/);
+});
+
+test("setup explains the unsigned installer in Portuguese too", async ({ page, context }) => {
+  await context.addCookies([
+    { name: "dice-locale", value: "pt", url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT ?? "3000"}` },
+  ]);
+  await page.goto("/sign/setup");
+
+  const warning = page.locator("[data-companion-warning]");
+  // Only offered when an installer has been built into public/companion, and
+  // only once the page has checked that the file is there.
+  await warning.waitFor({ timeout: 5_000 }).catch(() => undefined);
+  test.skip((await warning.count()) === 0, "no installer published in this build");
+  await expect(warning).not.toContainText(/unidentified developer|code-signed|Right-click/);
+  await expect(warning).toContainText(/assinad/);
+  await expect(page.getByRole("link", { name: /^Descarregar para / })).toBeVisible();
 });
 
 test("setup says CMD is out of scope and points elsewhere", async ({ page }) => {

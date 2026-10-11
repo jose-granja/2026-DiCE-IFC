@@ -44,6 +44,14 @@ export type GeorefCheck = {
   detail: string;
   /** What to do about it, when it is not a pass. */
   remedy?: string;
+  /**
+   * Which situation this is, and the numbers in it, so the page can word it in
+   * the user's language (`viewer.georefPanel.reportPanel.checks.<key>`).
+   * `detail` and `remedy` stay as the English sentences — what tests and logs
+   * read, and what the page falls back to for a situation without a key.
+   */
+  key?: string;
+  params?: Record<string, string | number>;
 };
 
 export type GeorefReport = {
@@ -116,6 +124,7 @@ function checkSiteLocation(view: GeoreferenceView): GeorefCheck[] {
         level: 20,
         label: "IfcSite RefLatitude / RefLongitude",
         status: "fail",
+        key: "siteLatLongMissing",
         detail: "The site declares no latitude or longitude.",
         remedy:
           "Set the site's reference latitude and longitude, or georeference the model fully with an IfcMapConversion.",
@@ -135,6 +144,7 @@ function checkSiteLocation(view: GeoreferenceView): GeorefCheck[] {
         level: 20,
         label: "IfcSite RefLatitude / RefLongitude",
         status: "warn",
+        key: "siteLatLongZero",
         // 0°N 0°E is in the Gulf of Guinea. It is a default, not a location.
         detail: "Latitude and longitude are both exactly 0°, which is a placeholder rather than a location.",
         remedy: "Set the real site coordinates.",
@@ -152,6 +162,8 @@ function checkSiteLocation(view: GeoreferenceView): GeorefCheck[] {
         level: 20,
         label: "IfcSite RefLatitude / RefLongitude",
         status: "fail",
+        key: "siteLatLongRange",
+        params: { latitude: latitude!.toFixed(4), longitude: longitude!.toFixed(4) },
         detail: `Coordinates are out of range (${latitude!.toFixed(4)}°, ${longitude!.toFixed(4)}°).`,
         remedy: "Check that the compound-degree values are correct.",
       },
@@ -186,6 +198,7 @@ function checkSitePlacement(view: GeoreferenceView): GeorefCheck[] {
           level: 30,
           label: "IfcSite RefElevation",
           status: "warn",
+          key: "elevationMissing",
           detail: "No reference elevation, so heights are relative to the model origin only.",
           remedy: "Set the site's reference elevation above the vertical datum.",
         }
@@ -194,6 +207,8 @@ function checkSitePlacement(view: GeoreferenceView): GeorefCheck[] {
           level: 30,
           label: "IfcSite RefElevation",
           status: "pass",
+          key: "elevationValue",
+          params: { value: elevation.toFixed(3) },
           detail: `${elevation.toFixed(3)} (project units)`,
         },
   );
@@ -205,6 +220,7 @@ function checkSitePlacement(view: GeoreferenceView): GeorefCheck[] {
           level: 30,
           label: "WorldCoordinateSystem",
           status: "warn",
+          key: "worldCoordinateSystemMissing",
           detail: "The Model context declares no world coordinate system.",
           remedy: "Not required, but an explicit identity placement documents the intent.",
         }
@@ -213,6 +229,8 @@ function checkSitePlacement(view: GeoreferenceView): GeorefCheck[] {
           level: 30,
           label: "WorldCoordinateSystem",
           status: "pass",
+          key: wcs[0] === 0 && wcs[1] === 0 && wcs[2] === 0 ? "worldCoordinateSystemIdentity" : "worldCoordinateSystemOffset",
+          params: { offset: wcs.map((v) => v.toFixed(3)).join(", ") },
           detail:
             wcs[0] === 0 && wcs[1] === 0 && wcs[2] === 0
               ? "Identity — the model origin is the context origin."
@@ -237,6 +255,7 @@ function checkTrueNorth(view: GeoreferenceView): GeorefCheck[] {
         level: 40,
         label: "TrueNorth",
         status: "fail",
+        key: "trueNorthMissing",
         detail: "The Model context declares no true north, so the model's orientation is unknown.",
         remedy:
           "Set TrueNorth on the Model representation context, or supply an IfcMapConversion, whose grid rotation supersedes it.",
@@ -252,6 +271,7 @@ function checkTrueNorth(view: GeoreferenceView): GeorefCheck[] {
         level: 40,
         label: "TrueNorth",
         status: "fail",
+        key: "trueNorthZero",
         detail: "TrueNorth is a zero-length direction, which carries no orientation.",
         remedy: "Set a non-zero direction, e.g. (0, 1) when project north is true north.",
       },
@@ -264,6 +284,8 @@ function checkTrueNorth(view: GeoreferenceView): GeorefCheck[] {
       level: 40,
       label: "TrueNorth",
       status: "pass",
+      key: context.trueNorthDegrees === undefined ? "trueNorthDirection" : "trueNorthDegrees",
+      params: { x, y, degrees: context.trueNorthDegrees?.toFixed(3) ?? "" },
       detail:
         context.trueNorthDegrees === undefined
           ? `Direction (${x}, ${y}).`
@@ -304,6 +326,7 @@ function checkMapConversion(view: GeoreferenceView): GeorefCheck[] {
       level: 50,
       label: "IfcMapConversion",
       status: "fail",
+      key: "mapConversionMissing",
       detail: "No map conversion, so the model cannot be placed in a projected CRS.",
       remedy: "Add an IfcMapConversion with the eastings, northings and height of the model origin.",
     });
@@ -316,6 +339,7 @@ function checkMapConversion(view: GeoreferenceView): GeorefCheck[] {
       level: 50,
       label: "IfcMapConversion",
       status: atOrigin ? "warn" : "pass",
+      key: atOrigin ? "mapConversionPlaceholder" : undefined,
       detail: atOrigin
         ? "Eastings and northings are both 0, which is a placeholder in every real projected CRS."
         : `E ${eastings.toFixed(3)}, N ${northings.toFixed(3)}, H ${orthogonalHeight.toFixed(3)}`,
@@ -330,6 +354,8 @@ function checkMapConversion(view: GeoreferenceView): GeorefCheck[] {
         // A scale other than 1 is legal but almost always a unit mistake rather
         // than a deliberate grid scale factor.
         status: "warn",
+        key: "mapConversionScale",
+        params: { scale },
         detail: `Scale is ${scale}, not 1.`,
         remedy:
           "Confirm this is a deliberate grid scale factor and not a unit conversion that belongs in the project units.",
@@ -343,6 +369,7 @@ function checkMapConversion(view: GeoreferenceView): GeorefCheck[] {
       level: 50,
       label: "IfcProjectedCRS",
       status: "fail",
+      key: "projectedCrsMissing",
       detail: "No projected CRS, so the map coordinates have no stated meaning.",
       remedy: "Add an IfcProjectedCRS naming the EPSG code, e.g. EPSG:3763.",
     });
@@ -353,6 +380,8 @@ function checkMapConversion(view: GeoreferenceView): GeorefCheck[] {
       level: 50,
       label: "IfcProjectedCRS",
       status: epsg === null ? "warn" : "pass",
+      key: epsg === null ? "projectedCrsUnrecognised" : undefined,
+      params: { name: crs.name ?? "" },
       detail:
         epsg === null
           ? `Name is "${crs.name}", which is not a recognisable EPSG code or a known CRS name.`

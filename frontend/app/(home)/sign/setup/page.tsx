@@ -138,10 +138,16 @@ export default function SignSetupPage() {
               <Button asChild size="sm" className="h-8">
                 <a href={download.href} download>
                   <Download className="h-4 w-4" />
-                  {download.label}
+                  {t(`download.${download.platform}`)}
                 </a>
               </Button>
-              <p className="text-muted-foreground text-[11px]">{download.warning}</p>
+              <p className="text-muted-foreground text-[11px]" data-companion-warning>
+                {t(
+                  download.platform === "windows"
+                    ? `warning.windows.${download.kind}`
+                    : "warning.macos",
+                )}
+              </p>
 
               {others.length > 0 && (
                 <p className="text-muted-foreground text-[11px]">
@@ -150,7 +156,7 @@ export default function SignSetupPage() {
                     <span key={entry.platform}>
                       {index > 0 && " · "}
                       <a className="underline underline-offset-2" href={entry.href} download>
-                        {entry.label.replace("Download for ", "")}
+                        {t(`platform.${entry.platform}`)}
                       </a>
                     </span>
                   ))}
@@ -269,7 +275,7 @@ function CheckRow({ check }: { check: ReadinessCheck }) {
       />
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium">
-          {check.label}
+          {check.labelKey ? t(`checks.${check.labelKey}.label`, check.values) : check.label}
           <span className="sr-only">
             {check.status === "ok"
               ? t("statusPresent")
@@ -279,7 +285,9 @@ function CheckRow({ check }: { check: ReadinessCheck }) {
           </span>
         </p>
         {check.remedy && (
-          <p className="text-muted-foreground mt-0.5 text-[11px]">{check.remedy}</p>
+          <p className="text-muted-foreground mt-0.5 text-[11px]">
+            {check.remedyKey ? t(`checks.${check.remedyKey}.remedy`, check.values) : check.remedy}
+          </p>
         )}
         {check.href && (
           <a

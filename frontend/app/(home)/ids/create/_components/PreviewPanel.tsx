@@ -6,11 +6,17 @@ import { AlertTriangle, BookText, CheckCircle2, CodeXml, ShieldCheck, XCircle } 
 import { toast } from "sonner";
 
 import { serializeIds } from "@/lib/ids/serialize";
-import { checkDocument, validateAgainstSchema, type SchemaValidation } from "@/lib/ids/validate";
+import {
+  checkDocument,
+  validateAgainstSchema,
+  type IdsIssue,
+  type SchemaValidation,
+} from "@/lib/ids/validate";
 import type { IdsDocument } from "@/lib/ids/types";
 import { useIdsStore } from "@/lib/ids/store";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import SpecificationSummary from "./SpecificationSummary";
 
@@ -22,6 +28,43 @@ import SpecificationSummary from "./SpecificationSummary";
  * validation is a button: it loads a WebAssembly libxml2 and three schemas, and
  * doing that continuously would be absurd.
  */
+/**
+ * An authoring issue in the user's language.
+ *
+ * Built from the issue's code and parameters rather than read from `message`,
+ * which is the English sentence tests and logs use. A code this does not know —
+ * one added to `checkDocument` without its words — falls back to that sentence
+ * rather than showing a key.
+ */
+function issueText(
+  issue: IdsIssue,
+  t: ReturnType<typeof useTranslations>,
+): { message: string; where: string } {
+  const known = (key: string) => t.has(key);
+
+  const params = issue.params ?? {};
+  const values: Record<string, string | number> = {
+    min: params.min ?? 0,
+    max: params.max ?? 0,
+    facet: params.facet && known(`issues.facets.${params.facet}`) ? t(`issues.facets.${params.facet}`) : "",
+    field: params.field && known(`issues.fields.${params.field}`) ? t(`issues.fields.${params.field}`) : "",
+  };
+
+  let message = known(`issues.codes.${issue.code}`) ? t(`issues.codes.${issue.code}`, values) : issue.message;
+  if (issue.scope && known(`issues.codes.${issue.code}`)) {
+    message = t("issues.scoped", { scope: t(`issues.scopes.${issue.scope}`), problem: message });
+  }
+
+  const where =
+    issue.whereKind === "document"
+      ? t("issues.where.document")
+      : issue.whereIndex !== undefined
+        ? t("issues.where.specification", { index: issue.whereIndex })
+        : issue.where;
+
+  return { message, where };
+}
+
 export function PreviewPanel({ document }: { document: IdsDocument }) {
   const t = useTranslations("idsCreate.previewPanel");
   const select = useIdsStore((s) => s.select);
@@ -61,15 +104,50 @@ export function PreviewPanel({ document }: { document: IdsDocument }) {
       onValueChange={setTab}
       className="flex h-full min-h-0 flex-col"
     >
+      {/*
+        Icon-only tabs, so each says what it is twice: as its accessible name
+        (`aria-label`) and in a tooltip for anyone who can see but not guess.
+      */}
       <TabsList className="m-2 grid grid-cols-3">
-        <TabsTrigger value="issues">
-          <ShieldCheck />
-          {issues.length > 0 && ` (${issues.length})`}
-        </TabsTrigger>
-        <TabsTrigger value="xml"><CodeXml /></TabsTrigger>
-        <TabsTrigger value="natural" disabled={!selected}>
-          <BookText />
-        </TabsTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <TabsTrigger value="issues" aria-label={t("tabs.issues")}>
+              <ShieldCheck />
+              {issues.length > 0 && ` (${issues.length})`}
+            </TabsTrigger>
+          </TooltipTrigger>
+          <TooltipContent>{t("tabs.issues")}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <TabsTrigger value="xml" aria-label={t("tabs.xml")}>
+              <CodeXml />
+            </TabsTrigger>
+          </TooltipTrigger>
+          <TooltipContent>{t("tabs.xml")}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          {/*
+            A disabled button receives no pointer events, so the tooltip would
+            never open on it — and this is the tab that needs explaining. The
+            wrapper takes the hover instead.
+          */}
+          <TooltipTrigger asChild>
+            <span className="flex min-w-0" data-natural-tab-wrapper>
+              <TabsTrigger
+                value="natural"
+                disabled={!selected}
+                aria-label={t("tabs.natural")}
+                className="w-full"
+              >
+                <BookText />
+              </TabsTrigger>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            {selected ? t("tabs.natural") : t("tabs.naturalDisabled")}
+          </TooltipContent>
+        </Tooltip>
       </TabsList>
 
       <TabsContent value="issues" className="min-h-0 flex-1 overflow-auto">
@@ -126,29 +204,32 @@ export function PreviewPanel({ document }: { document: IdsDocument }) {
           </p>
         ) : (
           <ul className="divide-y">
-            {[...errors, ...warnings].map((issue, index) => (
-              <li key={index} className="flex items-start gap-2 px-3 py-2">
+            {[...errors, ...warnings].map((issue, index) => {
+              const text = issueText(issue, t);
+              return (
+                <li key={index} className="flex items-start gap-2 px-3 py-2">
                 {issue.severity === "error" ? (
                   <XCircle className="text-destructive mt-0.5 h-3.5 w-3.5 shrink-0" />
                 ) : (
                   <AlertTriangle className="text-warning mt-0.5 h-3.5 w-3.5 shrink-0" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs">{issue.message}</p>
+                  <p className="text-xs">{text.message}</p>
                   {issue.specificationId ? (
                     <button
                       type="button"
                       onClick={() => select(issue.specificationId!)}
                       className="text-muted-foreground hover:text-foreground text-[11px] underline underline-offset-2"
                     >
-                      {issue.where}
+                      {text.where}
                     </button>
                   ) : (
-                    <p className="text-muted-foreground text-[11px]">{issue.where}</p>
+                    <p className="text-muted-foreground text-[11px]">{text.where}</p>
                   )}
                 </div>
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
       </TabsContent>

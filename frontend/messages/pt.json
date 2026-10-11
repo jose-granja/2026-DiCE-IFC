@@ -837,7 +837,79 @@
         "notMappableHint": "É necessária uma conversão de mapa e um CRS projetado antes de este modelo poder ser colocado num mapa ou federado com confiança.",
         "pass": "Aprovado",
         "warning": "Aviso",
-        "fail": "Reprovado"
+        "fail": "Reprovado",
+        "levels": {
+          "0": "Sem georreferenciação",
+          "20": "Localizado — apenas latitude e longitude aproximadas",
+          "30": "Posicionado — elevação e posicionamento do local, mas sem orientação",
+          "40": "Orientado — o norte verdadeiro é conhecido, mas não há conversão de mapa",
+          "50": "Totalmente georreferenciado — conversão de mapa e CRS projetado"
+        },
+        "checks": {
+          "siteLatLongMissing": {
+            "detail": "O local não declara latitude nem longitude.",
+            "remedy": "Defina a latitude e a longitude de referência do local, ou georreferencie o modelo por completo com um IfcMapConversion."
+          },
+          "siteLatLongZero": {
+            "detail": "A latitude e a longitude são ambas exatamente 0°, o que é um valor de substituição e não uma localização.",
+            "remedy": "Defina as coordenadas reais do local."
+          },
+          "siteLatLongRange": {
+            "detail": "As coordenadas estão fora do intervalo ({latitude}°, {longitude}°).",
+            "remedy": "Verifique se os valores em graus compostos estão corretos."
+          },
+          "elevationMissing": {
+            "detail": "Sem elevação de referência, por isso as alturas são relativas apenas à origem do modelo.",
+            "remedy": "Defina a elevação de referência do local acima do datum vertical."
+          },
+          "elevationValue": {
+            "detail": "{value} (unidades do projeto)"
+          },
+          "worldCoordinateSystemMissing": {
+            "detail": "O contexto Model não declara nenhum sistema de coordenadas mundial.",
+            "remedy": "Não é obrigatório, mas um posicionamento identidade explícito documenta a intenção."
+          },
+          "worldCoordinateSystemIdentity": {
+            "detail": "Identidade — a origem do modelo é a origem do contexto."
+          },
+          "worldCoordinateSystemOffset": {
+            "detail": "Deslocado de ({offset})."
+          },
+          "trueNorthMissing": {
+            "detail": "O contexto Model não declara o norte verdadeiro, por isso a orientação do modelo é desconhecida.",
+            "remedy": "Defina TrueNorth no contexto de representação Model, ou forneça um IfcMapConversion, cuja rotação da grelha o substitui."
+          },
+          "trueNorthZero": {
+            "detail": "TrueNorth é uma direção de comprimento zero, que não transmite orientação.",
+            "remedy": "Defina uma direção não nula, por exemplo (0, 1) quando o norte do projeto é o norte verdadeiro."
+          },
+          "trueNorthDirection": {
+            "detail": "Direção ({x}, {y})."
+          },
+          "trueNorthDegrees": {
+            "detail": "{degrees}° em relação ao norte do projeto."
+          },
+          "mapConversionMissing": {
+            "detail": "Sem conversão de mapa, por isso o modelo não pode ser colocado num CRS projetado.",
+            "remedy": "Adicione um IfcMapConversion com o este, o norte e a altura da origem do modelo."
+          },
+          "mapConversionPlaceholder": {
+            "detail": "O este e o norte são ambos 0, o que é um valor de substituição em qualquer CRS projetado real.",
+            "remedy": "Defina as coordenadas de mapa reais da origem do modelo."
+          },
+          "mapConversionScale": {
+            "detail": "A escala é {scale}, não 1.",
+            "remedy": "Confirme que é um fator de escala da grelha deliberado e não uma conversão de unidades que pertence às unidades do projeto."
+          },
+          "projectedCrsMissing": {
+            "detail": "Sem CRS projetado, por isso as coordenadas de mapa não têm significado declarado.",
+            "remedy": "Adicione um IfcProjectedCRS que indique o código EPSG, por exemplo EPSG:3763."
+          },
+          "projectedCrsUnrecognised": {
+            "detail": "O nome é “{name}”, que não é um código EPSG reconhecível nem um nome de CRS conhecido.",
+            "remedy": "Indique o CRS como código EPSG para que qualquer ferramenta o resolva sem ambiguidade."
+          }
+        }
       },
       "controlPoints": {
         "addPoint": "Adicionar ponto",
@@ -1037,7 +1109,27 @@
       "fileCouldNotBeRead": "Não foi possível ler esse ficheiro.",
       "exported": "Exportado {name} como BCF 3.0.",
       "conflictBothKept": "“{title}” difere entre {source1} e {source2} — ambos foram mantidos.",
-      "conflictMostRecentKept": "“{title}” diferia entre ficheiros — o mais recente foi mantido."
+      "conflictMostRecentKept": "“{title}” diferia entre ficheiros — o mais recente foi mantido.",
+      "noTopics": "Ainda não há tópicos. Importe um ficheiro <code>.bcf</code>, ou crie um tópico a partir de uma vista no visualizador.",
+      "noTopicsMatch": "Nenhum tópico corresponde aos filtros atuais.",
+      "comments": "Comentários:",
+      "viewpoints": "Pontos de vista:",
+      "overdue": "Em atraso",
+      "topicCount": "{count, plural, one {# tópico} other {# tópicos}}",
+      "topicCountFiltered": "{shown} de {count, plural, one {# tópico} other {# tópicos}}",
+      "selectForBulkEdit": "Selecionar {title} para edição em massa",
+      "importNotes": {
+        "noTopics": "Não foram encontrados tópicos neste arquivo.",
+        "noVersionFile": "Sem ficheiro de versão; o arquivo foi lido como BCF 3.0.",
+        "unknownVersion": "Versão BCF desconhecida “{version}”; o arquivo foi lido como BCF 3.0.",
+        "noTopicElement": "Sem elemento <Topic>; a pasta foi ignorada.",
+        "topicNoGuid": "O tópico não tinha GUID; foi usado o nome da pasta “{folder}”.",
+        "documentMissing": "O documento “{document}” é referenciado mas não existe no arquivo; mantido como ligação.",
+        "documentPromoted": "O documento “{document}” foi movido para a biblioteca de documentos do BCF 3.0.",
+        "commentNoGuid": "Um comentário não tinha GUID; foi gerado um.",
+        "viewpointMissing": "Falta no arquivo um ficheiro de ponto de vista; a sua câmara perdeu-se.",
+        "viewpointRecovered": "Um ficheiro de ponto de vista não estava listado no markup; foi recuperado."
+      }
     }
   },
   "idsCreate": {
@@ -1122,7 +1214,58 @@
       "requirementCount": "{count, plural, one {# requisito} other {# requisitos}}"
     },
     "previewPanel": {
-      "issues": "Problemas",
+      "issues": {
+        "codes": {
+          "titleMissing": "O documento precisa de um título.",
+          "authorNotEmail": "O autor tem de ser um endereço de email.",
+          "dateFormat": "A data tem de estar no formato AAAA-MM-DD.",
+          "noSpecifications": "Não há especificações, por isso este ficheiro não verifica nada.",
+          "specNameMissing": "Esta especificação precisa de um nome.",
+          "duplicateName": "Outra especificação tem o mesmo nome, o que torna ambíguo o relatório de validação.",
+          "noSchema": "Esta especificação não declara nenhum esquema IFC.",
+          "noRequirements": "Esta especificação não tem requisitos, por isso passará em qualquer modelo.",
+          "applicabilityEmptyProhibits": "A aplicabilidade está vazia, por isso esta especificação proíbe todas as entidades do modelo.",
+          "applicabilityEmptyRequires": "A aplicabilidade está vazia, por isso estes requisitos aplicam-se a todas as entidades do modelo. Raramente é essa a intenção.",
+          "occursOrder": "minOccurs ({min}) é superior a maxOccurs ({max}).",
+          "facetMissing": "{facet}: falta {field}.",
+          "facetEmpty": "{facet}: {field} está vazio.",
+          "restrictionEmpty": "{facet}: {field} é uma restrição sem condições.",
+          "patternInvalid": "{facet}: {field} tem um padrão que não é uma expressão regular válida.",
+          "boundsOrder": "{facet}: {field} tem um mínimo superior ao máximo.",
+          "dataTypeUppercase": "O tipo de dados da propriedade tem de estar todo em maiúsculas, por exemplo IFCLABEL."
+        },
+        "scoped": "{scope} — {problem}",
+        "scopes": {
+          "applicability": "Aplicabilidade",
+          "requirement": "Requisito"
+        },
+        "where": {
+          "document": "Documento",
+          "specification": "Especificação {index}"
+        },
+        "facets": {
+          "entity": "Entidade",
+          "partOf": "Parte de",
+          "classification": "Classificação",
+          "attribute": "Atributo",
+          "property": "Propriedade",
+          "material": "Material"
+        },
+        "fields": {
+          "entityName": "nome da entidade",
+          "predefinedType": "tipo predefinido",
+          "parentEntityName": "nome da entidade-mãe",
+          "parentPredefinedType": "tipo predefinido da entidade-mãe",
+          "classificationSystem": "sistema de classificação",
+          "classificationValue": "valor da classificação",
+          "attributeName": "nome do atributo",
+          "attributeValue": "valor do atributo",
+          "propertySet": "conjunto de propriedades",
+          "propertyName": "nome da propriedade",
+          "propertyValue": "valor da propriedade",
+          "materialValue": "valor do material"
+        }
+      },
       "xml": "XML",
       "naturalLanguage": "Linguagem simples",
       "validating": "A validar…",
@@ -1134,7 +1277,13 @@
       "schemaValidationFailed": "A validação do esquema falhou.",
       "schemaValidIds": "Esquema válido — IDS 1.0",
       "lineNumber": "linha {line}: ",
-      "noAuthoringIssues": "Sem problemas de autoria."
+      "noAuthoringIssues": "Sem problemas de autoria.",
+      "tabs": {
+        "issues": "Problemas",
+        "xml": "XML em direto",
+        "natural": "Leitura em linguagem corrente desta especificação",
+        "naturalDisabled": "Selecione uma especificação para a ler em linguagem corrente"
+      }
     },
     "naturalLanguage": {
       "unnamed": "Especificação sem nome",
@@ -1323,7 +1472,56 @@
     "statusMissing": " — em falta",
     "statusUnknown": " — não pode ser detetado a partir do navegador",
     "noProviderLabel": "Fornecedor de assinatura",
-    "noProviderRemedy": "Não foi possível carregar nenhum fornecedor de assinatura neste navegador."
+    "noProviderRemedy": "Não foi possível carregar nenhum fornecedor de assinatura neste navegador.",
+    "download": {
+      "macos-arm64": "Descarregar para macOS (Apple Silicon)",
+      "macos-x64": "Descarregar para macOS (Intel)",
+      "windows": "Descarregar para Windows"
+    },
+    "platform": {
+      "macos-arm64": "macOS (Apple Silicon)",
+      "macos-x64": "macOS (Intel)",
+      "windows": "Windows"
+    },
+    "warning": {
+      "macos": "Ainda não está assinado pela Apple, por isso o macOS dirá “programador não identificado”. Clique com o botão direito no ficheiro descarregado e escolha Abrir.",
+      "windows": {
+        "installer": "Ainda não está assinado digitalmente, por isso o SmartScreen avisará na primeira execução. Escolha “Mais informações” e depois “Executar mesmo assim”.",
+        "program": "É o próprio programa, não um instalador: execute-o e mantenha-o em execução (ainda não arranca com o Windows). Não está assinado digitalmente, por isso o SmartScreen avisará na primeira execução — escolha “Mais informações” e depois “Executar mesmo assim”."
+      }
+    },
+    "checks": {
+      "companion": {
+        "label": "Companion de assinatura DiCE-IFC"
+      },
+      "companionNotRunning": {
+        "remedy": "Não está em execução. Descarregue-o e instale-o abaixo e depois inicie-o — esta página emparelha com ele sozinha."
+      },
+      "companionRefusing": {
+        "remedy": "O companion está em execução, mas não aceita este site ({origin}). Instale o companion oferecido abaixo, que é construído para este site — ou adicione {origin} às origens permitidas do companion (ver companion/packaging/README.md) e reinicie-o."
+      },
+      "middleware": {
+        "label": "Middleware Autenticação.gov (pteid)",
+        "remedy": "Instale a aplicação Autenticação.gov — fornece o módulo PKCS#11 de que o cartão precisa."
+      },
+      "reader": {
+        "label": "Leitor de cartões",
+        "remedy": "Ligue um leitor de cartões, ou use um leitor sem contacto com o CAN do cartão."
+      },
+      "readerNamed": {
+        "label": "Leitor — {reader}"
+      },
+      "card": {
+        "label": "Cartão de Cidadão",
+        "remedy": "Introduza o cartão no leitor."
+      },
+      "paired": {
+        "label": "Emparelhado com este navegador"
+      },
+      "notPaired": {
+        "remedy": "O companion está em execução mas não emparelhou. Atualize-o — as versões anteriores à {version} não têm o ponto de acesso /pair e exigiam colar um token à mão."
+      }
+    }
   },
   "signVerify": {
     "title": "Verificar uma assinatura",

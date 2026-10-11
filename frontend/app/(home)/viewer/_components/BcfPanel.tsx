@@ -127,9 +127,18 @@ export function BcfPanel() {
     if (reported.current.notes === notes) return;
     reported.current.notes = notes;
     for (const note of notes.slice(0, 5)) {
-      toast.warning(`${note.path}: ${note.message}`, { duration: 10_000 });
+      toast.warning(
+        `${note.path}: ${
+          note.code && t.has(`importNotes.${note.code}`)
+            ? t(`importNotes.${note.code}`, note.params)
+            : note.message
+        }`,
+        { duration: 10_000 },
+      );
     }
-  }, [notes]);
+    // `reported` makes this fire once per import; `t` changing with the
+    // language must not repeat the toasts.
+  }, [notes, t]);
   useEffect(() => {
     if (reported.current.conflicts === conflicts) return;
     reported.current.conflicts = conflicts;

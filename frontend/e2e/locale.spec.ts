@@ -105,3 +105,51 @@ test("every key used by the shell exists in both catalogues", async ({ page }) =
     }
   }
 });
+
+test("the IDS editor's authoring checks read in Portuguese", async ({ page, context }) => {
+  await context.addCookies([
+    { name: "dice-locale", value: "pt", url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT ?? "3000"}` },
+  ]);
+  await page.goto("/ids/create");
+
+  // A new document has no specifications, which is exactly the line the editor
+  // showed in English under a Portuguese interface.
+  await expect(page.getByText("Não há especificações, por isso este ficheiro não verifica nada.")).toBeVisible();
+  await expect(page.getByText("There are no specifications")).toHaveCount(0);
+});
+
+test("the viewer's BCF tab reads in Portuguese, empty and with topics", async ({ page, context }) => {
+  await context.addCookies([
+    { name: "dice-locale", value: "pt", url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT ?? "3000"}` },
+  ]);
+  await page.goto("/viewer?panel=bcf");
+
+  await expect(page.getByText(/Ainda não há tópicos\. Importe um ficheiro/)).toBeVisible();
+  await expect(page.getByText(/No topics yet/)).toHaveCount(0);
+
+  await page.locator('input[accept*=".bcf"]').setInputFiles(["fixtures/bcf/v2.1/maximum-information.bcf"]);
+  await expect(page.locator("[data-topic-list]")).toContainText(/2 tópicos/);
+  await expect(page.locator("[data-topic-list]")).toContainText(/Comentários:/);
+  // The import note, worded in Portuguese rather than the parser's English.
+  await expect(page.getByText(/é referenciado mas não existe no arquivo/).first()).toBeVisible();
+  await expect(page.getByText(/is referenced but not present/)).toHaveCount(0);
+});
+
+test("the viewer's Geo tab reads in Portuguese, including what the report finds wrong", async ({ page, context }) => {
+  await context.addCookies([
+    { name: "dice-locale", value: "pt", url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT ?? "3000"}` },
+  ]);
+  await page.goto("/viewer");
+  await page.setInputFiles('input[type="file"]', ["fixtures/ifc/clash-ifc4.ifc"]);
+  await expect(page.locator("[data-rendered-models]")).toHaveAttribute("data-rendered-models", "1", {
+    timeout: 30_000,
+  });
+
+  await page.locator('[role=tab][id*="trigger-georef"]').click();
+  const panel = page.locator("[role=tabpanel][data-state=active]").first();
+
+  await expect(panel).toContainText("Orientado — o norte verdadeiro é conhecido");
+  await expect(panel).toContainText("O local não declara latitude nem longitude.");
+  await expect(panel).toContainText(/Adicione um IfcProjectedCRS/);
+  await expect(panel).not.toContainText(/The site declares no|Oriented —|No map conversion/);
+});

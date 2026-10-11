@@ -117,6 +117,16 @@ export type ReadinessCheck = {
   status: "ok" | "missing" | "unknown";
   /** What the user should do about it, when the status is not `ok`. */
   remedy?: string;
+  /**
+   * Keys into `signSetup.checks.*` for `label` and `remedy`, with the values to
+   * fill in, so the page can show them in the user's language. Providers that
+   * set them still set `label` and `remedy` in English — those are what a
+   * caller without a translator (a log line, a test) reads, and what the page
+   * falls back to for a provider that has no keys.
+   */
+  labelKey?: string;
+  remedyKey?: string;
+  values?: Record<string, string>;
   /** Where to go and get it. */
   href?: string;
 };

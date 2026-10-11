@@ -23,12 +23,16 @@
 export type CompanionPlatform = "macos-arm64" | "macos-x64" | "windows" | "unknown";
 
 export type CompanionDownload = {
-  platform: CompanionPlatform;
-  label: string;
+  platform: Exclude<CompanionPlatform, "unknown">;
   filename: string;
   href: string;
-  /** Shown next to the button. Both installers are unsigned; say so. */
-  warning: string;
+  /**
+   * What is being offered, which decides the wording of the warning beside it:
+   * an installer starts with the computer, the bare program Windows is served
+   * when no installer was built does not. The words themselves are the page's —
+   * they are translated there (`signSetup.download.*`), not here.
+   */
+  kind: "installer" | "program";
 };
 
 /** Kept in step with `companion/pyproject.toml`. */
@@ -98,22 +102,6 @@ const FILES: Record<Exclude<CompanionPlatform, "unknown">, string> = {
     : `DiCE-IFC-Companion-${COMPANION_VERSION}-windows-setup.exe`,
 };
 
-const LABELS: Record<Exclude<CompanionPlatform, "unknown">, string> = {
-  "macos-arm64": "Download for macOS (Apple Silicon)",
-  "macos-x64": "Download for macOS (Intel)",
-  windows: "Download for Windows",
-};
-
-const WARNINGS: Record<Exclude<CompanionPlatform, "unknown">, string> = {
-  "macos-arm64":
-    "Not signed by Apple yet, so macOS will say “unidentified developer”. Right-click the downloaded file and choose Open.",
-  "macos-x64":
-    "Not signed by Apple yet, so macOS will say “unidentified developer”. Right-click the downloaded file and choose Open.",
-  windows: SELF_HOSTED
-    ? "The program itself, not an installer: run it and keep it running (it does not start with Windows yet). Not code-signed, so SmartScreen will warn on first run — choose “More info”, then “Run anyway”."
-    : "Not code-signed yet, so SmartScreen will warn on first run. Choose “More info”, then “Run anyway”.",
-};
-
 /** The download for a platform, or `null` when none is configured. */
 export function companionDownload(
   platform: CompanionPlatform,
@@ -122,10 +110,9 @@ export function companionDownload(
 
   return {
     platform,
-    label: LABELS[platform],
     filename: FILES[platform],
     href: `${BASE}/${FILES[platform]}`,
-    warning: WARNINGS[platform],
+    kind: platform === "windows" && SELF_HOSTED ? "program" : "installer",
   };
 }
 

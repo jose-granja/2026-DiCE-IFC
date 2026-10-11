@@ -330,3 +330,55 @@ describe("XSD validation", () => {
     expect(result.errors[0].line).toBeGreaterThan(0);
   }, 60_000);
 });
+
+describe("authoring issues carry what a translator needs", () => {
+  it("names each problem by code, not only by its English sentence", () => {
+    const empty = emptyDocument("");
+    empty.info.date = "04/09/2026";
+    const codes = checkDocument(empty).map((issue) => issue.code);
+    expect(codes).toEqual(expect.arrayContaining(["titleMissing", "dateFormat", "noSpecifications"]));
+  });
+
+  it("separates the document from a specification, and numbers one with no name", () => {
+    const document = documentWith({ name: "" });
+    const nameless = checkDocument(document).find((issue) => issue.code === "specNameMissing");
+    expect(nameless).toMatchObject({ whereKind: "specification", whereIndex: 1 });
+
+    const named = checkDocument(documentWith({ requirements: [] })).find(
+      (issue) => issue.code === "noRequirements",
+    );
+    expect(named).toMatchObject({ whereKind: "specification", where: "Walls are named" });
+    expect(named?.whereIndex).toBeUndefined();
+
+    expect(checkDocument(emptyDocument(""))[0].whereKind).toBe("document");
+  });
+
+  it("reports a facet's problem with the facet and field, and where it sits", () => {
+    const document = documentWith({
+      requirements: [
+        {
+          id: "r",
+          cardinality: "required",
+          facet: { kind: "property", propertySet: simple(""), baseName: simple("FireRating") },
+        },
+      ],
+    });
+    const issue = checkDocument(document).find((i) => i.code === "facetEmpty");
+    expect(issue).toMatchObject({
+      scope: "requirement",
+      params: { facet: "property", field: "propertySet" },
+    });
+    // The English sentence is unchanged, for whatever still reads it.
+    expect(issue?.message).toBe("Requirement — Property has an empty property set.");
+  });
+
+  it("gives the min and max for an occurrence range the wrong way round", () => {
+    const document = documentWith();
+    document.specifications[0].applicability.minOccurs = 5;
+    document.specifications[0].applicability.maxOccurs = 2;
+    expect(checkDocument(document).find((i) => i.code === "occursOrder")?.params).toEqual({
+      min: 5,
+      max: 2,
+    });
+  });
+});

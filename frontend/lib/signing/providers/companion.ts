@@ -82,7 +82,10 @@ export function createCompanionSigningProvider(): SigningProvider {
         {
           id: "native-host",
           label: "DiCE-IFC signing companion",
+          labelKey: "companion",
           status: status ? "ok" : "missing",
+          remedyKey: status ? undefined : refusing ? "companionRefusing" : "companionNotRunning",
+          values: { origin: window.location.origin },
           remedy: status
             ? undefined
             : refusing
@@ -92,6 +95,8 @@ export function createCompanionSigningProvider(): SigningProvider {
         {
           id: "middleware",
           label: "Autenticação.gov middleware (pteid)",
+          labelKey: "middleware",
+          remedyKey: status?.middleware ? undefined : "middleware",
           status: status?.middleware ? "ok" : status ? "missing" : "unknown",
           remedy: status?.middleware
             ? undefined
@@ -101,6 +106,9 @@ export function createCompanionSigningProvider(): SigningProvider {
         {
           id: "reader",
           label: status?.reader ? `Reader — ${status.reader}` : "Smart card reader",
+          labelKey: status?.reader ? "readerNamed" : "reader",
+          remedyKey: status?.reader ? undefined : "reader",
+          values: { reader: status?.reader ?? "" },
           status: status?.reader ? "ok" : status ? "missing" : "unknown",
           remedy: status?.reader
             ? undefined
@@ -109,16 +117,21 @@ export function createCompanionSigningProvider(): SigningProvider {
         {
           id: "card",
           label: "Cartão de Cidadão",
+          labelKey: "card",
+          remedyKey: status?.cardPresent ? undefined : "card",
           status: status?.cardPresent ? "ok" : status ? "missing" : "unknown",
           remedy: status?.cardPresent ? undefined : "Insert the card into the reader.",
         },
         {
           id: "extension",
           label: "Paired with this browser",
+          labelKey: "paired",
+          remedyKey: status?.paired ? undefined : "notPaired",
+          values: { version: "0.1.0" },
           status: status?.paired ? "ok" : "missing",
           remedy: status?.paired
             ? undefined
-            : "The companion is running but did not pair. Update it — versions before 0.1.1 have no /pair endpoint and needed a token pasted by hand.",
+            : "The companion is running but did not pair. Update it — versions before 0.1.0 have no /pair endpoint and needed a token pasted by hand.",
         },
       ];
 

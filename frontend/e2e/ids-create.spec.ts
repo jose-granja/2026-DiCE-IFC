@@ -271,3 +271,32 @@ test("renders with no console errors", async ({ page }) => {
 
   expect(errors).toEqual([]);
 });
+
+test("the icon-only tabs of the preview panel are named and explain themselves", async ({ page }) => {
+  await openAuthoring(page);
+
+  const issues = page.getByRole("tab", { name: /^Issues/ });
+  const xml = page.getByRole("tab", { name: "Live XML" });
+  await expect(issues).toBeVisible();
+  await expect(xml).toBeVisible();
+
+  await xml.hover();
+  await expect(page.getByRole("tooltip", { name: "Live XML" })).toBeVisible();
+
+  // The reading tab needs a specification, and says so even while it is disabled.
+  const natural = page.getByRole("tab", { name: /plain-language/i });
+  await expect(natural).toBeDisabled();
+  // Leave the first tooltip before reaching for the next: a pointer that jumps
+  // straight from one trigger to another is read as heading for the open tooltip.
+  await page.mouse.move(600, 600, { steps: 12 });
+  await expect(page.getByRole("tooltip", { name: "Live XML" })).toHaveCount(0);
+  await page.locator("[data-natural-tab-wrapper]").hover();
+  await expect(page.getByRole("tooltip", { name: /Select a specification/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "Add specification" }).click();
+  await expect(natural).toBeEnabled();
+  await page.mouse.move(600, 600, { steps: 12 });
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await natural.hover();
+  await expect(page.getByRole("tooltip", { name: /Plain-language reading/ })).toBeVisible();
+});

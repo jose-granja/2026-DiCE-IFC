@@ -58,7 +58,11 @@ export class BcfParseError extends Error {
 /** Something the file said that had to be changed to be representable. */
 export type ParseNote = {
   path: string;
+  /** The English sentence, for logs and tests. The page words it from `code`. */
   message: string;
+  /** Which situation this is — a key under `viewer.bcfPanel.importNotes`. */
+  code?: string;
+  params?: Record<string, string>;
 };
 
 export type BcfParseResult = {
@@ -102,6 +106,7 @@ export function parseBcf(bytes: Uint8Array, name = "issues.bcf"): BcfParseResult
     notes.push({
       path: name,
       message: "No topics were found in this archive.",
+      code: "noTopics",
     });
   }
 
@@ -201,6 +206,7 @@ function readVersion(zip: Archive, notes: ParseNote[]): BcfVersion {
     notes.push({
       path: "bcf.version",
       message: "No version file; the archive was read as BCF 3.0.",
+      code: "noVersionFile",
     });
     return "3.0";
   }
@@ -213,6 +219,8 @@ function readVersion(zip: Archive, notes: ParseNote[]): BcfVersion {
   notes.push({
     path: "bcf.version",
     message: `Unknown BCF version "${id ?? ""}"; the archive was read as BCF 3.0.`,
+    code: "unknownVersion",
+    params: { version: id ?? "" },
   });
   return "3.0";
 }
@@ -341,7 +349,7 @@ function readTopic(
   const root = parseXml(markup, path).documentElement;
   const topicElement = root.getElementsByTagName("Topic")[0];
   if (!topicElement) {
-    notes.push({ path, message: "No <Topic> element; the folder was skipped." });
+    notes.push({ path, message: "No <Topic> element; the folder was skipped.", code: "noTopicElement" });
     return null;
   }
 
@@ -385,6 +393,8 @@ function readTopic(
     notes.push({
       path,
       message: `Topic had no GUID; the folder name "${folder}" was used instead.`,
+      code: "topicNoGuid",
+      params: { folder },
     });
   }
 
@@ -479,6 +489,8 @@ function readDocumentReferences(
       notes.push({
         path,
         message: `Document "${referenced}" is referenced but not present in the archive; kept as a link.`,
+        code: "documentMissing",
+        params: { document: referenced },
       });
       references.push({ guid, url: referenced, description });
       continue;
@@ -495,6 +507,8 @@ function readDocumentReferences(
     notes.push({
       path,
       message: `Document "${promoted.filename}" was moved into the BCF 3.0 document library.`,
+      code: "documentPromoted",
+      params: { document: promoted.filename },
     });
   }
 
@@ -517,7 +531,7 @@ function readComments(root: Element, notes: ParseNote[], path: string): BcfComme
 
     const guid = element.getAttribute("Guid");
     if (!guid) {
-      notes.push({ path, message: "A comment had no GUID; one was generated." });
+      notes.push({ path, message: "A comment had no GUID; one was generated.", code: "commentNoGuid" });
     }
 
     comments.push({
@@ -596,6 +610,7 @@ function readViewpoints(
       notes.push({
         path: `${folder}/${fileName}`,
         message: "A viewpoint file is missing from the archive; its camera was lost.",
+        code: "viewpointMissing",
       });
     }
 
@@ -647,6 +662,7 @@ function readViewpoints(
     notes.push({
       path: `${folder}/${fileName}`,
       message: "A viewpoint file was not listed in the markup; it was recovered.",
+      code: "viewpointRecovered",
     });
   }
 

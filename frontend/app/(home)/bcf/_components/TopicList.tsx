@@ -59,8 +59,7 @@ export function TopicList({
   if (total === 0) {
     return (
       <p className="text-muted-foreground p-3 text-xs">
-        No topics yet. Import a <code>.bcf</code> file, or create a topic from a
-        view in the viewer.
+        {t.rich("noTopics", { code: (chunks) => <code>{chunks}</code> })}
       </p>
     );
   }
@@ -68,7 +67,7 @@ export function TopicList({
   if (topics.length === 0) {
     return (
       <p className="text-muted-foreground p-3 text-xs">
-        No topics match the current filters.
+        {t("noTopicsMatch")}
       </p>
     );
   }
@@ -81,8 +80,8 @@ export function TopicList({
         aria-live="polite"
       >
         {topics.length === total
-          ? `${total} topic${total === 1 ? "" : "s"}`
-          : `${topics.length} of ${total} topics`}
+          ? t("topicCount", { count: total })
+          : t("topicCountFiltered", { shown: topics.length, count: total })}
       </div>
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
@@ -112,7 +111,7 @@ export function TopicList({
                     className="mt-1"
                     checked={checked.has(topic.guid)}
                     onCheckedChange={() => toggleChecked(topic.guid)}
-                    aria-label={`Select ${topic.title} for bulk editing`}
+                    aria-label={t("selectForBulkEdit", { title: topic.title })}
                   />
 
                   <button
@@ -163,6 +162,7 @@ export function TopicList({
 }
 
 function TopicMeta({ topic, now }: { topic: BcfTopic; now: number }) {
+  const t = useTranslations("viewer.bcfPanel");
   const overdue =
     topic.dueDate && !isClosed(topic) && Date.parse(topic.dueDate) < now;
 
@@ -171,21 +171,21 @@ function TopicMeta({ topic, now }: { topic: BcfTopic; now: number }) {
       {topic.comments.length > 0 && (
         <span className="flex items-center gap-0.5">
           <MessageSquare className="h-3 w-3" aria-hidden />
-          <span className="sr-only">Comments: </span>
+          <span className="sr-only">{t("comments")} </span>
           {topic.comments.length}
         </span>
       )}
       {topic.viewpoints.length > 0 && (
         <span className="flex items-center gap-0.5">
           <Camera className="h-3 w-3" aria-hidden />
-          <span className="sr-only">Viewpoints: </span>
+          <span className="sr-only">{t("viewpoints")} </span>
           {topic.viewpoints.length}
         </span>
       )}
       {overdue && (
         <span className="text-destructive flex items-center gap-0.5">
           <CalendarClock className="h-3 w-3" aria-hidden />
-          Overdue
+          {t("overdue")}
         </span>
       )}
       {topic.assignedTo && <span className="truncate">{topic.assignedTo}</span>}

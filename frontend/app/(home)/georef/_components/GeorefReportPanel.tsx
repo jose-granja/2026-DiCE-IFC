@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 
 import type { GeoreferenceView } from "@/lib/ifc/types";
 import { findVerticalCrs, useCrsIndex } from "@/lib/georef/crs-index";
-import { describeLevel, gradeGeoreferencing, resolveEpsgCode, siteDisagreement } from "@/lib/georef/logeoref";
+import { gradeGeoreferencing, resolveEpsgCode, siteDisagreement } from "@/lib/georef/logeoref";
 import { isSupportedCrs } from "@/lib/georef/transform";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -48,7 +48,7 @@ export function GeorefReportPanel({ view }: { view: GeoreferenceView }) {
           {t("logeoref", { level: report.level })}
         </Badge>
         <div className="min-w-0">
-          <p className="text-sm font-medium">{describeLevel(report.level)}</p>
+          <p className="text-sm font-medium">{t(`levels.${report.level}`)}</p>
           {!report.isMappable && (
             <p className="text-muted-foreground mt-0.5 text-xs">
               {t("notMappableHint")}
@@ -68,10 +68,16 @@ export function GeorefReportPanel({ view }: { view: GeoreferenceView }) {
                   {t("logeoref", { level: check.level })}
                 </span>
               </p>
-              <p className="text-muted-foreground mt-0.5 text-xs">{check.detail}</p>
+              <p className="text-muted-foreground mt-0.5 text-xs">
+                {check.key && t.has(`checks.${check.key}.detail`)
+                  ? t(`checks.${check.key}.detail`, check.params)
+                  : check.detail}
+              </p>
               {check.remedy && (
                 <p className="text-muted-foreground mt-1 text-xs italic">
-                  {check.remedy}
+                  {check.key && t.has(`checks.${check.key}.remedy`)
+                    ? t(`checks.${check.key}.remedy`, check.params)
+                    : check.remedy}
                 </p>
               )}
             </div>
