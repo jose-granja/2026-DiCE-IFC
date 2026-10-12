@@ -331,3 +331,43 @@ describe("federated bounds", () => {
     expect(federatedBounds([])).toBeNull();
   });
 });
+
+describe("a project in millimetres, whose Scale converts units", () => {
+  const mm = (scale: number, originShift: Vec3 = [0, 0, 0]): FederationModelInput => ({
+    id: "mm",
+    name: "mm",
+    coordinates: { ...coordinates(originShift), lengthUnitScale: 0.001 },
+    georeference: {
+      ...georeferenced(-40000, 180000, 190, { scale }),
+      lengthUnitScale: 0.001,
+    },
+  });
+
+  it("is drawn at true size: the engine's metres are not scaled by 0.001 again", () => {
+    const [placement] = computePlacements(
+      [mm(0.001)],
+      deriveWorldOrigin([mm(0.001)]),
+    );
+    expect(placement.scale).toBeCloseTo(1, 12);
+  });
+
+  it("is also true size when the file leaves Scale at 1", () => {
+    const [placement] = computePlacements([mm(1)], deriveWorldOrigin([mm(1)]));
+    expect(placement.scale).toBe(1);
+  });
+
+  it("puts the render origin where the shift says, in metres", () => {
+    // A 10 m RTC shift along x, in a millimetre project with Scale = 0.001, is
+    // 10 m of map, not 0.01 m.
+    const at = mapPositionOfRenderOrigin(mm(0.001, [10, 0, 0]));
+    expect(at![0]).toBeCloseTo(-40000 + 10, 9);
+  });
+
+  it("keeps a metre project's grid scale as written", () => {
+    const metres: FederationModelInput = {
+      ...model("m", georeferenced(0, 0, 0, { scale: 0.9996 })),
+    };
+    const [placement] = computePlacements([metres], deriveWorldOrigin([metres]));
+    expect(placement.scale).toBe(0.9996);
+  });
+});

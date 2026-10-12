@@ -3,11 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Download, FileSignature, Info, Upload, X } from "lucide-react";
+import { Download, FileSignature, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
 import ModuleHeader from "@/components/ModuleHeader";
-import TrustNotice from "@/components/TrustNotice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -63,7 +62,7 @@ export function SignModule({
   const [files, setFiles] = useState<
     Array<{ name: string; bytes: Uint8Array }>
   >([]);
-  const [mode, setMode] = useState<SignMode>("combined");
+  const [mode, setMode] = useState<SignMode>("per-file");
   const [progress, setProgress] = useState<SignProgress | null>(null);
   const [outputs, setOutputs] = useState<SignedOutput[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -278,11 +277,11 @@ export function SignModule({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="combined">
-                      {t("oneSignatureAllFiles")}
-                    </SelectItem>
                     <SelectItem value="per-file">
                       {t("oneSignaturePerFile")}
+                    </SelectItem>
+                    <SelectItem value="combined">
+                      {t("oneSignatureAllFiles")}
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -299,7 +298,7 @@ export function SignModule({
                     strong: (chunks) => <strong>{chunks}</strong>,
                   })}
             </p>
-            {service && !service.configured && (
+            {/* {service && !service.configured && (
               // Not a box: it is information rather than a decision, and nothing on
               // this page can change it.
               <p
@@ -310,7 +309,7 @@ export function SignModule({
                 <Info className="size-3 shrink-0" aria-hidden />
                 {t("timestamp.notConfigured")}
               </p>
-            )}
+            )} */}
             {service?.configured && (
               <div
                 className="rounded-lg border p-4"
@@ -527,7 +526,6 @@ export function SignModule({
         >
           {common("verifySignatures")}
         </Link>
-        <TrustNotice data-trust-notice>{common("trust")}</TrustNotice>
       </div>
     </div>
   );

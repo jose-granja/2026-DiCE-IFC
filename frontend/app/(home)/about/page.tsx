@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { OPERATOR, contactHref } from "@/config/legal";
+import TrustNotice from "@/components/TrustNotice";
 
 /**
  * Credits, licences and the things this application should not be taken to
@@ -189,6 +190,14 @@ export default function AboutPage() {
             {t("accessibility.contact")} {contactLine}
           </p>
         )}
+      </section>
+
+      <section className="mt-10 max-w-3xl">
+        <h2 className="text-xl font-semibold tracking-tight">{t("trust.title")}</h2>
+        <p className="text-muted-foreground mt-3 text-sm">{t("trust.text")}</p>
+        <TrustNotice className="mt-4" data-about-trust>
+          {t("trust.notice")}
+        </TrustNotice>
       </section>
     </MaxWidthWrapper>
   );

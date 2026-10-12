@@ -21,6 +21,7 @@ import proj4 from "proj4";
 
 import { CRS_DEFINITIONS, WGS84, WGS84_PROJ4, findCrs } from "@/config/epsg";
 import type { MapConversionView } from "@/lib/ifc/types";
+import { effectiveScale } from "./scale";
 
 // proj4 only ships WGS84 and a couple of others; anything else silently fails to
 // transform unless it is defined. Registering the whole bundled registry once,
@@ -102,7 +103,7 @@ export function gridRotation(conversion: MapConversionView): {
 export function localToMap(point: LocalPoint, placement: Placement): MapPoint {
   const { conversion, lengthUnitScale } = placement;
   const { cos, sin } = gridRotation(conversion);
-  const scale = conversion.scale ?? 1;
+  const scale = effectiveScale(conversion.scale, lengthUnitScale);
 
   const x = point.x * lengthUnitScale;
   const y = point.y * lengthUnitScale;
@@ -119,7 +120,7 @@ export function localToMap(point: LocalPoint, placement: Placement): MapPoint {
 export function mapToLocal(point: MapPoint, placement: Placement): LocalPoint {
   const { conversion, lengthUnitScale } = placement;
   const { cos, sin } = gridRotation(conversion);
-  const scale = conversion.scale ?? 1;
+  const scale = effectiveScale(conversion.scale, lengthUnitScale);
 
   const de = (point.easting - conversion.eastings) / scale;
   const dn = (point.northing - conversion.northings) / scale;

@@ -10,8 +10,8 @@ import { signFiles } from "../lib/signing/sign";
  * The signature result in the viewer's model list.
  *
  * A container signed here with a real (software) key, so no card is needed:
- * the badge reads what verification found, and the sentence about what was *not*
- * checked sits behind the status, one press away.
+ * the badge reads what verification found. What a "valid" does not cover is on
+ * the About page, not repeated here.
  */
 
 const WALL = path.resolve(__dirname, "../fixtures/ifc/georeferenced-wall-ifc4.ifc");
@@ -38,27 +38,16 @@ test.beforeEach(async ({ page }, testInfo) => {
   await page.getByRole("tab", { name: /models|modelos/i }).click();
 });
 
-test("the caveat is in a popover on the signature status, not on the row", async ({ page }) => {
+test("the model list shows the result and signer, and not the caveat under it", async ({ page }) => {
   const status = page.locator("[data-signature-status]").first();
   await expect(status).toContainText(/Signature valid/);
 
-  // Not on the row…
-  await expect(page.locator("[data-signature-caveat]")).toHaveCount(0);
+  // The row says what was found. What "valid" does and does not cover is on the
+  // About page, once — not under every model.
   await expect(page.getByText(/qualified status are not checked/)).toHaveCount(0);
-
-  // …but there when the status is pressed, in the same words everywhere.
-  await status.click();
-  const caveat = page.locator("[data-signature-caveat]");
-  await expect(caveat).toBeVisible();
-  await expect(caveat).toContainText("The content is unchanged since it was signed.");
-  await expect(caveat).toContainText("Certificate trust and qualified status are not checked.");
-
-  await page.keyboard.press("Escape");
-  await expect(caveat).toHaveCount(0);
-});
-
-test("the status is a real button, with a name that says what it opens", async ({ page }) => {
-  await expect(page.getByRole("button", { name: "What this signature check covers" })).toBeVisible();
+  await expect(page.getByText(/unchanged since it was signed/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /signature check covers/i })).toHaveCount(0);
+  await expect(page.locator("[data-signature-caveat]")).toHaveCount(0);
 });
 
 test("reads in Portuguese", async ({ page, context }, testInfo) => {
@@ -70,8 +59,6 @@ test("reads in Portuguese", async ({ page, context }, testInfo) => {
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
   await page.getByRole("tab", { name: /modelos/i }).click();
 
-  await page.locator("[data-signature-status]").first().click();
-  await expect(page.locator("[data-signature-caveat]")).toContainText(
-    "A confiança no certificado e a qualificação não são verificadas.",
-  );
+  await expect(page.locator("[data-signature-status]").first()).toContainText(/Assinatura válida/);
+  await expect(page.getByText(/não são verificadas/)).toHaveCount(0);
 });

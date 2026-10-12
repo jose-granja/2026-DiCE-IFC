@@ -105,7 +105,6 @@ for (const keyType of ["RSA", "EC"] as const) {
       if (url.origin === new URL(baseURL!).origin) expect(request.postData()).toBeNull();
     });
     await openEmbedded(page);
-    await expect(page.locator("[data-embedded-trust]")).toContainText("qualified status are not checked");
     await expect(page.locator('input[type="password"]')).toHaveCount(0);
     await page.setInputFiles('input[type="file"]', IFC);
     await page.getByRole("button", { name: "Sign", exact: true }).click();
@@ -120,7 +119,6 @@ for (const keyType of ["RSA", "EC"] as const) {
     await page.getByRole("link", { name: "Verify signatures", exact: true }).click();
     await page.setInputFiles('input[type="file"]', signed.path);
     await expect(page.locator("[data-embedded-verification]")).toContainText("Signature integrity verified");
-    await expect(page.locator("[data-trust-notice]")).toBeVisible();
     await openEmbedded(page);
     await page.setInputFiles('input[type="file"]', signed.path);
     await page.getByRole("button", { name: "Sign", exact: true }).click();
@@ -195,7 +193,6 @@ for (const mode of ["combined", "per-file"] as const) {
   test(`signs multiple files in IFCZIP ${mode} mode and verifies downloaded containers`, async ({ page }, testInfo) => {
     const requests = await companion(page, "RSA");
     await page.goto("/sign/ifc");
-    await expect(page.locator("[data-embedded-trust]")).toBeVisible();
     if (mode === "per-file") {
       await page.getByRole("combobox", { name: "Signature mode" }).click();
       await page.getByRole("option", { name: "One signature per file", exact: true }).click();
@@ -243,9 +240,8 @@ test("the viewer verifies embedded signatures and identifies altered models", as
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60000 });
   await page.getByRole("tab", { name: "Models", exact: true }).click();
   await expect(page.getByText(/Signature valid — 1 signer/)).toBeVisible({ timeout: 30000 });
-  // The caveat is one press away from the status, and says what normalisation was applied.
-  await page.locator("[data-signature-status]").first().click();
-  await expect(page.locator("[data-signature-caveat]")).toContainText(/once control characters are removed/);
+  // The status stands alone: what "valid" does and does not cover is on the About page.
+  await expect(page.getByText(/qualified status are not checked/)).toHaveCount(0);
   await page.locator('input[accept*=".ifc"]').setInputFiles({ name: "tampered.ifc", mimeType: "application/octet-stream",
     buffer: Buffer.from(signed.bytes.toString().replace("IFCWALL", "IFCSLAB")) });
   await expect(page.getByText("Signature not valid", { exact: true })).toBeVisible({ timeout: 30000 });

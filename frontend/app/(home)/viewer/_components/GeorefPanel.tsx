@@ -1,5 +1,6 @@
 "use client";
 
+import { effectiveScale } from "@/lib/georef/scale";
 import { useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 
@@ -208,7 +209,7 @@ export function GeorefPanel() {
         const height =
           siteElevation === null
             ? 0
-            : (siteElevation - conversion.orthogonalHeight) / (conversion.scale ?? 1);
+            : (siteElevation - conversion.orthogonalHeight) / effectiveScale(conversion.scale, lengthUnitScale);
         const metres: [number, number, number] = [
           local.x * lengthUnitScale,
           local.y * lengthUnitScale,

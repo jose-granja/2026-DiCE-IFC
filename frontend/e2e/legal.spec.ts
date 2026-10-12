@@ -63,30 +63,41 @@ test("the privacy page now covers server logs, cookies and storage", async ({ pa
   await expect(page.getByText(/no analytics, advertising or tracking cookies/i)).toBeVisible();
 });
 
+/**
+ * What a signature check does and does not establish is said once, on the About
+ * page, and folded away there. The signing, verifying and viewer pages carry the
+ * result and not the caveat under it.
+ */
+test("the signature caveat is on the About page, folded away, and opens on request", async ({ page }) => {
+  await page.goto("/about");
+  await expect(page.getByRole("heading", { name: "What a signature check covers" })).toBeVisible();
+
+  const notice = page.locator("details[data-about-trust]");
+  await expect(notice).not.toHaveAttribute("open", "");
+  await expect(notice.locator("p")).toBeHidden();
+  await expect(notice.locator("summary")).toContainText("What this check does and does not establish");
+
+  await notice.locator("summary").click();
+  await expect(notice.locator("p")).toContainText(/does not check that the certificate is trusted, qualified, in date or unrevoked/);
+  await expect(notice.locator("p")).toContainText(/not a trusted time-stamp/);
+});
+
 for (const route of ["/sign/ifc", "/sign/bcf", "/sign/verify"]) {
-  test(`the trust notice on ${route} is folded away, and opens on request`, async ({ page }) => {
+  test(`${route} does not repeat the signature caveat`, async ({ page }) => {
     await page.goto(route);
-    const notice = page.locator("details[data-trust-notice], details[data-embedded-trust]");
-    await expect(notice).toHaveCount(1);
-
-    // Closed to begin with — its text is not on screen…
-    await expect(notice).not.toHaveAttribute("open", "");
-    await expect(notice.locator("p")).toBeHidden();
-    await expect(notice.locator("summary")).toContainText("What this check does and does not establish");
-
-    // …and is there when asked for.
-    await notice.locator("summary").click();
-    await expect(notice).toHaveAttribute("open", "");
-    await expect(notice.locator("p")).toContainText(/not checked/i);
+    await expect(page.locator("details[data-trust-notice], details[data-embedded-trust], details[data-about-trust]")).toHaveCount(0);
+    await expect(page.getByText(/qualified status are not checked/)).toHaveCount(0);
+    await expect(page.getByText(/does not establish legal validity/)).toHaveCount(0);
   });
 }
 
-test("the trust notice's summary reads in Portuguese", async ({ page, context }) => {
+test("the About page's signature section reads in Portuguese", async ({ page, context }) => {
   await context.addCookies([
     { name: "dice-locale", value: "pt", url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT ?? "3000"}` },
   ]);
-  await page.goto("/sign/verify");
-  await expect(page.locator("details[data-trust-notice] summary")).toContainText(
+  await page.goto("/about");
+  await expect(page.getByRole("heading", { name: "O que a verificação de uma assinatura abrange" })).toBeVisible();
+  await expect(page.locator("details[data-about-trust] summary")).toContainText(
     "O que esta verificação estabelece e o que não estabelece",
   );
 });

@@ -42,6 +42,7 @@
  */
 
 import type { CoordinateInfo, GeoreferenceView, Vec3 } from "@/lib/ifc/types";
+import { effectiveScale } from "@/lib/georef/scale";
 
 // ---------------------------------------------------------------------------
 // Axis conversion
@@ -188,7 +189,9 @@ export function mapPositionOfRenderOrigin(
   // combine it with the map conversion, which is defined on IFC axes.
   const shiftIfc = renderToIfc(model.coordinates.originShift);
 
-  const scale = conversion.scale ?? 1;
+  // Metres to map metres: the shift is in render metres, and `Scale` may be the
+  // unit conversion rather than a grid factor (see `effectiveScale`).
+  const scale = effectiveScale(conversion.scale, model.georeference.lengthUnitScale);
   const { cos, sin } = gridRotation(conversion);
 
   // IfcMapConversion: E = Eastings + scale * (x·XAxisAbscissa − y·XAxisOrdinate)
@@ -321,7 +324,10 @@ export function computePlacements(
         // E = cos*x - sin*y; N = sin*x + cos*y. The former negative angle
         // mirrored the XAxisAbscissa/XAxisOrdinate rotation and caused E/N drift.
         rotationY: gridRotationAngle(model),
-        scale: model.georeference.mapConversion?.scale ?? 1,
+        scale: effectiveScale(
+          model.georeference.mapConversion?.scale,
+          model.georeference.lengthUnitScale,
+        ),
         confidence: crsMatches ? "exact" : "approximate",
         reason: crsMatches
           ? `Positioned from IfcMapConversion${origin.crs ? ` in ${origin.crs}` : ""}.`

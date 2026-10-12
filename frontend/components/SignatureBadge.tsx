@@ -1,9 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Info, Loader2, ShieldCheck, ShieldQuestion, ShieldX } from "lucide-react";
+import { Loader2, ShieldCheck, ShieldX } from "lucide-react";
 
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { commonName, type SignatureSummary } from "@/lib/signing/summary";
 import { cn } from "@/lib/utils";
 
@@ -44,8 +43,6 @@ export function SignatureBadge({
 
   const [signer] = signature.signers;
 
-  const caveat = signature.valid && signer?.trust === "not-checked";
-
   const status = (
     <span
       className={cn(
@@ -63,45 +60,16 @@ export function SignatureBadge({
       {signature.valid
         ? t("signatureValid", { count: signature.signers.length })
         : t("signatureNotValid")}
-      {caveat && <Info className="h-3 w-3 shrink-0 opacity-70" aria-hidden />}
     </span>
   );
 
+  // What a "valid" here does and does not mean is stated once, on the About page
+  // (`about.trust`), not repeated under every model. It is the integrity of the
+  // content and the signer's key — not that the certificate is trusted or
+  // qualified — and that is the meaning to keep when this row is reworded.
   return (
     <div className={cn("space-y-0.5", className)}>
-      {caveat ? (
-        /*
-          Integrity is not trust, and the sentence that says so has to stay one
-          press away from "valid" — it was once commented out, leaving the badge
-          asserting that content is unchanged and silent on whether the
-          certificate means anything, which is the most damaging thing it could
-          do. It is in a popover rather than on the row because the same
-          sentence under every model was noise; the info icon on the status says
-          there is something to read, and `e2e/ifczip.spec.ts` asserts it opens.
-        */
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="focus-visible:ring-ring/50 -mx-1 rounded px-1 text-left hover:underline focus-visible:ring-2 focus-visible:outline-none"
-              aria-label={t("signatureDetails")}
-              data-signature-status
-            >
-              {status}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-3 text-xs" data-signature-caveat>
-            <p className="flex items-start gap-2">
-              <ShieldQuestion className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span>
-                {t(signature.format === "embedded" ? "embeddedTrustCaveat" : "trustCaveat")}
-              </span>
-            </p>
-          </PopoverContent>
-        </Popover>
-      ) : (
-        <p data-signature-status>{status}</p>
-      )}
+      <p data-signature-status>{status}</p>
 
       {signer && (
         <p className="text-muted-foreground truncate text-[11px]" title={signer.subject}>

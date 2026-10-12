@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, CheckCircle2, FileWarning, Loader2, Upload, X, XCircle } from "lucide-react";
 import ModuleHeader from "@/components/ModuleHeader";
-import TrustNotice from "@/components/TrustNotice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -161,8 +160,6 @@ export default function SignVerifyPage() {
             </>}
           </section>)}
         </section>}
-
-        <TrustNotice data-trust-notice>{m("trust")}</TrustNotice>
       </div>
     </div>
   );
@@ -173,7 +170,7 @@ function EmbeddedDetails({ result }: { result: EmbeddedVerification }) {
   const m = useTranslations("ifcVerify");
   const e = useTranslations("embeddedSign");
   return <div className="space-y-3">
-    <p className="text-xs text-muted-foreground">{e("normalization")}</p>
+    {/* <p className="text-xs text-muted-foreground">{e("normalization")}</p> */}
     {result.signatures.map((signature, index) => <section key={index} className="space-y-2 rounded-md border p-3">
       <div className="flex flex-wrap items-center gap-2">
         <h4 className="text-xs font-medium">{m("signatureNumber", { count: index + 1 })}</h4>
@@ -185,7 +182,6 @@ function EmbeddedDetails({ result }: { result: EmbeddedVerification }) {
         <Row label={t("signingTime")} value={signature.signingTime ?? "—"} />
       </dl> : <p className="text-destructive text-xs">{e("invalid")}</p>}
     </section>)}
-    <p className="text-xs text-muted-foreground">{m("embeddedTime")}</p>
   </div>;
 }
 
@@ -219,7 +215,6 @@ function ContainerDetails({ result }: { result: ContainerVerification }) {
           ? t("timestamp.present", { time: signature.timestamp.time ?? "—", tsa: signature.timestamp.tsa ?? "—" })
           : t("timestamp.mismatch", { problem: signature.timestamp.problems.join("; ") })} />
       </dl>
-      {signature.timestamp && <p className="text-xs text-muted-foreground">{m("timestampTrust")}</p>}
       <div className="space-y-1">
         <h5 className="text-xs font-medium">{t("whatItCovers")}</h5>
         <ul className="space-y-0.5">{signature.references.map((reference, at) => <li key={`${reference.uri}-${at}`} className="flex items-start gap-1.5 text-xs">

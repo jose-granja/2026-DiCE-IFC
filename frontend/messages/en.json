@@ -1576,8 +1576,7 @@
       "label": "Time-stamp",
       "none": "None — the signing time is only what the signer's computer claimed",
       "present": "{time}, by {tsa}",
-      "mismatch": "Does not match this signature: {problem}",
-      "notChecked": "The time-stamp covers this signature. That its issuer is a trusted or qualified time-stamping service is not checked here."
+      "mismatch": "Does not match this signature: {problem}"
     }
   },
   "ifcVerify": {
@@ -1598,14 +1597,10 @@
     "embedded": "Inside IFC",
     "container": "Signed container",
     "signatureNumber": "Signature {count}",
-    "certificateDates": "Certificate dates",
-    "embeddedTime": "The embedded signing time is a claim made by the signer's computer. No trusted time-stamp is checked.",
-    "timestampTrust": "Only the time-stamp's connection to this signature is checked. The time-stamp's signature, issuer trust and qualified status are not validated.",
-    "trust": "Integrity verification checks the signatures and covered content. Certificate trust, validity, revocation and qualified status are not checked. The result does not establish legal validity or a qualified electronic signature."
+    "certificateDates": "Certificate dates"
   },
   "ifcSign": {
     "verifySignatures": "Verify signatures",
-    "trust": "Integrity verification checks the signature and covered content. Certificate trust, expiry, revocation and qualified status are not checked. Declared signing time is not a trusted timestamp; timestamp status is reported separately when available.",
     "description": "Sign one or more models with your Cartão de Cidadão. Choose an IFCZIP container or a signature inside each IFC file.",
     "format": "Output format",
     "ifczip": "IFCZIP container",
@@ -1656,7 +1651,6 @@
     "signer": "Signer certificate",
     "issuer": "Certificate issuer",
     "time": "Declared signing time (not timestamped)",
-    "trust": "Integrity verification checks the signature and covered content only. Certificate trust, validity, revocation and qualified status are not checked. A time-stamp is added only to an IFCZIP, only when this deployment has a time-stamp authority and the option is ticked, and whether its issuer is a qualified service is not checked here. This page does not establish legal validity or a qualified electronic signature.",
     "phases": {
       "reading": "Reading and hashing the IFC locally…",
       "certificate": "Checking the companion and reading the signing certificate…",
@@ -1825,12 +1819,9 @@
     }
   },
   "signatureBadge": {
-    "embeddedTrustCaveat": "The content is unchanged since it was signed, once control characters are removed (spaces still count). Certificate trust and qualified status are not checked.",
     "checkingSignature": "Checking the signature…",
     "signatureValid": "{count, plural, one {Signature valid — # signer} other {Signature valid — # signers}}",
-    "signatureNotValid": "Signature not valid",
-    "trustCaveat": "The content is unchanged since it was signed. Certificate trust and qualified status are not checked.",
-    "signatureDetails": "What this signature check covers"
+    "signatureNotValid": "Signature not valid"
   },
   "themeToggle": {
     "toggleTheme": "Toggle theme",
@@ -1988,6 +1979,11 @@
       "title": "Accessibility",
       "text": "The interface is built from accessible components and its controls carry text labels, but it has not been formally audited against WCAG. The 3D viewport needs a pointer; the model tree and the lists offer a keyboard route to select and inspect elements.",
       "contact": "If something is not accessible to you, please tell us:"
+    },
+    "trust": {
+      "title": "What a signature check covers",
+      "text": "Everywhere in this application that a signature is checked — when a model or issue set is opened, and on the Verify page — the result means the same thing, and this page is the one place that says what that is.",
+      "notice": "The check is of integrity: the content is unchanged since it was signed (for a signature embedded in an IFC file, once control characters are removed; spaces still count), and the signer held the key for the certificate that comes with it. It does not check that the certificate is trusted, qualified, in date or unrevoked. The signing time is the one the signer's computer declared, and is not a trusted time-stamp; where a signature carries a time-stamp, only that it covers this signature is checked, not that its issuer is a trusted or qualified time-stamping service. A valid result does not establish legal validity or a qualified electronic signature."
     }
   },
   "trustNotice": {

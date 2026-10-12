@@ -1576,8 +1576,7 @@
       "label": "Selo temporal",
       "none": "Nenhum — a hora da assinatura é só a que o computador do signatário declarou",
       "present": "{time}, por {tsa}",
-      "mismatch": "Não corresponde a esta assinatura: {problem}",
-      "notChecked": "O selo temporal cobre esta assinatura. Não é verificado aqui que o seu emissor seja um serviço de selo temporal de confiança ou qualificado."
+      "mismatch": "Não corresponde a esta assinatura: {problem}"
     }
   },
   "ifcVerify": {
@@ -1598,14 +1597,10 @@
     "embedded": "Dentro do IFC",
     "container": "Contentor assinado",
     "signatureNumber": "Assinatura {count}",
-    "certificateDates": "Datas do certificado",
-    "embeddedTime": "A hora da assinatura incorporada é uma declaração do computador do signatário. Não é verificado nenhum selo temporal de confiança.",
-    "timestampTrust": "Só é verificada a ligação do selo temporal a esta assinatura. Não são validadas a assinatura do selo temporal, a confiança no seu emissor ou o seu estatuto qualificado.",
-    "trust": "A verificação de integridade verifica as assinaturas e o conteúdo abrangido. Não são verificadas a confiança, validade, revogação ou qualificação dos certificados. O resultado não estabelece validade jurídica nem uma assinatura eletrónica qualificada."
+    "certificateDates": "Datas do certificado"
   },
   "ifcSign": {
     "verifySignatures": "Verificar assinaturas",
-    "trust": "A verificação de integridade verifica a assinatura e o conteúdo abrangido. A confiança, validade, revogação e qualificação do certificado não são verificadas. A data declarada não é um selo temporal de confiança; o estado do selo temporal é apresentado separadamente quando disponível.",
     "description": "Assine um ou vários modelos com o Cartão de Cidadão. Escolha um contentor IFCZIP ou uma assinatura dentro de cada ficheiro IFC.",
     "format": "Formato de saída",
     "ifczip": "Contentor IFCZIP",
@@ -1656,7 +1651,6 @@
     "signer": "Certificado do signatário",
     "issuer": "Emissor do certificado",
     "time": "Data de assinatura declarada (sem selo temporal)",
-    "trust": "A verificação de integridade verifica apenas a assinatura e o conteúdo abrangido. A confiança, validade, revogação e qualificação do certificado não são verificadas. Um selo temporal só é acrescentado a um IFCZIP, apenas quando esta instalação tem uma autoridade de selos temporais e a opção está assinalada, e não é verificado aqui se o seu emissor é um serviço qualificado. Esta página não comprova a validade jurídica nem uma assinatura eletrónica qualificada.",
     "phases": {
       "reading": "A ler e calcular o resumo do IFC localmente…",
       "certificate": "A verificar o companion e a ler o certificado de assinatura…",
@@ -1825,12 +1819,9 @@
     }
   },
   "signatureBadge": {
-    "embeddedTrustCaveat": "O conteúdo não foi alterado desde que foi assinado, depois de removidos os caracteres de controlo (os espaços contam). A confiança no certificado e a qualificação não são verificadas.",
     "checkingSignature": "A verificar a assinatura…",
     "signatureValid": "{count, plural, one {Assinatura válida — # assinante} other {Assinatura válida — # assinantes}}",
-    "signatureNotValid": "Assinatura inválida",
-    "trustCaveat": "O conteúdo não foi alterado desde que foi assinado. A confiança no certificado e a qualificação não são verificadas.",
-    "signatureDetails": "O que esta verificação da assinatura abrange"
+    "signatureNotValid": "Assinatura inválida"
   },
   "themeToggle": {
     "toggleTheme": "Alternar tema",
@@ -1988,6 +1979,11 @@
       "title": "Acessibilidade",
       "text": "A interface é construída com componentes acessíveis e os controlos têm etiquetas de texto, mas não foi auditada formalmente segundo as WCAG. A vista 3D requer um ponteiro; a árvore do modelo e as listas oferecem um caminho por teclado para selecionar e inspecionar elementos.",
       "contact": "Se algo não for acessível para si, diga-nos:"
+    },
+    "trust": {
+      "title": "O que a verificação de uma assinatura abrange",
+      "text": "Em todo o lado desta aplicação onde uma assinatura é verificada — ao abrir um modelo ou um conjunto de questões, e na página Verificar — o resultado significa o mesmo, e esta página é o único sítio que diz o que é.",
+      "notice": "A verificação é de integridade: o conteúdo não foi alterado desde que foi assinado (numa assinatura incorporada num ficheiro IFC, depois de removidos os caracteres de controlo; os espaços contam), e o signatário detinha a chave do certificado que a acompanha. Não verifica que o certificado é de confiança, qualificado, dentro do prazo ou não revogado. A hora da assinatura é a que o computador do signatário declarou e não é um selo temporal de confiança; quando uma assinatura traz um selo temporal, só se verifica que ele cobre esta assinatura, não que o seu emissor é um serviço de selo temporal de confiança ou qualificado. Um resultado válido não comprova a validade jurídica nem uma assinatura eletrónica qualificada."
     }
   },
   "trustNotice": {
