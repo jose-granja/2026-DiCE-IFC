@@ -10,7 +10,7 @@ import type {
   QuantityQueryOperator,
   QuantityQueryPropertyCondition,
 } from "@/lib/ifc/types";
-import type { MergedVocabulary } from "@/lib/viewer/use-model-vocabulary";
+import { classificationCodesFor, type MergedVocabulary } from "@/lib/viewer/use-model-vocabulary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,11 +85,51 @@ function ListField({
   );
 }
 
+/** One value rather than a list: a classification system is the context its codes are read in, not an alternative. */
+function TextField({
+  id,
+  label,
+  value,
+  suggestions,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  suggestions: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id} className="text-[11px]">
+        {label}
+      </Label>
+      <Input
+        id={id}
+        list={`${id}-options`}
+        defaultValue={value}
+        key={value}
+        onBlur={(event) => onChange(event.target.value.trim())}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") onChange(event.currentTarget.value.trim());
+        }}
+        className="h-8 text-xs"
+      />
+      <datalist id={`${id}-options`}>
+        {suggestions.map((suggestion) => (
+          <option key={suggestion} value={suggestion} />
+        ))}
+      </datalist>
+    </div>
+  );
+}
+
 /**
  * The filter of one clash group: the same selectors as the quantity query —
- * class, name, predefined type, object type, material, material category and
- * properties in property sets — written so a clash matrix can say "all
- * concrete walls with FireRating REI 60".
+ * class, name, predefined type, object type, material, material category,
+ * classification and properties in property sets — written so a clash matrix can
+ * say "all concrete walls with FireRating REI 60", or "everything the project
+ * classified as Ss_25_10_30".
  */
 export function ElementFilterEditor({
   filter,
@@ -121,6 +161,20 @@ export function ElementFilterEditor({
       <ListField id={`${base}-object`} label={t("filter.objectTypes")} values={filter.objectTypes} suggestions={vocabulary.objectTypes} onChange={setList("objectTypes")} />
       <ListField id={`${base}-material`} label={t("filter.materials")} values={filter.materials} suggestions={vocabulary.materials} onChange={setList("materials")} />
       <ListField id={`${base}-category`} label={t("filter.materialCategories")} values={filter.materialCategories} suggestions={[]} onChange={setList("materialCategories")} />
+      <TextField
+        id={`${base}-classification-system`}
+        label={t("filter.classificationSystem")}
+        value={filter.classificationSystem ?? ""}
+        suggestions={vocabulary.classificationSystems}
+        onChange={(value) => onChange({ ...filter, classificationSystem: value })}
+      />
+      <ListField
+        id={`${base}-classification-code`}
+        label={t("filter.classificationCode")}
+        values={filter.classificationCodes ?? []}
+        suggestions={classificationCodesFor(vocabulary.classificationCodes, filter.classificationSystem ?? "")}
+        onChange={(values) => onChange({ ...filter, classificationCodes: values })}
+      />
       <p className="text-muted-foreground text-[10px] leading-snug">{t("filter.hint")}</p>
 
       <div className="space-y-1.5">

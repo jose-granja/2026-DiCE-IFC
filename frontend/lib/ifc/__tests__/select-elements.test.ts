@@ -72,3 +72,59 @@ describe("selectElements", () => {
     expect(wall).toMatchObject({ type: "IfcWall", globalId: "2FacetWall00000000001", name: "Wall A" });
   });
 });
+
+/**
+ * Classification selection through the engine. This is the path clash groups
+ * take (`lib/clash/run.ts` → `selectElements`), and the fixture puts Wall A in
+ * two systems at once so "the same reference" is actually exercised.
+ */
+describe("selectElements by classification", () => {
+  let classified = "";
+
+  beforeAll(async () => {
+    const buffer = await readFile(
+      path.resolve(__dirname, "../../../fixtures/ifc/classified-wall-ifc4.ifc"),
+    );
+    const summary = await ifcLiteAdapter.loadModel({
+      name: "classified.ifc",
+      bytes: buffer.buffer.slice(
+        buffer.byteOffset,
+        buffer.byteOffset + buffer.byteLength,
+      ) as ArrayBuffer,
+    });
+    classified = summary.id;
+  });
+
+  const pick = async (over: Partial<ElementFilter>) =>
+    (await ifcLiteAdapter.selectElements(classified, { ...EMPTY_ELEMENT_FILTER, ...over }))
+      .map((match) => match.name)
+      .sort();
+
+  it("selects a code, a system, and a branch of codes", async () => {
+    expect(await pick({ classificationCodes: ["Ss_25_10_30"] })).toEqual(["Wall A"]);
+    expect(await pick({ classificationSystem: "Sistema Nacional" })).toEqual(["Wall A"]);
+    expect(
+      await pick({ classificationSystem: "Uniclass 2015", classificationCodes: ["Ss_25*"] }),
+    ).toEqual(["Wall A", "Wall B"]);
+  });
+
+  it("does not take a code from one system as a code in another", async () => {
+    expect(
+      await pick({ classificationSystem: "Sistema Nacional", classificationCodes: ["Ss_25_10_30"] }),
+    ).toEqual([]);
+  });
+
+  it("narrows an IFC class rather than replacing it", async () => {
+    expect(await pick({ classes: ["IfcSlab"], classificationCodes: ["Ss_30*"] })).toEqual(["Slab A"]);
+    expect(await pick({ classes: ["IfcSlab"], classificationCodes: ["Ss_25*"] })).toEqual([]);
+  });
+
+  it("selects a group defined by nothing but a classification", async () => {
+    // `isEmptyElementFilter` refuses a blank filter, and must not count this as one.
+    expect(await pick({ classificationSystem: "Uniclass 2015" })).toEqual([
+      "Slab A",
+      "Wall A",
+      "Wall B",
+    ]);
+  });
+});

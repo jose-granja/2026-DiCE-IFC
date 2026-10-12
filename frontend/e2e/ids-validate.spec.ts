@@ -97,13 +97,13 @@ test("jumps from a failure into the viewer", async ({ page }) => {
   // "Show all" when something is actually hidden or isolated.
   await expect(page.getByRole("button", { name: "Show all" })).toBeEnabled();
 
-  // Opening the Classes tab must not undo it. `isolated` is a single shared
+  // Opening the Filters tab must not undo it. `isolated` is a single shared
   // slot, and the class filter used to clear it on mount whether or not the
   // isolation was its own — so simply looking at the class list silently
   // un-isolated the element the validator had just framed. Radix only mounts
   // the tab's content when it is opened, which is why this needs saying out
   // loud rather than being covered by the assertion above.
-  await page.getByRole("tab", { name: "Classes" }).click();
+  await page.getByRole("tab", { name: "Filters", exact: true }).click();
   await expect(page.getByRole("button", { name: "Show all" })).toBeEnabled();
 });
 
@@ -165,6 +165,8 @@ test("exports BCF and opens it in the BCF manager", async ({ page }) => {
   // through the filesystem.
   // The BCF manager is a tab in the viewer now, not a page.
   await page.getByRole("tab", { name: "BCF" }).click();
+  // Export selects the topic; the manager opens its editor through Edit.
+  await page.getByRole("button", { name: /^Edit .*Wall B/ }).click();
   await expect(page.getByLabel("Topic title")).toHaveValue(/Wall B/);
 });
 
@@ -251,6 +253,7 @@ test("frames the failing element large enough to see, not lost in the whole mode
   await download;
 
   await page.getByRole("tab", { name: "BCF" }).click();
+  await page.getByRole("button", { name: /^Edit .*Wall A/ }).click();
   await expect(page.getByLabel("Topic title")).toHaveValue(/Wall A/);
 
   const fraction = await foregroundFraction(page);

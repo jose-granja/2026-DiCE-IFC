@@ -172,9 +172,11 @@ describe("validateIds", () => {
     expect(seen.at(-1)).toBe(100);
   });
 
-  it("carries the model's schema through", async () => {
+  it("carries the validated model's identity, schema and entity count through", async () => {
     const report = await ifcLiteAdapter.validateIds(model.id, await ids("all-pass.ids"));
-    expect(report.schemaVersion.toUpperCase()).toContain("IFC4");
+    expect(report.modelId).toBe(model.id);
+    expect(report.schemaVersion).toBe(model.schemaToken ?? model.schema);
+    expect(report.entityCount).toBe(model.entityCount);
   });
 
   it("rejects an IDS that is not well-formed at the parse step", () => {

@@ -54,10 +54,10 @@ test("shows attributes, materials and property sets on their own tabs", async ({
   // Scoped: the occurrence and its type both carry a `Pset_WallCommon`, which
   // is exactly how real models are authored — and the reason the panel keeps
   // them in separate tabs rather than merging them into one list.
-  await page.getByRole("tab", { name: "Property sets" }).click();
+  await page.getByRole("tab", { name: "Properties", exact: true }).click();
   await expect(page.getByText("REI 60")).toBeVisible();
   await expect(
-    page.locator('[data-section="Property sets"]').getByText("Pset_WallCommon"),
+    page.locator('[data-section="Properties"]').getByText("Pset_WallCommon"),
   ).toBeVisible();
 });
 
@@ -68,8 +68,8 @@ test("separates what the type defines from what the occurrence does", async ({
   // changing one is not a local edit. Showing them mixed in with the
   // occurrence's own would misrepresent that.
   await selectWall(page);
-  await page.getByRole("tab", { name: "From its type" }).click();
-  await expect(page.locator('[data-section="From its type"]')).toBeVisible();
+  await page.getByRole("tab", { name: "Type", exact: true }).click();
+  await expect(page.locator('[data-section="Type"]')).toBeVisible();
   await expect(page.getByText(/shared by every occurrence/i)).toBeVisible();
 
   // The occurrence's own property sets are a different tab, hidden while
@@ -79,17 +79,17 @@ test("separates what the type defines from what the occurrence does", async ({
 
 test("renders booleans as words, not as 1 and 0", async ({ page }) => {
   await selectWall(page);
-  await page.getByRole("tab", { name: "Property sets" }).click();
+  await page.getByRole("tab", { name: "Properties", exact: true }).click();
   await expect(page.getByText("LoadBearing")).toBeVisible();
   // `IFCBOOLEAN(.T.)` must read as Yes, not "true" or "1".
   await expect(
-    page.locator('[data-section="Property sets"]').getByText("Yes"),
+    page.locator('[data-section="Properties"]').getByText("Yes"),
   ).toBeVisible();
 });
 
 test("filters properties within the active tab", async ({ page }) => {
   await selectWall(page);
-  await page.getByRole("tab", { name: "Property sets" }).click();
+  await page.getByRole("tab", { name: "Properties", exact: true }).click();
 
   await page.getByLabel("Filter properties").fill("fire");
   await expect(page.getByText("REI 60")).toBeVisible();
@@ -131,8 +131,8 @@ test("only one tab's content shows at a time", async ({ page }) => {
   // be absent, not the panel itself.
   await expect(page.getByText("Pset_WallCommon")).toHaveCount(0);
 
-  await page.getByRole("tab", { name: "Property sets" }).click();
-  await expect(page.locator('[data-section="Property sets"]')).toBeVisible();
+  await page.getByRole("tab", { name: "Properties", exact: true }).click();
+  await expect(page.locator('[data-section="Properties"]')).toBeVisible();
   await expect(page.getByText("Pset_WallCommon")).toBeVisible();
   await expect(page.locator('[data-section="Attributes"]')).not.toBeVisible();
 });

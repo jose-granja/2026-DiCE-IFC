@@ -165,3 +165,109 @@ test("the template can be taken as an Excel workbook", async ({ page }) => {
   const file = await download;
   expect(file.suggestedFilename()).toBe("clash-matrix-residential-template.xlsx");
 });
+
+/**
+ * A clash group defined by classification rather than by IFC class — how a
+ * coordinator working to Uniclass actually names a discipline. The fixture
+ * classifies the wall and the duct in Uniclass and the pipe only in a national
+ * system, so the run must find the duct-through-wall clash and not the pipe.
+ */
+test("runs a matrix whose groups are defined by classification code", async ({ page }) => {
+  const byCode = {
+    groups: [
+      {
+        id: "g-walls",
+        name: "Walls",
+        filter: {
+          ...empty,
+          classificationSystem: "Uniclass 2015",
+          classificationCodes: ["Ss_25_10_30"],
+        },
+      },
+      {
+        id: "g-ducts",
+        name: "Ducts",
+        filter: { ...empty, classificationSystem: "Uniclass 2015", classificationCodes: ["Ss_65*"] },
+      },
+      // Classified, but in the other system — so "Uniclass Ss_55*" must not reach it.
+      {
+        id: "g-pipes",
+        name: "Pipes",
+        filter: { ...empty, classificationSystem: "Uniclass 2015", classificationCodes: ["EF_55_30"] },
+      },
+    ],
+    tolerances: [
+      { id: "t-hard", name: "Hard", mode: "hard", horizontal: 0.01, vertical: 0.01, clearance: 0 },
+      // Wide enough to catch the pipe 100 mm from the wall — so if the
+      // classification were ignored and the group selected everything, this
+      // rule would report a clash. Its silence is the assertion.
+      { id: "t-gap", name: "Gap 200 mm", mode: "clearance", horizontal: 0, vertical: 0, clearance: 0.2 },
+    ],
+    rules: [
+      { a: "g-walls", b: "g-ducts", toleranceId: "t-hard" },
+      { a: "g-walls", b: "g-pipes", toleranceId: "t-gap" },
+    ],
+    settings: { checkOverlap: true, checkInside: true, checkDuplicate: true, ignoreSameModel: false, maxClashes: 100 },
+  };
+
+  await page.addInitScript((matrix) => {
+    window.localStorage.setItem("dice-ifc.clash-matrix.v1", JSON.stringify(matrix));
+  }, byCode);
+  await page.goto("/viewer?panel=clash");
+  await page.setInputFiles('input[type="file"]', [
+    path.resolve(__dirname, "../fixtures/ifc/classified-clash-ifc4.ifc"),
+  ]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+
+  // The groups say how many elements each code selected.
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect(page.getByText(/1 clash in/)).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator("[data-clash-item]")).toHaveCount(1);
+  const list = page.locator("[data-clash-list]").first();
+  await expect(list).toContainText("Wall A");
+  await expect(list).toContainText("Duct crossing the wall");
+  // The pipe is EF_55_30 in the national system, not in Uniclass, so the
+  // "Uniclass EF_55_30" group selects nothing and the pipe is never tested.
+  await expect(list).not.toContainText("Pipe near the wall");
+
+  // And the group itself reports that it selected nothing, rather than silently
+  // matching every element in the model.
+  await page.getByRole("tab", { name: "Groups" }).click();
+  // In matrix order: Walls, Ducts, Pipes. (The name lives in an input, so the
+  // cards are addressed by position rather than by text.)
+  const groups = page.locator("[data-clash-group]");
+  await expect(groups.nth(0)).toContainText("1 element");
+  await expect(groups.nth(1)).toContainText("1 element");
+  await expect(groups.nth(2)).toContainText("0 elements");
+});
+
+test("edits a group's classification filter in the panel", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.removeItem("dice-ifc.clash-matrix.v1");
+  });
+  await page.goto("/viewer?panel=clash");
+  await page.setInputFiles('input[type="file"]', [
+    path.resolve(__dirname, "../fixtures/ifc/classified-clash-ifc4.ifc"),
+  ]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+
+  await page.getByRole("button", { name: "Add group" }).click();
+  const group = page.locator("[data-clash-group]").first();
+
+  // A group with nothing but a classification is a real group, not an empty one.
+  await expect(group).toContainText("No filter yet");
+  await group.getByLabel("Classification system").fill("Uniclass 2015");
+  await group.getByLabel("Classification code").fill("Ss_25_10_30");
+  await group.getByLabel("Classification code").press("Enter");
+  await expect(group).not.toContainText("No filter yet");
+
+  // The system's own codes are offered once it is named.
+  const options = await group
+    .getByLabel("Classification code")
+    .evaluate((input: HTMLInputElement) =>
+      [...(document.getElementById(input.getAttribute("list")!) as HTMLDataListElement).options].map(
+        (option) => option.value,
+      ),
+    );
+  expect(options).toEqual(["Ss_25_10_30", "Ss_65_40_33"]);
+});

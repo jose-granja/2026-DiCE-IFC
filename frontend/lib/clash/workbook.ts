@@ -129,7 +129,10 @@ export function createClashWorkbook(matrix: ClashMatrix): Uint8Array {
     {
       name: FILTERS_SHEET,
       rows: [
-        ["Group", "Discipline", "Classes", "Names", "Predefined types", "Object types", "Materials", "Material categories", "Properties", "Property rule", "Setup note"],
+        // Appended, not inserted: the reader below takes columns by position, so
+        // a new one in the middle would read an older workbook's properties as
+        // its classification.
+        ["Group", "Discipline", "Classes", "Names", "Predefined types", "Object types", "Materials", "Material categories", "Properties", "Property rule", "Setup note", "Classification system", "Classification code"],
         ...groups.map((group) => [
           group.name,
           group.discipline ?? "",
@@ -142,9 +145,11 @@ export function createClashWorkbook(matrix: ClashMatrix): Uint8Array {
           propertyText(group.filter),
           group.filter.propertyCombination === "any" ? "ANY" : "ALL",
           group.note ?? "",
+          group.filter.classificationSystem ?? "",
+          joinList(group.filter.classificationCodes ?? []),
         ]),
       ],
-      widths: [28, 18, 24, 24, 20, 20, 24, 22, 40, 12, 60],
+      widths: [28, 18, 24, 24, 20, 20, 24, 22, 40, 12, 60, 24, 24],
     },
   ]);
 }
@@ -235,6 +240,8 @@ export function readClashWorkbook(bytes: Uint8Array): ClashMatrix {
           objectTypes: splitTextList(fromFilters[5] ?? ""),
           materials: splitTextList(fromFilters[6] ?? ""),
           materialCategories: splitTextList(fromFilters[7] ?? ""),
+          classificationSystem: (fromFilters[11] ?? "").trim(),
+          classificationCodes: splitTextList(fromFilters[12] ?? ""),
           properties: parseProperties(fromFilters[8] ?? ""),
           propertyCombination: /any/i.test(fromFilters[9] ?? "") ? "any" : "all",
         }

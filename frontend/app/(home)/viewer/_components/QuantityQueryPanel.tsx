@@ -49,6 +49,7 @@ import {
 } from "@/lib/spreadsheets/quantity-workbook";
 import { getModelHandle } from "@/lib/viewer/loader";
 import { useViewerStore, type EntityRef } from "@/lib/viewer/store";
+import { classificationCodesFor } from "@/lib/viewer/use-model-vocabulary";
 
 type ConditionRow = {
   id: string;
@@ -196,6 +197,10 @@ export function QuantityQueryPanel() {
     const predefinedTypes = new Set<string>();
     const objectTypes = new Set<string>();
     const materials = new Set<string>();
+    const classificationSystems = new Set<string>();
+    // Codes stay grouped by system: a code only means something inside one, and
+    // one flat list would suggest pairs that match nothing.
+    const classificationCodes = new Map<string, Set<string>>();
     const addSets = (
       target: Map<string, Set<string>>,
       sets: Array<{ name: string; values: string[] }>,
@@ -216,6 +221,12 @@ export function QuantityQueryPanel() {
       data.predefinedTypes.forEach((value) => predefinedTypes.add(value));
       data.objectTypes.forEach((value) => objectTypes.add(value));
       data.materials.forEach((value) => materials.add(value));
+      data.classificationSystems.forEach((value) => classificationSystems.add(value));
+      for (const entry of data.classificationCodes) {
+        const codes = classificationCodes.get(entry.system) ?? new Set<string>();
+        entry.codes.forEach((code) => codes.add(code));
+        classificationCodes.set(entry.system, codes);
+      }
       addSets(
         propertySets,
         data.propertySets.map((set) => ({
@@ -238,6 +249,8 @@ export function QuantityQueryPanel() {
       predefinedTypes: sorted(predefinedTypes),
       objectTypes: sorted(objectTypes),
       materials: sorted(materials),
+      classificationSystems: sorted(classificationSystems),
+      classificationCodes,
       propertySets,
       quantitySets,
     };
@@ -248,6 +261,13 @@ export function QuantityQueryPanel() {
   const [objectTypes, setObjectTypes] = useState("");
   const [materials, setMaterials] = useState("");
   const [materialCategories, setMaterialCategories] = useState("");
+  const [classificationSystem, setClassificationSystem] = useState("");
+  const [classificationCodes, setClassificationCodes] = useState("");
+  const codeSuggestions = useMemo(
+    () => classificationCodesFor(vocabulary.classificationCodes, classificationSystem),
+    [classificationSystem, vocabulary.classificationCodes],
+  );
+
   const [conditions, setConditions] = useState<ConditionRow[]>([]);
   const [propertyCombination, setPropertyCombination] = useState<"all" | "any">(
     "all",
@@ -395,6 +415,8 @@ export function QuantityQueryPanel() {
         objectTypes: splitValues(objectTypes),
         materials: splitValues(materials),
         materialCategories: splitValues(materialCategories),
+        classificationSystem: classificationSystem.trim(),
+        classificationCodes: splitValues(classificationCodes),
         propertyCombination,
         properties: conditions.map(
           ({ setName, propertyName, operator, value }) => ({
@@ -505,6 +527,8 @@ export function QuantityQueryPanel() {
     setObjectTypes("");
     setMaterials("");
     setMaterialCategories("");
+    setClassificationSystem("");
+    setClassificationCodes("");
     setConditions([]);
     setPropertyCombination("all");
     setSources([
@@ -533,6 +557,8 @@ export function QuantityQueryPanel() {
     setObjectTypes(item.query.filters.objectTypes.join(", "));
     setMaterials(item.query.filters.materials.join(", "));
     setMaterialCategories((item.query.filters.materialCategories ?? []).join(", "));
+    setClassificationSystem(item.query.filters.classificationSystem ?? "");
+    setClassificationCodes((item.query.filters.classificationCodes ?? []).join(", "));
     setPropertyCombination(item.query.filters.propertyCombination ?? "all");
     setConditions(
       item.query.filters.properties.map((condition) => ({
@@ -1142,6 +1168,24 @@ export function QuantityQueryPanel() {
                     hint={t("filters.multipleHint")}
                     disabled={readOnly}
                   />
+                  <SuggestionInput
+                    id="quantity-query-classification-system"
+                    label={t("filters.classificationSystem")}
+                    value={classificationSystem}
+                    onChange={setClassificationSystem}
+                    suggestions={vocabulary.classificationSystems}
+                    hint={t("filters.classificationSystemHint")}
+                    disabled={readOnly}
+                  />
+                  <SuggestionInput
+                    id="quantity-query-classification-code"
+                    label={t("filters.classificationCode")}
+                    value={classificationCodes}
+                    onChange={setClassificationCodes}
+                    suggestions={codeSuggestions}
+                    hint={t("filters.classificationCodeHint")}
+                    disabled={readOnly}
+                  />
 
                   <div className="space-y-2 pt-1">
                     <div className="flex items-center justify-between gap-2">
@@ -1393,6 +1437,7 @@ export function QuantityQueryPanel() {
                             <SelectTrigger
                               size="sm"
                               className="min-w-24 text-xs"
+                              aria-label={t("sources.kind")}
                             >
                               <SelectValue />
                             </SelectTrigger>

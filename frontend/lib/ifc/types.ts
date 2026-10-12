@@ -218,8 +218,17 @@ export type ModelVocabulary = {
   predefinedTypes: string[];
   /** Occurrence `ObjectType` values authored in the model. */
   objectTypes: string[];
-  /** Classification systems referenced by the model. */
+  /**
+   * Classification systems referenced by the model. Exact: read from the
+   * `IfcClassification` entities themselves, not from the sample below.
+   */
   classificationSystems: string[];
+  /**
+   * Codes found on the sampled elements, grouped by the system they belong to.
+   * A hint for a filter field, like the sets above — a model may use codes the
+   * sample did not reach.
+   */
+  classificationCodes: Array<{ system: string; codes: string[] }>;
   /** Material names assigned anywhere in the model. */
   materials: string[];
 };
@@ -297,6 +306,16 @@ export type ElementFilter = {
   materials: string[];
   /** `IfcMaterial.Category`. */
   materialCategories: string[];
+  /**
+   * `IfcClassification.Name` — one system, which the codes below are read in.
+   * Absent in filters saved before it existed.
+   */
+  classificationSystem?: string;
+  /**
+   * `IfcClassificationReference.Identification` values; any of them matches.
+   * Both halves must hold on the *same* reference — see `classification-filter.ts`.
+   */
+  classificationCodes?: string[];
   propertyCombination?: "all" | "any";
   properties: QuantityQueryPropertyCondition[];
 };
@@ -327,6 +346,16 @@ export type QuantityQueryFilters = {
   materials: string[];
   /** `IfcMaterial.Category`. Absent in queries saved before it existed. */
   materialCategories?: string[];
+  /**
+   * `IfcClassification.Name` — one system, which the codes below are read in.
+   * Absent in queries saved before it existed.
+   */
+  classificationSystem?: string;
+  /**
+   * `IfcClassificationReference.Identification` values; any of them matches.
+   * Both halves must hold on the *same* reference — see `classification-filter.ts`.
+   */
+  classificationCodes?: string[];
   /** Property conditions use AND by default; imported tables may list alternatives. */
   propertyCombination?: "all" | "any";
   properties: QuantityQueryPropertyCondition[];

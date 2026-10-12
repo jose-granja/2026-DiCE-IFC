@@ -9,6 +9,36 @@ import type { ClashGroup, ClashMatrix } from "../types";
 import { createClashWorkbook, readClashWorkbook } from "../workbook";
 
 describe("clash workbook", () => {
+  it("round-trips a group filtered by classification, and leaves one without it empty", () => {
+    const classified: ClashGroup = {
+      ...newGroup("Framed walls"),
+      filter: {
+        ...EMPTY_ELEMENT_FILTER,
+        classes: ["IfcWall*"],
+        classificationSystem: "Uniclass 2015",
+        classificationCodes: ["Ss_25_10_30", "Ss_25_10_60"],
+      },
+    };
+    const plain: ClashGroup = {
+      ...newGroup("Ducts"),
+      filter: { ...EMPTY_ELEMENT_FILTER, classes: ["IfcDuct*"] },
+    };
+
+    const back = readClashWorkbook(
+      createClashWorkbook({ ...emptyMatrix(), groups: [classified, plain] }),
+    );
+
+    expect(back.groups[0].filter).toMatchObject({
+      classes: ["IfcWall*"],
+      classificationSystem: "Uniclass 2015",
+      classificationCodes: ["Ss_25_10_30", "Ss_25_10_60"],
+    });
+    // A group that names no classification must not gain one, or it would
+    // select nothing on the next run.
+    expect(back.groups[1].filter.classificationSystem).toBe("");
+    expect(back.groups[1].filter.classificationCodes).toEqual([]);
+  });
+
   it("round-trips groups, filters, tolerances, cells and settings", () => {
     const base = emptyMatrix();
     const walls: ClashGroup = {

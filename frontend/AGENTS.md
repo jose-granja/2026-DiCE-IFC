@@ -342,6 +342,17 @@ Never transfer engine-owned buffers across the worker boundary: they are views
 into the WASM heap, and detaching them kills the worker mid-call, which presents
 as a promise that never settles. `lib/workers/ifc.worker.ts` copies first.
 
+**An element can be classified in several systems at once**, so a filter naming
+a system *and* a code must satisfy both on the **same**
+`IfcClassificationReference` — `lib/ifc/classification-filter.ts`. Checking them
+independently selects an element that is `Ss_25_10_30` in one system and merely
+present in the other, which quietly inflates a quantity. Codes nest by prefix, so
+a branch is asked for with the ordinary `Ss_25*` glob rather than special
+handling. One matcher serves both callers — the quantity query's filters and a
+clash group's `ElementFilter` — so the two can never disagree about what a code
+means. `fixtures/ifc/classified-wall-ifc4.ifc` and `classified-clash-ifc4.ifc`
+each carry two systems on one element for exactly this test.
+
 **`lib/ifc/ids-document.ts` is the second — and only other — file allowed to
 import the engine.** The engine's IDS parser needs `DOMParser`, which a Web
 Worker does not have, so `parseIDS` must run on the main thread and the parsed

@@ -104,6 +104,54 @@ describe("quantity workbook", () => {
     });
   });
 
+  it("carries a classification filter out to a workbook and back", () => {
+    const bytes = createQuantityWorkbook([{
+      code: "13.01.02",
+      description: "Framed walls",
+      query: {
+        filters: {
+          classes: ["IfcWall"],
+          predefinedTypes: [],
+          objectTypes: [],
+          materials: [],
+          classificationSystem: "Uniclass 2015",
+          classificationCodes: ["Ss_25_10_30", "Ss_25_10_60"],
+          properties: [],
+        },
+        sources: [{ id: "count", alias: "count", kind: "count" }],
+      },
+      result: null,
+    }]);
+
+    const [definition] = readQuantityWorkbook(bytes);
+    expect(definition.query.filters.classificationSystem).toBe("Uniclass 2015");
+    expect(definition.query.filters.classificationCodes).toEqual(["Ss_25_10_30", "Ss_25_10_60"]);
+  });
+
+  it("imports a classification filter from a table that names those columns", () => {
+    const [definition] = parseQuantityConfigurationRows([
+      ["Code", "Description", "Classification System", "Classification Code", "Quantity"],
+      ["13.01.03", "Solid walls", "Uniclass 2015", "Ss_25_10_60", "(element count)"],
+    ]);
+
+    expect(definition.query.filters).toMatchObject({
+      classificationSystem: "Uniclass 2015",
+      classificationCodes: ["Ss_25_10_60"],
+    });
+  });
+
+  it("leaves the classification filter empty when the table has no such column", () => {
+    // Every row of an older workbook would otherwise gain a filter nobody wrote,
+    // and select nothing.
+    const [definition] = parseQuantityConfigurationRows([
+      ["Code", "Description", "IfcClass", "Quantity"],
+      ["13.01.04", "Walls", "IfcWall", "(element count)"],
+    ]);
+
+    expect(definition.query.filters.classificationSystem).toBe("");
+    expect(definition.query.filters.classificationCodes).toEqual([]);
+  });
+
   it("imports property and quantity sources used by an equation", () => {
     const [definition] = parseQuantityConfigurationRows([
       ["Code", "Description", "IfcClass", "Quantity", "Formula", "Unit"],

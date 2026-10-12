@@ -12,9 +12,37 @@ export type MergedVocabulary = {
   predefinedTypes: string[];
   objectTypes: string[];
   materials: string[];
+  /** Classification systems the models declare. */
+  classificationSystems: string[];
+  /** Classification system → the codes found in it, across every model. */
+  classificationCodes: Map<string, string[]>;
   /** Property set → the property names found in it, across every model. */
   propertySets: Map<string, string[]>;
 };
+
+/**
+ * Codes to offer for a classification field: the named system's own once one is
+ * given, otherwise every code in the model so the field is usable before a
+ * system is picked.
+ *
+ * Capped, because this feeds a `<datalist>`: a classified model can carry
+ * thousands of codes and they are only a hint. Shared by the clash group editor
+ * and the quantity panel so the two never diverge.
+ */
+export function classificationCodesFor(
+  // An iterable per system, so the merged map and a panel's own working set both fit.
+  codes: ReadonlyMap<string, Iterable<string>>,
+  system: string,
+  limit = 500,
+): string[] {
+  const wanted = system.trim().toLocaleLowerCase();
+  const found = new Set<string>();
+  for (const [name, values] of codes) {
+    if (wanted && name.toLocaleLowerCase() !== wanted) continue;
+    for (const code of values) found.add(code);
+  }
+  return [...found].sort((a, b) => a.localeCompare(b)).slice(0, limit);
+}
 
 /**
  * What the open models contain, merged, for filter fields to suggest from.
@@ -47,6 +75,8 @@ export function useModelVocabulary(): MergedVocabulary {
     const predefinedTypes = new Set<string>();
     const objectTypes = new Set<string>();
     const materials = new Set<string>();
+    const classificationSystems = new Set<string>();
+    const classificationCodes = new Map<string, Set<string>>();
     const sets = new Map<string, Set<string>>();
 
     for (const model of ready) for (const entry of model.entityTypes) classes.add(entry.type);
@@ -56,6 +86,12 @@ export function useModelVocabulary(): MergedVocabulary {
       data.predefinedTypes.forEach((value) => predefinedTypes.add(value));
       data.objectTypes.forEach((value) => objectTypes.add(value));
       data.materials.forEach((value) => materials.add(value));
+      data.classificationSystems.forEach((value) => classificationSystems.add(value));
+      for (const entry of data.classificationCodes) {
+        const codes = classificationCodes.get(entry.system) ?? new Set<string>();
+        entry.codes.forEach((code) => codes.add(code));
+        classificationCodes.set(entry.system, codes);
+      }
       for (const set of data.propertySets) {
         const names = sets.get(set.name) ?? new Set<string>();
         set.properties.forEach((name) => names.add(name));
@@ -69,6 +105,10 @@ export function useModelVocabulary(): MergedVocabulary {
       predefinedTypes: sorted(predefinedTypes),
       objectTypes: sorted(objectTypes),
       materials: sorted(materials),
+      classificationSystems: sorted(classificationSystems),
+      classificationCodes: new Map(
+        [...classificationCodes].map(([system, codes]) => [system, sorted(codes)]),
+      ),
       propertySets: new Map([...sets].map(([name, names]) => [name, sorted(names)])),
     };
     // `queries` is read inside; `versions` stands in for its contents.

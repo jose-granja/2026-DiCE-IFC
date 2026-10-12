@@ -92,6 +92,10 @@ import {
 import { writeSiteLocation } from "./step-site";
 import { compileTextMatcher, compileTextMatchers, matchesAnyText } from "./text-match";
 import {
+  compileClassificationFilter,
+  matchesClassification,
+} from "./classification-filter";
+import {
   compileElementFilter,
   isEmptyElementFilter,
   matchesClass,
@@ -647,6 +651,10 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
     const materials = new Set<string>();
     const predefinedTypes = new Set<string>();
     const objectTypes = new Set<string>();
+    // Keyed by system, because a code only means anything inside one: a model
+    // may carry Uniclass and OmniClass at once, and offering their codes in one
+    // list would suggest a combination that matches nothing.
+    const classificationCodes = new Map<string, Set<string>>();
 
     for (let i = 0; i < candidates.length; i += stride) {
       const expressId = candidates[i];
@@ -682,6 +690,15 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
       for (const material of extractAllMaterialsOnDemand(store, expressId)) {
         if (material.name) materials.add(material.name);
       }
+
+      for (const entry of extractClassificationsOnDemand(store, expressId)) {
+        const code = entry.identification?.trim();
+        if (!code) continue;
+        const system = entry.system?.trim() ?? "";
+        const codes = classificationCodes.get(system) ?? new Set<string>();
+        codes.add(code);
+        classificationCodes.set(system, codes);
+      }
     }
 
     return {
@@ -700,7 +717,12 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
         .sort((a, b) => a.name.localeCompare(b.name)),
       predefinedTypes: [...predefinedTypes].sort(),
       objectTypes: [...objectTypes].sort(),
-      classificationSystems: extractClassificationSystemsOnDemand(store).sort(),
+      // Parser 9 returns sorted names plus a resolution status. Our stores
+      // always retain local source bytes, so the names can be resolved here.
+      classificationSystems: extractClassificationSystemsOnDemand(store).names,
+      classificationCodes: [...classificationCodes.entries()]
+        .map(([system, codes]) => ({ system, codes: [...codes].sort() }))
+        .sort((a, b) => a.system.localeCompare(b.system)),
       materials: [...materials].sort(),
     };
   },
@@ -1049,6 +1071,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
               ...toView(inherited?.properties ?? []),
             ];
           },
+          classifications: () => extractClassificationsOnDemand(store, expressId),
         });
         if (!ok) continue;
 
@@ -1112,6 +1135,12 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
     const wantedObjectTypes = compileTextMatchers(query.filters.objectTypes);
     const wantedMaterials = compileTextMatchers(query.filters.materials);
     const wantedMaterialCategories = compileTextMatchers(query.filters.materialCategories ?? []);
+    // Null when the query names no classification, which is the common case —
+    // the point being that nothing below then reads one.
+    const wantedClassification = compileClassificationFilter({
+      system: query.filters.classificationSystem,
+      codes: query.filters.classificationCodes,
+    });
     for (const condition of query.filters.properties) {
       compileTextMatcher(condition.setName);
       compileTextMatcher(condition.propertyName);
@@ -1163,6 +1192,17 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
         !materialFacts.some(
           (material) =>
             material.category && matchesAnyText(wantedMaterialCategories, material.category.trim()),
+        )
+      ) continue;
+
+      // After the attribute and material checks, before the property ones:
+      // reading a classification walks a reference chain per element, which is
+      // dearer than an attribute and cheaper than every property set.
+      if (
+        wantedClassification &&
+        !matchesClassification(
+          wantedClassification,
+          extractClassificationsOnDemand(store, expressId),
         )
       ) continue;
 
@@ -1444,10 +1484,14 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
         })),
       }));
 
+    // IDS 3 reports metadata for a model list, even on this single-model path.
+    const modelInfo = report.modelInfo.find((info) => info.modelId === modelId);
+    if (!modelInfo) throw new Error("IDS report is missing the validated model.");
+
     return {
       modelId,
-      schemaVersion: report.modelInfo.schemaVersion,
-      entityCount: report.modelInfo.entityCount,
+      schemaVersion: modelInfo.schemaVersion,
+      entityCount: modelInfo.entityCount,
       specifications,
     };
   },

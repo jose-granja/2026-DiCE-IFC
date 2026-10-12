@@ -144,3 +144,77 @@ than modify, but it is a constraint That Open's MIT does not have.
   where `@thatopen/components` passes.
 - A real vendor model shows the parse-time gap widening beyond ~3× without a
   corresponding property-access win.
+
+## 2026-10-12 — IFC4x3 alignment geometry update
+
+The ACCA **Viadotto Acerno** model exposed an engine-version gap: the installed
+geometry 4.1.0 / WASM 6.1.1 parsed the file successfully but omitted all 638
+`IfcSectionedSolidHorizontal` items and ignored gradient elevation for linear
+placements. Only 18 of 590 beams rendered, with misplaced parts below terrain.
+This is the exact model covered by upstream
+[issue 5327](https://github.com/LTplus-AG/ifc-lite/issues/5327) and
+[fix 6066](https://github.com/LTplus-AG/ifc-lite/pull/6066).
+
+All 13 direct IFC-lite dependencies are now updated to the latest published
+versions checked on 2026-10-12:
+
+| Package | Version |
+|---|---|
+| bcf | 5.0.1 |
+| data | 6.2.0 |
+| encoding | 2.3.0 |
+| export | 4.9.0 |
+| geometry | 7.7.0 |
+| ids | 3.2.0 |
+| mutations | 3.2.0 |
+| parser | 9.2.0 |
+| pointcloud | 0.12.0 |
+| query | 2.5.2 |
+| renderer | 6.0.1 |
+| spatial | 1.15.0 |
+| wasm | 10.4.0 |
+
+Parser and geometry now share WASM 10.4.0 instead of loading separate engine
+versions. IDS pins its own data 6.1.0 dependency upstream; that pin is preserved.
+The adapter now reads classification system names from `{ names, unresolved }`
+and selects the validated model from IDS's `modelInfo` array. The app's public
+adapter contract, local-only processing and three.js renderer remain unchanged.
+
+Verified on the local 31.5 MiB, 253,318-entity file: all 590 beams, 41 slabs,
+38 courses, 2 pavements and 152 bearings produce geometry. Beams and bearings
+are at deck elevation (40–60 m), and the browser renders 6,549 unique entities
+instead of 5,908. Counts include the three newly supported alignments.
+
+`alignment-bridge-ifc4x3.ifc` is a small, authored regression fixture: a sectioned
+girder and a linearly placed bearing on a gradient curve at 50 m. The previous
+bridge fixture tested IFC4x3 attributes but had no solid representation, so it
+could not catch this defect. `alignment-geometry.test.ts` checks geometry and
+elevation; the viewer browser test checks both entities reach the renderer.
+The full vendor file remains outside the repository. To exercise it locally:
+
+```sh
+ACERNO_IFC='/path/to/Viadotto Acerno.ifc' npm test -- lib/ifc/__tests__/alignment-geometry.test.ts
+```
+
+Re-ran the existing engine spike on the two small fixtures, the 20/200 MiB
+synthetic models and this vendor model (Apple Silicon, Node 24.19.0;
+parser 9.2.0, web-ifc 0.0.77):
+
+| engine | file | size MiB | parse ms | entities | props ms (2,000 walls) | psets | CRS |
+|---|---|--:|--:|--:|--:|--:|---|
+| ifc-lite | georeferenced-wall-ifc4.ifc | 0 | 20 | 63 | 1 | 2 | EPSG:3763 |
+| web-ifc | georeferenced-wall-ifc4.ifc | 0 | 20 | 63 | 3 | 2 | EPSG:3763 |
+| ifc-lite | bridge-ifc4x3.ifc | 0 | 4 | 38 | 0 | 0 | EPSG:3763 |
+| web-ifc | bridge-ifc4x3.ifc | 0 | 9 | 38 | 0 | 0 | EPSG:3763 |
+| ifc-lite | synthetic 20 MiB | 20 | 554 | 337,832 | 9 | 700 | EPSG:3763 |
+| web-ifc | synthetic 20 MiB | 20 | 310 | 337,832 | 127 | 700 | EPSG:3763 |
+| ifc-lite | synthetic 200 MiB | 200.1 | 7,315 | 3,256,202 | 13 | 700 | EPSG:3763 |
+| web-ifc | synthetic 200 MiB | 200.1 | 3,489 | 3,256,202 | 1,194 | 700 | EPSG:3763 |
+| ifc-lite | Viadotto Acerno.ifc | 31.5 | 726 | 253,318 | 0 | 0 | EPSG:32633 |
+| web-ifc | Viadotto Acerno.ifc | 31.5 | 354 | 253,318 | 15 | 0 | EPSG:32633 |
+
+These are single-run observations collected alongside browser checks, not a
+controlled performance comparison with the September baseline. RSS deltas are
+omitted here: GC during sequential measurements even produced a negative delta
+for one run, so they cannot establish peak memory. Both engines still parse the
+200 MiB fixture and preserve georeferencing; the decision remains unchanged.

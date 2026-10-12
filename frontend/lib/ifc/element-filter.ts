@@ -7,6 +7,13 @@
 import type { ElementFilter, PropertySetView } from "./types";
 import { findSetValue, matchesPropertyCondition } from "./quantity-query";
 import {
+  compileClassificationFilter,
+  matchesClassification,
+  isEmptyClassificationFilter,
+  type ClassificationFact,
+  type CompiledClassificationFilter,
+} from "./classification-filter";
+import {
   compileTextMatcher,
   compileTextMatchers,
   matchesAnyText,
@@ -21,6 +28,8 @@ export type CompiledElementFilter = {
   objectTypes: TextMatcher[];
   materials: TextMatcher[];
   materialCategories: TextMatcher[];
+  /** Null when the filter names no classification, so none is ever read. */
+  classification: CompiledClassificationFilter | null;
 };
 
 /** A filter with nothing in it matches nothing, rather than everything. */
@@ -33,6 +42,10 @@ export function isEmptyElementFilter(filter: ElementFilter): boolean {
     filled(filter.objectTypes) ||
     filled(filter.materials) ||
     filled(filter.materialCategories) ||
+    !isEmptyClassificationFilter({
+      system: filter.classificationSystem,
+      codes: filter.classificationCodes,
+    }) ||
     filter.properties.length > 0
   );
 }
@@ -52,6 +65,10 @@ export function compileElementFilter(filter: ElementFilter): CompiledElementFilt
     objectTypes: compileTextMatchers(filter.objectTypes),
     materials: compileTextMatchers(filter.materials),
     materialCategories: compileTextMatchers(filter.materialCategories),
+    classification: compileClassificationFilter({
+      system: filter.classificationSystem,
+      codes: filter.classificationCodes,
+    }),
   };
 }
 
@@ -70,6 +87,8 @@ export type ElementFacts = {
    * expensive part of an element, and most filters never ask.
    */
   properties: () => PropertySetView[];
+  /** Read only when the filter names a classification, for the same reason. */
+  classifications: () => ClassificationFact[];
 };
 
 export function matchesElementFilter(
@@ -101,6 +120,16 @@ export function matchesElementFilter(
     !facts.materials.some(
       (material) => material.category && matchesAnyText(compiled.materialCategories, material.category),
     )
+  ) {
+    return false;
+  }
+
+  // Before the property conditions and after the attribute ones: reading a
+  // classification walks a reference chain, which is dearer than an attribute
+  // and cheaper than every property set on the element.
+  if (
+    compiled.classification &&
+    !matchesClassification(compiled.classification, facts.classifications())
   ) {
     return false;
   }

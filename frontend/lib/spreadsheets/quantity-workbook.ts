@@ -34,6 +34,8 @@ const SUMMARY_HEADERS = [
   "ObjectType",
   "Material",
   "Material Category",
+  "Classification System",
+  "Classification Code",
   "Property",
   "Property Rule",
   "Quantity",
@@ -88,6 +90,8 @@ const HEADER_ALIASES: Record<string, string[]> = {
   objectTypes: ["objecttype", "tipodeobjeto", "tipoobjeto"],
   materials: ["material", "materials", "materiais"],
   materialCategories: ["materialcategory", "materialcategories", "categoriadomaterial", "categoriamaterial"],
+  classificationSystem: ["classificationsystem", "classification", "sistemadeclassificacao", "sistemaclassificacao", "classificacao"],
+  classificationCodes: ["classificationcode", "classificationcodes", "codigodeclassificacao", "codigoclassificacao", "codigosdeclassificacao"],
   properties: ["property", "properties", "propriedade", "propriedades"],
   propertyRule: ["propertyrule", "propertycombination", "regradepropriedades", "combinacaodepropriedades"],
   quantities: ["quantity", "quantities", "quantidade", "quantidades"],
@@ -226,6 +230,8 @@ export function parseQuantityConfigurationRows(rows: string[][]): QuantityWorkbo
           objectTypes: list(cell(row, headers, "objectTypes")),
           materials: list(cell(row, headers, "materials")),
           materialCategories: list(cell(row, headers, "materialCategories")),
+          classificationSystem: cell(row, headers, "classificationSystem"),
+          classificationCodes: list(cell(row, headers, "classificationCodes")),
           propertyCombination:
             rule === "all" || rule === "and" || rule === "todas" || rule === "e"
               ? "all"
@@ -462,6 +468,8 @@ export function createQuantityWorkbook(items: QuantityWorkbookItem[]): Uint8Arra
       item.query.filters.objectTypes.join("\n"),
       item.query.filters.materials.join("\n"),
       (item.query.filters.materialCategories ?? []).join("\n"),
+      item.query.filters.classificationSystem ?? "",
+      (item.query.filters.classificationCodes ?? []).join("\n"),
       propertyText(item.query),
       item.query.filters.propertyCombination === "any" ? "ANY" : "ALL",
       quantityText(item.query),
@@ -491,7 +499,7 @@ export function createQuantityWorkbook(items: QuantityWorkbookItem[]): Uint8Arra
   }
 
   return buildWorkbook([
-    { name: "Quantities", rows: summaryRows, widths: [14, 34, 18, 18, 24, 18, 18, 36, 14, 36, 22, 10, 14, 16, 14] },
+    { name: "Quantities", rows: summaryRows, widths: [14, 34, 18, 18, 24, 18, 18, 22, 22, 36, 14, 36, 22, 10, 14, 16, 14] },
     { name: "Elements", rows: detailRows, widths: [14, 34, 24, 12, 24, 18, 28, 18, 22, 24, 34, 14, 10] },
   ]);
 }

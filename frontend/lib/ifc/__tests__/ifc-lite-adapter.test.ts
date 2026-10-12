@@ -8,6 +8,7 @@ import {
   resolveRenderOriginShift,
 } from "../ifc-lite-adapter";
 import { runAdapterConformance, type ConformanceFixtures } from "../conformance";
+import type { QuantityQueryFilters } from "../types";
 
 const FIXTURES = path.resolve(__dirname, "../../../fixtures/ifc");
 
@@ -314,6 +315,107 @@ describe("quantity queries", () => {
       expect(result.matchedCount).toBe(2);
       expect(result.total).toBe(2);
       expect(result.rows.every((row) => row.predefinedType === "STANDARD")).toBe(true);
+    } finally {
+      await ifcLiteAdapter.unloadModel(summary.id);
+    }
+  });
+});
+
+/**
+ * Classification filtering, through the engine rather than against a stub.
+ * `classified-wall-ifc4.ifc` puts Wall A in two systems at once, which is the
+ * case the "same reference" rule in `classification-filter.ts` exists for and
+ * the one a stubbed fact list cannot prove the engine actually reports.
+ */
+describe("quantity queries filtered by classification", () => {
+  const count = async (
+    modelId: string,
+    filters: Partial<QuantityQueryFilters>,
+  ) => {
+    const result = await ifcLiteAdapter.evaluateQuantityQuery(modelId, {
+      filters: {
+        classes: [],
+        predefinedTypes: [],
+        objectTypes: [],
+        materials: [],
+        properties: [],
+        ...filters,
+      },
+      sources: [{ id: "count", alias: "count", kind: "count" }],
+    });
+    return result.rows.map((row) => row.name).sort();
+  };
+
+  it("reports the systems and the codes found in each of them", async () => {
+    const summary = await ifcLiteAdapter.loadModel(await load("classified-wall-ifc4.ifc"));
+    try {
+      const vocabulary = await ifcLiteAdapter.getVocabulary(summary.id);
+      expect(vocabulary.classificationSystems).toEqual(["Sistema Nacional", "Uniclass 2015"]);
+      expect(vocabulary.classificationCodes).toEqual([
+        { system: "Sistema Nacional", codes: ["EF_25_10"] },
+        { system: "Uniclass 2015", codes: ["Ss_25_10_30", "Ss_25_10_60", "Ss_30_10_30"] },
+      ]);
+    } finally {
+      await ifcLiteAdapter.unloadModel(summary.id);
+    }
+  });
+
+  it("selects by code, by system, by both, and by a branch of codes", async () => {
+    const summary = await ifcLiteAdapter.loadModel(await load("classified-wall-ifc4.ifc"));
+    try {
+      // Nothing asked: every placed element, classification or not.
+      expect(await count(summary.id, {})).toEqual(["Slab A", "Wall A", "Wall B"]);
+
+      expect(await count(summary.id, { classificationCodes: ["Ss_25_10_30"] })).toEqual(["Wall A"]);
+      expect(await count(summary.id, { classificationSystem: "Sistema Nacional" })).toEqual(["Wall A"]);
+      expect(
+        await count(summary.id, {
+          classificationSystem: "Uniclass 2015",
+          classificationCodes: ["Ss_25*"],
+        }),
+      ).toEqual(["Wall A", "Wall B"]);
+
+      // Wall A is Ss_25_10_30, and is in Sistema Nacional — but not that code
+      // *in* that system, so it is not a match.
+      expect(
+        await count(summary.id, {
+          classificationSystem: "Sistema Nacional",
+          classificationCodes: ["Ss_25_10_30"],
+        }),
+      ).toEqual([]);
+    } finally {
+      await ifcLiteAdapter.unloadModel(summary.id);
+    }
+  });
+
+  it("combines with the other filters rather than replacing them", async () => {
+    const summary = await ifcLiteAdapter.loadModel(await load("classified-wall-ifc4.ifc"));
+    try {
+      expect(
+        await count(summary.id, { classes: ["IfcSlab"], classificationCodes: ["Ss_30*"] }),
+      ).toEqual(["Slab A"]);
+      // The code is a wall's; the class is the slab's. Both must hold.
+      expect(
+        await count(summary.id, { classes: ["IfcSlab"], classificationCodes: ["Ss_25*"] }),
+      ).toEqual([]);
+    } finally {
+      await ifcLiteAdapter.unloadModel(summary.id);
+    }
+  });
+
+  it("matches nothing on a model that carries no classification at all", async () => {
+    const summary = await ifcLiteAdapter.loadModel(await load("georeferenced-wall-ifc4.ifc"));
+    try {
+      const vocabulary = await ifcLiteAdapter.getVocabulary(summary.id);
+      expect(vocabulary.classificationSystems).toEqual([]);
+      expect(vocabulary.classificationCodes).toEqual([]);
+      expect(await count(summary.id, { classificationCodes: ["Ss_25_10_30"] })).toEqual([]);
+      // …and an untouched filter still selects everything.
+      expect(await count(summary.id, { classificationSystem: "", classificationCodes: [] })).toEqual([
+        "Slab A",
+        "Wall A",
+        "Wall B",
+      ]);
     } finally {
       await ifcLiteAdapter.unloadModel(summary.id);
     }

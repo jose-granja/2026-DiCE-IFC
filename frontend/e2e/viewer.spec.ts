@@ -47,8 +47,18 @@ test("parses a model and shows its structure and classes", async ({ page }) => {
   // and "Isolate Level 0…" buttons, which is a strict-mode violation.
   await expect(tree.getByRole("button", { name: /^Level 0/ })).toBeVisible();
 
-  await page.getByRole("tab", { name: /^Classes/ }).click();
+  await page.getByRole("tab", { name: "Filters", exact: true }).click();
   await expect(page.getByText("IfcWall")).toBeVisible();
+});
+
+test("renders IFC4x3 sectioned solids as well as linearly placed elements", async ({ page }) => {
+  await loadModels(page, [path.join(FIXTURES, "alignment-bridge-ifc4x3.ifc")]);
+
+  // The old WASM parsed both products but silently dropped the sectioned girder.
+  // Count the entities actually handed to the renderer, not just the spatial tree.
+  await expect(page.locator("[data-visible-entities]")).toHaveAttribute(
+    "data-visible-entities", "2/2", { timeout: 60_000 },
+  );
 });
 
 test("selecting an element shows its properties", async ({ page }) => {
@@ -71,7 +81,7 @@ test("selecting an element shows its properties", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Wall A" })).toBeVisible();
 
   // Property sets are their own tab in the information panel.
-  await page.getByRole("tab", { name: "Property sets" }).click();
+  await page.getByRole("tab", { name: "Properties", exact: true }).click();
   await expect(page.getByText("Pset_WallCommon")).toBeVisible();
   await expect(page.getByText("FireRating")).toBeVisible();
   await expect(page.getByText("REI 60")).toBeVisible();

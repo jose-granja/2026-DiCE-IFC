@@ -17,6 +17,10 @@ const facts = (over: Partial<ElementFacts> = {}): ElementFacts => ({
   properties: () => [
     { name: "Pset_WallCommon", properties: [{ name: "FireRating", value: "REI 60" }, { name: "IsExternal", value: true }] },
   ],
+  classifications: () => [
+    { system: "Uniclass 2015", identification: "Ss_25_10_30" },
+    { system: "Sistema Nacional", identification: "EF_25_10" },
+  ],
   ...over,
 });
 
@@ -80,6 +84,35 @@ describe("matchesElementFilter", () => {
     expect(test({ ...f, propertyCombination: "all" })).toBe(false);
   });
 
+  it("matches a classification code within its system, not across systems", () => {
+    // The wall is Ss_25_10_30 in Uniclass and EF_25_10 in the national system.
+    expect(test({ classificationSystem: "Uniclass 2015", classificationCodes: ["Ss_25_10_30"] })).toBe(true);
+    expect(test({ classificationSystem: "Sistema Nacional", classificationCodes: ["Ss_25_10_30"] })).toBe(false);
+    expect(test({ classificationCodes: ["EF_25_10"] })).toBe(true);
+    expect(test({ classificationSystem: "Uniclass 2015" })).toBe(true);
+    expect(test({ classificationSystem: "OmniClass" })).toBe(false);
+  });
+
+  it("selects a branch of codes with a wildcard", () => {
+    expect(test({ classificationCodes: ["Ss_25*"] })).toBe(true);
+    expect(test({ classificationCodes: ["Ss_30*"] })).toBe(false);
+  });
+
+  it("combines the classification with the other fields, rather than replacing them", () => {
+    expect(test({ classes: ["IfcWall*"], classificationCodes: ["Ss_25_10_30"] })).toBe(true);
+    // Right code, wrong class.
+    expect(test({ classes: ["IfcSlab"], classificationCodes: ["Ss_25_10_30"] })).toBe(false);
+  });
+
+  it("reads classifications only when the filter asks for one", () => {
+    let reads = 0;
+    const counted = { classifications: () => { reads += 1; return []; } };
+    matchesElementFilter(compileElementFilter(filter({ classes: ["IfcWall*"] })), facts(counted));
+    expect(reads).toBe(0);
+    matchesElementFilter(compileElementFilter(filter({ classificationCodes: ["Ss_25*"] })), facts(counted));
+    expect(reads).toBe(1);
+  });
+
   it("says which pattern is bad", () => {
     expect(() => compileElementFilter(filter({ names: ["/(/"] }))).toThrow(/Invalid regular expression/);
   });
@@ -90,5 +123,11 @@ describe("isEmptyElementFilter", () => {
     expect(isEmptyElementFilter(EMPTY_ELEMENT_FILTER)).toBe(true);
     expect(isEmptyElementFilter(filter({ classes: [" "] }))).toBe(true);
     expect(isEmptyElementFilter(filter({ classes: ["*"] }))).toBe(false);
+  });
+
+  it("counts a classification as something, so a group filtered only by one is not refused", () => {
+    expect(isEmptyElementFilter(filter({ classificationSystem: "Uniclass 2015" }))).toBe(false);
+    expect(isEmptyElementFilter(filter({ classificationCodes: ["Ss_25_10_30"] }))).toBe(false);
+    expect(isEmptyElementFilter(filter({ classificationSystem: " ", classificationCodes: [" "] }))).toBe(true);
   });
 });
