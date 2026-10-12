@@ -88,7 +88,7 @@ export type ViewerModel = {
   /** Set once geometry has been handed to the renderer. */
   hasGeometry: boolean;
   /**
-   * Present when the model came out of a signed container.
+   * Present when the model carries an embedded IFC or container signature.
    *
    * `null` while the check is still running, so the UI can say "checking"
    * rather than "unsigned" — which would be a different and much worse claim.

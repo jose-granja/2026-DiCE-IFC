@@ -117,11 +117,10 @@ export async function loadModelFile(
     };
     store.addModel(model);
 
-    if (unwrapped.container) {
-      // Deliberately not awaited: verification re-hashes the payload and runs
-      // WebCrypto over it, and the model should appear while that happens.
-      verifySignedContainer(modelId, file.name, unwrapped);
-    }
+    // Deliberately not awaited: container verification and raw IFC embedded
+    // signature discovery must not hold up the model. The latter reads, scans
+    // and verifies in its own worker; an unsigned IFC keeps no badge.
+    void verifySignedContainer(modelId, file.name, unwrapped);
 
     // Metadata first — cheap, and it is what the panels need.
     const [georeference, spatialTree, entityTypes] = await Promise.all([

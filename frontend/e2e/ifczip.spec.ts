@@ -74,9 +74,10 @@ test.describe(() => {
     await page.getByRole("tab", { name: "Models" }).click();
     await expect(page.getByText(/Signature valid/)).toBeVisible({ timeout: 30_000 });
 
-    // Integrity is not trust, and the badge has to keep saying so.
-    await expect(
-      page.getByText(/Whether the certificate is a genuine qualified one is not checked/),
-    ).toBeVisible();
+    // Integrity is not trust, and the badge has to keep saying so — one press away.
+    await page.locator("[data-signature-status]").first().click();
+    await expect(page.locator("[data-signature-caveat]")).toContainText(
+      /Certificate trust and qualified status are not checked/,
+    );
   });
 });

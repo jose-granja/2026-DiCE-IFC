@@ -12,6 +12,8 @@
 | [008](008-real-canonicalization.md) | Implement exclusive XML canonicalisation | Accepted, supersedes 006 |
 | [009](009-bsdd-suggestions.md) | bSDD suggestions in the IDS editor, via a same-origin proxy | Accepted |
 | [010](010-vector-context-formats.md) | CityJSON, GeoJSON, CityGML/GML and GeoPackage read in the browser | Accepted |
+| [011](011-embedded-ifc-signatures.md) | Embedded IFC CMS signatures alongside the existing IFCZIP flow | Accepted |
+| [012](012-signature-timestamps.md) | Signature time-stamps (XAdES-B-T) through a same-origin RFC 3161 proxy | Mechanism accepted; the authority is a deployment choice (Q5) |
 
 ## Open questions from the build brief
 
@@ -21,7 +23,7 @@
 | Q2 | Who code-signs and notarises the native host installer? | **Open, and now the only thing standing between us and a clean install.** `companion/packaging/` builds both installers and `.github/workflows/companion.yml` releases them; both are unsigned, so macOS says "unidentified developer" and SmartScreen warns. Needs an Apple Developer ID and an EV certificate — money, not code. |
 | Q3 | Bulk: N PIN prompts, or one manifest signature? | **Both built, decision deferred to the user.** `/sign` offers `combined` (one signature over N files, one prompt — the default) and `per-file` (N independently verifiable containers, N prompts), and states which guarantee each gives. Measuring what pteid actually prompts still needs hardware, but no longer blocks anything. |
 | Q4 | Is ASiC-E the right container? | **Open — needs a consumer.** ADR 002 recommends it and keeps the container assembler swappable. |
-| Q5 | Which qualified TSA, and who pays? | **Open, and now fails loudly.** The Django `trust/` proxy that was to carry RFC 3161 requests has been removed with the backend (it was never called). Signatures are XAdES-B until a qualified TSA is chosen, and a timestamp would need a Next.js route handler like the bSDD one. |
+| Q5 | Which qualified TSA, and who pays? | **Mechanism built, authority still open.** `/api/tsa` stamps a signature (XAdES-B-T) with whatever `TSA_URL` names, and the page offers it when one is set; with none, signatures are B-B. Provider options and prices read from their pages are in ADR 012. What remains is the choice, the contract, and confirming the provider's qualified time-stamping service in the trusted list. |
 | Q6 | Does `cde` need to store projects/models? | **Resolved — metadata only.** `cde` holds `Project`, `ProjectMembership` and an opt-in `SignatureAudit`. No model, geometry or georeferencing data. |
 
 ## Writing a new one

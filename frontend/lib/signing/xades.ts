@@ -240,6 +240,7 @@ export async function prepareSignature(
 export function completeSignature(
   context: SignatureContext,
   signatureValueBase64: string,
+  options: { timestampToken?: string } = {},
 ): string {
   const signature = element(
     "ds:Signature",
@@ -278,7 +279,12 @@ export function completeSignature(
               { name: "xmlns:xades", value: XADES_NS },
               { name: "Target", value: `#${context.signatureId}` },
             ],
-            [{ name: "__raw", text: context.signedPropertiesXml } as unknown as XmlNode],
+            [
+              { name: "__raw", text: context.signedPropertiesXml } as unknown as XmlNode,
+              ...(options.timestampToken
+                ? [buildUnsignedProperties(options.timestampToken)]
+                : []),
+            ],
           ),
         ],
       ),
@@ -286,6 +292,70 @@ export function completeSignature(
   );
 
   return serializeWithRaw(signature);
+}
+
+/**
+ * The canonical form of `ds:SignatureValue`, which is what an XAdES signature
+ * time-stamp covers (ETSI EN 319 132-1 §5.5.2): the signature's own value, not
+ * the document. Exclusive c14n renders the `ds` declaration here because the
+ * element uses the prefix, so the bytes are the same whether it is hashed on its
+ * own now or canonicalised inside the finished signature by a verifier.
+ */
+export function signatureValueCanonical(
+  context: SignatureContext,
+  signatureValueBase64: string,
+): string {
+  return toCanonical(
+    textElement("ds:SignatureValue", signatureValueBase64, [
+      { name: "xmlns:ds", value: DS_NS },
+      { name: "Id", value: `${context.signatureId}-value` },
+    ]),
+  );
+}
+
+/** What to hand the time-stamp authority for this signature: SHA-256 of the above. */
+export async function signatureTimestampDigest(
+  context: SignatureContext,
+  signatureValueBase64: string,
+): Promise<Uint8Array> {
+  return new Uint8Array(
+    await crypto.subtle.digest(
+      "SHA-256",
+      utf8(signatureValueCanonical(context, signatureValueBase64)) as BufferSource,
+    ),
+  );
+}
+
+/**
+ * `UnsignedProperties` → `SignatureTimeStamp`: the step from XAdES-B-B to B-T.
+ *
+ * Unsigned on purpose — a time-stamp over the signature cannot be inside what
+ * the signature covers — and the `CanonicalizationMethod` is written out because
+ * the XAdES default, inclusive c14n, is *not* what the digest was taken with.
+ */
+function buildUnsignedProperties(tokenBase64: string): XmlNode {
+  return element(
+    "xades:UnsignedProperties",
+    [],
+    [
+      element(
+        "xades:UnsignedSignatureProperties",
+        [],
+        [
+          element(
+            "xades:SignatureTimeStamp",
+            [],
+            [
+              element("ds:CanonicalizationMethod", [
+                { name: "Algorithm", value: C14N_EXCLUSIVE },
+              ]),
+              textElement("xades:EncapsulatedTimeStamp", tokenBase64),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 /**

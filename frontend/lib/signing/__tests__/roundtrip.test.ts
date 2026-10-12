@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment node
 
 /**
  * Sign, then verify — with real keys.
@@ -16,7 +16,18 @@
  */
 
 import { unzipSync, zipSync } from "fflate";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createRequire } from "node:module";
+
+// Keep WebCrypto and its BufferSource values in Node's realm. Only XML parsing
+// needs a DOM; replacing ArrayBuffer via the jsdom environment breaks native
+// SubtleCrypto with Vitest 5. No cryptographic operation is mocked.
+const { JSDOM } = createRequire(import.meta.url)("jsdom") as {
+  JSDOM: new () => { window: { DOMParser: typeof DOMParser; close(): void } };
+};
+const dom = new JSDOM();
+beforeAll(() => vi.stubGlobal("DOMParser", dom.window.DOMParser));
+afterAll(() => { vi.unstubAllGlobals(); dom.window.close(); });
 
 import { addSignature, createContainer, listSignatureFiles } from "../asice";
 import { fromBase64 } from "../canonical";

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * A container's signature, reduced to what a list row can show.
+ * A file's signature, reduced to what a list row can show.
  *
  * Shared by the viewer (an `.ifczip` model) and the BCF manager (a signed
  * `.bcf`), because ADR 002 gives them the same container: the archive with
@@ -9,7 +9,7 @@
  *
  * The distinction that matters is three-way, not two:
  *
- *  - `undefined` — not a container, or a container with no signature in it.
+ *  - `undefined` — an ordinary model or container with no signature in it.
  *    Normal, and gets no badge. Labelling every ordinary file "unsigned" trains
  *    people to ignore the row that matters.
  *  - `null` — a signed container whose check is still running.
@@ -17,10 +17,14 @@
  */
 
 import { verifyContainer } from "./verify";
+import { inspectEmbeddedSignatures } from "./embedded";
+import { EmbeddedIfcError, type EmbeddedIfcErrorCode } from "./embedded-format";
 
 export type SignatureSummary = {
-  /** The archive this came from, e.g. `model.ifczip`. */
+  /** The signed model or archive this came from. */
   containerName: string;
+  format?: "embedded";
+  embeddedProblem?: EmbeddedIfcErrorCode | "unknown";
   /** False when any signature failed, or a reference did not match. */
   valid: boolean;
   signers: Array<{
@@ -74,6 +78,30 @@ export async function summariseSignature(
           ? `The signature could not be checked: ${error.message}`
           : "The signature could not be checked.",
       ],
+    };
+  }
+}
+
+/** Inspect raw IFC signatures off the UI thread. Unsupported unsigned models
+ * remain ordinary models; a claimed signature that fails gets an invalid badge. */
+export async function summariseEmbeddedSignature(file: File): Promise<SignatureSummary | undefined> {
+  if (!/\.ifc$/i.test(file.name)) return undefined;
+  try {
+    const result = await inspectEmbeddedSignatures(file);
+    if (!result) return undefined;
+    const valid = result.signatures.length > 0 && result.signatures.every((entry) => entry.valid);
+    return {
+      containerName: file.name, format: "embedded", valid,
+      problems: [], embeddedProblem: valid ? undefined : "invalid-signature",
+      signers: result.signatures.map((entry) => ({
+        subject: entry.subject ?? "", issuer: entry.issuer ?? "", signingTime: entry.signingTime,
+        algorithm: entry.algorithm ?? "", valid: entry.valid, trust: "not-checked",
+      })),
+    };
+  } catch (error) {
+    return {
+      containerName: file.name, format: "embedded", valid: false, signers: [], problems: [],
+      embeddedProblem: error instanceof EmbeddedIfcError ? error.code : "unknown",
     };
   }
 }

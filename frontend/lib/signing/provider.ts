@@ -74,8 +74,8 @@ export type SigningCertificate = {
 
 export type SignRequest = {
   /**
-   * The bytes to be signed — for XAdES, the canonicalised `SignedInfo`, never
-   * the document. Raw bytes, not base64: hashing happens here so no caller can
+   * The bytes to be signed — canonicalised `SignedInfo` for XAdES, or DER
+   * signed attributes for CMS, never the document. Raw bytes, not base64, so no caller can
    * accidentally sign a base64 rendering of the wrong thing.
    */
   dataToBeSigned: Uint8Array;
@@ -95,8 +95,8 @@ export type SignResult = {
    * The signature value, base64.
    *
    * For ECDSA this is raw P1363 `r‖s`, which is what XMLDSig/XAdES wants
-   * directly. CMS/CAdES would need DER re-encoding — we produce XAdES, so it
-   * does not, but do not pass this to a CMS library without converting.
+   * directly. The embedded IFC CMS builder converts this to DER before
+   * including it in SignedData.
    */
   signatureValue: string;
   algorithm: SignatureAlgorithm;

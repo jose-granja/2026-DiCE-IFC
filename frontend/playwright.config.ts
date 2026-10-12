@@ -60,6 +60,12 @@ export default defineConfig({
     // with a different CSP. Both produce failures that look like app bugs and
     // are not. The rebuild costs a few seconds; the confusion cost more.
     reuseExistingServer: false,
+    // A time-stamp authority for the signing tests to find: `e2e/timestamp.spec.ts`
+    // starts a fake one on this port. Nothing calls it unless a test does.
+    env: {
+      TSA_URL: `http://127.0.0.1:${process.env.TSA_TEST_PORT ?? "3199"}/ts`,
+      TSA_NAME: "Test time-stamp authority",
+    },
     timeout: 240_000,
   },
 });

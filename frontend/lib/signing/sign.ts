@@ -34,7 +34,7 @@ import {
   type SigningCertificate,
   type SigningProvider,
 } from "./provider";
-import { completeSignature, prepareSignature } from "./xades";
+import { completeSignature, prepareSignature, signatureTimestampDigest } from "./xades";
 
 export type SignMode = "per-file" | "combined";
 
@@ -49,11 +49,17 @@ export type SignedOutput = {
   bytes: Uint8Array;
   /** Files this container's signature covers. */
   covers: string[];
+  /**
+   * What happened when a time-stamp was asked for. Absent when none was. A
+   * failure is reported rather than thrown: by then the citizen has typed the
+   * PIN, and the signature is real — it is just B-B, not B-T, and the page says so.
+   */
+  timestamp?: { status: "added"; time: string; tsa?: string } | { status: "failed"; error: string };
 };
 
 export type SignProgress = {
   /** What the user is being asked for right now. */
-  phase: "certificate" | "preparing" | "awaiting-pin" | "assembling" | "done";
+  phase: "certificate" | "preparing" | "awaiting-pin" | "timestamping" | "assembling" | "done";
   /** 1-based, for `per-file`. */
   current: number;
   total: number;
@@ -66,6 +72,13 @@ export type SignOptions = {
   /** Name for the combined container. Ignored in `per-file` mode. */
   containerName?: string;
   onProgress?: (progress: SignProgress) => void;
+  /**
+   * Stamp the finished signature: given the SHA-256 of its `SignatureValue`,
+   * return a time-stamp token (base64 DER) and when it says it is. Not a URL and
+   * not a fetch — the caller decides where a time-stamp comes from, so this
+   * stays testable without a network.
+   */
+  timestamper?: (digest: Uint8Array) => Promise<{ token: string; time: string; tsa?: string }>;
   /** Injected in tests so output is byte-identical between runs. */
   now?: Date;
   idSuffix?: string;
@@ -89,28 +102,25 @@ export async function signFiles(
       options.containerName ??
       containerFileName(files[0].name, kind).replace(/\.(ifczip|bcf)$/i, "-signed.$1");
 
+    const group = await signGroup(files, certificate, provider, options, 1, files.length);
     return [
       {
         name,
         covers: files.map((file) => file.name),
-        bytes: await signGroup(files, certificate, provider, options, 1, files.length),
+        bytes: group.bytes,
+        timestamp: group.timestamp,
       },
     ];
   }
 
   const outputs: SignedOutput[] = [];
   for (const [index, file] of files.entries()) {
+    const group = await signGroup([file], certificate, provider, options, index + 1, files.length);
     outputs.push({
       name: containerFileName(file.name, kind),
       covers: [file.name],
-      bytes: await signGroup(
-        [file],
-        certificate,
-        provider,
-        options,
-        index + 1,
-        files.length,
-      ),
+      bytes: group.bytes,
+      timestamp: group.timestamp,
     });
   }
   return outputs;
@@ -188,7 +198,7 @@ async function signGroup(
   options: SignOptions,
   current: number,
   total: number,
-): Promise<Uint8Array> {
+): Promise<{ bytes: Uint8Array; timestamp?: SignedOutput["timestamp"] }> {
   const { algorithm } = negotiateAlgorithm(certificate);
 
   const entries = buildEntries(files, options.kind ?? "ifc");
@@ -228,11 +238,29 @@ async function signGroup(
     );
   }
 
+  let timestamp: SignedOutput["timestamp"];
+  let timestampToken: string | undefined;
+  if (options.timestamper) {
+    options.onProgress?.({ phase: "timestamping", current, total, fileName: files[0]?.name });
+    try {
+      const stamped = await options.timestamper(
+        await signatureTimestampDigest(prepared.context, result.signatureValue),
+      );
+      timestampToken = stamped.token;
+      timestamp = { status: "added", time: stamped.time, tsa: stamped.tsa };
+    } catch (error) {
+      timestamp = {
+        status: "failed",
+        error: error instanceof Error ? error.message : "The time-stamp could not be obtained.",
+      };
+    }
+  }
+
   options.onProgress?.({ phase: "assembling", current, total });
 
-  const signatureXml = completeSignature(prepared.context, result.signatureValue);
+  const signatureXml = completeSignature(prepared.context, result.signatureValue, { timestampToken });
   const container = createContainer(entries, signatureXml);
 
   options.onProgress?.({ phase: "done", current, total });
-  return container;
+  return { bytes: container, timestamp };
 }

@@ -21,7 +21,7 @@
       "why": "Why"
     },
     "localTitle": "Stays on your machine, but leaves the tab",
-    "localIntro": "A browser cannot reach a smart card, so signing involves one hop out of the tab. It carries a hash and goes no further than loopback.",
+    "localIntro": "A browser cannot reach a smart card, so signing involves one hop out of the tab. It carries signature metadata containing document digests and goes no further than loopback.",
     "leaves": [
       {
         "what": "Dictionary search text, and the IFC class names your specification already mentions — IFCWALL, not any value",
@@ -34,11 +34,17 @@
         "when": "On the georeferencing map",
         "where": "The configured tile provider. Self-hosted Protomaps by default, which is this app's own origin; this deployment is configured for OpenFreeMap (tiles.openfreemap.org)",
         "why": "To draw a basemap under the model footprint in georeferencing. Tile requests reveal roughly where you are looking — in this module, that is where the building is — which is why a self-hosted provider is the default. OpenFreeMap needs no account and states that it does not log requests, but it is still a third party. Removing NEXT_PUBLIC_MAP_STYLE_URL turns the basemap off; the georeferencing itself does not need it. When a MapTiler key is configured the panel also offers Streets, OpenStreetMap and Satellite from api.maptiler.com; those requests are tied to that account key. The basemap now covers whatever the camera is looking at, so panning and zooming out fetches tiles for the area you move to. Choosing 3D buildings streams 3D geometry from Cesium ion (api.cesium.com and assets.ion.cesium.com) against an ion token; those requests are tied to that token and ion's attribution stays on screen while the tiles are shown."
+      },
+      {
+        "what": "The SHA-256 hash of a signature's own value (never a file) and a random number",
+        "when": "Only when you sign with “Add a time-stamp” ticked, and only if this deployment has a time-stamp authority configured",
+        "where": "This app's own server, which forwards it to the configured time-stamp authority (/api/tsa)",
+        "why": "A time-stamp is a third party's signed statement that the signature existed at a given moment — it is what lets a signature be checked after its certificate has expired. Time-stamp authorities send no CORS headers and the paid ones need credentials that must not reach a browser, so the request goes through this app's server. The hash is of the signature, which is itself a signature over digests: it says nothing about your model, no file name travels with it, and the server never stores or logs it. The authority sees this deployment's address, not yours."
       }
     ],
     "localOnly": [
       {
-        "what": "A digest of the signature's own metadata — 32 to 64 bytes",
+        "what": "Signature metadata containing document digests, together with the signing certificate",
         "where": "The DiCE-IFC signing companion, on http://127.0.0.1",
         "why": "The signing key is on your Cartão de Cidadão, and a browser cannot talk to a smart card. The companion passes the digest to the card and returns the signature. It has no endpoint that accepts a document and refuses anything larger than a few kilobytes. Every request must carry a token the companion generates fresh each time it starts, and it hands that token out only to this application's own origin — which is why you never have to copy one, and why another web page cannot use it to drive your card."
       }
@@ -55,7 +61,7 @@
     ],
     "enforce1": "Files are read with the File System Access API or drag-and-drop, parsed by WebAssembly inside Web Workers, cached in the Origin Private File System (a per-site sandbox that no other site and no server can read), and rendered by WebGPU or WebGL. All of that is browser-local by construction.",
     "enforce2": "On top of that, the codebase forbids passing a File, Blob or ArrayBuffer to any network call — a lint rule fails the build if someone tries — and a Content-Security-Policy blocks connections to origins other than this app's own origin, the configured map and 3D providers, and the signing companion on loopback. bSDD is reached through this app's own server rather than from the tab, so that service never sees your browser or your address. There is no account, no project database and no other backend: the app is a static front end.",
-    "enforce3": "Signing works the same way. The document is hashed in the tab; only the hash of the signature's own metadata is handed to a local companion application, which passes it to the card through the Autenticação.gov middleware. The middleware asks you for the signature PIN directly — this app has no PIN field and never sees one. The signed container is assembled and zipped in the tab and saved straight to your disk.",
+    "enforce3": "Signing works the same way. The document is hashed in the browser; only signature metadata containing digests and the signing certificate are handed to the local companion. The Autenticação.gov middleware hashes the metadata as required by the card. It asks you for the signature PIN directly — this app has no PIN field and never sees one. The browser assembles either the signed container or the IFC with an embedded signature and offers it for download.",
     "enforce4": "Clearing site data removes the OPFS cache and every draft stored with it.",
     "metaDescription": "Exactly which data DiCE-IFC sends over the network, and which data never does.",
     "operatorTitle": "Who is responsible",
@@ -78,6 +84,10 @@
     "about": "About"
   },
   "modules": {
+    "signIfcEmbedded": {
+      "title": "Sign IFC in file",
+      "description": "Sign and verify an IFC with its signature embedded in the file"
+    },
     "viewer": {
       "title": "Viewer",
       "description": "Load, federate and validate IFC models"
@@ -1468,7 +1478,7 @@
     "noInstallerPublished": "No installer is published for this deployment. Build one with <code>companion/packaging/build_macos.sh</code> or <code>build_windows.ps1</code>, or run it from source with <code>pip install ./companion &amp;&amp; dice-companion</code>. See <code>companion/packaging/README.md</code>.",
     "differentMachine": "Different machine?",
     "pairedAndReady": "Paired and ready.",
-    "companionDigestOnly": "The companion signs a digest and nothing else — your model never reaches it, and neither does your PIN, which the card middleware asks for in its own window.",
+    "companionDigestOnly": "The companion receives signature metadata containing document digests — your model never reaches it, and neither does your PIN, which the card middleware asks for in its own window.",
     "whatEachPieceDoes": "What each piece does",
     "cardReaderTitle": "Card reader",
     "cardReaderBody": "Any CCID reader. A CC v2 can also be read contactlessly, which needs the CAN printed on the card.",
@@ -1561,7 +1571,113 @@
     "whatItCovers": "What it covers",
     "signedProperties": "Signed properties (signing time and certificate)",
     "notInContainer": "— not in container",
-    "contentChanged": "— content changed"
+    "contentChanged": "— content changed",
+    "timestamp": {
+      "label": "Time-stamp",
+      "none": "None — the signing time is only what the signer's computer claimed",
+      "present": "{time}, by {tsa}",
+      "mismatch": "Does not match this signature: {problem}",
+      "notChecked": "The time-stamp covers this signature. That its issuer is a trusted or qualified time-stamping service is not checked here."
+    }
+  },
+  "ifcVerify": {
+    "description": "Check signatures inside IFC files and in IFCZIP or BCF containers. Add one or more files; verification runs locally.",
+    "formatsTitle": "Supported signature formats",
+    "formatsHint": "Plain .ifc files are checked for embedded buildingSMART-style signatures. IFCZIP, BCF and ASiC containers are checked for their enclosed signatures.",
+    "localHint": "Files stay on your device. No card, companion or PIN is needed to verify them.",
+    "signFiles": "Sign IFC files",
+    "queue": "Files to verify ({count})",
+    "clear": "Clear files",
+    "dropHint": "Add signed IFC files or containers, or drop several here to verify them together.",
+    "status": "Status",
+    "verified": "Integrity verified",
+    "notVerified": "Not verified",
+    "checkingFile": "Checking {name}…",
+    "duplicate": "Already selected: {name}. Remove it or clear the list before adding another file with this name.",
+    "results": "Verification results",
+    "embedded": "Inside IFC",
+    "container": "Signed container",
+    "signatureNumber": "Signature {count}",
+    "certificateDates": "Certificate dates",
+    "embeddedTime": "The embedded signing time is a claim made by the signer's computer. No trusted time-stamp is checked.",
+    "timestampTrust": "Only the time-stamp's connection to this signature is checked. The time-stamp's signature, issuer trust and qualified status are not validated.",
+    "trust": "Integrity verification checks the signatures and covered content. Certificate trust, validity, revocation and qualified status are not checked. The result does not establish legal validity or a qualified electronic signature."
+  },
+  "ifcSign": {
+    "verifySignatures": "Verify signatures",
+    "trust": "Integrity verification checks the signature and covered content. Certificate trust, expiry, revocation and qualified status are not checked. Declared signing time is not a trusted timestamp; timestamp status is reported separately when available.",
+    "description": "Sign one or more models with your Cartão de Cidadão. Choose an IFCZIP container or a signature inside each IFC file.",
+    "format": "Output format",
+    "ifczip": "IFCZIP container",
+    "embedded": "Inside IFC file",
+    "embeddedHint": "Each model is signed separately and stays a .ifc file. The card may ask for the signature PIN for each file. All files are processed locally, one at a time.",
+    "compatibility": "Supported files and signature details",
+    "queue": "Files to sign ({count})",
+    "clear": "Clear files",
+    "dropHint": "Add multiple files or drop them here to sign them in one batch.",
+    "incompatible": "Requires IFCZIP format",
+    "incompatibleHint": "Signing inside the file accepts plain .ifc files only. Remove the incompatible files or choose IFCZIP. Your selection has been kept.",
+    "verifyContainer": "Verify an IFCZIP signature",
+    "progress": "File {current} of {total} —",
+    "outputs": "Signed files",
+    "downloadAll": "Download all (.zip)",
+    "packing": "Preparing download…",
+    "archiveHint": "Download all puts the signed files in a ZIP for convenience. Each file keeps its own signature when extracted.",
+    "downloadFailed": "Could not prepare the ZIP download. The individual signed files are still available.",
+    "partial": "Completed files are still available below. Device errors or cancellation stop the remaining batch; remove completed files from the selection before retrying.",
+    "unsupportedAlgorithm": "The signing device returned an unsupported algorithm. Check the card and signing setup.",
+    "errors": {
+      "empty-selection": "Add at least one file to sign.",
+      "duplicate-name": "A file with this name is already selected. Rename one of the files before adding it.",
+      "unsupported-format": "One or more selected files are not supported by this output format.",
+      "invalid-mode": "Signing inside IFC creates one signature per file. Choose IFCZIP for one signature covering several files."
+    }
+  },
+  "embeddedSign": {
+    "title": "Sign IFC in file",
+    "description": "Use your Portuguese Cartão de Cidadão and the local companion to download a signed .ifc file.",
+    "setup": "Check your signing setup",
+    "zipLink": "Sign with IFCZIP instead",
+    "otherProvider": "Test or alternative signing provider selected: {provider}. This is not the Cartão de Cidadão companion flow.",
+    "howTitle": "One IFC file, signature included",
+    "how": "Select an IFC, connect your card reader and start the companion. Enter your signature PIN only in the Autenticação.gov middleware window. The model stays in your browser; only its digest and signature metadata reach the local companion.",
+    "compatibility": "The signature is appended as a buildingSMART-style CMS comment. Plain ASCII STEP .ifc files are supported, including STEP-escaped Unicode. Existing signatures are preserved: use Verify for signed files. Choose IFCZIP format for IFCZIP or IFCXML inputs. Other tools need support for this format to verify it; the Autenticação.gov validator does not directly accept signed IFC files.",
+    "normalization": "This format excludes control characters, including line endings and tabs, from the integrity check. Spaces and model content remain covered. The downloaded file preserves your original model bytes.",
+    "file": "IFC file",
+    "empty": "Choose one .ifc file, or drop it here.",
+    "choose": "Choose IFC",
+    "sign": "Sign inside IFC",
+    "verify": "Verify embedded signature",
+    "ready": "Signed IFC ready",
+    "download": "Download signed IFC",
+    "verification": "Signature check",
+    "valid": "Signature integrity verified",
+    "invalid": "Signature could not be verified: altered content, an invalid signature or an unsupported signature profile.",
+    "signer": "Signer certificate",
+    "issuer": "Certificate issuer",
+    "time": "Declared signing time (not timestamped)",
+    "trust": "Integrity verification checks the signature and covered content only. Certificate trust, validity, revocation and qualified status are not checked. A time-stamp is added only to an IFCZIP, only when this deployment has a time-stamp authority and the option is ticked, and whether its issuer is a qualified service is not checked here. This page does not establish legal validity or a qualified electronic signature.",
+    "phases": {
+      "reading": "Reading and hashing the IFC locally…",
+      "certificate": "Checking the companion and reading the signing certificate…",
+      "signing": "Enter the signature PIN in the card middleware window. This application never sees it.",
+      "verifying": "Checking the embedded signature locally…"
+    },
+    "errors": {
+      "invalid-ifc": "This is not a supported IFC STEP file. Check its header and section boundaries.",
+      "non-ascii": "This signature format requires ASCII STEP encoding. Export text using STEP Unicode escapes, or choose IFCZIP format to sign this file unchanged.",
+      "already-signed": "This IFC already contains a signature. Use Verify to check it. Adding another signature is not supported here.",
+      "invalid-signature": "The signature or file structure is invalid. No signed file was produced.",
+      "unsigned-file": "This IFC does not contain an embedded signature.",
+      "unsupported-format": "Select a plain .ifc file. This file or signature format is not supported here.",
+      "not-ready": "The card companion is not ready. Connect your card and check your signing setup.",
+      "cancelled": "Signing was cancelled.",
+      "pin-incorrect": "The PIN was not accepted by the card.",
+      "pin-blocked": "The signature PIN is blocked. Unblock it with Autenticação.gov.",
+      "card-changed": "The card changed during signing. No signed file was produced.",
+      "unsupported-algorithm": "This format needs a card supporting SHA-256 with RSA or ECDSA P-256.",
+      "unknown": "The operation failed. Check the file and companion, then try again."
+    }
   },
   "signModule": {
     "signedReady": "Signed. The container is ready to download.",
@@ -1603,7 +1719,17 @@
     "errorCancelled": "Signing was cancelled.",
     "errorPinIncorrect": "The PIN was not accepted by the card.",
     "errorPinBlocked": "The signature PIN is blocked. Unblock it with the Autenticação.gov application.",
-    "errorCardChanged": "The card changed during signing. Nothing was signed — try again."
+    "errorCardChanged": "The card changed during signing. Nothing was signed — try again.",
+    "timestamp": {
+      "add": "Add a time-stamp from {name}",
+      "addUnnamed": "Add a time-stamp",
+      "hint": "The signature is then proved to have existed at that moment, and stays checkable after the certificate expires. Only a hash of the signature is sent to the time-stamp authority — never your files.",
+      "notConfigured": "This deployment has no time-stamp authority, so the signature carries only the time your computer claims.",
+      "stamped": "Time-stamped {time}",
+      "failed": "Signed, but not time-stamped: {error}",
+      "embeddedNote": "Time-stamps apply to IFCZIP containers. An embedded signature is not time-stamped."
+    },
+    "phaseTimestamping": "Asking the time-stamp authority…"
   },
   "signPages": {
     "ifc": {
@@ -1699,10 +1825,12 @@
     }
   },
   "signatureBadge": {
+    "embeddedTrustCaveat": "The content is unchanged since it was signed, once control characters are removed (spaces still count). Certificate trust and qualified status are not checked.",
     "checkingSignature": "Checking the signature…",
     "signatureValid": "{count, plural, one {Signature valid — # signer} other {Signature valid — # signers}}",
     "signatureNotValid": "Signature not valid",
-    "trustCaveat": "The content is unchanged since signing. Whether the certificate is a genuine qualified one is not checked."
+    "trustCaveat": "The content is unchanged since it was signed. Certificate trust and qualified status are not checked.",
+    "signatureDetails": "What this signature check covers"
   },
   "themeToggle": {
     "toggleTheme": "Toggle theme",
@@ -1861,5 +1989,8 @@
       "text": "The interface is built from accessible components and its controls carry text labels, but it has not been formally audited against WCAG. The 3D viewport needs a pointer; the model tree and the lists offer a keyboard route to select and inspect elements.",
       "contact": "If something is not accessible to you, please tell us:"
     }
+  },
+  "trustNotice": {
+    "summary": "What this check does and does not establish"
   }
 }

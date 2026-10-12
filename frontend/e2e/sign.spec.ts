@@ -327,15 +327,15 @@ test("setup says CMD is out of scope and points elsewhere", async ({ page }) => 
   ).toHaveAttribute("href", /autenticacao\.gov\.pt/);
 });
 
-test("verify reports a container that carries no signature", async ({ page }) => {
+test("verify reports an IFC that carries no embedded signature", async ({ page }) => {
   await page.goto("/sign/verify");
   await expect(
     page.getByRole("heading", { name: "Verify a signature", level: 1 }),
   ).toBeVisible();
 
-  // An unsigned IFC is not a container; the page must say so rather than throw.
+  // Plain IFC is supported, but an unsigned model must never look verified.
   await page.setInputFiles('input[type="file"]', [IFC4]);
-  await expect(page.getByText(/not a readable ZIP|carries no signature/)).toBeVisible({
+  await expect(page.getByText(/does not contain an embedded signature/)).toBeVisible({
     timeout: 30_000,
   });
 });
@@ -343,9 +343,9 @@ test("verify reports a container that carries no signature", async ({ page }) =>
 test("verify checks a container dropped onto the page, and refuses another kind of file", async ({ page }) => {
   await page.goto("/sign/verify");
 
-  // A model is not a container: refused up front, not read.
-  await dropFiles(page, [{ name: "model.ifc", text: "ISO-10303-21;" }], "[data-verify-drop-zone]");
-  await expect(page.getByText(/Cannot check model\.ifc/)).toBeVisible();
+  // Unrelated files are refused up front, not read.
+  await dropFiles(page, [{ name: "notes.txt", text: "not a signed file" }], "[data-verify-drop-zone]");
+  await expect(page.getByText(/Cannot check notes\.txt/)).toBeVisible();
 
   // A container-shaped name is taken and checked, and the page says what it found.
   await dropFiles(page, [{ name: "model.ifczip", text: "not really a zip" }], "[data-verify-drop-zone]");

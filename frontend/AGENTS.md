@@ -57,6 +57,7 @@ else** — permission to send more is not a reason to.
 |---|---|---|
 | bSDD search text and class names (opt-in) | `app/api/bsdd/route.ts`, this app's own server | bSDD sends no CORS headers (ADR 009) |
 | Map tiles, 3D tiles | the configured provider (opt-in) | basemap and 3D context |
+| SHA-256 of a `SignatureValue` + a nonce (opt-in, when a `TSA_URL` is configured) | `app/api/tsa/route.ts`, this app's own server, then the time-stamp authority | RFC 3161 time-stamps send no CORS headers and the paid ones need credentials (ADR 012) |
 
 There is no account, no project database and no Django API any more. Anything
 that would need a server — an RFC 3161 timestamp, OCSP/CRL/TSL fetches for full
@@ -427,11 +428,21 @@ mistake worth not repeating.)
   no timeout — the user may be reading a PIN prompt — but the extension
   handshake does, or a machine with no extension hangs on "Reading the signing
   certificate…" forever.
-- **Timestamps and revocation checks would need a server-side proxy**, because
-  TSA/OCSP/CRL/TSL endpoints send no CORS headers. The Django `trust/` app that
-  was meant to be that proxy is gone (it was never wired up); build it as a Next
-  route handler. It must never log a digest, and its OCSP/CRL proxies must be
+- **Time-stamps are built; revocation checks are not.** `app/api/tsa/route.ts`
+  stamps a signature (XAdES-B-T) through the one authority a deployment names in
+  `TSA_URL` (ADR 012, which also lists provider options). The browser sends a
+  SHA-256 hex string and nothing else; the route builds the RFC 3161 request,
+  checks the answer stamps *that* hash and nonce, rate-limits per client (every
+  stamp may cost money), and never logs a digest. OCSP/CRL/TSL fetches would need
+  the same kind of proxy and are not built; an OCSP/CRL proxy must be
   host-allow-listed — without that it is an open relay.
+- **A failed time-stamp must not lose a signature.** The citizen has typed the PIN
+  by then. `signFiles` returns the B-B container with `timestamp.status: "failed"`
+  and the page says so; do not throw, and do not downgrade silently.
+- **Do not call a signature qualified.** A time-stamp from a *qualified* service
+  plus the card's qualified certificate is what makes a QES, and the verifier does
+  not check either against the trusted list. `verify.ts` reports what a token
+  covers and says what it did not check.
 
 ---
 

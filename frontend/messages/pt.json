@@ -21,7 +21,7 @@
       "why": "Porquê"
     },
     "localTitle": "Fica na sua máquina, mas sai do separador",
-    "localIntro": "Um navegador não consegue falar com um cartão inteligente, por isso assinar implica um salto para fora do separador. Leva um resumo criptográfico e não vai além do loopback.",
+    "localIntro": "Um navegador não consegue falar com um cartão inteligente, por isso assinar implica um salto para fora do separador. Leva metadados da assinatura com resumos criptográficos dos documentos e não vai além do loopback.",
     "leaves": [
       {
         "what": "O texto de pesquisa no dicionário e os nomes de classes IFC que a sua especificação já menciona — IFCWALL, e nunca um valor",
@@ -34,11 +34,17 @@
         "when": "No mapa de georreferenciação",
         "where": "O fornecedor de mosaicos configurado. Por omissão, Protomaps alojado localmente, que é a origem da própria aplicação; esta instalação está configurada para o OpenFreeMap (tiles.openfreemap.org)",
         "why": "Para desenhar um mapa base sob a implantação do modelo na georreferenciação. Os pedidos de mosaicos revelam aproximadamente onde está a olhar — neste módulo, onde fica o edifício — e é por isso que um fornecedor alojado localmente é a opção por omissão. O OpenFreeMap não exige conta e declara que não regista os pedidos, mas continua a ser um terceiro. Remover NEXT_PUBLIC_MAP_STYLE_URL desliga o mapa base; a georreferenciação em si não precisa dele. Quando existe uma chave MapTiler configurada, o painel oferece também Streets, OpenStreetMap e Satélite a partir de api.maptiler.com; esses pedidos ficam associados a essa chave de conta. O mapa base cobre agora aquilo para onde a câmara está a olhar, pelo que deslocar e afastar vai buscar mosaicos da área para onde se move. Escolher os edifícios 3D transmite geometria 3D a partir do Cesium ion (api.cesium.com e assets.ion.cesium.com) com um token ion; esses pedidos ficam associados a esse token e a atribuição do ion permanece visível enquanto os mosaicos são mostrados."
+      },
+      {
+        "what": "O resumo SHA-256 do valor da própria assinatura (nunca um ficheiro) e um número aleatório",
+        "when": "Apenas quando assina com “Acrescentar um selo temporal” assinalado, e só se esta instalação tiver uma autoridade de selos temporais configurada",
+        "where": "O servidor desta aplicação, que o reencaminha para a autoridade de selos temporais configurada (/api/tsa)",
+        "why": "Um selo temporal é a declaração assinada de um terceiro de que a assinatura existia num dado momento — é o que permite verificar uma assinatura depois de o seu certificado ter expirado. As autoridades de selos temporais não enviam cabeçalhos CORS e as pagas exigem credenciais que não podem chegar a um navegador, por isso o pedido passa pelo servidor desta aplicação. O resumo é da assinatura, que por sua vez é uma assinatura sobre resumos: não diz nada sobre o seu modelo, nenhum nome de ficheiro o acompanha e o servidor nunca o guarda nem regista. A autoridade vê o endereço desta instalação, não o seu."
       }
     ],
     "localOnly": [
       {
-        "what": "Um resumo dos metadados da própria assinatura — 32 a 64 bytes",
+        "what": "Metadados da assinatura com resumos criptográficos dos documentos e o certificado de assinatura",
         "where": "O companion de assinatura do DiCE-IFC, em http://127.0.0.1",
         "why": "A chave de assinatura está no seu Cartão de Cidadão e um navegador não consegue falar com um cartão inteligente. O companion entrega o resumo ao cartão e devolve a assinatura. Não tem qualquer ponto de acesso que aceite um documento e recusa tudo o que seja maior do que alguns kilobytes. Cada pedido tem de trazer um token que o companion gera de novo sempre que arranca, e só o entrega à origem desta própria aplicação — é por isso que nunca precisa de copiar nenhum, e por isso que outra página web não o pode usar para comandar o seu cartão."
       }
@@ -55,7 +61,7 @@
     ],
     "enforce1": "Os ficheiros são lidos com a File System Access API ou por arrastar-e-largar, analisados por WebAssembly dentro de Web Workers, guardados em cache no Origin Private File System (uma área isolada por site que nenhum outro site e nenhum servidor consegue ler) e desenhados por WebGPU ou WebGL. Tudo isso é local ao navegador por construção.",
     "enforce2": "Além disso, o código proíbe passar um File, Blob ou ArrayBuffer a qualquer chamada de rede — uma regra de lint faz falhar a compilação a quem tentar — e uma Content-Security-Policy bloqueia ligações a origens que não sejam a da própria aplicação, os fornecedores de mapa e 3D configurados e o companheiro de assinatura em loopback. O bSDD é alcançado através do servidor desta aplicação e não a partir do separador, pelo que esse serviço nunca vê o seu navegador nem o seu endereço. Não há conta, base de dados de projetos nem outro backend: a aplicação é um front end estático.",
-    "enforce3": "A assinatura funciona da mesma forma. O documento é resumido no separador; apenas o resumo dos metadados da própria assinatura é entregue a uma aplicação companion local, que o passa ao cartão através do middleware Autenticação.gov. É o middleware que lhe pede o PIN de assinatura — esta aplicação não tem campo de PIN e nunca vê nenhum. O contentor assinado é montado e comprimido no separador e guardado diretamente no seu disco.",
+    "enforce3": "A assinatura funciona da mesma forma. O resumo criptográfico do documento é calculado no navegador; apenas os metadados da assinatura com resumos e o certificado de assinatura são entregues ao companion local. O middleware Autenticação.gov calcula o resumo dos metadados conforme exigido pelo cartão. É o middleware que lhe pede o PIN de assinatura — esta aplicação não tem campo de PIN e nunca vê nenhum. O navegador monta o contentor assinado ou o IFC com a assinatura incluída e disponibiliza-o para descarregar.",
     "enforce4": "Limpar os dados do site remove a cache OPFS e todos os rascunhos aí guardados.",
     "metaDescription": "Exatamente que dados o DiCE-IFC envia pela rede, e que dados nunca envia.",
     "operatorTitle": "Quem é responsável",
@@ -78,6 +84,10 @@
     "about": "Sobre"
   },
   "modules": {
+    "signIfcEmbedded": {
+      "title": "Assinar no IFC",
+      "description": "Assinar e verificar um IFC com a assinatura incluída no ficheiro"
+    },
     "viewer": {
       "title": "Visualizador",
       "description": "Carregar, federar e validar modelos IFC"
@@ -1468,7 +1478,7 @@
     "noInstallerPublished": "Não há instalador publicado para esta implementação. Compile um com <code>companion/packaging/build_macos.sh</code> ou <code>build_windows.ps1</code>, ou execute a partir do código-fonte com <code>pip install ./companion &amp;&amp; dice-companion</code>. Veja <code>companion/packaging/README.md</code>.",
     "differentMachine": "Máquina diferente?",
     "pairedAndReady": "Emparelhado e pronto.",
-    "companionDigestOnly": "O companheiro assina um resumo (digest) e nada mais — o seu modelo nunca o alcança, nem o seu PIN, que o middleware do cartão pede na sua própria janela.",
+    "companionDigestOnly": "O companion recebe metadados da assinatura com resumos criptográficos dos documentos — nunca recebe o modelo nem o PIN, que o middleware do cartão pede na sua própria janela.",
     "whatEachPieceDoes": "O que faz cada peça",
     "cardReaderTitle": "Leitor de cartões",
     "cardReaderBody": "Qualquer leitor CCID. Um CC v2 também pode ser lido sem contacto, o que precisa do CAN impresso no cartão.",
@@ -1561,7 +1571,113 @@
     "whatItCovers": "O que cobre",
     "signedProperties": "Propriedades assinadas (hora de assinatura e certificado)",
     "notInContainer": "— não está no contentor",
-    "contentChanged": "— conteúdo alterado"
+    "contentChanged": "— conteúdo alterado",
+    "timestamp": {
+      "label": "Selo temporal",
+      "none": "Nenhum — a hora da assinatura é só a que o computador do signatário declarou",
+      "present": "{time}, por {tsa}",
+      "mismatch": "Não corresponde a esta assinatura: {problem}",
+      "notChecked": "O selo temporal cobre esta assinatura. Não é verificado aqui que o seu emissor seja um serviço de selo temporal de confiança ou qualificado."
+    }
+  },
+  "ifcVerify": {
+    "description": "Verifique assinaturas dentro de ficheiros IFC e em contentores IFCZIP ou BCF. Adicione um ou vários ficheiros; a verificação é local.",
+    "formatsTitle": "Formatos de assinatura suportados",
+    "formatsHint": "Os ficheiros .ifc simples são verificados quanto a assinaturas incorporadas no formato buildingSMART. Os contentores IFCZIP, BCF e ASiC são verificados quanto às assinaturas que contêm.",
+    "localHint": "Os ficheiros ficam no seu dispositivo. Não é necessário cartão, companion ou PIN para os verificar.",
+    "signFiles": "Assinar ficheiros IFC",
+    "queue": "Ficheiros para verificar ({count})",
+    "clear": "Limpar ficheiros",
+    "dropHint": "Adicione ficheiros IFC ou contentores assinados, ou largue vários aqui para os verificar em conjunto.",
+    "status": "Estado",
+    "verified": "Integridade verificada",
+    "notVerified": "Não verificada",
+    "checkingFile": "A verificar {name}…",
+    "duplicate": "Já selecionado: {name}. Remova-o ou limpe a lista antes de adicionar outro ficheiro com este nome.",
+    "results": "Resultados da verificação",
+    "embedded": "Dentro do IFC",
+    "container": "Contentor assinado",
+    "signatureNumber": "Assinatura {count}",
+    "certificateDates": "Datas do certificado",
+    "embeddedTime": "A hora da assinatura incorporada é uma declaração do computador do signatário. Não é verificado nenhum selo temporal de confiança.",
+    "timestampTrust": "Só é verificada a ligação do selo temporal a esta assinatura. Não são validadas a assinatura do selo temporal, a confiança no seu emissor ou o seu estatuto qualificado.",
+    "trust": "A verificação de integridade verifica as assinaturas e o conteúdo abrangido. Não são verificadas a confiança, validade, revogação ou qualificação dos certificados. O resultado não estabelece validade jurídica nem uma assinatura eletrónica qualificada."
+  },
+  "ifcSign": {
+    "verifySignatures": "Verificar assinaturas",
+    "trust": "A verificação de integridade verifica a assinatura e o conteúdo abrangido. A confiança, validade, revogação e qualificação do certificado não são verificadas. A data declarada não é um selo temporal de confiança; o estado do selo temporal é apresentado separadamente quando disponível.",
+    "description": "Assine um ou vários modelos com o Cartão de Cidadão. Escolha um contentor IFCZIP ou uma assinatura dentro de cada ficheiro IFC.",
+    "format": "Formato de saída",
+    "ifczip": "Contentor IFCZIP",
+    "embedded": "Dentro do ficheiro IFC",
+    "embeddedHint": "Cada modelo é assinado separadamente e mantém a extensão .ifc. O cartão pode pedir o PIN de assinatura para cada ficheiro. Todos os ficheiros são processados localmente, um de cada vez.",
+    "compatibility": "Ficheiros suportados e detalhes da assinatura",
+    "queue": "Ficheiros para assinar ({count})",
+    "clear": "Limpar ficheiros",
+    "dropHint": "Adicione vários ficheiros ou largue-os aqui para os assinar em lote.",
+    "incompatible": "Requer o formato IFCZIP",
+    "incompatibleHint": "A assinatura dentro do ficheiro só aceita ficheiros .ifc simples. Remova os ficheiros incompatíveis ou escolha IFCZIP. A seleção foi mantida.",
+    "verifyContainer": "Verificar uma assinatura IFCZIP",
+    "progress": "Ficheiro {current} de {total} —",
+    "outputs": "Ficheiros assinados",
+    "downloadAll": "Descarregar todos (.zip)",
+    "packing": "A preparar a transferência…",
+    "archiveHint": "Descarregar todos reúne os ficheiros assinados num ZIP por conveniência. Cada ficheiro mantém a sua assinatura quando é extraído.",
+    "downloadFailed": "Não foi possível preparar o ZIP. Os ficheiros assinados continuam disponíveis individualmente.",
+    "partial": "Os ficheiros concluídos continuam disponíveis abaixo. Erros do dispositivo ou o cancelamento interrompem o restante lote; remova os ficheiros concluídos da seleção antes de tentar novamente.",
+    "unsupportedAlgorithm": "O dispositivo devolveu um algoritmo não suportado. Verifique o cartão e a configuração de assinatura.",
+    "errors": {
+      "empty-selection": "Adicione pelo menos um ficheiro para assinar.",
+      "duplicate-name": "Já existe um ficheiro com este nome na seleção. Mude o nome de um dos ficheiros antes de o adicionar.",
+      "unsupported-format": "Um ou mais ficheiros selecionados não são suportados por este formato de saída.",
+      "invalid-mode": "A assinatura dentro do IFC cria uma assinatura por ficheiro. Escolha IFCZIP para uma assinatura que abranja vários ficheiros."
+    }
+  },
+  "embeddedSign": {
+    "title": "Assinar no IFC",
+    "description": "Use o Cartão de Cidadão português e o companion local para descarregar um ficheiro .ifc assinado.",
+    "setup": "Verificar a configuração de assinatura",
+    "zipLink": "Assinar com IFCZIP",
+    "otherProvider": "Fornecedor de assinatura de teste ou alternativo selecionado: {provider}. Não é o fluxo do Cartão de Cidadão com o companion.",
+    "howTitle": "Um ficheiro IFC, com a assinatura incluída",
+    "how": "Selecione um IFC, ligue o leitor de cartões e inicie o companion. Introduza o PIN de assinatura apenas na janela do middleware Autenticação.gov. O modelo fica no navegador; só o resumo criptográfico e os metadados da assinatura chegam ao companion local.",
+    "compatibility": "A assinatura é acrescentada num comentário CMS segundo o formato buildingSMART. São suportados ficheiros .ifc STEP em ASCII, incluindo Unicode com sequências de escape STEP. As assinaturas existentes são preservadas: use Verificar para ficheiros assinados. Escolha o formato IFCZIP para ficheiros IFCZIP ou IFCXML. Outras ferramentas precisam de suportar este formato para o verificar; o validador Autenticação.gov não aceita diretamente ficheiros IFC assinados.",
+    "normalization": "Este formato exclui os caracteres de controlo, incluindo quebras de linha e tabulações, da verificação de integridade. Os espaços e o conteúdo do modelo continuam abrangidos. O ficheiro descarregado preserva os bytes originais do modelo.",
+    "file": "Ficheiro IFC",
+    "empty": "Escolha um ficheiro .ifc ou largue-o aqui.",
+    "choose": "Escolher IFC",
+    "sign": "Assinar dentro do IFC",
+    "verify": "Verificar assinatura incluída",
+    "ready": "IFC assinado pronto",
+    "download": "Descarregar IFC assinado",
+    "verification": "Verificação da assinatura",
+    "valid": "Integridade da assinatura verificada",
+    "invalid": "Não foi possível verificar a assinatura: conteúdo alterado, assinatura inválida ou perfil de assinatura não suportado.",
+    "signer": "Certificado do signatário",
+    "issuer": "Emissor do certificado",
+    "time": "Data de assinatura declarada (sem selo temporal)",
+    "trust": "A verificação de integridade verifica apenas a assinatura e o conteúdo abrangido. A confiança, validade, revogação e qualificação do certificado não são verificadas. Um selo temporal só é acrescentado a um IFCZIP, apenas quando esta instalação tem uma autoridade de selos temporais e a opção está assinalada, e não é verificado aqui se o seu emissor é um serviço qualificado. Esta página não comprova a validade jurídica nem uma assinatura eletrónica qualificada.",
+    "phases": {
+      "reading": "A ler e calcular o resumo do IFC localmente…",
+      "certificate": "A verificar o companion e a ler o certificado de assinatura…",
+      "signing": "Introduza o PIN de assinatura na janela do middleware do cartão. Esta aplicação nunca o vê.",
+      "verifying": "A verificar a assinatura incluída localmente…"
+    },
+    "errors": {
+      "invalid-ifc": "Este não é um ficheiro IFC STEP suportado. Verifique o cabeçalho e os limites das secções.",
+      "non-ascii": "Este formato de assinatura requer codificação STEP em ASCII. Exporte o texto com sequências de escape Unicode STEP ou escolha o formato IFCZIP para assinar este ficheiro sem o alterar.",
+      "already-signed": "Este IFC já contém uma assinatura. Use Verificar para a analisar. Não é possível acrescentar outra assinatura aqui.",
+      "invalid-signature": "A assinatura ou a estrutura do ficheiro é inválida. Não foi produzido nenhum ficheiro assinado.",
+      "unsigned-file": "Este IFC não contém uma assinatura incluída.",
+      "unsupported-format": "Selecione um ficheiro .ifc simples. Este formato de ficheiro ou assinatura não é suportado aqui.",
+      "not-ready": "O companion do cartão não está pronto. Ligue o cartão e verifique a configuração de assinatura.",
+      "cancelled": "A assinatura foi cancelada.",
+      "pin-incorrect": "O PIN não foi aceite pelo cartão.",
+      "pin-blocked": "O PIN de assinatura está bloqueado. Desbloqueie-o com o Autenticação.gov.",
+      "card-changed": "O cartão mudou durante a assinatura. Não foi produzido nenhum ficheiro assinado.",
+      "unsupported-algorithm": "Este formato requer um cartão que suporte SHA-256 com RSA ou ECDSA P-256.",
+      "unknown": "A operação falhou. Verifique o ficheiro e o companion e tente novamente."
+    }
   },
   "signModule": {
     "signedReady": "Assinado. O contentor está pronto para transferir.",
@@ -1603,7 +1719,17 @@
     "errorCancelled": "A assinatura foi cancelada.",
     "errorPinIncorrect": "O PIN não foi aceite pelo cartão.",
     "errorPinBlocked": "O PIN de assinatura está bloqueado. Desbloqueie-o com a aplicação Autenticação.gov.",
-    "errorCardChanged": "O cartão mudou durante a assinatura. Nada foi assinado — tente novamente."
+    "errorCardChanged": "O cartão mudou durante a assinatura. Nada foi assinado — tente novamente.",
+    "timestamp": {
+      "add": "Acrescentar um selo temporal de {name}",
+      "addUnnamed": "Acrescentar um selo temporal",
+      "hint": "A assinatura fica então provada como existente nesse momento e continua verificável depois de o certificado expirar. À autoridade de selos temporais só é enviado um resumo (hash) da assinatura — nunca os seus ficheiros.",
+      "notConfigured": "Esta instalação não tem autoridade de selos temporais, por isso a assinatura só traz a hora que o seu computador declara.",
+      "stamped": "Selo temporal de {time}",
+      "failed": "Assinado, mas sem selo temporal: {error}",
+      "embeddedNote": "Os selos temporais aplicam-se a contentores IFCZIP. Uma assinatura incorporada não recebe selo temporal."
+    },
+    "phaseTimestamping": "A pedir o selo temporal à autoridade…"
   },
   "signPages": {
     "ifc": {
@@ -1699,10 +1825,12 @@
     }
   },
   "signatureBadge": {
+    "embeddedTrustCaveat": "O conteúdo não foi alterado desde que foi assinado, depois de removidos os caracteres de controlo (os espaços contam). A confiança no certificado e a qualificação não são verificadas.",
     "checkingSignature": "A verificar a assinatura…",
     "signatureValid": "{count, plural, one {Assinatura válida — # assinante} other {Assinatura válida — # assinantes}}",
     "signatureNotValid": "Assinatura inválida",
-    "trustCaveat": "O conteúdo não foi alterado desde a assinatura. Se o certificado é genuíno e qualificado não é verificado."
+    "trustCaveat": "O conteúdo não foi alterado desde que foi assinado. A confiança no certificado e a qualificação não são verificadas.",
+    "signatureDetails": "O que esta verificação da assinatura abrange"
   },
   "themeToggle": {
     "toggleTheme": "Alternar tema",
@@ -1861,5 +1989,8 @@
       "text": "A interface é construída com componentes acessíveis e os controlos têm etiquetas de texto, mas não foi auditada formalmente segundo as WCAG. A vista 3D requer um ponteiro; a árvore do modelo e as listas oferecem um caminho por teclado para selecionar e inspecionar elementos.",
       "contact": "Se algo não for acessível para si, diga-nos:"
     }
+  },
+  "trustNotice": {
+    "summary": "O que esta verificação estabelece e o que não estabelece"
   }
 }

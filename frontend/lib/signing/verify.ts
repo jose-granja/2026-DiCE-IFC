@@ -34,6 +34,7 @@ import { canonicalize } from "./c14n";
 import { readCertificate } from "./der";
 import { listSignatureFiles } from "./asice";
 import type { HashAlgorithm } from "./provider";
+import { checkTimestampToken } from "./timestamp";
 
 const C14N_EXCLUSIVE = "http://www.w3.org/2001/10/xml-exc-c14n#";
 
@@ -46,6 +47,24 @@ export type ReferenceCheck = {
 };
 
 export type TrustStatus = "not-checked" | "trusted" | "untrusted";
+
+/**
+ * What a container's signature time-stamp (XAdES-T) says, and whether it is
+ * about this signature.
+ *
+ * `matches` is the whole of what is checked: the token stamps the hash of *this*
+ * `SignatureValue`. Whether the token's own signature is good, and whether its
+ * issuer is a qualified time-stamping service, needs the trusted list and is not
+ * checked — the same gap as `trust` below, and shown as such.
+ */
+export type TimestampVerification = {
+  matches: boolean;
+  /** When the authority says the signature already existed. Only meaningful if `matches`. */
+  time?: string;
+  tsa?: string;
+  policy?: string;
+  problems: string[];
+};
 
 export type SignatureVerification = {
   /** `META-INF/signatures001.xml`. */
@@ -67,6 +86,8 @@ export type SignatureVerification = {
    * a valid signature is not a trusted one.
    */
   trust: TrustStatus;
+  /** Present when the signature carries a time-stamp. */
+  timestamp?: TimestampVerification;
   /** Anything that stopped a check from running. */
   problems: string[];
 };
@@ -204,7 +225,57 @@ async function verifySignatureFile(
     notAfter: info.notAfter,
     algorithm: algorithm.label,
     trust: "not-checked",
+    timestamp: await checkSignatureTimestamp(document_),
     problems,
+  };
+}
+
+/** The `SignatureTimeStamp`, if any, against the `SignatureValue` it should cover. */
+async function checkSignatureTimestamp(
+  document_: Document,
+): Promise<TimestampVerification | undefined> {
+  const stamp = find(document_, "SignatureTimeStamp");
+  if (!stamp) return undefined;
+
+  const encoded = childText(stamp, "EncapsulatedTimeStamp");
+  const valueElement = find(document_, "SignatureValue");
+  if (!encoded || !valueElement) {
+    return { matches: false, problems: ["The signature has a time-stamp that cannot be read."] };
+  }
+
+  // The method the stamp's digest was taken with. Absent means inclusive c14n,
+  // which this verifier cannot reproduce.
+  const method = childElement(stamp, "CanonicalizationMethod")?.getAttribute("Algorithm") ?? "";
+  if (!method.startsWith(C14N_EXCLUSIVE)) {
+    return {
+      matches: false,
+      problems: [
+        `The time-stamp was taken over ${method || "inclusive canonical XML"}, which this application cannot reproduce, so it was not checked.`,
+      ],
+    };
+  }
+
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", toArrayBuffer(new TextEncoder().encode(canonicalize(valueElement)))),
+  );
+
+  let token: Uint8Array;
+  try {
+    token = fromBase64(encoded);
+  } catch {
+    return { matches: false, problems: ["The time-stamp is not valid base64."] };
+  }
+
+  const checked = checkTimestampToken(token, { digest });
+  if (!checked.valid) {
+    return { matches: false, problems: checked.problems };
+  }
+  return {
+    matches: true,
+    time: checked.token.genTime.toISOString(),
+    tsa: checked.token.tsa,
+    policy: checked.token.policy,
+    problems: [],
   };
 }
 

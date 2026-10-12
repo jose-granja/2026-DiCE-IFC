@@ -83,7 +83,7 @@ export default function SignSetupPage() {
   };
 
   return (
-    <div className="flex flex-col w-full max-w-full justify-center  m-auto">
+    <div className="flex h-[calc(100vh-3.25rem)] flex-col overflow-auto">
       <ModuleHeader
         title={t("title")}
         description={t("description")}

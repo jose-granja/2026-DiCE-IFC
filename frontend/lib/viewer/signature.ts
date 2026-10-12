@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Checking the signature on a container the viewer opened.
+ * Checking signatures on an IFC model or container the viewer opened.
  *
- * Runs when a `.ifczip` turns out to carry `META-INF/signaturesNNN.xml`, and
- * writes the result onto the model in the store so the model list can show it.
+ * Checks `.ifczip` containers and discovers embedded signature comments in raw
+ * IFC files. Writes the result onto the model so the model list can show it.
  *
  * It reports what it actually checked, and no more. `verifyContainer` proves
  * that the bytes are the ones that were signed and that the signer held the key
@@ -14,7 +14,7 @@
  * imply otherwise.
  */
 
-import { summariseSignature } from "@/lib/signing/summary";
+import { summariseEmbeddedSignature, summariseSignature } from "@/lib/signing/summary";
 import { useViewerStore } from "./store";
 import type { UnwrappedModel } from "./container";
 
@@ -23,9 +23,9 @@ export async function verifySignedContainer(
   containerName: string,
   unwrapped: UnwrappedModel,
 ): Promise<void> {
-  if (!unwrapped.container) return;
-
-  const signature = await summariseSignature(unwrapped.container, containerName);
+  const signature = unwrapped.container
+    ? await summariseSignature(unwrapped.container, containerName)
+    : await summariseEmbeddedSignature(unwrapped.file);
 
   // The model may have been closed while this ran.
   const store = useViewerStore.getState();

@@ -33,7 +33,7 @@ export function MainNav() {
           </Link>
         </div>
 
-        <ul className="flex min-w-0 flex-1 items-center gap-0.5 grow">
+        <ul className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-1">
           {MODULES.map((m) => {
             const active =
               pathname === m.href || pathname.startsWith(`${m.href}/`);

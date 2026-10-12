@@ -36,6 +36,9 @@ export type DerNode = {
 };
 
 export function readNode(bytes: Uint8Array, offset = 0): DerNode {
+  if (!Number.isInteger(offset) || offset < 0 || offset + 2 > bytes.length) {
+    throw new Error("Truncated DER value.");
+  }
   const tag = bytes[offset];
   let cursor = offset + 1;
   let length = bytes[cursor];
@@ -43,15 +46,17 @@ export function readNode(bytes: Uint8Array, offset = 0): DerNode {
 
   if (length & 0x80) {
     const count = length & 0x7f;
-    if (count === 0 || count > 4) {
+    if (count === 0 || count > 4 || cursor + count > bytes.length) {
       throw new Error("Unsupported DER length encoding.");
     }
     length = 0;
     for (let index = 0; index < count; index += 1) {
-      length = (length << 8) | bytes[cursor];
+      length = length * 256 + bytes[cursor];
       cursor += 1;
     }
   }
+
+  if (cursor + length > bytes.length) throw new Error("Truncated DER content.");
 
   return {
     tag,

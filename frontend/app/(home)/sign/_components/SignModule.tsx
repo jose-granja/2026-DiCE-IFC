@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Download, FileSignature, ShieldAlert, Upload, X } from "lucide-react";
+import { Download, FileSignature, Info, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
 import ModuleHeader from "@/components/ModuleHeader";
+import TrustNotice from "@/components/TrustNotice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -31,14 +33,18 @@ import {
   type SignProgress,
 } from "@/lib/signing/sign";
 import type { SignedOutput } from "@/lib/signing/sign";
+import {
+  requestTimestamp,
+  timestampService,
+  type TimestampService,
+} from "@/lib/signing/timestamp-client";
 
 /**
- * The signing module, shared by `/sign/ifc` and `/sign/bcf`.
+ * Container signing, used by `/sign/bcf`.
  *
  * A Client Component: the files being signed are user content and never leave
- * the browser. Not even the digest crosses the wire — with card signing the
- * private key is on the card and the container is assembled here, which is what
- * makes the privacy line absolute (AGENTS.md §1).
+ * the browser. The companion receives signature metadata; the card retains
+ * the private key. Optional timestamps send only a signature digest.
  */
 export function SignModule({
   kind,
@@ -52,6 +58,8 @@ export function SignModule({
   accept: string[];
 }) {
   const t = useTranslations("signModule");
+  const common = useTranslations("ifcSign");
+  const embedded = useTranslations("embeddedSign");
   const [files, setFiles] = useState<
     Array<{ name: string; bytes: Uint8Array }>
   >([]);
@@ -67,6 +75,18 @@ export function SignModule({
 
   useEffect(() => {
     registerSigningProviders();
+  }, []);
+
+  // Whether this deployment can time-stamp, asked once. Unknown (`null`) shows
+  // nothing rather than a note that might be wrong for a moment.
+  const [service, setService] = useState<TimestampService | null>(null);
+  const [stamp, setStamp] = useState(true);
+  useEffect(() => {
+    let live = true;
+    void timestampService().then((found) => live && setService(found));
+    return () => {
+      live = false;
+    };
   }, []);
 
   const providerId = useMemo(() => defaultSigningProviderId(), []);
@@ -103,8 +123,10 @@ export function SignModule({
   };
 
   const onSign = async () => {
+    if (busy || !files.length) return;
     setError(null);
     setOutputs([]);
+    setProgress({ phase: "certificate", current: 0, total: files.length });
 
     try {
       const provider = await getSigningProvider();
@@ -112,6 +134,8 @@ export function SignModule({
         mode,
         kind,
         onProgress: setProgress,
+        timestamper:
+          service?.configured && stamp ? requestTimestamp : undefined,
       });
 
       setOutputs(results);
@@ -155,7 +179,7 @@ export function SignModule({
         actions={
           <>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={() => input.current?.click()}
               disabled={busy}
@@ -180,7 +204,7 @@ export function SignModule({
               onChange={async (event) => {
                 const picked = Array.from(event.target.files ?? []);
                 event.target.value = "";
-                if (picked.length > 0) await onAdd(picked);
+                if (picked.length > 0) await onDropFiles(picked);
               }}
             />
           </>
@@ -188,7 +212,7 @@ export function SignModule({
       />
 
       <div
-        className="space-y-4 p-4"
+        className="mx-auto w-full max-w-5xl space-y-4 p-4 sm:p-6"
         onDragEnter={(event) => {
           if (busy || !event.dataTransfer.types.includes("Files")) return;
           event.preventDefault();
@@ -216,50 +240,56 @@ export function SignModule({
         data-sign-drop-zone
         data-dragging={dragging}
       >
-        {/* {providerId !== "webeid" && (
+        <Link
+          href="/sign/setup"
+          className="text-sm underline underline-offset-4"
+        >
+          {t("checkSigningSetup")}
+        </Link>
+        {providerId !== "companion" && (
           <p
-            className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300"
             role="status"
+            className="rounded-md border border-amber-500 p-3 text-sm"
           >
-            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-            <span>
-              {t.rich("signingWithProvider", {
-                provider: providerId,
-                strong: (chunks) => <strong>{chunks}</strong>,
-              })}
-            </span>
+            {embedded("otherProvider", { provider: providerId })}
           </p>
-        )} */}
+        )}
 
-        <div className="rounded-md border p-3">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">
-                {t("signatureMode")}
-              </Label>
-              <Select
-                value={mode}
-                onValueChange={(value) => setMode(value as SignMode)}
-                disabled={busy}
-              >
-                <SelectTrigger
-                  className="h-8 w-72 text-xs"
-                  aria-label={t("signatureMode")}
+          <section  className="space-y-4 rounded-lg border p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+
+                <Label className="text-sm font-medium">
+                  {t("signatureMode")}
+                </Label>
+                <Select
+                  value={mode}
+                  onValueChange={(value) => {
+                    setMode(value as SignMode);
+                    setOutputs([]);
+                    setError(null);
+                  }}
+                  disabled={busy}
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="combined">
-                    {t("oneSignatureAllFiles")}
-                  </SelectItem>
-                  <SelectItem value="per-file">
-                    {t("oneSignaturePerFile")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                  <SelectTrigger
+                    className="w-full"
+                    aria-label={t("signatureMode")}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="combined">
+                      {t("oneSignatureAllFiles")}
+                    </SelectItem>
+                    <SelectItem value="per-file">
+                      {t("oneSignaturePerFile")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <p className="text-muted-foreground max-w-md text-[11px]">
+            <p className="text-muted-foreground text-sm">
               {mode === "combined"
                 ? t.rich("combinedModeHint", {
                     count: files.length || t("theFilesWord"),
@@ -269,60 +299,127 @@ export function SignModule({
                     strong: (chunks) => <strong>{chunks}</strong>,
                   })}
             </p>
-          </div>
-        </div>
+            {service && !service.configured && (
+              // Not a box: it is information rather than a decision, and nothing on
+              // this page can change it.
+              <p
+                className="text-muted-foreground flex items-center gap-1.5 px-1 text-[11px]"
+                data-timestamp-option
+                data-configured="false"
+              >
+                <Info className="size-3 shrink-0" aria-hidden />
+                {t("timestamp.notConfigured")}
+              </p>
+            )}
+            {service?.configured && (
+              <div
+                className="rounded-lg border p-4"
+                data-timestamp-option
+                data-configured="true"
+              >
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="sign-timestamp"
+                    checked={stamp}
+                    disabled={busy}
+                    onCheckedChange={(checked) => setStamp(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="space-y-0.5">
+                    <Label htmlFor="sign-timestamp" className="text-sm font-medium">
+                      {service.name
+                        ? t("timestamp.add", { name: service.name })
+                        : t("timestamp.addUnnamed")}
+                    </Label>
+                    <p className="text-muted-foreground text-[11px]">
+                      {t("timestamp.hint")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
 
-        {files.length > 0 && (
-          <div className="overflow-hidden rounded-md border">
-            <table className="w-full text-xs">
-              <caption className="sr-only">{t("filesQueued")}</caption>
-              <thead className="bg-muted/50">
-                <tr>
-                  <th scope="col" className="px-2 py-1.5 text-left font-medium">
-                    {t("fileColumn")}
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-2 py-1.5 text-right font-medium"
-                  >
-                    {t("sizeColumn")}
-                  </th>
-                  <th scope="col" className="w-8" />
-                </tr>
-              </thead>
-              <tbody>
-                {files.map((file, index) => (
-                  <tr key={`${file.name}-${index}`} className="border-t">
-                    <td className="px-2 py-1.5">{file.name}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
-                      {formatBytes(file.bytes.length)}
-                    </td>
-                    <td className="px-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        disabled={busy}
-                        onClick={() =>
-                          setFiles((current) =>
-                            current.filter((_, at) => at !== index),
-                          )
-                        }
-                        aria-label={t("removeFile", { name: file.name })}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+        <section className="rounded-lg border">
+          <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+            <h2 className="text-sm font-medium">
+              {common("queue", { count: files.length })}
+            </h2>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy || !files.length}
+              onClick={() => {
+                setFiles([]);
+                setOutputs([]);
+                setError(null);
+              }}
+            >
+              {common("clear")}
+            </Button>
           </div>
-        )}
+          {files.length > 0 && (
+            <div className="max-h-72 overflow-auto">
+              <table className="w-full text-sm">
+                <caption className="sr-only">{t("filesQueued")}</caption>
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th scope="col" className="p-3 text-left font-medium">
+                      {t("fileColumn")}
+                    </th>
+                    <th scope="col" className="p-3 text-right font-medium">
+                      {t("sizeColumn")}
+                    </th>
+                    <th scope="col" className="w-8" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {files.map((file, index) => (
+                    <tr key={`${file.name}-${index}`} className="border-t">
+                      <td className="p-3">{file.name}</td>
+                      <td className="p-3 text-right tabular-nums">
+                        {formatBytes(file.bytes.length)}
+                      </td>
+                      <td className="px-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          disabled={busy}
+                          onClick={() =>
+                            setFiles((current) =>
+                              current.filter((_, at) => at !== index),
+                            )
+                          }
+                          aria-label={t("removeFile", { name: file.name })}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {files.length === 0 && (
+            <div
+              className={cn(
+                "space-y-1 p-10 text-center text-sm text-muted-foreground",
+                dragging && "bg-primary/5",
+              )}
+            >
+              <p>{t("noFilesSelected")}</p>
+              <p>{common("dropHint")}</p>
+            </div>
+          )}
+        </section>
 
         {progress && (
-          <div className="space-y-2 rounded-md border p-3">
-            <p className="text-xs font-medium">{phaseLabel(progress, t)}</p>
+          <div className="space-y-3 rounded-lg border p-4">
+            <p className="text-sm font-medium">{phaseLabel(progress, t)}</p>
             <Progress
               value={
                 progress.total > 0
@@ -353,13 +450,13 @@ export function SignModule({
         )}
 
         {outputs.length > 0 && (
-          <div className="space-y-2 rounded-md border p-3">
-            <h2 className="text-xs font-semibold">{t("signedContainers")}</h2>
-            <ul className="space-y-1.5">
+          <div className="space-y-3 rounded-lg border p-4">
+            <h2 className="font-medium">{t("signedContainers")}</h2>
+            <ul className="space-y-2">
               {outputs.map((output) => (
                 <li
                   key={output.name}
-                  className="flex items-center justify-between gap-2 text-xs"
+                  className="flex items-center justify-between gap-3 text-sm"
                 >
                   <span className="min-w-0 flex-1 truncate">
                     {output.name}
@@ -369,6 +466,31 @@ export function SignModule({
                     >
                       {t("fileCount", { count: output.covers.length })}
                     </Badge>
+                    {output.timestamp?.status === "added" && (
+                      <Badge
+                        variant="outline"
+                        className="ml-1 h-4 px-1 text-[10px]"
+                        data-timestamp-status="added"
+                        title={output.timestamp.tsa}
+                      >
+                        {t("timestamp.stamped", {
+                          time: new Date(
+                            output.timestamp.time,
+                          ).toLocaleString(),
+                        })}
+                      </Badge>
+                    )}
+                    {output.timestamp?.status === "failed" && (
+                      <span
+                        className="text-warning ml-1.5 text-[11px]"
+                        data-timestamp-status="failed"
+                        role="status"
+                      >
+                        {t("timestamp.failed", {
+                          error: output.timestamp.error,
+                        })}
+                      </span>
+                    )}
                   </span>
                   <Button
                     size="sm"
@@ -399,22 +521,13 @@ export function SignModule({
           </div>
         )}
 
-        {files.length === 0 && (
-          <div
-            className={cn(
-              "text-muted-foreground rounded-md border border-dashed p-10 text-center text-sm transition-colors",
-              dragging && "border-primary bg-primary/5 text-foreground",
-            )}
-          >
-            <p className="font-medium">{t("noFilesSelected")}</p>
-            <p className="mt-1 text-xs">
-              {t("addFilesHint", {
-                kind: kind === "ifc" ? t("ifcModels") : t("bcfIssueSets"),
-              })}
-            </p>
-            <p className="mt-1 text-xs">{t("dropHint")}</p>
-          </div>
-        )}
+        <Link
+          href="/sign/verify"
+          className="inline-block text-sm underline underline-offset-4"
+        >
+          {common("verifySignatures")}
+        </Link>
+        <TrustNotice data-trust-notice>{common("trust")}</TrustNotice>
       </div>
     </div>
   );
@@ -436,6 +549,8 @@ function phaseLabel(
         current: progress.current,
         total: progress.total,
       });
+    case "timestamping":
+      return t("phaseTimestamping");
     case "assembling":
       return t("phaseAssembling");
     case "done":
