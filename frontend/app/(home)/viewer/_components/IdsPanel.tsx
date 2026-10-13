@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { AlertTriangle, CheckCircle2, FileCheck2, Play, Square, Upload } from "lucide-react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -17,7 +16,7 @@ import { useViewerStore } from "@/lib/viewer/store";
 import { cn } from "@/lib/utils";
 
 import ExportBar from "@/app/(home)/ids/validate/_components/ExportBar";
-import FailureTable from "@/app/(home)/ids/validate/_components/FailureTable";
+import IdsSpecificationCard from "./IdsSpecificationCard";
 
 /**
  * IDS validation, in the viewer.
@@ -43,8 +42,6 @@ export function IdsPanel() {
   const setIds = useValidateStore((s) => s.setIds);
   const validate = useValidateStore((s) => s.validate);
   const cancel = useValidateStore((s) => s.cancel);
-  const focused = useValidateStore((s) => s.focusedSpecification);
-  const focusSpecification = useValidateStore((s) => s.focusSpecification);
 
   const authored = useIdsStore((s) => s.document);
   const models = useViewerStore((s) => s.models);
@@ -199,7 +196,7 @@ export function IdsPanel() {
 
       {run ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="space-y-2 border-b p-2 max-h-[50%] overflow-auto">
+          <div className="border-b p-2">
             <div
               className={cn(
                 "flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-medium",
@@ -221,46 +218,15 @@ export function IdsPanel() {
                     total: run.summary.totalSpecifications,
                   })}
             </div>
-
-            <ul className="space-y-0.5">
-              {run.specifications.map((specification) => {
-                const open = focused === specification.index;
-                return (
-                  <li key={specification.index}>
-                    <button
-                      type="button"
-                      className={cn(
-                        "flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-[11px]",
-                        open && "bg-accent",
-                        specification.failures.length === 0 && "cursor-default",
-                      )}
-                      aria-pressed={open}
-                      onClick={() =>
-                        specification.failures.length > 0 &&
-                        focusSpecification(open ? null : specification.index)
-                      }
-                    >
-                      <StatusDot status={specification.status} />
-                      <span className="min-w-0 flex-1 truncate">
-                        {specification.name}
-                      </span>
-                      {specification.failedCount > 0 && (
-                        <Badge
-                          variant="destructive"
-                          className="h-4 shrink-0 px-1 text-[10px]"
-                        >
-                          {specification.failedCount}
-                        </Badge>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
           </div>
 
-          <div className="min-h-0 flex-1 p-2">
-            <FailureTable run={run} />
+          {/* One card per specification, collapsed until opened — as on
+              ifclite.com. Opening one shows its requirements and the
+              elements that failed them. */}
+          <div className="min-h-0 flex-1 space-y-1.5 overflow-auto p-2" data-ids-specifications>
+            {run.specifications.map((specification) => (
+              <IdsSpecificationCard key={specification.index} specification={specification} />
+            ))}
           </div>
 
           <div className="border-t p-2">
@@ -287,20 +253,6 @@ export function IdsPanel() {
         }}
       />
     </div>
-  );
-}
-
-function StatusDot({ status }: { status: "pass" | "fail" | "not_applicable" }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "h-1.5 w-1.5 shrink-0 rounded-full",
-        status === "pass" && "bg-emerald-500",
-        status === "fail" && "bg-destructive",
-        status === "not_applicable" && "bg-muted-foreground/50",
-      )}
-    />
   );
 }
 

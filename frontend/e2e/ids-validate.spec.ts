@@ -34,6 +34,11 @@ async function openWithModel(page: Page) {
   await expect(page.getByRole("button", { name: /Load \.ids/ })).toBeVisible();
 }
 
+/** Open a specification's card, as clicking its header does. */
+async function openSpecification(page: Page, name: string) {
+  await page.getByRole("button", { name: new RegExp(`^${name}`) }).click();
+}
+
 async function runValidation(page: Page, ids = IDS) {
   // The panel's own hidden input, not the viewer's model picker.
   await page.locator('input[accept*=".ids"]').setInputFiles(ids);
@@ -62,8 +67,14 @@ test("validates a model and reports the failing wall", async ({ page }) => {
 
   // The fixture has two walls; only Wall B lacks Pset_WallCommon.FireRating.
   await expect(page.getByText(/1 of 1 not satisfied/)).toBeVisible();
-  await expect(page.getByText("Wall B")).toBeVisible();
-  await expect(page.getByText(/1 failing element/)).toBeVisible();
+  // Collapsed, the card already says how it went.
+  const card = page.locator('[data-ids-specification="Walls carry a fire rating"]');
+  await expect(card.locator("[data-ids-specification-counts]")).toHaveText("2 elements · 1 passed · 1 failed");
+  await expect(page.getByText("Wall B")).toHaveCount(0);
+
+  await openSpecification(page, "Walls carry a fire rating");
+  await expect(card.locator("[data-failure-row]").filter({ hasText: "Wall B" })).toBeVisible();
+  await expect(card.getByText(/1 failing element/)).toBeVisible();
 });
 
 test("shows a clean run as passing", async ({ page }) => {
@@ -71,15 +82,29 @@ test("shows a clean run as passing", async ({ page }) => {
   await runValidation(page, IDS_PASS);
 
   await expect(page.getByText("All specifications satisfied")).toBeVisible();
-  await expect(page.getByText("Nothing failed.")).toBeVisible();
+  const [first] = await page.locator("[data-ids-specification]").all();
+  await first.getByRole("button").first().click();
+  await expect(first.getByText("Every element passed every requirement.")).toBeVisible();
 });
 
-test("filters the failure list to one specification", async ({ page }) => {
+test("a specification opens onto its requirements, and a requirement onto what failed it", async ({
+  page,
+}) => {
   await openWithModel(page);
   await runValidation(page);
 
-  await page.getByRole("button", { name: /Walls carry a fire rating/ }).click();
-  await expect(page.getByText(/failing elements? in this specification/)).toBeVisible();
+  const card = page.locator('[data-ids-specification="Walls carry a fire rating"]');
+  // Collapsed until asked, like ifclite.com.
+  await expect(card.locator("[data-ids-requirement]")).toHaveCount(0);
+  await openSpecification(page, "Walls carry a fire rating");
+
+  const requirement = card.locator("[data-ids-requirement]");
+  await expect(requirement).toHaveCount(1);
+  await expect(requirement.locator("[data-ids-requirement-label]")).toContainText("FireRating");
+  await expect(requirement.locator("[data-ids-requirement-counts]")).toHaveText("1 passed · 1 failed");
+
+  await requirement.getByRole("button").first().click();
+  await expect(requirement.locator("[data-failure-row]").filter({ hasText: "Wall B" })).toBeVisible();
 });
 
 
@@ -91,6 +116,7 @@ test("jumps from a failure into the viewer", async ({ page }) => {
   await openWithModel(page);
   await runValidation(page);
 
+  await openSpecification(page, "Walls carry a fire rating");
   await page.getByRole("button", { name: "Show", exact: true }).first().click();
 
   // Isolation is what "show me this one" means, and the viewer only enables
@@ -297,4 +323,36 @@ test("renders with no console errors", async ({ page }) => {
   await page.waitForTimeout(1200);
 
   expect(errors).toEqual([]);
+});
+
+test("shows every issue within a specification, including a failed count", async ({ page }) => {
+  // Wall B fails three requirements of one specification; a second
+  // specification fails because the model has no column.
+  await openWithModel(page);
+  await runValidation(page, path.resolve(__dirname, "../fixtures/ids/wall-several-requirements.ids"));
+
+  await openSpecification(page, "Walls are fully specified");
+  const card = page.locator('[data-ids-specification="Walls are fully specified"]');
+
+  // By requirement: each of the three, each failed by Wall B alone.
+  const requirements = card.locator("[data-ids-requirement]");
+  await expect(requirements).toHaveCount(3);
+  for (const [index, name] of ["FireRating", "LoadBearing", "IsExternal"].entries()) {
+    await expect(requirements.nth(index).locator("[data-ids-requirement-label]")).toContainText(name);
+    await expect(requirements.nth(index).locator("[data-ids-requirement-counts]")).toHaveText("1 passed · 1 failed");
+  }
+
+  // By element: Wall B, with all three reasons.
+  const row = card.locator("[data-failure-list]").last().locator("[data-failure-row]").filter({ hasText: "Wall B" });
+  const reasons = row.locator("[data-failure-reason]");
+  await expect(reasons).toHaveCount(3);
+  await expect(reasons.nth(0)).toContainText("FireRating");
+  await expect(reasons.nth(1)).toContainText("LoadBearing");
+  await expect(reasons.nth(2)).toContainText("IsExternal");
+  await expect(card.getByText("1 failing element · 3 issues")).toBeVisible();
+
+  // The count failure has no element, and still says what is wrong.
+  await openSpecification(page, "The model has a column");
+  const count = page.locator('[data-ids-specification="The model has a column"] [data-failure-count-row]');
+  await expect(count).toContainText("Expected at least 1, found 0");
 });

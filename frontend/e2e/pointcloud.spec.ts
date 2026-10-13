@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { e57Fixture } from "../lib/pointcloud/__tests__/e57-fixture";
 
 /**
  * Point clouds in the viewer.
@@ -60,10 +61,45 @@ test("says so when a cloud has nothing to be placed against, and still draws it"
   await load(page, [cloud("patch.las")]);
   await expect(marker(page)).toHaveAttribute("data-point-count", "1968", { timeout: 20_000 });
 
-  // A survey cloud with no georeferenced model: the frame defaults to the model's
-  // and there is no model — the list explains instead of silently hiding it.
+  // A survey cloud keeps its map frame even before a model supplies the map
+  // origin; the list explains instead of silently hiding it.
   await expect(page.locator("[data-point-cloud-item] [role=status]")).toBeVisible();
 });
+
+for (const cloudFirst of [false, true]) {
+  test(`aligns translation-only E57 scans with the IFC (cloud first: ${cloudFirst})`, async ({ page }) => {
+    const loadModel = async () => {
+      await load(page, [WALL]);
+      await expect(page.locator("[data-rendered-models]")).toHaveAttribute("data-rendered-models", "1", { timeout: 30_000 });
+    };
+    if (!cloudFirst) await loadModel();
+    const points: [number, number, number][] = [[0, 0, 0], [1, 0, 0], [0, 2, 3], [1, 2, 3]];
+    await page.setInputFiles('input[type="file"]', {
+      name: "survey.e57", mimeType: "application/octet-stream",
+      buffer: Buffer.from(e57Fixture([
+        { points, translation: [-40_000, 180_000, 190] },
+        { points, translation: [-39_998, 180_000, 190] },
+      ])),
+    });
+    await expect(marker(page)).toHaveAttribute("data-point-count", "8", { timeout: 20_000 });
+    const row = page.locator('[data-point-cloud-item="survey.e57"]');
+    await expect(row.getByRole("combobox", { name: "Coordinates" })).toContainText("Map");
+    if (cloudFirst) await loadModel();
+    await expect(row.locator("[role=status]")).toHaveCount(0);
+
+    // Both scans share the model's map frame, with their own 2 m separation.
+    // Losing the translations overlaps them; applying model placement twice
+    // puts them hundreds of kilometres away. Assert the rendered coordinates.
+    await expect.poll(async () => {
+      const bounds = (await marker(page).getAttribute("data-point-bounds"))!.split(",").map(Number);
+      return Math.max(...bounds.map(Math.abs));
+    }).toBeLessThan(10);
+    const bounds = (await marker(page).getAttribute("data-point-bounds"))!.split(",").map(Number);
+    expect(bounds[3] - bounds[0]).toBeCloseTo(3, 3);
+    expect(bounds[4] - bounds[1]).toBeCloseTo(3, 3);
+    expect(bounds[5] - bounds[2]).toBeCloseTo(2, 3);
+  });
+}
 
 test("colour, visibility and removal reach the scene", async ({ page }) => {
   await load(page, [cloud("patch.pts")]);

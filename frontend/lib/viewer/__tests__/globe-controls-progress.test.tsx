@@ -118,6 +118,8 @@ describe("world map progress lifecycle", () => {
     expect(notify).toHaveBeenCalledWith("Layer unavailable");
     expect(globe.dispose).toHaveBeenCalledOnce();
     expect(container.querySelector('[role="switch"]')?.getAttribute("aria-checked")).toBe("false");
+    expect(useGlobeStore.getState().phase).toBeNull();
+    expect(container.querySelector<HTMLButtonElement>('[role="combobox"]')?.disabled).toBe(false);
   });
 
   it("does not install a late depth proxy after switching the map off", async () => {

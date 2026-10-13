@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Against fixtures/ifc/georeferenced-wall-ifc4.ifc. Wall B fails all three
+     requirements of the first specification (no FireRating, no LoadBearing,
+     IsExternal is false); Wall A passes them. The boolean is lowercase on
+     purpose: IDS 1.0 booleans are xs:boolean, and "TRUE" never matches. The second specification requires
+     a column and the model has none, so it fails on its count alone, with no
+     failing element to list. -->
+<ids xmlns="http://standards.buildingsmart.org/IDS" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://standards.buildingsmart.org/IDS http://standards.buildingsmart.org/IDS/1.0/ids.xsd">
+  <info>
+    <title>Walls fully specified</title>
+    <author>engenheiro@example.pt</author>
+  </info>
+  <specifications>
+    <specification name="Walls are fully specified" ifcVersion="IFC4">
+      <applicability minOccurs="0" maxOccurs="unbounded">
+        <entity>
+          <name><simpleValue>IFCWALL</simpleValue></name>
+        </entity>
+      </applicability>
+      <requirements>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>Pset_WallCommon</simpleValue></propertySet>
+          <baseName><simpleValue>FireRating</simpleValue></baseName>
+        </property>
+        <property dataType="IFCBOOLEAN" cardinality="required">
+          <propertySet><simpleValue>Pset_WallCommon</simpleValue></propertySet>
+          <baseName><simpleValue>LoadBearing</simpleValue></baseName>
+        </property>
+        <property dataType="IFCBOOLEAN" cardinality="required">
+          <propertySet><simpleValue>Pset_WallCommon</simpleValue></propertySet>
+          <baseName><simpleValue>IsExternal</simpleValue></baseName>
+          <value><simpleValue>true</simpleValue></value>
+        </property>
+      </requirements>
+    </specification>
+    <specification name="The model has a column" ifcVersion="IFC4">
+      <applicability minOccurs="1" maxOccurs="unbounded">
+        <entity>
+          <name><simpleValue>IFCCOLUMN</simpleValue></name>
+        </entity>
+      </applicability>
+      <requirements>
+        <attribute cardinality="required">
+          <name><simpleValue>Name</simpleValue></name>
+        </attribute>
+      </requirements>
+    </specification>
+  </specifications>
+</ids>

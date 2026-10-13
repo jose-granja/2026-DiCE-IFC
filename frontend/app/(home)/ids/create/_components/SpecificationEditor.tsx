@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 
 import FacetEditor from "@/components/ids/FacetEditor";
 import { useBsddSuggestions, type BsddSuggestions } from "@/lib/bsdd/suggestions";
@@ -19,6 +19,8 @@ import {
 } from "@/lib/ids/types";
 import type { ModelVocabulary } from "@/lib/ifc/types";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -297,62 +299,100 @@ function FacetBlock({
   vocabulary: ModelVocabulary | null;
   bsdd?: BsddSuggestions;
 }) {
+  const t = useTranslations("idsCreate.specEditor");
+  const [open, setOpen] = useState(true);
+  // IDs keep an item's disclosure state attached to it when neighbours are
+  // removed. New facets are expanded even after "Collapse all".
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   return (
-    <section className="space-y-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="text-sm font-medium">{title}</h3>
+    <Collapsible open={open} onOpenChange={setOpen} asChild>
+      <section className="space-y-2" data-facet-block>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="h-7 max-w-full gap-1.5 px-1 text-sm font-medium" aria-label={title}>
+                  <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "" : "-rotate-90"}`} aria-hidden />
+                  <span className="truncate">{title}</span>
+                  <Badge variant="secondary" className="tabular-nums" aria-label={t("facetCount", { count: facets.length })}>{facets.length}</Badge>
+                </Button>
+              </CollapsibleTrigger>
+            </h3>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="sm" className="h-7 shrink-0">
+                <Plus className="h-3.5 w-3.5" />
+                {addFacetLabel}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {FACET_SEQUENCE.map((kind) => (
+                <DropdownMenuItem key={kind} onSelect={() => { setOpen(true); onAdd(kind); }}>
+                  {facetLabels(kind)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <CollapsibleContent forceMount className="space-y-2 data-[state=closed]:hidden">
           <p className="text-muted-foreground text-[11px]">{hint}</p>
-        </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="sm" className="h-7 shrink-0">
-              <Plus className="h-3.5 w-3.5" />
-              {addFacetLabel}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {FACET_SEQUENCE.map((kind) => (
-              <DropdownMenuItem key={kind} onSelect={() => onAdd(kind)}>
-                {facetLabels(kind)}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {facets.length === 0 ? (
-        <p className="text-muted-foreground rounded border border-dashed p-3 text-center text-xs">
-          {noFacetsLabel}
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {facets.map((entry) => (
-            <FacetEditor
-              key={entry.id}
-              facet={entry.facet}
-              cardinality={entry.cardinality}
-              instructions={entry.instructions}
-              vocabulary={vocabulary}
-              bsdd={bsdd}
-              onChange={(facet) => onChange(entry.id, facet)}
-              onRemove={() => onRemove(entry.id)}
-              onCardinalityChange={
-                onCardinalityChange
-                  ? (cardinality) => onCardinalityChange(entry.id, cardinality)
-                  : undefined
-              }
-              onInstructionsChange={
-                onInstructionsChange
-                  ? (instructions) => onInstructionsChange(entry.id, instructions)
-                  : undefined
-              }
-            />
-          ))}
-        </div>
-      )}
-    </section>
+          {facets.length > 1 && (
+            <div className="flex flex-wrap justify-end gap-1">
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]"
+                disabled={facets.every((entry) => !collapsed.has(entry.id))}
+                onClick={() => setCollapsed(new Set())}>
+                {t("expandAll")}
+              </Button>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]"
+                disabled={facets.every((entry) => collapsed.has(entry.id))}
+                onClick={() => setCollapsed(new Set(facets.map((entry) => entry.id)))}>
+                {t("collapseAll")}
+              </Button>
+            </div>
+          )}
+          {facets.length === 0 ? (
+            <p className="text-muted-foreground rounded border border-dashed p-3 text-center text-xs">
+              {noFacetsLabel}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {facets.map((entry) => (
+                <FacetEditor
+                  key={entry.id}
+                  open={!collapsed.has(entry.id)}
+                  onOpenChange={(expanded) => setCollapsed((previous) => {
+                    const next = new Set(previous);
+                    if (expanded) next.delete(entry.id);
+                    else next.add(entry.id);
+                    return next;
+                  })}
+                  facet={entry.facet}
+                  cardinality={entry.cardinality}
+                  instructions={entry.instructions}
+                  vocabulary={vocabulary}
+                  bsdd={bsdd}
+                  onChange={(facet) => onChange(entry.id, facet)}
+                  onRemove={() => onRemove(entry.id)}
+                  onCardinalityChange={
+                    onCardinalityChange
+                      ? (cardinality) => onCardinalityChange(entry.id, cardinality)
+                      : undefined
+                  }
+                  onInstructionsChange={
+                    onInstructionsChange
+                      ? (instructions) => onInstructionsChange(entry.id, instructions)
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </CollapsibleContent>
+      </section>
+    </Collapsible>
   );
 }
 

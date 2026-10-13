@@ -15,7 +15,7 @@
  * pages, and URLs not expanded after links.
  */
 
-import { describeFailure, type FailureTranslator, type ValidationRun } from "./report";
+import { describeRequirements, type FailureTranslator, type ValidationRun } from "./report";
 
 /** A next-intl translator scoped to the "idsReport" namespace. */
 export type ReportTranslator = (
@@ -234,7 +234,7 @@ function failureSection(
         <td>${escapeHtml(failure.name ?? `#${failure.expressId}`)}<br><span class="guid">${escapeHtml(failure.globalId ?? `express id ${failure.expressId}`)}</span></td>
         <td>${escapeHtml(failure.type)}</td>
         <td>${escapeHtml(failure.modelName)}</td>
-        <td>${escapeHtml(describeFailure(failure, tFailure))}</td>
+        <td>${describeRequirements(failure, tFailure).map(escapeHtml).join("<br>")}</td>
       </tr>`,
         )
         .join("\n      ")}

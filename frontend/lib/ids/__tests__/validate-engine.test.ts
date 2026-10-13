@@ -19,7 +19,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { ifcLiteAdapter, resetIfcLiteAdapter } from "@/lib/ifc/ifc-lite-adapter";
 import { IdsDocumentParseError, parseIdsForEngine } from "@/lib/ifc/ids-document";
-import { aggregate } from "../report";
+import { aggregate, cardinalityFailure, describeRequirements } from "../report";
 import { renderHtmlReport } from "../html-report";
 import { validateAgainstSchema } from "../validate";
 import { parseIds } from "../parse";
@@ -56,7 +56,7 @@ afterAll(() => {
 describe("fixtures", () => {
   it("are schema-valid IDS 1.0", async () => {
     // A malformed fixture would make every test below meaningless.
-    for (const name of ["wall-fire-rating.ids", "all-pass.ids", "not-applicable.ids"]) {
+    for (const name of ["wall-fire-rating.ids", "all-pass.ids", "not-applicable.ids", "wall-several-requirements.ids"]) {
       const { document } = parseIds(await readFile(path.join(IDS, name), "utf8"));
       const result = await validateAgainstSchema(document);
       expect(result.errors, `${name}: ${JSON.stringify(result.errors)}`).toEqual([]);
@@ -213,5 +213,62 @@ describe("end to end", () => {
     // Self-contained: nothing to fetch when it is opened months later.
     expect(html).not.toMatch(/<(link|script)\b/);
     expect(html).not.toMatch(/\bsrc=/);
+  });
+});
+
+
+/**
+ * `wall-several-requirements.ids`: Wall B fails three requirements of one
+ * specification, and a second specification fails on its count with no
+ * element to blame. The panel used to show one reason for Wall B and nothing
+ * for the second.
+ */
+describe("every issue within a specification", () => {
+  it("keeps all three failed requirements of the one failing wall", async () => {
+    const report = await ifcLiteAdapter.validateIds(model.id, await ids("wall-several-requirements.ids"));
+    const run = aggregate([report], [{ modelId: model.id, name: "walls.ifc" }], {
+      idsTitle: "t",
+      startedAt: "",
+      finishedAt: "",
+    });
+    const [walls, columns] = run.specifications;
+
+    expect(walls.failures.map((failure) => failure.name)).toEqual(["Wall B"]);
+    const reasons = describeRequirements(walls.failures[0]);
+    expect(reasons).toHaveLength(3);
+    expect(reasons[0]).toMatch(/FireRating/);
+    expect(reasons[1]).toMatch(/LoadBearing/);
+    expect(reasons[2]).toMatch(/IsExternal/);
+
+    // The breakdown: the document's three requirements, each failed by Wall B
+    // alone, in the order the IDS states them.
+    expect(walls.requirements.map((r) => [r.failedCount, r.passedCount])).toEqual([
+      [1, 1],
+      [1, 1],
+      [1, 1],
+    ]);
+    expect(walls.requirements[0].label).toMatch(/FireRating/);
+    expect(walls.requirements[2].label).toMatch(/IsExternal/);
+
+    expect(columns.status).toBe("fail");
+    expect(columns.failures).toEqual([]);
+    expect(cardinalityFailure(columns)?.message).toMatch(/at least 1, found 0/);
+  });
+});
+
+describe("requirements nobody failed", () => {
+  it("are still listed, with their label, when every element passed", async () => {
+    const report = await ifcLiteAdapter.validateIds(model.id, await ids("all-pass.ids"));
+    const run = aggregate([report], [{ modelId: model.id, name: "walls.ifc" }], {
+      idsTitle: "t",
+      startedAt: "",
+      finishedAt: "",
+    });
+    const requirements = run.specifications.flatMap((specification) => specification.requirements);
+    expect(requirements.length).toBeGreaterThan(0);
+    for (const requirement of requirements) {
+      expect(requirement.label.length).toBeGreaterThan(0);
+      expect(requirement.failedCount).toBe(0);
+    }
   });
 });

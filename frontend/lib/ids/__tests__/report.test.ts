@@ -6,7 +6,10 @@ import {
   byClass,
   byModel,
   bySpecification,
+  cardinalityFailure,
   describeFailure,
+  describeRequirements,
+  issueCount,
 } from "../report";
 import type {
   IdsEntityResultView,
@@ -63,6 +66,7 @@ function specification(
     passedCount: passed,
     failedCount: failed,
     passRate: entities.length === 0 ? 100 : (passed / entities.length) * 100,
+    requirements: [],
     entities,
     ...patch,
   };
@@ -359,5 +363,128 @@ describe("describeFailure", () => {
     expect(describeFailure(run.specifications[0].failures[0])).toBe(
       "Name, expected any value, found (empty)",
     );
+  });
+});
+
+describe("every failed requirement of an element", () => {
+  const three = entity(7, false, {
+    requirements: [
+      { status: "fail", facetType: "property", description: "FireRating must exist", failureReason: 'Property ""FireRating"" not found' },
+      { status: "pass", facetType: "property", description: "IsExternal must exist" },
+      { status: "fail", facetType: "property", description: "LoadBearing must exist", failureReason: 'Property ""LoadBearing"" not found' },
+      // No reason and no fields: its own description is what is left to say.
+      { status: "fail", facetType: "attribute", description: "Name must be set" },
+    ],
+  });
+  const failure = () =>
+    aggregate([report("m1", [specification(0, { entities: [three] })])], MODELS, META).specifications[0]
+      .failures[0];
+
+  it("lists each one, not only the first", () => {
+    expect(describeRequirements(failure())).toEqual([
+      'Property "FireRating" not found',
+      'Property "LoadBearing" not found',
+      "Name must be set",
+    ]);
+  });
+
+  it("joins them for a one-line cell", () => {
+    expect(describeFailure(failure())).toBe(
+      'Property "FireRating" not found; Property "LoadBearing" not found; Name must be set',
+    );
+  });
+
+  it("counts issues as failed requirements, not elements", () => {
+    expect(issueCount([failure()])).toBe(3);
+  });
+});
+
+describe("a specification that fails on its count", () => {
+  it("is reported, though it has no failing element", () => {
+    const counted = specification(0, {
+      status: "fail",
+      applicableCount: 0,
+      entities: [],
+      cardinality: { passed: false, actualCount: 0, message: "Expected at least 1, found 0" },
+    });
+    const [aggregated] = aggregate([report("m1", [counted])], MODELS, META).specifications;
+    expect(aggregated.failures).toEqual([]);
+    expect(aggregated.status).toBe("fail");
+    expect(cardinalityFailure(aggregated)).toMatchObject({ message: "Expected at least 1, found 0" });
+  });
+});
+
+describe("the breakdown by requirement", () => {
+  const REQUIREMENTS = [
+    { id: "r-fire", label: "FireRating must exist", optionality: "required" as const },
+    { id: "r-load", label: "LoadBearing must exist", optionality: "required" as const },
+  ];
+  const failing = (id: number, ...requirementIds: string[]) =>
+    entity(id, false, {
+      requirements: REQUIREMENTS.map((requirement) => ({
+        requirementId: requirement.id,
+        status: requirementIds.includes(requirement.id) ? ("fail" as const) : ("pass" as const),
+        facetType: "property",
+        description: requirement.label,
+        failureReason: `${requirement.label}: not found`,
+      })),
+    });
+  const passing = (id: number) => entity(id, true, { requirements: [] });
+
+  it("counts each requirement on its own, across every model", () => {
+    const run = aggregate(
+      [
+        report("m1", [
+          specification(0, {
+            requirements: REQUIREMENTS,
+            entities: [failing(1, "r-fire"), failing(2, "r-fire", "r-load"), passing(3)],
+          }),
+        ]),
+        report("m2", [
+          specification(0, { requirements: REQUIREMENTS, entities: [failing(4, "r-load"), passing(5)] }),
+        ]),
+      ],
+      MODELS,
+      META,
+    );
+    const [fire, load] = run.specifications[0].requirements;
+    // Five applicable elements; FireRating failed on 1 and 2, LoadBearing on 2 and 4.
+    expect(fire).toMatchObject({ id: "r-fire", failedCount: 2, passedCount: 3 });
+    expect(load).toMatchObject({ id: "r-load", failedCount: 2, passedCount: 3 });
+    expect(fire.failures.map((failure) => failure.expressId)).toEqual([1, 2]);
+    // Each element under a requirement carries that requirement's reason only.
+    expect(describeRequirements(load.failures[0])).toEqual(["LoadBearing must exist: not found"]);
+  });
+
+  it("lists a requirement every element passed, with nothing failed", () => {
+    const run = aggregate(
+      [report("m1", [specification(0, { requirements: REQUIREMENTS, entities: [failing(1, "r-fire"), passing(2)] })])],
+      MODELS,
+      META,
+    );
+    expect(run.specifications[0].requirements.map((r) => [r.id, r.failedCount, r.passedCount])).toEqual([
+      ["r-fire", 1, 1],
+      ["r-load", 0, 2],
+    ]);
+  });
+});
+
+describe("the engine's wording", () => {
+  it("is quoted once, and a set-and-property name as one name", () => {
+    const run = aggregate(
+      [
+        report("m1", [
+          specification(0, {
+            requirements: [
+              { id: "r", label: 'Property ""Pset_WallCommon"."FireRating"" must exist', optionality: "required" },
+            ],
+            entities: [],
+          }),
+        ]),
+      ],
+      MODELS,
+      META,
+    );
+    expect(run.specifications[0].requirements[0].label).toBe('Property "Pset_WallCommon.FireRating" must exist');
   });
 });

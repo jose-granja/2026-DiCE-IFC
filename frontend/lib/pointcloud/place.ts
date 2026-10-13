@@ -39,9 +39,12 @@ export type CloudPlacementResult =
 /** Beyond this from the origin a cloud is almost certainly in a projected CRS. */
 const MAP_FRAME_THRESHOLD_METRES = 20_000;
 
-export function suggestFrame(origin: Vec3, worldOrigin: WorldOrigin | null): CloudFrame {
+export function suggestFrame(origin: Vec3): CloudFrame {
   const far = Math.hypot(origin[0], origin[1]) > MAP_FRAME_THRESHOLD_METRES;
-  return far && worldOrigin?.mapPosition ? "map" : "model";
+  // Keep the same interpretation regardless of load order. Until a model
+  // supplies the map anchor the list explains the missing placement; once it
+  // arrives, the cloud aligns without changing the user's chosen frame.
+  return far ? "map" : "model";
 }
 
 export function placePointCloud(args: {

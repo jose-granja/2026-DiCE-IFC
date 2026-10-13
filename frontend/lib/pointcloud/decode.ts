@@ -29,6 +29,7 @@ import {
 } from "@ifc-lite/pointcloud";
 
 import { createLazSource, type LazPerfLoader } from "./laz";
+import { prepareE57 } from "./e57";
 import type { PointCloudFormat } from "./formats";
 import type { PointSource } from "./source";
 
@@ -124,7 +125,13 @@ async function findOrigin(
 
     const probe = makeSource(format, sample, 1, undefined, loadLazPerf);
     try {
-      return centreOf((await probe.open(signal)).bbox);
+      const info = await probe.open(signal);
+      // E57's open() reports a placeholder zero box, not the scan's position.
+      // Sample a packet AFTER its pose, then reopen with an origin subtracted
+      // before float32 storage. Otherwise georeferenced E57s look model-local
+      // to suggestFrame, and survey coordinates lose precision as well.
+      const box = format === "e57" ? (await probe.next(1, signal))?.bbox : info.bbox;
+      return box ? centreOf(box) : [0, 0, 0];
     } finally {
       probe.close();
     }
@@ -142,6 +149,8 @@ export async function decodePointCloud(
 ): Promise<DecodedPointCloud> {
   const { signal, onProgress, loadLazPerf } = options;
   const maxPoints = Math.max(1, options.maxPoints ?? DEFAULT_MAX_POINTS);
+
+  if (format === "e57") blob = await prepareE57(blob, signal);
 
   const origin = await findOrigin(format, blob, loadLazPerf, signal);
   const offset = origin.some((value) => value !== 0) ? origin : undefined;

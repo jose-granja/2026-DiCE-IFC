@@ -41,7 +41,7 @@ import { GeometryProcessor } from "@ifc-lite/geometry";
 import type { AABB as IfcLiteAabb, Vec3 as IfcLiteVec3 } from "@ifc-lite/geometry";
 import { MutablePropertyView, StoreEditor } from "@ifc-lite/mutations";
 import { StepExporter } from "@ifc-lite/export";
-import { validateIDS, type IDSDocument } from "@ifc-lite/ids";
+import { createTranslationService, validateIDS, type IDSDocument } from "@ifc-lite/ids";
 import { createDataAccessor } from "@ifc-lite/ids/bridge";
 
 import type { EngineIdsDocument } from "./ids-document";
@@ -1449,9 +1449,24 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
       },
     );
 
+    // Requirement labels for checks no entity result describes — those every
+    // element passed. The engine words a requirement the same way whether or
+    // not it failed, so the label from a result is used wherever there is one.
+    const describe = createTranslationService("en");
     const specifications: IdsSpecificationResultView[] =
       report.specificationResults.map((result, index) => ({
         index,
+        requirements: (document_.specifications[index]?.requirements ?? []).map((requirement) => {
+          const seen = result.entityResults
+            .flatMap((entity) => entity.requirementResults)
+            .find((check) => check.requirement?.id === requirement.id);
+          return {
+            id: requirement.id,
+            label: seen?.checkedDescription ?? describe.describeRequirement(requirement),
+            optionality: requirement.optionality,
+            instructions: requirement.instructions,
+          };
+        }),
         name: result.specification.name,
         description: result.specification.description,
         status: result.status,
@@ -1473,6 +1488,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
           globalId: entity.globalId,
           passed: entity.passed,
           requirements: entity.requirementResults.map((requirement) => ({
+            requirementId: requirement.requirement?.id,
             status: requirement.status,
             facetType: requirement.facetType,
             description: requirement.checkedDescription,

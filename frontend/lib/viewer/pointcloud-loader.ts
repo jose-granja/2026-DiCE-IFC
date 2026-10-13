@@ -15,7 +15,6 @@ import { suggestFrame } from "@/lib/pointcloud/place";
 import { loadPointCloud, type PointCloudLoad } from "@/lib/workers/pointcloud-client";
 
 import { DEFAULT_POINT_SIZE, usePointCloudStore, type PointCloudEntry } from "./pointcloud-store";
-import { useViewerStore } from "./store";
 
 const jobs = new Map<string, PointCloudLoad>();
 
@@ -78,7 +77,7 @@ export async function loadPointCloudFile(
       // A preset is what the user chose last time; the suggestion is only a
       // guess from the coordinates' magnitude, so the choice wins.
       mode: preset.mode ?? defaultMode(cloud),
-      frame: preset.frame ?? suggestFrame(cloud.origin, useViewerStore.getState().worldOrigin),
+      frame: preset.frame ?? suggestFrame(cloud.origin),
     });
     return { file: file.name, ok: true, cloudId: id };
   } catch (error) {

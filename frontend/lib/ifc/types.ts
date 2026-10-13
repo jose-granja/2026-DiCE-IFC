@@ -589,6 +589,8 @@ export type GeoreferencePatch = {
 export type IdsRequirementStatus = "pass" | "fail" | "not_applicable";
 
 export type IdsRequirementResultView = {
+  /** Which of the specification's requirements this is — `IdsSpecificationResultView.requirements[].id`. */
+  requirementId?: string;
   status: IdsRequirementStatus;
   /** Facet kind: `entity`, `attribute`, `property`, … */
   facetType: string;
@@ -612,6 +614,15 @@ export type IdsEntityResultView = {
   requirements: IdsRequirementResultView[];
 };
 
+export type IdsRequirementView = {
+  id: string;
+  /** What is checked, in prose — the same wording as an entity result's `description`. */
+  label: string;
+  optionality: "required" | "optional" | "prohibited";
+  /** The author's own advice for meeting it, when the IDS gives some. */
+  instructions?: string;
+};
+
 export type IdsSpecificationResultView = {
   /** Index in the source document, so results can be joined back to it. */
   index: number;
@@ -623,6 +634,13 @@ export type IdsSpecificationResultView = {
   failedCount: number;
   /** 0–100. */
   passRate: number;
+  /**
+   * The specification's requirements as the document states them, whether or
+   * not anything failed one — so a breakdown can list every check, including
+   * those every element passed, which have no entity result to come from
+   * (passing entities are not kept; see `includePassingEntities`).
+   */
+  requirements: IdsRequirementView[];
   entities: IdsEntityResultView[];
   /** Set only when the specification declared min/max occurrences. */
   cardinality?: {

@@ -838,6 +838,14 @@ and are drawn as points. They are listed under the model list, in the Models tab
   user choose. A cloud that cannot be placed is drawn at the origin with a
   message, not hidden: a vanished cloud reads as a failed load.
 - **Z-up to Y-up happens once, in the decoder** (`render = (x, z, −y)`).
+- **E57 poses may omit an identity rotation or zero translation.** The 0.12
+  reader drops the entire pose unless both exist. `lib/pointcloud/e57.ts`
+  supplies the missing identity component in a private Blob view, preserving
+  binary offsets and the original file. Never add one translation to the whole
+  cloud: each scan has its own pose. `open().bbox` is also a placeholder zero
+  box for E57, so probe a decoded packet to choose the float64 subtraction
+  origin. Survey clouds retain the map-frame suggestion even before an IFC
+  loads, so their alignment does not depend on load order.
 - **Only `lib/pointcloud/` may import `@ifc-lite/pointcloud`** (`eslint.config.mjs`).
   It is a scan decoder, not the IFC engine the adapter in §5 exists to swap.
 - **LAZ is read by our own source, not the package's.** The package finds its
@@ -993,6 +1001,16 @@ set are worse than none.
 - **Passing entities are dropped by default** (`includePassingEntities`). A
   large model against a large IDS produces millions of rows nothing renders,
   and holding them is what makes a run run out of memory.
+- **Results are cards, collapsed until opened**, as on ifclite.com
+  (`IdsSpecificationCard.tsx`): a specification opens onto its requirements, each
+  with its own pass/fail count, and a requirement onto the elements that failed
+  it; a "by element" list below gives each element every reason it failed. The
+  requirement list comes from the IDS document (`IdsSpecificationResultView.
+  requirements`), not from entity results — passing entities are dropped, so a
+  requirement nobody failed would otherwise vanish — and "passed" is the
+  applicable count minus the failures, since every applicable element is checked
+  against every requirement. A specification that fails on its count alone has
+  no element to list and gets a row of its own.
 - **Validation runs one model at a time.** Four parallel runs on four cores
   finish together at the end with a frozen progress bar and no cores left for
   the renderer.

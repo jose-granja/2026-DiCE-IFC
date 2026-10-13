@@ -47,6 +47,47 @@ async function triangles(page: import("@playwright/test").Page) {
   return Number(await marker.getAttribute("data-context-triangles"));
 }
 
+for (const fixture of [CITY, GEOPACKAGE]) {
+  test(`shows measured file progress while reading ${path.basename(fixture)}`, async ({ page }, testInfo) => {
+    // Hold the native read so a fast local fixture still exercises the visible
+    // loading state. Only the selected context file is delayed; IFC loading
+    // and the eventual context parsing/rendering use the real browser APIs.
+    await page.addInitScript((name) => {
+      const text = FileReader.prototype.readAsText;
+      const buffer = FileReader.prototype.readAsArrayBuffer;
+      const hold = (reader: FileReader, file: Blob, read: () => void) => {
+        if (!(file instanceof File) || file.name !== name) return read();
+        window.addEventListener("release-context-read", read, { once: true });
+        reader.dispatchEvent(new ProgressEvent("progress", {
+          lengthComputable: true, loaded: 50, total: 100,
+        }));
+      };
+      FileReader.prototype.readAsText = function (file, encoding) {
+        hold(this, file, () => text.call(this, file, encoding));
+      };
+      FileReader.prototype.readAsArrayBuffer = function (file) {
+        hold(this, file, () => buffer.call(this, file));
+      };
+    }, path.basename(fixture));
+
+    await openGeoref(page);
+    await cityInput(page).setInputFiles(fixture);
+    const progress = page.getByRole("progressbar", { name: "Reading context file…" });
+    await expect(progress).toBeVisible();
+    await expect(progress).toHaveAttribute("aria-valuenow", "50");
+    await expect(page.getByText(path.basename(fixture), { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Load context" })).toBeDisabled();
+    await expect(cityInput(page)).toBeDisabled();
+    await page.screenshot({ path: testInfo.outputPath("context-loading.png") });
+
+    await page.evaluate(() => window.dispatchEvent(new Event("release-context-read")));
+    expect(await triangles(page)).toBeGreaterThan(0);
+    await expect(page.getByRole("progressbar")).toHaveCount(0);
+    await expect(cityInput(page)).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Remove the context model" })).toBeEnabled();
+  });
+}
+
 test("loads CityGML, which is already three-dimensional", async ({ page }) => {
   // Two LoD1 blocks, six faces each, two triangles a face.
   await openGeoref(page);
@@ -250,6 +291,12 @@ test("says what is wrong with a file it cannot draw", async ({ page }) => {
 
   await expect(page.getByText(/no features/i)).toBeVisible();
   await expect(page.locator("[data-context-model='true']")).toHaveCount(0);
+  await expect(page.getByRole("progressbar")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Load context" })).toBeEnabled();
+
+  // A failed load clears its busy state so another context can be opened.
+  await cityInput(page).setInputFiles(CITY);
+  expect(await triangles(page)).toBeGreaterThan(0);
 });
 
 test("rejects a file that is neither format", async ({ page }) => {

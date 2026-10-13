@@ -22,6 +22,7 @@
 import type {
   IdsModelReport,
   IdsRequirementResultView,
+  IdsRequirementView,
   IdsSpecificationResultView,
 } from "@/lib/ifc/types";
 
@@ -56,6 +57,20 @@ export type PerModelResult = {
   failedCount: number;
 };
 
+/**
+ * One requirement of a specification, across the federation: what it checks,
+ * how many applicable elements passed and failed it, and which failed.
+ *
+ * The breakdown a coordinator reads first — "FireRating is missing on 40
+ * walls" — where the per-element list answers "what is wrong with this wall".
+ */
+export type RequirementBreakdown = IdsRequirementView & {
+  failedCount: number;
+  passedCount: number;
+  /** The failing elements, each carrying only the reason for *this* requirement. */
+  failures: Failure[];
+};
+
 export type AggregatedSpecification = {
   index: number;
   name: string;
@@ -67,6 +82,8 @@ export type AggregatedSpecification = {
   /** 0–100. 100 when nothing was applicable. */
   passRate: number;
   failures: Failure[];
+  /** Every requirement, in document order, with its own pass/fail counts. */
+  requirements: RequirementBreakdown[];
   perModel: PerModelResult[];
   cardinality?: { passed: boolean; message: string; modelName: string };
 };
@@ -149,6 +166,15 @@ function blank(specification: IdsSpecificationResultView): AggregatedSpecificati
     failedCount: 0,
     passRate: 100,
     failures: [],
+    // Every model was validated against the same document, so the first
+    // report's list is the list.
+    requirements: (specification.requirements ?? []).map((requirement) => ({
+      ...requirement,
+      label: tidy(requirement.label),
+      failedCount: 0,
+      passedCount: 0,
+      failures: [],
+    })),
     perModel: [],
   };
 }
@@ -217,6 +243,34 @@ function finalise(specification: AggregatedSpecification) {
     specification.applicableCount === 0
       ? 100
       : (specification.passedCount / specification.applicableCount) * 100;
+
+  // Regroup the failing elements by requirement. Every applicable element is
+  // checked against every requirement, so what did not fail one passed it.
+  const byId = new Map(specification.requirements.map((requirement) => [requirement.id, requirement]));
+  for (const failure of specification.failures) {
+    for (const requirement of failure.requirements) {
+      const key = requirement.requirementId ?? `unlisted:${requirement.description}`;
+      let group = byId.get(key);
+      if (!group) {
+        // A result naming a requirement the document list did not: kept, not dropped.
+        group = {
+          id: key,
+          label: tidy(requirement.description),
+          optionality: "required",
+          failedCount: 0,
+          passedCount: 0,
+          failures: [],
+        };
+        byId.set(key, group);
+        specification.requirements.push(group);
+      }
+      group.failures.push({ ...failure, requirements: [requirement] });
+    }
+  }
+  for (const group of specification.requirements) {
+    group.failedCount = group.failures.length;
+    group.passedCount = Math.max(0, specification.applicableCount - group.failedCount);
+  }
 }
 
 function summarise(specifications: AggregatedSpecification[]) {
@@ -324,20 +378,68 @@ export type FailureTranslator = (
   values?: Record<string, string | number>,
 ) => string;
 
-/** A one-line reason, for a table cell or a BCF topic title. */
-export function describeFailure(failure: Failure, t?: FailureTranslator): string {
-  const first = failure.requirements[0];
-  if (!first) return t ? t("failedUnspecified") : "Failed an unspecified requirement.";
+/**
+ * The engine quotes names it has already quoted (`Property ""FireRating"" not
+ * found`); one pair is what was meant.
+ */
+function tidy(text: string): string {
+  // Then `"Pset_WallCommon"."FireRating"` is one name, so it is quoted as one.
+  return text.replace(/""/g, '"').replace(/"\."/g, ".");
+}
 
-  return (
-    first.failureReason ??
-    [
-      first.field,
-      first.expected && (t ? t("expected", { value: first.expected }) : `expected ${first.expected}`),
-      first.actual && (t ? t("found", { value: first.actual }) : `found ${first.actual}`),
-    ]
-      .filter(Boolean)
-      .join(", ") ??
-    first.description
+/** Why one requirement failed, in a line. */
+export function describeRequirement(
+  requirement: IdsRequirementResultView,
+  t?: FailureTranslator,
+): string {
+  if (requirement.failureReason) return tidy(requirement.failureReason);
+  const parts = [
+    requirement.field,
+    requirement.expected && (t ? t("expected", { value: requirement.expected }) : `expected ${requirement.expected}`),
+    requirement.actual && (t ? t("found", { value: requirement.actual }) : `found ${requirement.actual}`),
+  ]
+    .filter(Boolean)
+    .join(", ");
+  // `||`, not `??`: an empty join is a string, and used to leave a blank reason
+  // where the requirement's own description would have said something.
+  return tidy(
+    parts || requirement.description || (t ? t("failedUnspecified") : "Failed an unspecified requirement."),
   );
+}
+
+/**
+ * Every failed requirement of an element, one line each.
+ *
+ * Not just the first: an element missing three properties has three things to
+ * fix, and listing one made the other two look satisfied.
+ */
+export function describeRequirements(failure: Failure, t?: FailureTranslator): string[] {
+  if (failure.requirements.length === 0) {
+    return [t ? t("failedUnspecified") : "Failed an unspecified requirement."];
+  }
+  return failure.requirements.map((requirement) => describeRequirement(requirement, t));
+}
+
+/** All of an element's failed requirements in one line, for a table cell or a BCF list. */
+export function describeFailure(failure: Failure, t?: FailureTranslator): string {
+  return describeRequirements(failure, t).join("; ");
+}
+
+/**
+ * A specification that failed on its count — "at least one column", "no
+ * proxies" — has no failing element to list, and was shown as having no
+ * failures at all.
+ */
+export function cardinalityFailure(
+  specification: AggregatedSpecification,
+): { message: string; modelName: string } | null {
+  const cardinality = specification.cardinality;
+  return cardinality && !cardinality.passed
+    ? { message: cardinality.message, modelName: cardinality.modelName }
+    : null;
+}
+
+/** How many failed requirements a set of failures holds — the issues to fix. */
+export function issueCount(failures: Failure[]): number {
+  return failures.reduce((total, failure) => total + Math.max(1, failure.requirements.length), 0);
 }

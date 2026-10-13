@@ -35,7 +35,13 @@ import {
 } from "@/lib/bcf/types";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
 import { useViewerStore } from "@/lib/viewer/store";
-import { allFailures, describeFailure, type Failure, type ValidationRun } from "./report";
+import {
+  allFailures,
+  describeFailure,
+  describeRequirement,
+  type Failure,
+  type ValidationRun,
+} from "./report";
 
 export type BcfExportGrouping = "per-failure" | "per-specification";
 
@@ -186,7 +192,7 @@ function descriptionFor(group: Failure[], specificationDescription?: string): st
     if (failure.globalId) lines.push(`GlobalId: ${failure.globalId}`);
     lines.push("");
     for (const requirement of failure.requirements) {
-      lines.push(`• ${requirement.failureReason ?? requirement.description}`);
+      lines.push(`• ${describeRequirement(requirement)}`);
     }
   } else {
     lines.push(`${group.length} elements do not satisfy this specification:`, "");

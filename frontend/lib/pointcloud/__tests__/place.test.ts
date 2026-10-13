@@ -84,9 +84,8 @@ describe("placing a point cloud", () => {
     expect(result).toEqual({ ok: true, transform: { offset: [1, 3, -2], rotationY: 0, scale: 1 } });
   });
 
-  it("suggests the map frame only when it is plausible and possible", () => {
-    expect(suggestFrame([170_000, 4_650_000, 80], worldOrigin)).toBe("map");
-    expect(suggestFrame([12, 8, 0], worldOrigin)).toBe("model");
-    expect(suggestFrame([170_000, 4_650_000, 80], null)).toBe("model");
+  it("suggests the coordinate frame independently of which model is loaded first", () => {
+    expect(suggestFrame([170_000, 4_650_000, 80])).toBe("map");
+    expect(suggestFrame([12, 8, 0])).toBe("model");
   });
 });

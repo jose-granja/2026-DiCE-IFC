@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Trash2 } from "lucide-react";
+import { ChevronDown, Trash2 } from "lucide-react";
 
 import {
   PART_OF_RELATIONS,
@@ -14,6 +14,7 @@ import {
 import type { ModelVocabulary } from "@/lib/ifc/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -26,6 +27,7 @@ import {
 import ValueEditor from "./ValueEditor";
 import { merge, type BsddSuggestions } from "@/lib/bsdd/suggestions";
 import { idsDataType, isUnmappedNumeric } from "@/lib/bsdd/client";
+import { useSpecificationLanguage } from "@/lib/ids/use-natural-language";
 
 /**
  * One facet, with the fields its kind actually has.
@@ -36,6 +38,8 @@ import { idsDataType, isUnmappedNumeric } from "@/lib/bsdd/client";
  * accepts, and "optionally a wall" means nothing anyway.
  */
 export function FacetEditor({
+  open,
+  onOpenChange,
   facet,
   onChange,
   onRemove,
@@ -46,6 +50,8 @@ export function FacetEditor({
   vocabulary,
   bsdd,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   facet: Facet;
   onChange: (facet: Facet) => void;
   onRemove: () => void;
@@ -65,6 +71,8 @@ export function FacetEditor({
   const tFacetKinds = useTranslations("idsCreate.facetKinds");
   const tFacetHints = useTranslations("idsCreate.facetHints");
   const tCardinality = useTranslations("idsCreate.specEditor.cardinality");
+  const { describeFacet } = useSpecificationLanguage();
+  const summary = describeFacet(facet);
   // Model first, dictionary second: a property this model demonstrably has is
   // a safer suggestion than one a dictionary says it ought to have.
   const entityNames = merge(
@@ -164,14 +172,19 @@ export function FacetEditor({
   };
 
   return (
-    <div className="space-y-3 rounded border p-3">
+    <Collapsible open={open} onOpenChange={onOpenChange} className="rounded border p-3" data-facet-editor>
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <Badge variant="secondary">{tFacetKinds(facet.kind)}</Badge>
-          <p className="text-muted-foreground mt-1 text-[11px]">
-            {tFacetHints(facet.kind)}
-          </p>
-        </div>
+        <CollapsibleTrigger asChild>
+          <button type="button"
+            className="hover:bg-accent focus-visible:ring-ring flex min-w-0 flex-1 items-start gap-1.5 rounded text-left focus-visible:ring-2 focus-visible:outline-none"
+            aria-label={t(open ? "collapseFacet" : "expandFacet", { label: tFacetKinds(facet.kind) })}>
+            <ChevronDown className={`mt-1 h-3.5 w-3.5 shrink-0 transition-transform ${open ? "" : "-rotate-90"}`} aria-hidden />
+            <span className="min-w-0">
+              <Badge variant="secondary">{tFacetKinds(facet.kind)}</Badge>
+              <span className="text-muted-foreground mt-1 block truncate text-[11px]" title={summary}>{summary}</span>
+            </span>
+          </button>
+        </CollapsibleTrigger>
 
         <div className="flex shrink-0 items-center gap-1">
           {cardinality && onCardinalityChange && (
@@ -203,220 +216,225 @@ export function FacetEditor({
         </div>
       </div>
 
-      {facet.kind === "entity" && (
-        <>
-          <ValueEditor
-            label={t("ifcClass")}
-            required
-            value={facet.name}
-            suggestions={entityNames}
-            placeholder="IFCWALL"
-            onChange={(name) => onChange({ ...facet, name })}
-          />
-          <OptionalValue
-            label={t("predefinedType")}
-            value={facet.predefinedType}
-            suggestions={predefinedTypes}
-            placeholder="SOLIDWALL"
-            onChange={(predefinedType) => onChange({ ...facet, predefinedType })}
-          />
-        </>
-      )}
-
-      {facet.kind === "partOf" && (
-        <>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">{t("relationship")}</Label>
-            <Select
-              value={facet.relation ?? "any"}
-              onValueChange={(value) =>
-                onChange({
-                  ...facet,
-                  relation:
-                    value === "any"
-                      ? undefined
-                      : (value as typeof PART_OF_RELATIONS[number]),
-                })
-              }
-            >
-              <SelectTrigger className="h-8" aria-label={t("relationship")}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {/* Omitting the attribute means any relationship, which is a
-                    meaningfully different check from naming one. */}
-                <SelectItem value="any">{t("anyRelationship")}</SelectItem>
-                {PART_OF_RELATIONS.map((relation) => (
-                  <SelectItem key={relation} value={relation}>
-                    {relation}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <ValueEditor
-            label={t("parentIfcClass")}
-            required
-            value={facet.entity.name}
-            suggestions={entityNames}
-            placeholder="IFCBUILDINGSTOREY"
-            onChange={(name) =>
-              onChange({ ...facet, entity: { ...facet.entity, name } })
-            }
-          />
-        </>
-      )}
-
-      {facet.kind === "classification" && (
-        <>
-          <ValueEditor
-            label={t("system")}
-            required
-            value={facet.system}
-            suggestions={vocabulary?.classificationSystems ?? []}
-            placeholder="Uniclass"
-            onChange={(system) => onChange({ ...facet, system })}
-          />
-          <OptionalValue
-            label={t("code")}
-            value={facet.value}
-            placeholder="EF_25_10"
-            onChange={(value) => onChange({ ...facet, value })}
-          />
-          <UriField
-            uri={facet.uri}
-            onChange={(uri) => onChange({ ...facet, uri })}
-          />
-        </>
-      )}
-
-      {facet.kind === "attribute" && (
-        <>
-          <ValueEditor
-            label={t("attributeName")}
-            required
-            value={facet.name}
-            placeholder="Name"
-            onChange={(name) => onChange({ ...facet, name })}
-          />
-          <OptionalValue
-            label={t("value")}
-            value={facet.value}
-            onChange={(value) => onChange({ ...facet, value })}
-          />
-        </>
-      )}
-
-      {facet.kind === "property" && (
-        <>
-          <ValueEditor
-            label={t("propertySet")}
-            required
-            value={facet.propertySet}
-            suggestions={psetNames}
-            placeholder="Pset_WallCommon"
-            onChange={(propertySet) => onChange({ ...facet, propertySet })}
-          />
-          <ValueEditor
-            label={t("propertyName")}
-            required
-            value={facet.baseName}
-            suggestions={propertyNames}
-            placeholder="FireRating"
-            onChange={onPropertyName}
-          />
-          <OptionalValue
-            label={t("value")}
-            value={facet.value}
-            suggestions={propertyValues}
-            onChange={(value) => onChange({ ...facet, value })}
-          />
-          {propertyValues.length > 0 && (
-            <p className="text-muted-foreground text-[11px]">
-              {t("valuesFromBsddCount", { count: propertyValues.length })}{" "}
-              {propertyValues.slice(0, 6).join(", ")}
-              {propertyValues.length > 6 ? "…" : ""}
-            </p>
-          )}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium" htmlFor="facet-datatype">
-              {t("dataType")}
-            </Label>
-            <Input
-              id="facet-datatype"
-              value={facet.dataType ?? ""}
-              placeholder="IFCLABEL"
-              // Uppercased on the way in: the XSD's upperCaseName type rejects
-              // anything else, and correcting it silently beats a validation
-              // error minutes later.
-              onChange={(event) =>
-                onChange({
-                  ...facet,
-                  dataType: event.target.value.toUpperCase() || undefined,
-                })
-              }
-              className="h-8 font-mono text-xs"
+      {/* Keep local input drafts (for example an unfinished enumeration) when
+          hiding fields; disclosure state must never edit the IDS document. */}
+      <CollapsibleContent forceMount className="space-y-3 pt-3 data-[state=closed]:hidden">
+        <p className="text-muted-foreground text-[11px]">{tFacetHints(facet.kind)}</p>
+        {facet.kind === "entity" && (
+          <>
+            <ValueEditor
+              label={t("ifcClass")}
+              required
+              value={facet.name}
+              suggestions={entityNames}
+              placeholder="IFCWALL"
+              onChange={(name) => onChange({ ...facet, name })}
             />
+            <OptionalValue
+              label={t("predefinedType")}
+              value={facet.predefinedType}
+              suggestions={predefinedTypes}
+              placeholder="SOLIDWALL"
+              onChange={(predefinedType) => onChange({ ...facet, predefinedType })}
+            />
+          </>
+        )}
 
-            {/* The lookup often resolves after the name was typed, so the
-                offer stays available rather than being a one-shot fill. */}
-            {suggestedType && facet.dataType !== suggestedType && (
-              <FromBsdd
-                value={suggestedType}
-                verb={facet.dataType ? t("replaceWith") : t("use")}
-                onApply={() => onChange({ ...facet, dataType: suggestedType })}
-              />
-            )}
+        {facet.kind === "partOf" && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">{t("relationship")}</Label>
+              <Select
+                value={facet.relation ?? "any"}
+                onValueChange={(value) =>
+                  onChange({
+                    ...facet,
+                    relation:
+                      value === "any"
+                        ? undefined
+                        : (value as typeof PART_OF_RELATIONS[number]),
+                  })
+                }
+              >
+                <SelectTrigger className="h-8" aria-label={t("relationship")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Omitting the attribute means any relationship, which is a
+                      meaningfully different check from naming one. */}
+                  <SelectItem value="any">{t("anyRelationship")}</SelectItem>
+                  {PART_OF_RELATIONS.map((relation) => (
+                    <SelectItem key={relation} value={relation}>
+                      {relation}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <ValueEditor
+              label={t("parentIfcClass")}
+              required
+              value={facet.entity.name}
+              suggestions={entityNames}
+              placeholder="IFCBUILDINGSTOREY"
+              onChange={(name) =>
+                onChange({ ...facet, entity: { ...facet.entity, name } })
+              }
+            />
+          </>
+        )}
 
-            {numericUnknown && !facet.dataType && (
+        {facet.kind === "classification" && (
+          <>
+            <ValueEditor
+              label={t("system")}
+              required
+              value={facet.system}
+              suggestions={vocabulary?.classificationSystems ?? []}
+              placeholder="Uniclass"
+              onChange={(system) => onChange({ ...facet, system })}
+            />
+            <OptionalValue
+              label={t("code")}
+              value={facet.value}
+              placeholder="EF_25_10"
+              onChange={(value) => onChange({ ...facet, value })}
+            />
+            <UriField
+              uri={facet.uri}
+              onChange={(uri) => onChange({ ...facet, uri })}
+            />
+          </>
+        )}
+
+        {facet.kind === "attribute" && (
+          <>
+            <ValueEditor
+              label={t("attributeName")}
+              required
+              value={facet.name}
+              placeholder="Name"
+              onChange={(name) => onChange({ ...facet, name })}
+            />
+            <OptionalValue
+              label={t("value")}
+              value={facet.value}
+              onChange={(value) => onChange({ ...facet, value })}
+            />
+          </>
+        )}
+
+        {facet.kind === "property" && (
+          <>
+            <ValueEditor
+              label={t("propertySet")}
+              required
+              value={facet.propertySet}
+              suggestions={psetNames}
+              placeholder="Pset_WallCommon"
+              onChange={(propertySet) => onChange({ ...facet, propertySet })}
+            />
+            <ValueEditor
+              label={t("propertyName")}
+              required
+              value={facet.baseName}
+              suggestions={propertyNames}
+              placeholder="FireRating"
+              onChange={onPropertyName}
+            />
+            <OptionalValue
+              label={t("value")}
+              value={facet.value}
+              suggestions={propertyValues}
+              onChange={(value) => onChange({ ...facet, value })}
+            />
+            {propertyValues.length > 0 && (
               <p className="text-muted-foreground text-[11px]">
-                {t.rich("numericUnknownHint", {
-                  code: (chunks) => <code className="font-mono">{chunks}</code>,
-                })}
+                {t("valuesFromBsddCount", { count: propertyValues.length })}{" "}
+                {propertyValues.slice(0, 6).join(", ")}
+                {propertyValues.length > 6 ? "…" : ""}
               </p>
             )}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium" htmlFor="facet-datatype">
+                {t("dataType")}
+              </Label>
+              <Input
+                id="facet-datatype"
+                value={facet.dataType ?? ""}
+                placeholder="IFCLABEL"
+                // Uppercased on the way in: the XSD's upperCaseName type rejects
+                // anything else, and correcting it silently beats a validation
+                // error minutes later.
+                onChange={(event) =>
+                  onChange({
+                    ...facet,
+                    dataType: event.target.value.toUpperCase() || undefined,
+                  })
+                }
+                className="h-8 font-mono text-xs"
+              />
+
+              {/* The lookup often resolves after the name was typed, so the
+                  offer stays available rather than being a one-shot fill. */}
+              {suggestedType && facet.dataType !== suggestedType && (
+                <FromBsdd
+                  value={suggestedType}
+                  verb={facet.dataType ? t("replaceWith") : t("use")}
+                  onApply={() => onChange({ ...facet, dataType: suggestedType })}
+                />
+              )}
+
+              {numericUnknown && !facet.dataType && (
+                <p className="text-muted-foreground text-[11px]">
+                  {t.rich("numericUnknownHint", {
+                    code: (chunks) => <code className="font-mono">{chunks}</code>,
+                  })}
+                </p>
+              )}
+            </div>
+
+            <UriField
+              uri={facet.uri}
+              suggestion={suggestedUri}
+              onChange={(uri) => onChange({ ...facet, uri })}
+            />
+          </>
+        )}
+
+        {facet.kind === "material" && (
+          <>
+            <OptionalValue
+              label={t("material")}
+              value={facet.value}
+              suggestions={vocabulary?.materials ?? []}
+              placeholder="Concrete"
+              hint={t("materialHint")}
+              onChange={(value) => onChange({ ...facet, value })}
+            />
+            <UriField
+              uri={facet.uri}
+              onChange={(uri) => onChange({ ...facet, uri })}
+            />
+          </>
+        )}
+
+        {onInstructionsChange && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium" htmlFor="facet-instructions">
+              {t("instructionsLabel")}
+            </Label>
+            <Input
+              id="facet-instructions"
+              value={instructions ?? ""}
+              placeholder={t("requirementInstructionsPlaceholder")}
+              onChange={(event) => onInstructionsChange(event.target.value)}
+              className="h-8 text-xs"
+            />
           </div>
-
-          <UriField
-            uri={facet.uri}
-            suggestion={suggestedUri}
-            onChange={(uri) => onChange({ ...facet, uri })}
-          />
-        </>
-      )}
-
-      {facet.kind === "material" && (
-        <>
-          <OptionalValue
-            label={t("material")}
-            value={facet.value}
-            suggestions={vocabulary?.materials ?? []}
-            placeholder="Concrete"
-            hint={t("materialHint")}
-            onChange={(value) => onChange({ ...facet, value })}
-          />
-          <UriField
-            uri={facet.uri}
-            onChange={(uri) => onChange({ ...facet, uri })}
-          />
-        </>
-      )}
-
-      {onInstructionsChange && (
-        <div className="space-y-1.5">
-          <Label className="text-xs font-medium" htmlFor="facet-instructions">
-            {t("instructionsLabel")}
-          </Label>
-          <Input
-            id="facet-instructions"
-            value={instructions ?? ""}
-            placeholder={t("requirementInstructionsPlaceholder")}
-            onChange={(event) => onInstructionsChange(event.target.value)}
-            className="h-8 text-xs"
-          />
-        </div>
-      )}
-    </div>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

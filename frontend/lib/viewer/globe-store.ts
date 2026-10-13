@@ -164,7 +164,7 @@ export const useGlobeStore = create<GlobeState>((set, get) => ({
       if (!isCurrent()) return { ok: true };
       // A failed layer must not leave a half-built globe hiding the model.
       release();
-      set({ on: false });
+      set({ on: false, phase: null });
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
     } finally {
       if (isCurrent()) set({ phase: null });

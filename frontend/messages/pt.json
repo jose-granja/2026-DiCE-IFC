@@ -1103,7 +1103,10 @@
         "failingElementCount": "{count, plural, one {# elemento em falha} other {# elementos em falha}}",
         "inThisSpecification": " nesta especificação",
         "show": "Mostrar",
-        "modelNotLoaded": "{name} não está carregado no visualizador."
+        "modelNotLoaded": "{name} não está carregado no visualizador.",
+        "issueCount": " · {count, plural, one {# problema} other {# problemas}}",
+        "countFailureCount": " · {count, plural, one {# especificação falhou na contagem} other {# especificações falharam na contagem}}",
+        "countFailureTitle": "A contagem exigida pela especificação não é cumprida"
       },
       "exportBar": {
         "htmlReport": "Relatório HTML",
@@ -1125,6 +1128,29 @@
         "snapshotBudgetExceeded": "Apenas os primeiros {max} tópicos receberam uma imagem — os restantes não têm nenhuma. Exporte \"Um tópico por Especificação\" em alternativa, ou divida a execução, para manter o ponto de vista de cada tópico.",
         "exportedBcf": "{count, plural, one {Exportado # tópico como BCF 3.0.} other {Exportados # tópicos como BCF 3.0.}} Aberto no gestor BCF.",
         "bcfExportFailed": "A exportação BCF falhou."
+      },
+      "countFailed": "Falhou no número de elementos correspondentes",
+      "card": {
+        "elements": "{count, plural, =0 {Nenhum elemento} one {# elemento} other {# elementos}}",
+        "passed": "{count, number} aprovados",
+        "failed": "{count, number} reprovados",
+        "countFailed": "Falhou no número de elementos correspondentes",
+        "countFailureTitle": "A contagem exigida pela especificação não é cumprida",
+        "byRequirement": "Requisitos",
+        "byElement": "Por elemento",
+        "failingElements": "{count, plural, one {# elemento reprovado} other {# elementos reprovados}}",
+        "issues": " · {count, plural, one {# problema} other {# problemas}}",
+        "nothingApplied": "Nenhum elemento corresponde a esta especificação.",
+        "allPassed": "Todos os elementos cumprem todos os requisitos.",
+        "status": {
+          "pass": "cumprida",
+          "fail": "não cumprida",
+          "not_applicable": "não aplicável"
+        },
+        "optionality": {
+          "optional": "opcional",
+          "prohibited": "proibido"
+        }
       }
     },
     "bcfPanel": {
@@ -1495,6 +1521,9 @@
       "mustSatisfyHint": "O que as entidades correspondentes são obrigadas a ter. Cada uma tem a sua própria cardinalidade.",
       "addFacet": "Adicionar faceta",
       "noFacets": "Sem facetas.",
+      "facetCount": "{count, plural, one {# faceta} other {# facetas}}",
+      "collapseAll": "Recolher tudo",
+      "expandAll": "Expandir tudo",
       "cardinality": {
         "required": "Obrigatório",
         "optional": "Opcional",
@@ -1502,6 +1531,8 @@
       }
     },
     "facetEditor": {
+      "collapseFacet": "Recolher faceta de {label}",
+      "expandFacet": "Expandir faceta de {label}",
       "removeFacet": "Remover faceta de {label}",
       "cardinalityAriaLabel": "Cardinalidade",
       "ifcClass": "Classe IFC",

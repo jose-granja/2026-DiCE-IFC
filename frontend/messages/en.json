@@ -1103,7 +1103,10 @@
         "failingElementCount": "{count, plural, one {# failing element} other {# failing elements}}",
         "inThisSpecification": " in this specification",
         "show": "Show",
-        "modelNotLoaded": "{name} is not loaded in the viewer."
+        "modelNotLoaded": "{name} is not loaded in the viewer.",
+        "issueCount": " · {count, plural, one {# issue} other {# issues}}",
+        "countFailureCount": " · {count, plural, one {# specification failed on its count} other {# specifications failed on their count}}",
+        "countFailureTitle": "The specification’s count is not met"
       },
       "exportBar": {
         "htmlReport": "HTML report",
@@ -1125,6 +1128,29 @@
         "snapshotBudgetExceeded": "Only the first {max} topics got a snapshot — the rest have none. Export \"One topic per Specification\" instead, or split the run, to keep every topic's viewpoint.",
         "exportedBcf": "{count, plural, one {Exported # topic as BCF 3.0.} other {Exported # topics as BCF 3.0.}} Opened in the BCF manager.",
         "bcfExportFailed": "The BCF export failed."
+      },
+      "countFailed": "Failed on the number of matching elements",
+      "card": {
+        "elements": "{count, plural, =0 {No elements} one {# element} other {# elements}}",
+        "passed": "{count, number} passed",
+        "failed": "{count, number} failed",
+        "countFailed": "Failed on the number of matching elements",
+        "countFailureTitle": "The specification’s count is not met",
+        "byRequirement": "Requirements",
+        "byElement": "By element",
+        "failingElements": "{count, plural, one {# failing element} other {# failing elements}}",
+        "issues": " · {count, plural, one {# issue} other {# issues}}",
+        "nothingApplied": "No element matched this specification.",
+        "allPassed": "Every element passed every requirement.",
+        "status": {
+          "pass": "passed",
+          "fail": "failed",
+          "not_applicable": "not applicable"
+        },
+        "optionality": {
+          "optional": "optional",
+          "prohibited": "prohibited"
+        }
       }
     },
     "bcfPanel": {
@@ -1495,6 +1521,9 @@
       "mustSatisfyHint": "What the matching entities are required to have. Each carries its own cardinality.",
       "addFacet": "Add facet",
       "noFacets": "No facets.",
+      "facetCount": "{count, plural, one {# facet} other {# facets}}",
+      "collapseAll": "Collapse all",
+      "expandAll": "Expand all",
       "cardinality": {
         "required": "Required",
         "optional": "Optional",
@@ -1502,6 +1531,8 @@
       }
     },
     "facetEditor": {
+      "collapseFacet": "Collapse {label} facet",
+      "expandFacet": "Expand {label} facet",
       "removeFacet": "Remove {label} facet",
       "cardinalityAriaLabel": "Cardinality",
       "ifcClass": "IFC class",
