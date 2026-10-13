@@ -42,16 +42,26 @@ export type PointCloudEntry = {
 
 type PointCloudState = {
   clouds: PointCloudEntry[];
+  /**
+   * Edge shading (eye-dome lighting) for every cloud — the darkened depth steps
+   * and silhouette halo that make a scan without normals read as a shape. On by
+   * default, as on ifclite.com; one setting for the scene, not per cloud.
+   */
+  edgeShading: boolean;
+  setEdgeShading: (on: boolean) => void;
   add: (entry: PointCloudEntry) => void;
   update: (id: string, patch: Partial<PointCloudEntry>) => void;
   remove: (id: string) => void;
   clear: () => void;
 };
 
-export const DEFAULT_POINT_SIZE = 2;
+/** Pixels. Large enough that the edge shading has a surface to work across. */
+export const DEFAULT_POINT_SIZE = 4;
 
 export const usePointCloudStore = create<PointCloudState>((set) => ({
   clouds: [],
+  edgeShading: true,
+  setEdgeShading: (edgeShading) => set({ edgeShading }),
   add: (entry) => set((state) => ({ clouds: [...state.clouds, entry] })),
   update: (id, patch) =>
     set((state) => ({

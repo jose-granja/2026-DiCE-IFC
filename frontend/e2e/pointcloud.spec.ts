@@ -106,3 +106,110 @@ test("decodes a real .laz in the browser", async ({ page }) => {
   await expect(page.locator(`[data-point-cloud-item="${name}"]`)).toBeVisible();
   await expect(marker(page)).toHaveAttribute("data-point-count", /^[1-9]\d{4,}$/, { timeout: 100_000 });
 });
+
+/** Pixels in the model canvas darker than `limit` (0–255 luma), over opaque ones. */
+async function darkPixels(page: Page, limit = 60): Promise<number> {
+  return page.evaluate(async (threshold) => {
+    const canvas = document.querySelector<HTMLCanvasElement>("[data-model-canvas]")!;
+    // Two frames, so the switch has reached the renderer before the read.
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const image = new Image();
+    image.src = canvas.toDataURL("image/png");
+    await image.decode();
+    const copy = document.createElement("canvas");
+    copy.width = image.width;
+    copy.height = image.height;
+    const context = copy.getContext("2d")!;
+    context.drawImage(image, 0, 0);
+    const { data } = context.getImageData(0, 0, copy.width, copy.height);
+    let count = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const luma = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+      if (data[i + 3] > 200 && luma < threshold) count += 1;
+    }
+    return count;
+  }, limit);
+}
+
+test("shades a cloud's edges by default, like ifclite.com, and can be switched off", async ({ page }) => {
+  await load(page, [cloud("patch.ply")]);
+  await expect(marker(page)).toHaveAttribute("data-point-count", "1968", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Zoom to patch.ply" }).click();
+
+  // On by default, and points start at 4 px.
+  const toggle = page.getByRole("switch", { name: "Edge shading" });
+  await expect(toggle).toBeChecked();
+  await expect(marker(page)).toHaveAttribute("data-point-edge-shading", "true");
+  await expect(page.getByRole("slider", { name: "Point size" })).toHaveAttribute("aria-valuenow", "4");
+
+  // The shading is the dark outline round the silhouette and along each step
+  // in depth (where the wall stands on the floor); a flat-coloured cloud on a
+  // light backdrop has almost none of those pixels.
+  await page.waitForTimeout(500);
+  const shaded = await darkPixels(page);
+  await toggle.click();
+  await expect(marker(page)).toHaveAttribute("data-point-edge-shading", "false");
+  const flat = await darkPixels(page);
+  expect(shaded).toBeGreaterThan(200);
+  expect(shaded).toBeGreaterThan(flat * 3);
+
+  // And back: the same picture as before, not a slowly drifting one.
+  await toggle.click();
+  expect(Math.abs((await darkPixels(page)) - shaded)).toBeLessThan(shaded * 0.05);
+});
+
+/** The model canvas's pixels, read after two frames. */
+async function framePixels(page: Page): Promise<number[]> {
+  return page.evaluate(async () => {
+    const canvas = document.querySelector<HTMLCanvasElement>("[data-model-canvas]")!;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const image = new Image();
+    image.src = canvas.toDataURL("image/png");
+    await image.decode();
+    const copy = document.createElement("canvas");
+    copy.width = image.width;
+    copy.height = image.height;
+    const context = copy.getContext("2d")!;
+    context.drawImage(image, 0, 0);
+    return Array.from(context.getImageData(0, 0, copy.width, copy.height).data);
+  });
+}
+
+test("edge-shaded clouds are still hidden by the model in front of them", async ({ page }) => {
+  // The shading draws the cloud through a full-screen pass that writes the
+  // cloud's own depth. Without that depth the cloud paints over the wall it was
+  // scanned beside, which changes a great many pixels; with it, switching the
+  // shading on changes only the edges.
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  // The model first, so the survey cloud is placed against its map position —
+  // beside and in front of the wall rather than a hundred kilometres away.
+  await load(page, [WALL]);
+  await expect(page.locator("[data-rendered-models]")).toHaveAttribute("data-rendered-models", "1", {
+    timeout: 30_000,
+  });
+  await load(page, [cloud("patch.las")]);
+  await expect(marker(page)).toHaveAttribute("data-point-count", "1968", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Zoom to patch.las" }).click();
+  await page.waitForTimeout(800);
+
+  const shaded = await framePixels(page);
+  await page.getByRole("switch", { name: "Edge shading" }).click();
+  await expect(marker(page)).toHaveAttribute("data-point-edge-shading", "false");
+  const flat = await framePixels(page);
+
+  let changed = 0;
+  let wall = 0;
+  for (let i = 0; i < flat.length; i += 4) {
+    const luma = (data: number[]) => 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+    if (Math.abs(luma(shaded) - luma(flat)) > 40) changed += 1;
+    // The wall's grey, as drawn without the shading.
+    if (Math.abs(flat[i] - flat[i + 1]) < 8 && Math.abs(flat[i + 1] - flat[i + 2]) < 8 && luma(flat) < 200) wall += 1;
+  }
+  console.log(`EDL-DIFF changed=${changed} wall=${wall} total=${flat.length / 4}`);
+  expect(changed).toBeGreaterThan(0);
+  expect(changed).toBeLessThan(wall * 0.25);
+  expect(errors.filter((error) => /shader|WebGL|GL_/i.test(error))).toEqual([]);
+});

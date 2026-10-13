@@ -13,6 +13,8 @@ import {
 import { useTranslations } from "next-intl";
 import type { ComponentType } from "react";
 
+import { usePointCloudStore } from "@/lib/viewer/pointcloud-store";
+import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import { useViewerStore } from "@/lib/viewer/store";
 import {
   angleBetween,
@@ -119,7 +121,10 @@ export function MeasurePanel() {
   const setTool = useViewerStore((s) => s.setTool);
   const snapTargets = useViewerStore((s) => s.snapTargets);
   const setSnapTarget = useViewerStore((s) => s.setSnapTarget);
+  // A scan or a neighbouring building can be measured as well as a model.
   const modelCount = useViewerStore((s) => s.models.length);
+  const cloudCount = usePointCloudStore((s) => s.clouds.length);
+  const hasContext = useContextModelStore((s) => s.loaded !== null);
 
   const measurements = useViewerStore((s) => s.measurements);
   const pendingPoint = useViewerStore((s) => s.pendingPoint);
@@ -154,7 +159,7 @@ export function MeasurePanel() {
     (s) => s.clearVolumeMeasurements,
   );
 
-  if (modelCount === 0) {
+  if (modelCount === 0 && cloudCount === 0 && !hasContext) {
     return (
       <p className="text-muted-foreground p-3 text-xs">
         {t("loadModel")}

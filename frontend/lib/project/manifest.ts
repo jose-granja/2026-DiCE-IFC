@@ -214,6 +214,8 @@ export const projectManifestSchema = z.object({
         .optional(),
       areaMode: z.enum(["points", "face"]).optional(),
       volumeMode: z.enum(["element", "box"]).optional(),
+      /** The point clouds' edge shading; absent in projects from before it existed (on). */
+      pointCloudEdgeShading: z.boolean().optional(),
       /**
        * The 3D world context. Saved as it was; a restore asks before turning
        * it on, because it is the one request that leaves for a third party.

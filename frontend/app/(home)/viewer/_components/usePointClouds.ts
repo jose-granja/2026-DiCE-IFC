@@ -28,6 +28,7 @@ type Applied = {
 
 export function usePointClouds(rendererRef: RefObject<ViewerRenderer | null>, ready: boolean) {
   const clouds = usePointCloudStore((state) => state.clouds);
+  const edgeShading = usePointCloudStore((state) => state.edgeShading);
   const models = useViewerStore((state) => state.models);
   const placements = useViewerStore((state) => state.placements);
   const worldOrigin = useViewerStore((state) => state.worldOrigin);
@@ -36,6 +37,11 @@ export function usePointClouds(rendererRef: RefObject<ViewerRenderer | null>, re
   const applied = useRef(new Map<string, Applied>());
   // A new renderer starts empty, whatever this remembers.
   const lastRenderer = useRef<ViewerRenderer | null>(null);
+
+  // A scene-wide setting, so it is applied on its own — and again to a new renderer.
+  useEffect(() => {
+    if (ready) rendererRef.current?.setPointCloudEdgeShading(edgeShading);
+  }, [edgeShading, ready, rendererRef]);
 
   useEffect(() => {
     const renderer = rendererRef.current;

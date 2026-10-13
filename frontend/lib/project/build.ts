@@ -83,6 +83,7 @@ export type SessionSnapshot = {
   snapTargets: SnapTargets;
   areaMode: "points" | "face";
   volumeMode: "element" | "box";
+  pointCloudEdgeShading: boolean;
   globe: { on: boolean; layer: GlobeLayerId; assetId: string; url: string };
   worldOrigin: { source: string; mapPosition?: Vec3 } | null;
 
@@ -275,6 +276,7 @@ export function buildProject(session: SessionSnapshot, savedAt = new Date()): Bu
       snapTargets: session.snapTargets,
       areaMode: session.areaMode,
       volumeMode: session.volumeMode,
+      pointCloudEdgeShading: session.pointCloudEdgeShading,
       globe: session.globe,
       worldOrigin: session.worldOrigin,
     },

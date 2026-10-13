@@ -14,7 +14,7 @@ import { hasAnySnapTarget } from "@/lib/viewer/tools";
 import MeasurementLabels from "./MeasurementLabels";
 import BcfMarkers from "./BcfMarkers";
 import { Button } from "@/components/ui/button";
-import { Axis3D, Maximize2 } from "lucide-react";
+import { Axis3D, Contrast, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { setGlobeCanvas } from "@/lib/viewer/globe-canvas";
 import { useGlobeStore } from "@/lib/viewer/globe-store";
@@ -55,6 +55,7 @@ const CLICK_DRAG_THRESHOLD_PX = 5;
  */
 export function ViewerCanvas() {
   const t = useTranslations("viewer.canvas");
+  const edgeShading = usePointCloudStore((s) => s.edgeShading);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const globeRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<ViewerRenderer | null>(null);
@@ -754,6 +755,25 @@ export function ViewerCanvas() {
             {originsVisible ? t("hideOrigins") : t("showOrigins")}
           </TooltipContent>
         </Tooltip>
+        {cloudCount > 0 && (
+          // The same setting as the switch in the point-cloud list, where the
+          // eye already is when looking at a scan.
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={edgeShading ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={edgeShading}
+                aria-label={t(edgeShading ? "edgeShadingOff" : "edgeShadingOn")}
+                data-edge-shading-toggle
+                onClick={() => usePointCloudStore.getState().setEdgeShading(!edgeShading)}
+              >
+                <Contrast className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t(edgeShading ? "edgeShadingOff" : "edgeShadingOn")}</TooltipContent>
+          </Tooltip>
+        )}
         <Button
           variant="secondary"
           size="sm"

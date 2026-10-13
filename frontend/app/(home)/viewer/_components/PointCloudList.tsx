@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
 import { availableModes, type PointColourMode } from "@/lib/pointcloud/colour";
 import type { CloudFrame } from "@/lib/pointcloud/place";
@@ -33,6 +34,8 @@ export function PointCloudList() {
   const t = useTranslations("viewer.pointClouds");
   const clouds = usePointCloudStore((state) => state.clouds);
   const update = usePointCloudStore((state) => state.update);
+  const edgeShading = usePointCloudStore((state) => state.edgeShading);
+  const setEdgeShading = usePointCloudStore((state) => state.setEdgeShading);
   const models = useViewerStore((state) => state.models);
   const placements = useViewerStore((state) => state.placements);
   const worldOrigin = useViewerStore((state) => state.worldOrigin);
@@ -41,9 +44,19 @@ export function PointCloudList() {
 
   return (
     <section className="border-t" data-point-cloud-list>
-      <h3 className="text-muted-foreground px-3 pt-2.5 text-[11px] font-medium tracking-wide uppercase">
-        {t("title")}
-      </h3>
+      <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
+        <h3 className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">{t("title")}</h3>
+        <div className="flex items-center gap-1.5" title={t("edgeShadingHint")}>
+          <Label htmlFor="point-cloud-edge-shading" className="text-muted-foreground text-[11px] font-normal">
+            {t("edgeShading")}
+          </Label>
+          <Switch
+            id="point-cloud-edge-shading"
+            checked={edgeShading}
+            onCheckedChange={setEdgeShading}
+          />
+        </div>
+      </div>
       <ul className="divide-y">
         {clouds.map((entry) => {
           const ready = entry.status === "ready" && entry.cloud;

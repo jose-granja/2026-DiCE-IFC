@@ -53,6 +53,9 @@ const EARTH_SCALE_FAR = 40_000_000;
 import type { MeshView, Vec3 } from "@/lib/ifc/types";
 import { cutRegions } from "./section-cut";
 import { DEFAULT_EDGE_COLOUR, DEFAULT_EDGE_WIDTH } from "./edges";
+import { PointCloudEdl, POINT_CLOUD_EDL_LAYER } from "./point-edl";
+import { buildPointIndex, pickPointOnRay, type PointIndex } from "./point-pick";
+import { DEFAULT_POINT_SIZE } from "./pointcloud-store";
 import { ifcToRender } from "./federation";
 import {
   mergeMeshes,
@@ -829,6 +832,11 @@ export class ViewerRenderer {
   private contextMesh: THREE.Mesh | null = null;
   /** Scanned point clouds, by id. Not models — see `addPointCloud`. */
   private pointClouds = new Map<string, THREE.Points>();
+  /** Edge shading for the clouds (eye-dome lighting) — see `point-edl.ts`. On by default. */
+  private pointEdl = new PointCloudEdl();
+  private pointEdlEnabled = true;
+  /** Grids for picking a cloud's points, built the first time each is picked — see `point-pick.ts`. */
+  private pointIndexes = new Map<string, PointIndex>();
   private globe: Globe | null = null;
   private depthProxy: THREE.Mesh | null = null;
   private globeOrigin: WgsPoint | null = null;
@@ -933,6 +941,7 @@ export class ViewerRenderer {
     this.scene.add(this.volumeGroup);
     this.scene.add(this.sectionGizmoGroup);
     this.scene.add(this.sectionCapGroup);
+    this.scene.add(this.pointEdl.quad);
 
     this.snapPreviewMarkers = {
       corner: this.createSnapPreviewMarker("square"),
@@ -1004,8 +1013,27 @@ export class ViewerRenderer {
       this.globe.sync(this.camera, this.globeOrigin, this.globeNorthCorrection);
     }
 
-    this.renderer.render(this.scene, this.camera);
+    this.renderFrame();
   };
+
+  /**
+   * One frame of the scene. With edge shading on, the visible clouds move to
+   * their own layer so the main pass skips them, are drawn offscreen, and come
+   * back through the EDL quad — see `point-edl.ts`. Snapshots go through here
+   * too, so a BCF image shows the clouds as the viewport does.
+   */
+  private renderFrame() {
+    let shaded = false;
+    if (this.pointEdlEnabled) {
+      for (const points of this.pointClouds.values()) shaded ||= points.visible;
+    }
+    for (const points of this.pointClouds.values()) {
+      points.layers.set(shaded ? POINT_CLOUD_EDL_LAYER : 0);
+    }
+    this.pointEdl.quad.visible = shaded;
+    if (shaded) this.pointEdl.render(this.renderer, this.scene, this.camera);
+    this.renderer.render(this.scene, this.camera);
+  }
 
   // -------------------------------------------------------------------------
   // Models
@@ -1769,6 +1797,14 @@ export class ViewerRenderer {
     targets: SnapTargets = { corner: true, edgeMidpoint: false, edge: false },
   ): PointPick | null {
     const result = this.raycast(offsetX, offsetY, true);
+    // A scan point is a measurement point too. Whichever is nearer the camera
+    // — the surface or the point — is the one the user is looking at.
+    const cloudHit = this.pickPointCloud(offsetX, offsetY);
+    if (cloudHit && (!result || cloudHit.distance < result.hit.distance)) {
+      // The pick already is a real point of the scan, which is what snapping
+      // to a corner means for a cloud.
+      return { point: cloudHit.point, snapType: targets.corner ? "corner" : null };
+    }
     if (!result) return null;
 
     const { hit } = result;
@@ -1808,6 +1844,66 @@ export class ViewerRenderer {
       point: snapped.point,
       snapType: snapped.type,
     };
+  }
+
+  /**
+   * The visible scan point under the cursor — the frontmost within a few
+   * pixels of it — and how far it is from the camera. Points a section plane
+   * has cut away are passed over, as they are not on screen.
+   */
+  private pickPointCloud(offsetX: number, offsetY: number): { point: Vec3; distance: number } | null {
+    if (this.pointClouds.size === 0) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.height === 0) return null;
+    this.raycaster.setFromCamera(
+      new THREE.Vector2((offsetX / rect.width) * 2 - 1, -(offsetY / rect.height) * 2 + 1),
+      this.camera,
+    );
+    const ray = this.raycaster.ray;
+
+    // World metres per CSS pixel at a distance along the ray.
+    const camera = this.camera;
+    const metresPerPixel = (distance: number) =>
+      camera instanceof THREE.PerspectiveCamera
+        ? (2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)) / rect.height
+        : (camera.top - camera.bottom) / camera.zoom / rect.height;
+
+    let best: { point: Vec3; distance: number } | null = null;
+    const local = new THREE.Vector3();
+    for (const [id, points] of this.pointClouds) {
+      if (!points.visible) continue;
+      let index = this.pointIndexes.get(id);
+      if (!index) {
+        index = buildPointIndex(points.geometry.getAttribute("position").array as Float32Array);
+        this.pointIndexes.set(id, index);
+      }
+      points.updateMatrixWorld();
+      const inverse = points.matrixWorld.clone().invert();
+      const origin = ray.origin.clone().applyMatrix4(inverse);
+      const direction = ray.direction.clone().transformDirection(inverse);
+      // The cloud's own units are scaled with it (a model in millimetres
+      // scales its cloud too); the tolerance is in world metres.
+      const scale = points.scale.x || 1;
+      // Half the drawn point and a little more: a point is as wide as it is drawn.
+      const sizePixels = (points.material as THREE.PointsMaterial).size / this.renderer.getPixelRatio();
+      const pixels = Math.max(4, sizePixels / 2 + 2);
+
+      const hit = pickPointOnRay(
+        index,
+        origin.toArray() as Vec3,
+        direction.toArray() as Vec3,
+        (t) => (metresPerPixel(t * scale) * pixels) / scale,
+        (pointIndex) => {
+          local.fromArray(index!.positions, pointIndex * 3).applyMatrix4(points.matrixWorld);
+          return !this.isClipped(local);
+        },
+      );
+      if (!hit) continue;
+      const world = new THREE.Vector3().fromArray(index.positions, hit.index * 3).applyMatrix4(points.matrixWorld);
+      const distance = world.distanceTo(ray.origin);
+      if (!best || distance < best.distance) best = { point: world.toArray() as Vec3, distance };
+    }
+    return best;
   }
 
   /** Where a world point lands on the canvas, in CSS pixels. */
@@ -2192,7 +2288,7 @@ export class ViewerRenderer {
     id: string,
     cloud: { positions: Float32Array; colours: Uint8Array },
     offset: Vec3,
-    size = 2,
+    size = DEFAULT_POINT_SIZE,
   ) {
     this.removePointCloud(id);
 
@@ -2227,6 +2323,7 @@ export class ViewerRenderer {
     points.geometry.dispose();
     (points.material as THREE.Material).dispose();
     this.pointClouds.delete(id);
+    this.pointIndexes.delete(id);
     this.updatePointCloudMarker();
   }
 
@@ -2254,6 +2351,12 @@ export class ViewerRenderer {
     }
   }
 
+  /** Edge shading (eye-dome lighting) for every cloud. */
+  setPointCloudEdgeShading(enabled: boolean) {
+    this.pointEdlEnabled = enabled;
+    this.updatePointCloudMarker();
+  }
+
   setPointCloudColours(id: string, colours: Uint8Array) {
     const points = this.pointClouds.get(id);
     if (!points) return;
@@ -2272,6 +2375,17 @@ export class ViewerRenderer {
       points.updateMatrixWorld();
       box.union(points.geometry.boundingBox.clone().applyMatrix4(points.matrixWorld));
     }
+    if (box.isEmpty()) return null;
+    return { min: box.min.toArray() as Vec3, max: box.max.toArray() as Vec3 };
+  }
+
+  /** The context model's extent in the scene, or null with none loaded. */
+  getContextBounds(): { min: Vec3; max: Vec3 } | null {
+    const mesh = this.contextMesh;
+    if (!mesh || !mesh.visible) return null;
+    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+    mesh.updateMatrixWorld();
+    const box = mesh.geometry.boundingBox!.clone().applyMatrix4(mesh.matrixWorld);
     if (box.isEmpty()) return null;
     return { min: box.min.toArray() as Vec3, max: box.max.toArray() as Vec3 };
   }
@@ -2309,6 +2423,7 @@ export class ViewerRenderer {
     marker.dataset.pointClouds = String(this.pointClouds.size);
     marker.dataset.pointCount = String(total);
     marker.dataset.pointsVisible = String(visible);
+    marker.dataset.pointEdgeShading = String(this.pointEdlEnabled);
   }
 
   /**
@@ -3351,7 +3466,7 @@ export class ViewerRenderer {
   /** PNG data URL of the current view, for BCF snapshots. */
   snapshot(): string {
     this.flushSectionCaps(true);
-    this.renderer.render(this.scene, this.camera);
+    this.renderFrame();
 
     /*
       Composite the globe under the model.
@@ -3398,6 +3513,7 @@ export class ViewerRenderer {
     this.controls.dispose();
     for (const modelId of [...this.models.keys()]) this.removeModel(modelId);
     for (const id of [...this.pointClouds.keys()]) this.removePointCloud(id);
+    this.pointEdl.dispose();
     disposeGroup(this.measurementGroup);
     disposeGroup(this.angleGroup);
     disposeGroup(this.areaGroup);

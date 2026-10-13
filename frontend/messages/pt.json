@@ -452,7 +452,9 @@
       "problems": {
         "no-world-origin": "Não há nenhum modelo georreferenciado onde colocar coordenadas de mapa, por isso é desenhada na origem. Carregue um modelo com IfcMapConversion, ou leia as coordenadas como as do próprio modelo.",
         "no-model": "Não há nenhum modelo carregado onde a colocar, por isso é desenhada na origem."
-      }
+      },
+      "edgeShading": "Sombreamento de arestas",
+      "edgeShadingHint": "Escurece cada salto de profundidade e contorna a nuvem (eye-dome lighting), para que um levantamento sem normais se leia como uma forma."
     },
     "sectionPanel": {
       "axes": {
@@ -469,7 +471,7 @@
           "hint": "Corte vertical ao longo do eixo Z"
         }
       },
-      "loadModel": "Carregue um modelo para lhe fazer cortes.",
+      "loadModel": "Carregue um modelo, uma nuvem de pontos ou um modelo de contexto para cortar secções.",
       "clear": "Limpar",
       "noPlanes": "Sem planos de corte. Adicione um para cortar a federação; vários planos intersetam-se, por isso cada um remove mais.",
       "flipFarSide": "A manter o lado mais afastado — inverta para manter o lado mais próximo",
@@ -774,7 +776,9 @@
         "available": "WebGPU está disponível.",
         "noAdapter": "WebGPU está presente mas não foi concedido nenhum adaptador; a renderização usa WebGL.",
         "probeFailed": "Falha ao detetar WebGPU; a renderização usa WebGL."
-      }
+      },
+      "edgeShadingOn": "Ativar o sombreamento de arestas da nuvem de pontos",
+      "edgeShadingOff": "Desativar o sombreamento de arestas da nuvem de pontos"
     },
     "measureLabels": {
       "plan": "Planta",
@@ -782,7 +786,7 @@
     },
     "measurePanel": {
       "clear": "Limpar",
-      "loadModel": "Carregue um modelo para o medir.",
+      "loadModel": "Carregue um modelo, uma nuvem de pontos ou um modelo de contexto para medir.",
       "noneYet": "Ainda sem medições.",
       "tools": {
         "distance": "Distância",

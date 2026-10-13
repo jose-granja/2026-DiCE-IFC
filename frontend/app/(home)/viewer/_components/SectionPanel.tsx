@@ -4,6 +4,9 @@ import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { FlipHorizontal, Plus, RotateCw, Scissors, Trash2 } from "lucide-react";
 
+import { sceneBounds } from "@/lib/viewer/scene-bounds";
+import { usePointCloudStore } from "@/lib/viewer/pointcloud-store";
+import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import { useViewerStore } from "@/lib/viewer/store";
 import {
   rotateSectionPlane,
@@ -54,14 +57,18 @@ export function SectionPanel() {
   // `federationBounds()` builds a fresh object on every call, so using it
   // directly as a zustand selector compares unequal every render and loops
   // forever (React error #185). Select the inputs; derive the box.
+  // The models and whatever was loaded around them: a plane through a scan or a
+  // neighbouring building is what those are loaded for (`scene-bounds.ts`).
+  const clouds = usePointCloudStore((s) => s.clouds);
+  const hasContext = useContextModelStore((s) => s.loaded !== null);
   const bounds = useMemo(
-    () => useViewerStore.getState().federationBounds(),
+    () => sceneBounds(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [models, placements],
+    [models, placements, clouds, hasContext],
   );
-  const modelCount = models.length;
+  const hasSomething = models.length > 0 || clouds.length > 0 || hasContext;
 
-  if (modelCount === 0) {
+  if (!hasSomething) {
     return (
       <p className="text-muted-foreground p-3 text-xs">
         {t("loadModel")}
@@ -78,7 +85,7 @@ export function SectionPanel() {
             variant="secondary"
             size="sm"
             title={hint}
-            onClick={() => addSectionPlane(axis)}
+            onClick={() => addSectionPlane(axis, sceneBounds())}
           >
             <Plus className="h-3.5 w-3.5" />
             {label}

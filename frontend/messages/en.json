@@ -452,7 +452,9 @@
       "problems": {
         "no-world-origin": "No georeferenced model to place map coordinates against, so this is drawn at the origin. Load a model with an IfcMapConversion, or read the coordinates as the model's own.",
         "no-model": "No model loaded to place this against, so it is drawn at the origin."
-      }
+      },
+      "edgeShading": "Edge shading",
+      "edgeShadingHint": "Darkens each step in depth and outlines the cloud (eye-dome lighting), so a scan without normals reads as a shape."
     },
     "sectionPanel": {
       "axes": {
@@ -469,7 +471,7 @@
           "hint": "Vertical cut across the Z axis"
         }
       },
-      "loadModel": "Load a model to cut sections through it.",
+      "loadModel": "Load a model, a point cloud or a context model to cut sections through it.",
       "clear": "Clear",
       "noPlanes": "No section planes. Add one to cut through the federation; several planes intersect, so each one removes more.",
       "flipFarSide": "Keeping the far side — flip to keep the near side",
@@ -774,7 +776,9 @@
         "available": "WebGPU is available.",
         "noAdapter": "WebGPU is present but no adapter was granted; rendering uses WebGL.",
         "probeFailed": "WebGPU probe failed; rendering uses WebGL."
-      }
+      },
+      "edgeShadingOn": "Turn on point-cloud edge shading",
+      "edgeShadingOff": "Turn off point-cloud edge shading"
     },
     "measureLabels": {
       "plan": "Plan",
@@ -782,7 +786,7 @@
     },
     "measurePanel": {
       "clear": "Clear",
-      "loadModel": "Load a model to measure it.",
+      "loadModel": "Load a model, a point cloud or a context model to measure it.",
       "noneYet": "No measurements yet.",
       "tools": {
         "distance": "Distance",

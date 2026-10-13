@@ -132,6 +132,7 @@ export function snapshotSession(): SessionSnapshot {
     snapTargets: viewer.snapTargets,
     areaMode: viewer.areaMode,
     volumeMode: viewer.volumeMode,
+    pointCloudEdgeShading: usePointCloudStore.getState().edgeShading,
     globe: (() => {
       const globe = useGlobeStore.getState();
       return { on: globe.on, layer: globe.layer, assetId: globe.assetId, url: globe.url };
@@ -461,6 +462,9 @@ export async function restoreProject(
     }),
   }));
 
+  if (viewer.pointCloudEdgeShading !== undefined) {
+    usePointCloudStore.getState().setEdgeShading(viewer.pointCloudEdgeShading);
+  }
   if (viewer.display) {
     useDisplaySettingsStore.getState().set(viewer.display);
     applyDisplaySettings(getActiveRenderer(), viewer.display);

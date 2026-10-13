@@ -71,6 +71,7 @@ function session(over: Partial<SessionSnapshot> = {}): SessionSnapshot {
     snapTargets: { corner: true, edgeMidpoint: true, edge: false },
     areaMode: "face",
     volumeMode: "box",
+    pointCloudEdgeShading: false,
     globe: { on: true, layer: "google-photorealistic", assetId: "", url: "" },
     worldOrigin: { source: "mapConversion", mapPosition: [100, 200, 0] },
     typeFilter: ["IfcWall"],
@@ -132,6 +133,10 @@ describe("saving a session", () => {
     expect(files[1].data).toBe(wall);
     // A model whose source is gone is reported, not silently left out.
     expect(skipped).toEqual([{ name: "Lost.ifc", reason: "noSource" }]);
+  });
+
+  it("records whether the point clouds were edge-shaded", () => {
+    expect(buildProject(session()).manifest.viewer.pointCloudEdgeShading).toBe(false);
   });
 
   it("records the BCF file with whether its 3D markers were shown", () => {

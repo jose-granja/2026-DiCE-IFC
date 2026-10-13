@@ -255,7 +255,12 @@ type ViewerState = {
     tool: "select" | "measureDistance" | "measureAngle" | "measureArea" | "measureVolume",
   ) => void;
   setSnapTarget: (type: SnapTargetType, enabled: boolean) => void;
-  addSectionPlane: (axis: SectionAxis) => void;
+  /**
+   * `bounds` is what the plane starts in the middle of — the models by default;
+   * the section panel passes the scene's, which counts point clouds and the
+   * context model too (`scene-bounds.ts`).
+   */
+  addSectionPlane: (axis: SectionAxis, bounds?: { min: Vec3; max: Vec3 } | null) => void;
   updateSectionPlane: (id: string, patch: Partial<SectionPlane>) => void;
   removeSectionPlane: (id: string) => void;
   clearSectionPlanes: () => void;
@@ -563,7 +568,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   setSnapTarget: (type, enabled) =>
     set((state) => ({ snapTargets: { ...state.snapTargets, [type]: enabled } })),
 
-  addSectionPlane: (axis) =>
+  addSectionPlane: (axis, bounds) =>
     set((state) => ({
       sectionPlanes: [
         ...state.sectionPlanes,
@@ -572,7 +577,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
           axis,
           // Centre of the model, not the origin: a federation offset into a
           // projected CRS would otherwise get a plane that misses it entirely.
-          position: defaultSectionPosition(get().federationBounds(), axis),
+          position: defaultSectionPosition(bounds ?? get().federationBounds(), axis),
           rotation: 0,
           flipped: false,
           enabled: true,

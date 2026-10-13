@@ -846,10 +846,31 @@ and are drawn as points. They are listed under the model list, in the Models tab
   loads a build served from `public/laz-perf/` instead — bundled by
   `scripts/copy-cesium-assets.mts`, which `prebuild`/`predev` run. A LAZ that
   will not open on a fresh checkout usually means that script has not run.
+- **Edge shading (eye-dome lighting) is on by default**, as on ifclite.com, and
+  points start at 4 px. A scan has no normals to light, so `point-edl.ts` shades
+  by depth instead (Potree's formula): the clouds are drawn alone into an
+  offscreen target on `POINT_CLOUD_EDL_LAYER`, then a full-screen quad in the
+  main scene draws them back shaded and **writes their depth with
+  `gl_FragDepth`** — the depth buffer is logarithmic, and the target holds the
+  same encoding, so the model still hides a cloud behind it.
+  `e2e/pointcloud.spec.ts` fails if that depth write is lost (the cloud then
+  paints over the wall: ~43 000 changed pixels instead of ~2 800 edge pixels).
+  Snapshots render through the same `renderFrame`. On a sparse cloud every point
+  is an island and gets its own outline; that is EDL, not a bug.
 - **There is no LAZ fixture** — nothing here can compress one. `POINT_CLOUD_TEST_LAZ`
   points the Vitest and Playwright checks at a real file, and they skip without it.
-- **Not built:** picking or measuring on a cloud, streaming/LOD for clouds past the
-  point budget, classification colouring, and units other than metres.
+- **Measuring picks scan points; selecting never does.** A cloud is still not an
+  element, so `pick()` ignores it, but `pickPoint()` (the measuring tools) takes
+  the frontmost point within a few pixels of the cursor when it is nearer than
+  any surface. Pointer moves pick, and a cloud can hold 8 M points, so each cloud
+  gets a uniform grid the first time it is picked (`point-pick.ts`) and a pick
+  walks the ray through it; `point-pick.test.ts` holds it to a brute-force
+  search. Section planes clip clouds and the context model, and both tools are
+  enabled with only a cloud or a context model open; the section range comes
+  from `scene-bounds.ts` (models ∪ clouds ∪ context), never from the federation
+  bounds, which stay the models alone.
+- **Not built:** streaming/LOD for clouds past the point budget, classification
+  colouring, and units other than metres.
 
 ## 8c-bis. Project folders
 
