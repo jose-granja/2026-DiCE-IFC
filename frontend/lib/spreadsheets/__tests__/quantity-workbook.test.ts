@@ -7,6 +7,7 @@ import {
   parseQuantityConfigurationRows,
   readQuantityWorkbook,
 } from "../quantity-workbook";
+import type { QuantityQuery, QuantityQueryFilters } from "@/lib/ifc/types";
 
 describe("quantity workbook", () => {
   it("imports the WBS table structure from the reference document", () => {
@@ -170,5 +171,103 @@ describe("quantity workbook", () => {
       { alias: "factor", kind: "property", setName: "Pset_WallCommon", valueName: "ThermalTransmittance" },
     ]);
     expect(definition.query.formula).toBe("area * factor");
+  });
+});
+
+describe("the workbook as a project's quantity list", () => {
+  // A project folder stores the list only as this workbook, so what comes back
+  // has to be the same queries, not close ones.
+  const filters = (over: Partial<QuantityQueryFilters> = {}): QuantityQueryFilters => ({
+    classes: [],
+    predefinedTypes: [],
+    objectTypes: [],
+    materials: [],
+    properties: [],
+    ...over,
+  });
+
+  const definitions: Array<{ code: string; description: string; query: QuantityQuery }> = [
+    {
+      code: "13.01",
+      description: "External walls",
+      query: {
+        filters: filters({
+          classes: ["IfcWall", "/^IfcCurtain(Wall|Panel)$/"],
+          // " / " and ";" inside one value, and a regex with a comma.
+          objectTypes: ["Wall / Exterior"],
+          materials: ["/^Concrete C\\d{2},\\d$/"],
+          materialCategories: ["Masonry; facing"],
+          classificationSystem: "Uniclass 2015",
+          classificationCodes: ["Ss_25*"],
+          propertyCombination: "any",
+          properties: [
+            { setName: "Pset_WallCommon", propertyName: "IsExternal", operator: "equals", value: "TRUE" },
+            { setName: "Pset_WallCommon", propertyName: "FireRating", operator: "contains", value: "REI" },
+            { setName: "Pset_WallCommon", propertyName: "ThermalTransmittance", operator: "lessOrEqual", value: "0.35" },
+            { setName: "Pset_WallCommon", propertyName: "AcousticRating", operator: "exists", value: "" },
+          ],
+        }),
+        sources: [{ id: "source-1", alias: "NetSideArea", kind: "quantity", setName: "Qto_WallBaseQuantities", valueName: "NetSideArea" }],
+        unit: "m²",
+      },
+    },
+    {
+      code: "13.02",
+      description: "Walls with waste",
+      query: {
+        filters: filters({ classes: ["IfcWall"] }),
+        // One source and a formula that names it: the alias must survive.
+        sources: [{ id: "source-1", alias: "area", kind: "quantity", setName: "Qto_WallBaseQuantities", valueName: "NetSideArea" }],
+        formula: "area * 1.1",
+        unit: "m²",
+      },
+    },
+    {
+      code: "14.01",
+      description: "Doors × U-value",
+      query: {
+        // A single condition holding a semicolon.
+        filters: filters({
+          classes: ["IfcDoor"],
+          properties: [{ setName: "Pset_DoorCommon", propertyName: "Reference", operator: "notEquals", value: "D1; D2" }],
+        }),
+        sources: [
+          { id: "source-1", alias: "count", kind: "count" },
+          { id: "source-2", alias: "u", kind: "property", setName: "Pset_DoorCommon", valueName: "ThermalTransmittance" },
+        ],
+        formula: "count * u",
+      },
+    },
+  ];
+
+  it("gives back exactly the queries it was written from", () => {
+    const back = readQuantityWorkbook(
+      createQuantityWorkbook(definitions.map((definition) => ({ ...definition, result: null }))),
+    );
+    // Absent and empty mean the same to a query; compare without the optional
+    // fields the reader fills with their empty form.
+    const tidy = (query: QuantityQuery) => ({
+      ...query,
+      filters: {
+        materialCategories: [],
+        classificationSystem: "",
+        classificationCodes: [],
+        propertyCombination: "all",
+        ...query.filters,
+      },
+      unit: query.unit || undefined,
+    });
+    expect(back.map((definition) => ({ ...definition, query: tidy(definition.query) }))).toEqual(
+      definitions.map((definition) => ({ ...definition, query: tidy(definition.query) })),
+    );
+  });
+
+  it("still reads a hand-made table that separates values with commas, semicolons or slashes", () => {
+    const [definition] = parseQuantityConfigurationRows([
+      ["Code", "Description", "IfcClass", "Material", "Quantity"],
+      ["1", "Mixed", "IfcWall, IfcSlab", "MASONRY / CONCRETE; /^Steel S\\d+,\\d$/", "(element count)"],
+    ]);
+    expect(definition.query.filters.classes).toEqual(["IfcWall", "IfcSlab"]);
+    expect(definition.query.filters.materials).toEqual(["MASONRY", "CONCRETE", "/^Steel S\\d+,\\d$/"]);
   });
 });

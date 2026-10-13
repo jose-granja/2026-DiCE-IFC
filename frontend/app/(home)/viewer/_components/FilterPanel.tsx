@@ -10,12 +10,13 @@
  * compartment that is not a slab").
  *
  * Union within a dimension, intersection across them; see `lib/viewer/facets.ts`,
- * where that rule is unit-tested. This component is the UI over it.
+ * where that rule is unit-tested. This component is the UI over it: the ticks
+ * live in `facet-selection-store.ts`, and `FacetFilterSync` applies them, so a
+ * filter stays on when this panel closes.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useQueries } from "@tanstack/react-query";
 import { ChevronRight, Eye, EyeOff, Filter, Loader2, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -23,16 +24,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getModelHandle } from "@/lib/viewer/loader";
+import { useFacetSelectionStore } from "@/lib/viewer/facet-selection-store";
+import { useModelFacets } from "@/lib/viewer/use-model-facets";
 import { useViewerStore, type EntityRef } from "@/lib/viewer/store";
 import {
   FACET_DIMENSIONS,
   emptySelection,
-  hierarchyFacets,
-  resolveVisible,
   selectionIsEmpty,
   type FacetDimension,
-  type ModelFacets,
 } from "@/lib/viewer/facets";
 import { cn } from "@/lib/utils";
 
@@ -42,7 +41,6 @@ const SEARCHABLE_AT = 8;
 export function FilterPanel() {
   const t = useTranslations("viewer.filterPanel");
   const models = useViewerStore((s) => s.models);
-  const setFacetVisible = useViewerStore((s) => s.setFacetVisible);
   const hidden = useViewerStore((s) => s.hidden);
   const hide = useViewerStore((s) => s.hide);
   const show = useViewerStore((s) => s.show);
@@ -65,40 +63,14 @@ export function FilterPanel() {
     [models],
   );
 
-  const [selection, setSelection] = useState(emptySelection);
+  const selection = useFacetSelectionStore((s) => s.selection);
+  const setSelection = useFacetSelectionStore((s) => s.setSelection);
   const [open, setOpen] = useState<Set<FacetDimension>>(
     () => new Set<FacetDimension>(["classes"]),
   );
   const [search, setSearch] = useState<Partial<Record<FacetDimension, string>>>({});
 
-  // One query per model, so a second model appearing does not refetch the first.
-  const queries = useQueries({
-    queries: ready.map((model) => ({
-      queryKey: ["filter-facets", model.summary.id],
-      staleTime: Infinity,
-      retry: false,
-      queryFn: async (): Promise<ModelFacets> => {
-        const handle = getModelHandle(model.summary.id);
-        if (!handle) throw new Error("That model is no longer loaded.");
-
-        const [facets, tree] = await Promise.all([
-          handle.getFilterFacets(),
-          handle.getSpatialTree(),
-        ]);
-        return {
-          modelId: model.summary.id,
-          facets,
-          hierarchy: hierarchyFacets(tree),
-        };
-      },
-    })),
-  });
-
-  const loading = queries.some((query) => query.isLoading);
-  // Derived, not memoised: `useQueries` hands back a fresh array every render,
-  // so any dependency list over it would either be unstable or a lie. The work
-  // is a flatMap over a handful of models.
-  const facets = queries.flatMap((query) => (query.data ? [query.data] : []));
+  const { facets, loading } = useModelFacets();
 
   /**
    * Every value offered, per dimension, with how many elements carry it.
@@ -153,25 +125,6 @@ export function FilterPanel() {
 
     return { options: merged, refsByDimension: refs };
   })();
-
-  /**
-   * Push the resolved set into the store.
-   *
-   * Cleared on unmount, or the filter outlives the panel and the viewer is left
-   * hiding things with no visible control to explain why.
-   */
-  const applied = useRef(false);
-  useEffect(() => {
-    const visible = resolveVisible(facets, selection);
-    setFacetVisible(visible);
-    applied.current = visible !== null;
-  }, [facets, selection, setFacetVisible]);
-
-  useEffect(() => {
-    return () => {
-      if (applied.current) useViewerStore.getState().setFacetVisible(null);
-    };
-  }, []);
 
   const toggle = (dimension: FacetDimension, value: string) => {
     setSelection((current) => {

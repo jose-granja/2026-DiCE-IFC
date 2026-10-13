@@ -121,7 +121,9 @@ test("adds a comment to a topic", async ({ page }) => {
   await importFiles(page, [LABELS]);
   await openFirstTopic(page);
 
-  await page.getByLabel("You").fill("engenheiro@example.pt");
+  await page.getByRole("button", { name: "Author", exact: true }).click();
+  await page.getByLabel("Author email for new topics and comments").fill("engenheiro@example.pt");
+  await page.keyboard.press("Escape");
   await page.getByLabel("New comment").fill("Confirmado em obra.");
   await page.getByRole("button", { name: "Add comment" }).click();
 
@@ -270,16 +272,18 @@ test("raises a topic from the viewer, carrying a viewpoint", async ({ page }) =>
     timeout: 60_000,
   });
 
+  await page.getByRole("tab", { name: "BCF", exact: true }).click();
   await page.getByRole("button", { name: "New topic" }).click();
-  await page.getByLabel("Title *").fill("Viga sem revestimento");
-  await page.getByRole("button", { name: "Create topic" }).click();
+  await page.getByLabel("Topic title").fill("Viga sem revestimento");
+  await page.getByRole("button", { name: "Capture current view" }).click();
 
-  // Lands on the BCF panel with the topic selected and its viewpoint attached.
-  await expect(page).toHaveURL(/panel=bcf/);
+  // The panel creates topics in place, then attaches the current camera.
   await expect(page.getByLabel("Topic title")).toHaveValue("Viga sem revestimento");
   await expect(
     page.getByRole("button", { name: "Open viewpoint", exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Show 3D markers" }).click();
+  await expect(page.locator("[data-bcf-marker]")).toHaveAttribute("data-marker-source", "camera");
 });
 
 test("restores a viewpoint it captured from the viewer", async ({ page }) => {
@@ -289,10 +293,11 @@ test("restores a viewpoint it captured from the viewer", async ({ page }) => {
     timeout: 60_000,
   });
 
+  await page.getByRole("tab", { name: "BCF", exact: true }).click();
   await page.getByRole("button", { name: "New topic" }).click();
-  await page.getByLabel("Title *").fill("Round trip");
-  await page.getByRole("button", { name: "Create topic" }).click();
-  await expect(page).toHaveURL(/panel=bcf/);
+  await page.getByLabel("Topic title").fill("Round trip");
+  await page.getByRole("button", { name: "Capture current view" }).click();
+  await expect(page.getByRole("button", { name: "Open viewpoint", exact: true })).toBeVisible();
 
   // Navigate in-app rather than with goto(). A full reload drops both stores:
   // the models would be gone and there would be nothing to restore into, which

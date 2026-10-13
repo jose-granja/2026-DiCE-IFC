@@ -113,3 +113,24 @@ decision by a longer route.
 **Use `@ifc-lite/bcf` for reading and write ourselves.** Splits the round-trip
 across two models of the data and doubles the vocabulary. The reader is the part
 with the defects, so this keeps the wrong half.
+
+## 2026-10-13 — Topic markers in the viewer
+
+The BCF panel can toggle numbered, status-coloured topic markers, following
+[IFC-lite's overlay approach](https://github.com/LTplus-AG/ifc-lite/blob/main/docs/guide/bcf.md).
+Our normalised BCF data still goes through our own reader and writer. Pure
+`markers.ts` locates each topic above a selected component (or a visible
+exception when isolated), falling back to the saved camera target. The latter
+uses the same IFC-to-render frame conversion as restoring a viewpoint.
+
+`actions.ts` resolves GlobalIds and reads the renderer's transformed bounds.
+The viewport projects those locations into accessible HTML buttons with dotted
+connectors; overlapping pins are separated while their anchors stay on the
+element. They follow the topic filters, and clicking one opens its topic editor
+and the viewpoint that supplied its location. Topics without a usable location
+are counted explicitly. Disabling markers stops their projection loop; marker
+visibility and editor state are session UI state, never archive content.
+
+Unit tests cover coordinate shifts, isolation, camera fallbacks and overlapping
+pins. Browser tests cover toggling, filtering, camera motion, opening a topic
+from another panel, and loading/unloading its model.

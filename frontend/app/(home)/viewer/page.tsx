@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -33,6 +33,10 @@ const PANELS = [
 import ModuleHeader from "@/components/ModuleHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useViewerStore } from "@/lib/viewer/store";
+import { useViewerPanelStore } from "@/lib/viewer/panel-store";
+import { useFacetSelectionStore } from "@/lib/viewer/facet-selection-store";
+import { FACET_DIMENSIONS } from "@/lib/viewer/facets";
+import { useGlobeStore } from "@/lib/viewer/globe-store";
 
 import { ResizeHandle, useResizableWidth } from "@/components/PanelResizeHandle";
 import ViewerCanvas from "./_components/ViewerCanvas";
@@ -50,6 +54,8 @@ import ClashPanel from "./_components/ClashPanel";
 import ModelDropZone, { AddModelsButton } from "./_components/ModelDropZone";
 import PointCloudList from "./_components/PointCloudList";
 import WorkspaceActions from "./_components/WorkspaceActions";
+import ProjectActions from "./_components/ProjectActions";
+import FacetFilterSync from "./_components/FacetFilterSync";
 import { QuantityQueryPanel } from "./_components/QuantityQueryPanel";
 import TypeVisibilitySettings from "./_components/TypeVisibilitySettings";
 import DisplaySettings from "./_components/DisplaySettings";
@@ -61,6 +67,20 @@ import DisplaySettings from "./_components/DisplaySettings";
  * (AGENTS.md §1). Model bytes are read here and handed to a Web Worker; they
  * never reach a Server Action or a network call.
  */
+/**
+ * Marks a tab whose work stays on while it is closed — the filter, the 3D world
+ * context. Decorative: the trigger's `title` carries the words, and the tab's
+ * accessible name stays the tab's own.
+ */
+function ActiveDot() {
+  return (
+    <span
+      aria-hidden
+      className="bg-primary ring-card absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full ring-2"
+    />
+  );
+}
+
 export default function ViewerPage() {
   const t = useTranslations("viewer");
   // const modelCount = useViewerStore((s) => s.models.length);
@@ -97,6 +117,22 @@ export default function ViewerPage() {
     setTab(fromUrl);
   }
 
+  // The same, for a tab asked for from elsewhere on the page (a project restore).
+  const request = useViewerPanelStore((s) => s.request);
+  const [seenRequest, setSeenRequest] = useState(request);
+  if (request && request !== seenRequest) {
+    setSeenRequest(request);
+    if (PANELS.includes(request.panel)) setTab(request.panel);
+  }
+  useEffect(() => {
+    useViewerPanelStore.getState().report(tab);
+  }, [tab]);
+
+  const globeOn = useGlobeStore((s) => s.on);
+  const filterCount = useFacetSelectionStore((s) =>
+    FACET_DIMENSIONS.reduce((count, dimension) => count + s.selection[dimension].size, 0),
+  );
+
   // Models deliberately survive leaving this page. `/georef` grades and
   // re-places what is already loaded, and Phases 6 and 7 jump from an IDS
   // failure or a BCF viewpoint straight back into this viewer — all of which
@@ -107,7 +143,7 @@ export default function ViewerPage() {
     <div className="flex h-[calc(100vh-3.25rem)] flex-col">
       <ModuleHeader
         title={t("header.title")}
-        description={t("header.description")}
+        // description={t("header.description")}
         actions={
           <>
             <DisplaySettings />
@@ -115,6 +151,10 @@ export default function ViewerPage() {
             <VisibilityActions />
             <WorkspaceActions />
             <AddModelsButton />
+            {/* After "Add models", not before: its hidden folder and .zip
+                inputs must not become the page's first file input, which is
+                the model picker and what the e2e suite targets. */}
+            <ProjectActions />
           </>
         }
       />
@@ -162,17 +202,32 @@ export default function ViewerPage() {
                   <ListTree className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
                   <span className="panel-tab-text">{t("tabs.structure")}</span>
                 </TabsTrigger>
-                <TabsTrigger value="classes" className="text-xs">
+                <TabsTrigger
+                  value="classes"
+                  className="relative text-xs"
+                  // A filter stays on when this tab is closed, so the tab says so.
+                  title={filterCount > 0 ? t("tabs.filtersActive", { count: filterCount }) : undefined}
+                  data-filter-active={filterCount > 0 || undefined}
+                >
                   <Funnel className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
                   <span className="panel-tab-text">{t("tabs.filters")}</span>
+                  {filterCount > 0 && <ActiveDot />}
                 </TabsTrigger>
                 <TabsTrigger value="quantities" className="text-xs">
                   <Sigma className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
                   <span className="panel-tab-text">{t("tabs.quantities")}</span>
                 </TabsTrigger>
-                <TabsTrigger value="georef" className="text-xs">
+                <TabsTrigger
+                  value="georef"
+                  className="relative text-xs"
+                  // The globe stays on when this tab is closed, and it is the
+                  // one thing streaming from a third party, so the tab says so.
+                  title={globeOn ? t("tabs.globeActive") : undefined}
+                  data-globe-active={globeOn || undefined}
+                >
                   <Globe className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
                   <span className="panel-tab-text">{t("tabs.geo")}</span>
+                  {globeOn && <ActiveDot />}
                 </TabsTrigger>
                 <TabsTrigger value="section" className="text-xs">
                   <Scissors className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
@@ -247,6 +302,7 @@ export default function ViewerPage() {
 
           <div className="relative min-h-0 flex-1">
             <ViewerCanvas />
+            <FacetFilterSync />
           </div>
 
           <ResizeHandle

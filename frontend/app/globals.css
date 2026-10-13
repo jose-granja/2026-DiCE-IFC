@@ -28,11 +28,112 @@
    --------------------------------------------------------------------------- */
 
 :root {
-  /* Tokyo Night, the palette ifclite uses. Rounded rather than square: the
-     glass panels below need a radius to read as panels rather than as regions
-     of a flat page. */
+  /* Minimalist Monochromatic Light Theme: Crisp architectural paper aesthetic,
+     high contrast, and clean borders for maximum readability. */
   --radius: 0.5rem;
-  --background: #ffffff; /* e0e6f0 */
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #fffffff2;
+  --card-foreground: #09090b;
+  --popover: #f4f4f5;
+  --popover-foreground: #09090b;
+  --primary: #09090b; /* Deep Black for primary actions */
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: #f4f4f5;
+  --secondary-foreground: #09090b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #09090b14;
+  --accent-foreground: #09090b;
+  --destructive: #ef4444;
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: #0000001f;
+  --input: #00000029;
+  --ring: #09090b;
+
+  /* Chart series: Grayscale shades (from dark to light) that remain 
+     distinguishable for charts and data dashboards. */
+  --chart-1: #09090b;
+  --chart-2: #3f3f46;
+  --chart-3: #71717a;
+  --chart-4: #a1a1aa;
+  --chart-5: #d4d4d8;
+
+  --success: #16a34a;
+  --success-foreground: hsl(0 0% 100%);
+  --warning: #d97706;
+  --warning-foreground: hsl(30 60% 18%);
+
+  --sidebar: #ffffffb8;
+  --sidebar-foreground: #09090b;
+  --sidebar-primary: #09090b;
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: #09090b14;
+  --sidebar-accent-foreground: #09090b;
+  --sidebar-border: #0000001f;
+  --sidebar-ring: #09090b;
+
+  /* Dark surface used for the footer and the viewer chrome. It anchors 
+     the 3D viewport controls consistently. */
+  --background-secondary: #09090b;
+  --background-secondary-foreground: #a1a1aa;
+  --background-secondary-muted: #71717a;
+  --background-primary: #09090b;
+}
+
+.dark {
+  /* True Monochromatic Dark Theme: Deep black surfaces that ensure 
+     zero color tint interference with your 3D canvas models. */
+  --background: #000000;
+  --foreground: #a1a1aa;
+  --card: #09090be6;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa; /* Crisp White for primary contrast */
+  --primary-foreground: #000000;
+  --secondary: #18181b;
+  --secondary-foreground: #fafafa;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --destructive: #f87171;
+  --destructive-foreground: #000000;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #fafafa;
+
+  --chart-1: #fafafa;
+  --chart-2: #d4d4d8;
+  --chart-3: #a1a1aa;
+  --chart-4: #71717a;
+  --chart-5: #52525b;
+
+  --success: #4ade80;
+  --success-foreground: #000000;
+  --warning: #facc15;
+  --warning-foreground: #000000;
+
+  --sidebar: #09090be6;
+  --sidebar-foreground: #a1a1aa;
+  --sidebar-primary: #fafafa;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #27272a;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #27272a;
+  --sidebar-ring: #fafafa;
+
+  --background-secondary: #050505;
+  --background-secondary-foreground: hsl(0 0% 88%);
+  --background-secondary-muted: hsl(0 0% 72%);
+  --background-primary: #050505;
+}
+
+/* :root {
+
+  --radius: 0.5rem;
+  --background: #ffffff;
   --foreground: #1a1b2e;
   --card: #ffffffcc;
   --card-foreground: #1a1b2e;
@@ -52,9 +153,6 @@
   --input: #00000029;
   --ring: #7aa2f7;
 
-  /* Chart series: brand steel first, then hues spaced far enough apart to stay
-     separable, including for the most common colour-vision deficiencies. Used
-     by the IDS validation dashboards. */
   --chart-1: #3f5bb8;
   --chart-2: #c2691f;
   --chart-3: #2f8f76;
@@ -75,10 +173,6 @@
   --sidebar-border: #0000001f;
   --sidebar-ring: #7aa2f7;
 
-  /* Dark surface used for the footer and the viewer chrome. It stays dark in
-     both themes, so it needs its own foreground: the ordinary
-     --muted-foreground is a mid grey and drops to 2.2:1 against it in light
-     mode. Anything on this surface should use these two tokens. */
   --background-secondary: #1a1b26;
   --background-secondary-foreground: #a9b1d6;
   --background-secondary-muted: #7982a9;
@@ -86,9 +180,6 @@
 }
 
 .dark {
-  /* Near-black with a trace of the brand hue rather than pure grey, so the
-     steel does not look pasted onto the surface, and light enough that the 3D
-     canvas (which sits on --background) does not read as a hole in the page. */
   --background: #1a1b26;
   --foreground: #a9b1d6;
   --card: #16161ee6;
@@ -133,7 +224,7 @@
   --background-secondary-foreground: hsl(0 0% 88%);
   --background-secondary-muted: hsl(0 0% 72%);
   --background-primary: #13131a;
-}
+} */
 
 @theme inline {
   --color-background: var(--background);

@@ -33,6 +33,18 @@ const handles = new Map<string, ModelHandle>();
  */
 const fileHandles = new Map<string, FileSystemFileHandle>();
 
+/**
+ * The file each model was opened from, exactly as opened — a `.ifczip` stays a
+ * `.ifczip`, so a signed container saved into a project folder still verifies.
+ * A `File` from a picker or a drop is a reference to the bytes on disk, not a
+ * copy in memory, so holding one costs next to nothing.
+ */
+const sourceFiles = new Map<string, File>();
+
+export function getSourceFile(modelId: string): File | undefined {
+  return sourceFiles.get(modelId);
+}
+
 export function getModelHandle(modelId: string): ModelHandle | undefined {
   return handles.get(modelId);
 }
@@ -94,6 +106,7 @@ export async function loadModelFile(
 
     modelId = handle.summary.id;
     handles.set(modelId, handle);
+    sourceFiles.set(modelId, file);
     if (fileHandle) fileHandles.set(modelId, fileHandle);
 
     // The model's own name, not the entry's: "model.ifczip" is what the user
@@ -206,6 +219,7 @@ export async function loadModelFiles(
 export async function unloadModel(modelId: string): Promise<void> {
   const handle = handles.get(modelId);
   handles.delete(modelId);
+  sourceFiles.delete(modelId);
   fileHandles.delete(modelId);
   useViewerStore.getState().removeModel(modelId);
   // The store is updated first so the UI never renders a model whose worker

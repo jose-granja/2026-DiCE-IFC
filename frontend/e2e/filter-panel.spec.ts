@@ -18,7 +18,9 @@ async function openFilters(page: Page) {
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({
     timeout: 90_000,
   });
-  await page.getByRole("tab", { name: "Classes" }).click();
+  // By id: the tab's label changed from "Classes" to "Filters", and "Filters"
+  // is also the quantity panel's own inner tab.
+  await page.locator('[role="tab"][id$="-trigger-classes"]').click();
   await expect(page.locator("[data-filter-panel]")).toBeVisible();
 }
 
@@ -155,18 +157,39 @@ test("a group can cut across class", async ({ page }) => {
   await expect(visibleEntities(page)).toHaveAttribute("data-visible-entities", "2/3");
 });
 
-test("the filter does not outlive the panel", async ({ page }) => {
-  // Otherwise the viewer keeps hiding things with no visible control to
-  // explain why, which reads as a rendering bug.
+test("the filter stays on when the panel closes, and its tab says so", async ({ page }) => {
+  // It used to be cleared on close, so nothing could stay hidden without a
+  // visible control. That also meant a filter could not be looked at against
+  // the 3D world context in the Geo tab, or saved with it. The control is now
+  // the badge on the tab instead.
+  await openFilters(page);
+  await tick(page, "materials", "Timber CLT");
+  await expect(visibleEntities(page)).toHaveAttribute("data-visible-entities", "1/3");
+
+  const filtersTab = page.locator('[role="tab"][id$="-trigger-classes"]');
+  await page.getByRole("tab", { name: "Structure" }).click();
+  await expect(page.locator("[data-filter-panel]")).toHaveCount(0);
+  await expect(visibleEntities(page)).toHaveAttribute("data-visible-entities", "1/3");
+  await expect(filtersTab).toHaveAttribute("data-filter-active", "true");
+  await expect(filtersTab).toHaveAttribute("title", /1 filter value is on/);
+  // The tab keeps its own name; the badge is not part of it.
+  await expect(filtersTab).toHaveAccessibleName("Filters");
+
+  // Back on the tab, the tick is still there, and clearing it ends the filter.
+  await filtersTab.click();
+  await expect((await expand(page, "materials")).getByLabel("Timber CLT", { exact: true })).toBeChecked();
+  await page.getByRole("button", { name: /Clear 1/ }).click();
+  await expect(visibleEntities(page)).toHaveAttribute("data-visible-entities", "3/3");
+  await expect(filtersTab).not.toHaveAttribute("data-filter-active", "true");
+});
+
+test("closing every model ends the filter", async ({ page }) => {
   await openFilters(page);
   await tick(page, "classes", "IfcSlab");
-  await expect(page.getByRole("button", { name: /Clear 1/ })).toBeVisible();
+  const filtersTab = page.locator('[role="tab"][id$="-trigger-classes"]');
+  await expect(filtersTab).toHaveAttribute("data-filter-active", "true");
 
-  await page.getByRole("tab", { name: "Structure" }).click();
-  await page.waitForTimeout(500);
-
-  const hidden = await page.evaluate(() =>
-    document.querySelectorAll("[data-filter-panel]").length,
-  );
-  expect(hidden).toBe(0);
+  await page.locator('[role="tab"][id$="-trigger-models"]').click();
+  await page.getByRole("button", { name: "Close facets-ifc4.ifc" }).click();
+  await expect(filtersTab).not.toHaveAttribute("data-filter-active", "true");
 });

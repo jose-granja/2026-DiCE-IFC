@@ -8,7 +8,12 @@
  * full filter of each group, which a single "class" cell cannot hold.
  */
 
-import { buildWorkbook, namedWorkbookSheets } from "@/lib/spreadsheets/quantity-workbook";
+import {
+  buildWorkbook,
+  joinListCell,
+  namedWorkbookSheets,
+  splitListCell,
+} from "@/lib/spreadsheets/quantity-workbook";
 import { EMPTY_ELEMENT_FILTER, type ElementFilter, type QuantityQueryOperator } from "@/lib/ifc/types";
 import { splitTextList } from "@/lib/ifc/text-match";
 import { emptyMatrix, newGroup, newTolerance, ruleKey, sanitiseMatrix } from "./matrix";
@@ -30,7 +35,10 @@ const OPERATOR_TEXT: Record<QuantityQueryOperator, string> = {
   exists: "exists",
 };
 
-const joinList = (values: string[]) => values.join(", ");
+// One value per line, as the quantity workbook writes them; a hand-typed cell
+// may still use commas, which split the way the filter fields in the app do.
+const joinList = (values: string[]) => joinListCell(values);
+const splitList = (cell: string | undefined) => splitListCell(cell ?? "", splitTextList);
 
 function propertyText(filter: ElementFilter): string {
   return filter.properties
@@ -225,7 +233,13 @@ export function readClashWorkbook(bytes: Uint8Array): ClashMatrix {
   for (let j = 0; j < columns; j += 1) {
     const discipline = (grid[0]?.[2 + j] ?? "").trim();
     const label = (grid[1]?.[2 + j] ?? "").trim();
-    const fromFilters = filterRows?.slice(1).find((row) => (row[0] ?? "").trim() === label);
+    // By position first: the Filters sheet lists the groups in matrix order,
+    // and two groups may share a name (a duplicated group starts with its
+    // original's), which a lookup by name would give the first one's filter.
+    const sameName = (row: string[] | undefined) => (row?.[0] ?? "").trim() === label;
+    const fromFilters = sameName(filterRows?.[j + 1])
+      ? filterRows![j + 1]
+      : filterRows?.slice(1).find(sameName);
 
     const group = newGroup(label || `Group ${j + 1}`);
     group.discipline = discipline || undefined;
@@ -234,14 +248,14 @@ export function readClashWorkbook(bytes: Uint8Array): ClashMatrix {
     group.filter = fromFilters
       ? {
           ...EMPTY_ELEMENT_FILTER,
-          classes: splitTextList(fromFilters[2] ?? ""),
-          names: splitTextList(fromFilters[3] ?? ""),
-          predefinedTypes: splitTextList(fromFilters[4] ?? ""),
-          objectTypes: splitTextList(fromFilters[5] ?? ""),
-          materials: splitTextList(fromFilters[6] ?? ""),
-          materialCategories: splitTextList(fromFilters[7] ?? ""),
+          classes: splitList(fromFilters[2]),
+          names: splitList(fromFilters[3]),
+          predefinedTypes: splitList(fromFilters[4]),
+          objectTypes: splitList(fromFilters[5]),
+          materials: splitList(fromFilters[6]),
+          materialCategories: splitList(fromFilters[7]),
           classificationSystem: (fromFilters[11] ?? "").trim(),
-          classificationCodes: splitTextList(fromFilters[12] ?? ""),
+          classificationCodes: splitList(fromFilters[12]),
           properties: parseProperties(fromFilters[8] ?? ""),
           propertyCombination: /any/i.test(fromFilters[9] ?? "") ? "any" : "all",
         }

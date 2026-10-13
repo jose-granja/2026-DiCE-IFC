@@ -114,3 +114,61 @@ describe("clash workbook", () => {
     expect(matrix.settings).toMatchObject({ checkDuplicate: true, checkInside: true, checkOverlap: true });
   });
 });
+
+/** Ids are minted on read, so they are left out of the comparison. */
+function withoutId<T extends { id: string }>(value: T): Omit<T, "id"> {
+  const copy: Partial<T> = { ...value };
+  delete copy.id;
+  return copy as Omit<T, "id">;
+}
+
+describe("the workbook as a project's clash matrix", () => {
+  // A project folder stores the matrix only as this workbook, so reading it
+  // back has to give the same matrix, not a close one.
+  it("gives back exactly the matrix it was written from", () => {
+    const filter = {
+      ...EMPTY_ELEMENT_FILTER,
+      classes: ["IfcWall*", "/^IfcCurtain(Wall|Panel)$/"],
+      // A regex may hold a comma, and an object type " / ".
+      names: ["/^Bloco (A|B), piso \\d+$/"],
+      objectTypes: ["Wall / Exterior"],
+      materials: ["Concrete*"],
+      materialCategories: ["Concrete"],
+      classificationSystem: "Uniclass 2015",
+      classificationCodes: ["Ss_25*", "Ss_30_10_30"],
+      propertyCombination: "any" as const,
+      properties: [
+        { setName: "Pset_WallCommon", propertyName: "FireRating", operator: "equals" as const, value: "REI 60" },
+        { setName: "Pset_WallCommon", propertyName: "IsExternal", operator: "exists" as const, value: "" },
+      ],
+    };
+    const first: ClashGroup = { ...newGroup("Walls"), discipline: "ARQ", note: "Check the façade.", filter };
+    // Same name as the first: a duplicated group starts that way.
+    const second: ClashGroup = {
+      ...newGroup("Walls"),
+      discipline: "EST",
+      filter: { ...EMPTY_ELEMENT_FILTER, classes: ["IfcColumn"] },
+    };
+    let matrix: ClashMatrix = { ...emptyMatrix(), groups: [first, second] };
+    matrix = setRule(matrix, first.id, second.id, matrix.tolerances[1].id);
+    matrix = { ...matrix, settings: { ...matrix.settings, ignoreSameModel: true, checkDuplicate: false } };
+
+    const back = readClashWorkbook(createClashWorkbook(matrix));
+
+    // A rule is unordered (A×B is B×A), and an absent optional filter field
+    // means the same as an empty one.
+    const shape = (m: ClashMatrix) => ({
+      groups: m.groups.map((group) => ({
+        ...withoutId(group),
+        filter: { classificationSystem: "", classificationCodes: [], propertyCombination: "all", ...group.filter },
+      })),
+      tolerances: m.tolerances.map(withoutId),
+      rules: m.rules.map((rule) => {
+        const pair = [rule.a, rule.b].map((id) => m.groups.findIndex((group) => group.id === id)).sort();
+        return { pair, tolerance: m.tolerances.find((tolerance) => tolerance.id === rule.toleranceId)?.name };
+      }),
+      settings: { ...m.settings, maxClashes: undefined },
+    });
+    expect(shape(back)).toEqual(shape(matrix));
+  });
+});

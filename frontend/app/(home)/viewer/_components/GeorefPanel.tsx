@@ -233,6 +233,7 @@ export function GeorefPanel() {
       <GlobeControls
         origin={modelAnchor?.centre ?? null}
         northCorrection={modelAnchor?.northCorrection ?? 0}
+        ready={Boolean(model?.coordinates && draft)}
       />
       <ContextModel
         placement={
@@ -243,6 +244,7 @@ export function GeorefPanel() {
         referencePoint={modelAnchor?.centre ?? null}
         originShift={model?.coordinates?.originShift ?? [0, 0, 0]}
         modelOffset={model ? (placements[model.summary.id]?.offset ?? ZERO) : ZERO}
+        ready={Boolean(model?.coordinates && draft)}
       />
 
       {!model ? (

@@ -67,11 +67,58 @@ function meaningful(value: unknown): string {
   return /^(?:-|—|–|n\/a)$/i.test(text) ? "" : text;
 }
 
-function list(value: string): string[] {
-  return meaningful(value)
-    .split(/(?:\r?\n|\s+\/\s+|;|,)/)
-    .map((entry) => meaningful(entry))
-    .filter(Boolean);
+/**
+ * Several values in one cell — how both workbooks here store a filter's list.
+ *
+ * One value per line is what they write, and what reads back exactly. A
+ * hand-made table often uses commas, semicolons or " / " instead, so a cell on
+ * a single line is still split on those — never inside a `/regex/`, which may
+ * contain any of them. A single value that itself contains one of those
+ * characters is written with a trailing line break: Excel barely shows it, and
+ * it tells the reader this cell is one value per line, so "Wall / Exterior"
+ * comes back as one object type rather than two.
+ */
+export function joinListCell(values: readonly string[]): string {
+  const text = values.join("\n");
+  return values.length === 1 && LIST_SEPARATOR.test(values[0]) ? `${text}\n` : text;
+}
+
+const LIST_SEPARATOR = /[,;]|\s\/\s/;
+/** A `/regex/` at the start of the text, ending where a value would. */
+const LEADING_REGEX = /^\/(?:\\.|[^\\/\n])+\/[a-z]*(?=\s*(?:[,;]|$)|\s+\/\s)/;
+
+/** One line of a hand-made list cell, split on commas, semicolons and " / ". */
+export function splitLegacyListLine(line: string): string[] {
+  const values: string[] = [];
+  let rest = line;
+  for (;;) {
+    rest = rest.replace(/^\s+/, "");
+    if (!rest) break;
+    const regex = LEADING_REGEX.exec(rest);
+    const separator = regex ? null : LIST_SEPARATOR.exec(rest);
+    const end = regex ? regex[0].length : separator ? separator.index : rest.length;
+    values.push(rest.slice(0, end).trim());
+    rest = rest.slice(end).replace(/^\s*(?:[,;]|\/)/, "");
+  }
+  return values;
+}
+
+/** Read a list cell written by `joinListCell`, or by hand. */
+export function splitListCell(
+  raw: string,
+  splitLine: (line: string) => string[] = splitLegacyListLine,
+): string[] {
+  const values = /\r?\n/.test(raw) ? raw.split(/\r?\n/) : splitLine(raw);
+  return values.map((entry) => meaningful(entry)).filter(Boolean);
+}
+
+function list(raw: string): string[] {
+  return splitListCell(raw);
+}
+
+/** Lines of a property or quantity cell; a hand-made one may use semicolons. */
+function lines(raw: string): string[] {
+  return splitListCell(raw, (line) => line.split(";"));
 }
 
 function normalizeHeader(value: string): string {
@@ -109,6 +156,12 @@ function cell(row: string[], headers: string[], name: keyof typeof HEADER_ALIASE
   return index < 0 ? "" : meaningful(row[index]);
 }
 
+/** The cell as stored, before trimming — a trailing line break means something there. */
+function rawCell(row: string[], headers: string[], name: keyof typeof HEADER_ALIASES) {
+  const index = findHeader(headers, name);
+  return index < 0 ? "" : String(row[index] ?? "");
+}
+
 const OPERATOR_TEXT: Record<QuantityQueryOperator, string> = {
   equals: "=",
   notEquals: "!=",
@@ -122,8 +175,7 @@ const OPERATOR_TEXT: Record<QuantityQueryOperator, string> = {
 
 function parseProperties(value: string): QuantityQuery["filters"]["properties"] {
   const properties: QuantityQuery["filters"]["properties"] = [];
-  for (const line of meaningful(value).split(/\r?\n|;/).map((entry) => entry.trim())) {
-    if (!meaningful(line)) continue;
+  for (const line of lines(value)) {
     const expression = line.match(/^(.+?)(?:\s+(contains|exists)\s*|\s*(>=|<=|!=|<>|=|>|<)\s*)(.*)$/i);
     if (!expression) continue;
     const path = meaningful(expression[1]);
@@ -157,9 +209,7 @@ function aliasFromPath(path: string, fallback: string) {
 function parseSources(value: string) {
   const sources: QuantityQuery["sources"] = [];
   const aliases = new Set<string>();
-  for (const [index, rawLine] of meaningful(value).split(/\r?\n|;/).entries()) {
-    const line = meaningful(rawLine);
-    if (!line) continue;
+  for (const [index, line] of lines(value).entries()) {
     const assignment = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/);
     const explicitAlias = assignment?.[1];
     let path = meaningful(assignment?.[2] ?? line);
@@ -209,8 +259,7 @@ export function parseQuantityConfigurationRows(rows: string[][]): QuantityWorkbo
   const headers = rows[headerIndex];
   const definitions: QuantityWorkbookDefinition[] = [];
   for (const [rowOffset, row] of rows.slice(headerIndex + 1).entries()) {
-    const quantityText = cell(row, headers, "quantities");
-    const sources = parseSources(quantityText);
+    const sources = parseSources(rawCell(row, headers, "quantities"));
     // Chapter headings and unmapped rows from the reference table have no
     // measurable source. Keeping them would accidentally count every model
     // element when the list is executed.
@@ -218,20 +267,20 @@ export function parseQuantityConfigurationRows(rows: string[][]): QuantityWorkbo
     const explicitFormula = cell(row, headers, "formula").replace(/^=/, "").trim();
     const formula = explicitFormula ||
       (sources.length > 1 ? sources.map((source) => source.alias).join(" + ") : undefined);
-    const properties = parseProperties(cell(row, headers, "properties"));
+    const properties = parseProperties(rawCell(row, headers, "properties"));
     const rule = normalizeHeader(cell(row, headers, "propertyRule"));
     definitions.push({
       code: cell(row, headers, "code"),
       description: cell(row, headers, "description") || `Quantity ${rowOffset + 1}`,
       query: {
         filters: {
-          classes: list(cell(row, headers, "classes")),
-          predefinedTypes: list(cell(row, headers, "predefinedTypes")),
-          objectTypes: list(cell(row, headers, "objectTypes")),
-          materials: list(cell(row, headers, "materials")),
-          materialCategories: list(cell(row, headers, "materialCategories")),
+          classes: list(rawCell(row, headers, "classes")),
+          predefinedTypes: list(rawCell(row, headers, "predefinedTypes")),
+          objectTypes: list(rawCell(row, headers, "objectTypes")),
+          materials: list(rawCell(row, headers, "materials")),
+          materialCategories: list(rawCell(row, headers, "materialCategories")),
           classificationSystem: cell(row, headers, "classificationSystem"),
-          classificationCodes: list(cell(row, headers, "classificationCodes")),
+          classificationCodes: list(rawCell(row, headers, "classificationCodes")),
           propertyCombination:
             rule === "all" || rule === "and" || rule === "todas" || rule === "e"
               ? "all"
@@ -378,21 +427,34 @@ function worksheet(rows: CellValue[][], widths: number[]) {
 }
 
 function propertyText(query: QuantityQuery) {
-  return query.filters.properties.map((condition) => {
+  return joinListCell(query.filters.properties.map((condition) => {
     const suffix = condition.operator === "exists" ? "exists" :
       `${OPERATOR_TEXT[condition.operator]} ${condition.value}`;
     return `${condition.setName}.${condition.propertyName} ${suffix}`;
-  }).join("\n");
+  }));
+}
+
+/** The alias `parseSources` gives a source written without one. */
+function defaultAlias(source: QuantityQuery["sources"][number], index: number) {
+  return source.kind === "count"
+    ? "count"
+    : aliasFromPath(`${source.setName}.${source.valueName}`, `value${index + 1}`);
 }
 
 function quantityText(query: QuantityQuery) {
-  const includeAliases = query.sources.length > 1;
-  return query.sources.map((source) => {
+  // Written whenever reading it back could not recover it: several sources, a
+  // formula that names it (one source with "area * 1.1" lost its alias and
+  // broke on re-import), or an alias the user chose themselves.
+  const includeAliases =
+    query.sources.length > 1 ||
+    Boolean(query.formula?.trim()) ||
+    query.sources.some((source, index) => source.alias !== defaultAlias(source, index));
+  return joinListCell(query.sources.map((source) => {
     if (source.kind === "count") return includeAliases ? `${source.alias} = (element count)` : "(element count)";
     const prefix = source.kind === "property" ? "property:" : "";
     const path = `${prefix}${source.setName}.${source.valueName}`;
     return includeAliases ? `${source.alias} = ${path}` : path;
-  }).join("\n");
+  }));
 }
 
 function sourceValues(inputs: Record<string, PropertyValue>) {
@@ -463,13 +525,13 @@ export function createQuantityWorkbook(items: QuantityWorkbookItem[]): Uint8Arra
     summaryRows.push([
       item.code,
       item.description,
-      item.query.filters.classes.join("\n"),
-      item.query.filters.predefinedTypes.join("\n"),
-      item.query.filters.objectTypes.join("\n"),
-      item.query.filters.materials.join("\n"),
-      (item.query.filters.materialCategories ?? []).join("\n"),
+      joinListCell(item.query.filters.classes),
+      joinListCell(item.query.filters.predefinedTypes),
+      joinListCell(item.query.filters.objectTypes),
+      joinListCell(item.query.filters.materials),
+      joinListCell(item.query.filters.materialCategories ?? []),
       item.query.filters.classificationSystem ?? "",
-      (item.query.filters.classificationCodes ?? []).join("\n"),
+      joinListCell(item.query.filters.classificationCodes ?? []),
       propertyText(item.query),
       item.query.filters.propertyCombination === "any" ? "ANY" : "ALL",
       quantityText(item.query),

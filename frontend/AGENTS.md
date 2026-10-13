@@ -851,6 +851,77 @@ and are drawn as points. They are listed under the model list, in the Models tab
 - **Not built:** picking or measuring on a cloud, streaming/LOD for clouds past the
   point budget, classification colouring, and units other than metres.
 
+## 8c-bis. Project folders
+
+"Project" in the viewer header saves the session as a folder — the files the user
+opened (`models/`, `pointclouds/`, `context/`, `ids/`, `bcf/`), the quantity list
+and clash matrix as Excel workbooks (`quantities/quantities.xlsx`,
+`clash/clash-matrix.xlsx`), and a `project.json` that points to each file and holds
+the rest — and loads one back (`lib/project/`). It is written to and
+read from the user's own disk; nothing crosses the network, so §1 is unchanged.
+This is separate from the older `WorkspaceActions` (file handles in IndexedDB,
+same machine only): a project folder is portable and carries the bytes.
+
+- **Chromium writes a real folder; Firefox and Safari get a `.zip` of the same
+  folder.** Only Chromium has `showDirectoryPicker`. Loading takes a folder
+  (`<input webkitdirectory>`, every browser) or the `.zip`.
+- **The quantity list and the clash matrix live only in their workbooks**, the
+  same files the panels import and export, so a project can be edited in Excel
+  and loaded back. That makes those readers part of the save format: they must
+  give back exactly what was written. Lists are one value per line (a single
+  value holding `,` `;` or ` / ` gets a trailing line break to say so), a
+  formula's alias is written whenever it could not be re-derived, and clash
+  filters are matched to groups by position. The round-trip tests in
+  `quantity-workbook.test.ts` and `clash/__tests__/workbook.test.ts` pin this.
+- **The `.zip` is written and read by `lib/project/zip.ts`, not fflate's streaming
+  `Zip`/`Unzip`.** A streaming writer cannot put an entry's size first, and for a
+  stored entry a streaming reader then finds its end by looking for the next
+  signature — which the `.xlsx` and `.bcf` *inside* the project supply. Ours
+  writes sizes and CRCs up front, reads through the central directory, and builds
+  the archive from the original Blobs so nothing is copied into memory.
+- **`project.json` is untrusted input.** Every field goes through the zod schema
+  in `manifest.ts` and a bad one is refused, naming its path, *before* the open
+  session is closed. Paths are only looked up among the picked folder's files.
+- **Model order is saved and restored exactly.** The world origin comes from the
+  first georeferenced model, and section planes and measurements are stored in
+  render space measured from it. Models load in parallel and are then put back in
+  order with `reorderModels`; if the origin still differs, the restore says so.
+- **Elements are `{ model: index, expressId }`, never a model id** — ids are minted
+  per load. The folder carries the exact bytes, so express ids come back the same.
+- **Restored measurement and plane ids are re-minted** (`restored-…`): the store's
+  counters restart at 1, and a saved `section-1` would collide with the next one.
+- **The BCF panel and the IDS editor reload their OPFS drafts on mount**, so a
+  restore writes the drafts too; otherwise the old topics come back the first time
+  the BCF tab opens.
+- **The context model and the 3D world context are placed through the Geo
+  panel**, which is what works out where the model sits on the earth. The restore
+  leaves each `pending` in its store (`context-model-store`, `globe-store`), opens
+  the Geo tab until both are placed, then opens the saved tab. Both stay when the
+  tab closes.
+- **Work that a project saves must not die with its panel.** The filter ticks
+  and the globe used to be cleared when their tab closed, so the two could never
+  be on together — a filter set before opening Geo was gone by the time the
+  project was saved. Now `FacetFilterSync` (always mounted) applies the ticks and
+  `globe-store` owns the globe; each tab shows a dot (`data-filter-active`,
+  `data-globe-active`, words in `title`) while its work is on, which is the
+  visible control the old clear-on-close rule existed to guarantee. Closing every
+  model ends both; leaving the viewer ends the globe.
+- **The globe is restored only with consent.** It is the one request that leaves
+  for a third party (ADR 003), so a project that had it on always gets the load
+  dialog — even with nothing open — with a ticked box naming the layer and who
+  receives the location. `restoreProject` turns it on only with `allowGlobe`.
+- **State a project saves must be in a store**, not a component: display
+  settings, the filter ticks, the context model, the globe and the active tab
+  were lifted for this (`display-settings.ts`, `facet-selection-store.ts`,
+  `context-model-store.ts`, `globe-store.ts`, `panel-store.ts`). The quantity list
+  stays in `localStorage` and is replaced through `replaceStoredQueryList`, which
+  tells a mounted panel to reload.
+- **Not saved:** the georeferencing draft, IDS/clash/quantity *results* (re-run
+  them), and colouring from a validation run.
+- **The header's hidden folder and `.zip` inputs come after "Add models"**, so the
+  model picker stays the page's first `input[type=file]` — which the e2e suite
+  relies on in dozens of places.
+
 ## 8d. Notices, attribution and disclaimers
 
 `/about` is where credits, licences and disclaimers live; `/privacy` is where data

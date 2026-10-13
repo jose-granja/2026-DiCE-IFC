@@ -17,9 +17,9 @@
  * Parsed in the tab, like every other file here. It is never uploaded.
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Boxes, Loader2, X } from "lucide-react";
+import { Boxes, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -31,13 +31,15 @@ import { parseGeoJson } from "@/lib/georef/geojson";
 import { parseCityGml } from "@/lib/georef/citygml";
 import { parseGeoPackage } from "@/lib/georef/geopackage";
 import type { ContextGeometry } from "@/lib/georef/context-geometry";
+import { readContextFile } from "@/lib/georef/read-context-file";
 import { mapToLocal, type Placement, type WgsPoint } from "@/lib/georef/transform";
 import { clipCityJson } from "@/lib/workers/cityjson-client";
 import { clipLargeGml } from "@/lib/workers/gml-client";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
+import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import type { Vec3 } from "@/lib/ifc/types";
+import LoadingProgress from "./LoadingProgress";
 
-const DEFAULT_CLIP_RADIUS_METRES = 100;
 const LARGE_TEXT_FILE_BYTES = 64 * 1024 * 1024;
 
 export function ContextModel({
@@ -45,7 +47,13 @@ export function ContextModel({
   referencePoint,
   originShift,
   modelOffset,
+  ready,
 }: {
+  /**
+   * True once the panel has worked out where the model sits — what a context
+   * file from a restored project waits for before it is read and placed.
+   */
+  ready: boolean;
   /** The model's map conversion, for putting the city in the same frame. */
   placement: Placement | null;
   /** Where the model sits on the earth — the centre a clip radius is drawn around. */
@@ -64,14 +72,32 @@ export function ContextModel({
   const input = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
-  const [loaded, setLoaded] = useState<ContextGeometry | null>(null);
-  const [visible, setVisible] = useState(true);
-  const [clipEnabled, setClipEnabled] = useState(true);
-  const [clipRadius, setClipRadius] = useState(String(DEFAULT_CLIP_RADIUS_METRES));
+  const [phase, setPhase] = useState<"reading" | "processing" | "displaying">("reading");
+  const [loadingName, setLoadingName] = useState("");
+  const inFlight = useRef(false);
+  // In a store, not here: the panel unmounts on every tab switch while the
+  // geometry stays in the scene, and a project folder saves and restores it.
+  const loaded = useContextModelStore((s) => s.loaded);
+  const visible = useContextModelStore((s) => s.visible);
+  const clipEnabled = useContextModelStore((s) => s.clipEnabled);
+  const clipRadius = useContextModelStore((s) => s.clipRadius);
+  const pending = useContextModelStore((s) => s.pending);
+  const setSettings = useContextModelStore((s) => s.setSettings);
+  const setVisible = (on: boolean) => setSettings({ visible: on });
+  const setClipEnabled = (on: boolean) => setSettings({ clipEnabled: on });
+  const setClipRadius = (value: string) => setSettings({ clipRadius: value });
 
   const canClip = Boolean(placement && referencePoint);
   const radiusMetres = Number(clipRadius);
   const radiusValid = Number.isFinite(radiusMetres) && radiusMetres > 0;
+
+  const processing = async () => {
+    setPhase("processing");
+    setProgress(null);
+    // Let React and the browser paint the stage before a synchronous parser
+    // starts. Large clipped files already run in workers and report progress.
+    await new Promise<void>((resolve) => setTimeout(resolve, 16));
+  };
 
   const place = (result: ContextGeometry | null, show: boolean) => {
     const renderer = getActiveRenderer();
@@ -133,7 +159,9 @@ export function ContextModel({
     const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
     if (new TextDecoder().decode(head.subarray(0, 15)) === "SQLite format 3") {
       if (epsg === null) throw new Error(NEEDS_PLACEMENT);
-      return parseGeoPackage(new Uint8Array(await file.arrayBuffer()), epsg);
+      const bytes = await readContextFile(file, "buffer", setProgress);
+      await processing();
+      return parseGeoPackage(new Uint8Array(bytes), epsg);
     }
 
     // Detect XML from a small prefix. A national CityGML delivery can be
@@ -151,6 +179,7 @@ export function ContextModel({
         ) {
           throw new Error(t("largeGmlNeedsClip"));
         }
+        setPhase("processing");
         setProgress(0);
         return clipLargeGml(
           file,
@@ -162,10 +191,13 @@ export function ContextModel({
           setProgress,
         );
       }
-      return parseCityGml(await file.text(), epsg);
+      const text = await readContextFile(file, "text", setProgress);
+      await processing();
+      return parseCityGml(text, epsg);
     }
 
-    const text = await file.text();
+    const text = await readContextFile(file, "text", setProgress);
+    await processing();
     return readText(text, file.name, epsg);
   };
 
@@ -207,13 +239,21 @@ export function ContextModel({
     return parseGeoJson(text, epsg);
   };
 
-  const onFile = async (file: File) => {
+  const onFile = async (file: File, show = true) => {
+    if (inFlight.current) return { ok: false, error: t("alreadyLoading") } as const;
+    inFlight.current = true;
     setLoading(true);
+    setLoadingName(file.name);
+    setPhase("reading");
+    setProgress(null);
     try {
       const result = await read(file, placement?.epsg ?? null);
-      setLoaded(result);
-      setVisible(true);
-      place(result, true);
+      setPhase("displaying");
+      setProgress(null);
+      await new Promise<void>((resolve) => setTimeout(resolve, 16));
+      useContextModelStore.getState().setLoaded(file, result);
+      setVisible(show);
+      place(result, show);
 
       const summary = result.types
         .slice(0, 3)
@@ -228,18 +268,39 @@ export function ContextModel({
           t("crsMismatch", { resultEpsg: result.epsg, placementEpsg: placement.epsg }),
         );
       }
+      return { ok: true } as const;
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : t("readFailed"),
-      );
+      const message = error instanceof Error ? error.message : t("readFailed");
+      toast.error(message);
+      return { ok: false, error: message } as const;
     } finally {
+      inFlight.current = false;
       setLoading(false);
       setProgress(null);
     }
   };
 
+  /*
+    A context file from a restored project. Read once the panel knows where the
+    model sits: before that the reader would either refuse a GeoJSON for want of
+    a placement or put a CityJSON down at the origin, unclipped, which looks
+    loaded and is in the wrong place.
+  */
+  const started = useRef<File | null>(null);
+  useEffect(() => {
+    if (!pending || !ready || started.current === pending) return;
+    started.current = pending;
+    const file = pending;
+    const show = useContextModelStore.getState().visible;
+    void onFile(file, show).then((outcome) => {
+      useContextModelStore.getState().finishPending(outcome);
+    });
+    // `onFile` closes over this render's placement, which is what `ready` waited for.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, ready]);
+
   const clear = () => {
-    setLoaded(null);
+    useContextModelStore.getState().clear();
     place(null, false);
     if (input.current) input.current.value = "";
   };
@@ -253,12 +314,6 @@ export function ContextModel({
         >
           <Boxes className="h-3.5 w-3.5" aria-hidden />
           {t("title")}
-          {loading && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
-          {loading && progress !== null && (
-            <span className="text-muted-foreground font-normal tabular-nums">
-              {t("readingProgress", { percent: progress })}
-            </span>
-          )}
         </Label>
 
         {loaded ? (
@@ -266,6 +321,7 @@ export function ContextModel({
             <Switch
               id="georef-context"
               checked={visible}
+              disabled={loading}
               onCheckedChange={(on) => {
                 setVisible(on);
                 place(loaded, on);
@@ -276,6 +332,7 @@ export function ContextModel({
               size="icon"
               className="h-6 w-6"
               onClick={clear}
+              disabled={loading}
               aria-label={t("remove")}
             >
               <X className="h-3.5 w-3.5" />
@@ -294,14 +351,20 @@ export function ContextModel({
         )}
       </div>
 
+      {loading && (
+        <LoadingProgress label={t(`progress.${phase}`)} detail={loadingName} percent={progress} />
+      )}
+
       <input
         ref={input}
         data-context-file-input
         type="file"
         accept=".json,.city.json,.cityjson,.geojson,.gml,.xml,.citygml,.gpkg,application/json,application/geo+json,application/gml+xml,text/xml"
         className="hidden"
+        disabled={loading}
         onChange={(event) => {
           const file = event.target.files?.[0];
+          event.target.value = "";
           if (file) void onFile(file);
         }}
       />
@@ -321,7 +384,7 @@ export function ContextModel({
               step={1}
               value={clipRadius}
               onChange={(event) => setClipRadius(event.target.value)}
-              disabled={!clipEnabled}
+              disabled={loading || !clipEnabled}
               aria-label={t("clipRadiusLabel")}
               className="h-6 w-16 text-[11px]"
             />
@@ -329,6 +392,7 @@ export function ContextModel({
             <Switch
               id="georef-context-clip"
               checked={clipEnabled}
+              disabled={loading}
               onCheckedChange={setClipEnabled}
             />
           </div>

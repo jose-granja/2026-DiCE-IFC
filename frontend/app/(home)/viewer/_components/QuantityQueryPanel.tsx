@@ -50,6 +50,12 @@ import {
 import { getModelHandle } from "@/lib/viewer/loader";
 import { useViewerStore, type EntityRef } from "@/lib/viewer/store";
 import { classificationCodesFor } from "@/lib/viewer/use-model-vocabulary";
+import {
+  QUERY_LIST_CHANGED_EVENT,
+  QUERY_LIST_STORAGE_KEY,
+  readStoredQueryList,
+  type StoredQueryListItem,
+} from "@/lib/viewer/quantity-list-storage";
 
 type ConditionRow = {
   id: string;
@@ -83,17 +89,7 @@ type QueryListItem = {
   result: CombinedResult | null;
 };
 
-type StoredQueryListItem = {
-  id: string;
-  code?: string;
-  description?: string;
-  /** Legacy field from the first version of the quantity list. */
-  name?: string;
-  query: QuantityQuery;
-};
-
 let rowSequence = 1;
-const QUERY_LIST_STORAGE_KEY = "dice-ifc.quantity-query-list.v1";
 const rowId = (prefix: string) => `${prefix}-${++rowSequence}`;
 const splitValues = splitTextList;
 
@@ -307,33 +303,37 @@ export function QuantityQueryPanel() {
   // list survives switching viewer tabs or reopening the page; model-derived
   // result rows can be large and are deliberately recalculated instead.
   useEffect(() => {
+    const adopt = (stored: StoredQueryListItem[]) =>
+      setQueryItems(
+        stored.map((item, index) => ({
+          id: item.id,
+          code: item.code ?? "",
+          description:
+            item.description ??
+            item.name ??
+            t("list.defaultDescription", { number: index + 1 }),
+          query: item.query,
+          result: null,
+        })),
+      );
     const timeout = window.setTimeout(() => {
-      try {
-        const stored = localStorage.getItem(QUERY_LIST_STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored) as StoredQueryListItem[];
-          if (Array.isArray(parsed)) {
-            setQueryItems(
-              parsed.map((item, index) => ({
-                id: item.id,
-                code: item.code ?? "",
-                description:
-                  item.description ??
-                  item.name ??
-                  t("list.defaultDescription", { number: index + 1 }),
-                query: item.query,
-                result: null,
-              })),
-            );
-          }
-        }
-      } catch {
-        // A corrupt local draft should not prevent a new list from being built.
-      } finally {
-        setQueryListLoaded(true);
-      }
+      // A corrupt local draft reads as an empty list, so a new one can be built.
+      adopt(readStoredQueryList());
+      setQueryListLoaded(true);
     }, 0);
-    return () => window.clearTimeout(timeout);
+    // A restored project replaces the list while this panel may be open.
+    const onReplaced = (event: Event) => {
+      adopt((event as CustomEvent<StoredQueryListItem[]>).detail);
+      setEditingItemId(null);
+      setResult(null);
+    };
+    window.addEventListener(QUERY_LIST_CHANGED_EVENT, onReplaced);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener(QUERY_LIST_CHANGED_EVENT, onReplaced);
+    };
+    // `t` is only read for a default description.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

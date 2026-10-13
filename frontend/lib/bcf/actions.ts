@@ -36,7 +36,33 @@ import {
   IDENTITY_FRAME,
   type ViewpointFrame,
 } from "./viewpoint";
-import { newGuid, type BcfComponent, type BcfViewpoint } from "./types";
+import { newGuid, type BcfComponent, type BcfTopic, type BcfViewpoint } from "./types";
+import { layoutTopicMarkers, locateTopicMarker, markerComponentIds, type MarkerBounds, type TopicMarker } from "./markers";
+
+/** Resolve once per model/topic change; camera movement only reprojects pins. */
+export async function locateTopicMarkers(topics: BcfTopic[]): Promise<TopicMarker[]> {
+  const renderer = getActiveRenderer();
+  const { modelIds } = referenceFrame();
+  if (!renderer || modelIds.length === 0) return [];
+
+  const ids = new Set(topics.flatMap((topic) => topic.viewpoints.flatMap(markerComponentIds)));
+  const bounds = new Map<string, MarkerBounds | null>();
+  await Promise.all([...ids].map(async (id) => {
+    const { refs } = await resolveGlobalIds([id], modelIds);
+    bounds.set(id, renderer.boundsOfRefs(refs));
+  }));
+  const distance = targetDistance(useViewerStore.getState().federationBounds());
+  return topics.flatMap((topic) => {
+    const { frame } = referenceFrame(topic.headerFiles[0]?.filename);
+    const marker = locateTopicMarker(topic, (id) => bounds.get(id) ?? null, frame, distance);
+    return marker ? [marker] : [];
+  });
+}
+
+export function projectTopicMarkers(markers: TopicMarker[]) {
+  const renderer = getActiveRenderer();
+  return renderer ? layoutTopicMarkers(markers, (point) => renderer.projectPoint(point)) : [];
+}
 
 /**
  * The reference frame, and the models a viewpoint may resolve against.

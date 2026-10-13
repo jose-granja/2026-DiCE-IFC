@@ -52,6 +52,11 @@ type BcfState = {
   file: BcfFile;
   /** Which topic the detail pane shows. */
   selectedGuid: Guid | null;
+  /** Viewer-only UI state; never written into a BCF archive. */
+  editingGuid: Guid | null;
+  setEditingGuid: (guid: Guid | null) => void;
+  markersVisible: boolean;
+  setMarkersVisible: (visible: boolean) => void;
   /** Multi-select for bulk editing, by GUID. */
   checked: Set<Guid>;
 
@@ -114,6 +119,10 @@ type BcfState = {
 export const useBcfStore = create<BcfState>((set, get) => ({
   file: emptyBcfFile(),
   selectedGuid: null,
+  editingGuid: null,
+  setEditingGuid: (editingGuid) => set({ editingGuid }),
+  markersVisible: false,
+  setMarkersVisible: (markersVisible) => set({ markersVisible }),
   checked: new Set(),
   filter: EMPTY_FILTER,
   sortKey: "created",
@@ -130,6 +139,7 @@ export const useBcfStore = create<BcfState>((set, get) => ({
     set({
       file,
       selectedGuid: file.topics[0]?.guid ?? null,
+      editingGuid: null,
       checked: new Set(),
       dirty: false,
       conflicts: [],
@@ -171,6 +181,7 @@ export const useBcfStore = create<BcfState>((set, get) => ({
       // export — hands over a set it just generated and the first topic is the
       // thing to look at.
       selectedGuid: null,
+      editingGuid: null,
       checked: new Set(),
       dirty: true,
     });
@@ -399,6 +410,8 @@ export const useBcfStore = create<BcfState>((set, get) => ({
     set({
       file: emptyBcfFile(),
       selectedGuid: null,
+      editingGuid: null,
+      markersVisible: false,
       checked: new Set(),
       filter: EMPTY_FILTER,
       dirty: false,

@@ -73,6 +73,7 @@
     "storage": [
       "One cookie, dice-locale, remembers whether you chose Portuguese or English. It is needed for that choice to stick and holds no identifier.",
       "Browser storage keeps your theme, panel widths, clash matrix and saved settings, and draft work in the Origin Private File System. It stays in your browser; clearing site data removes it.",
+      "Saving a project writes the files you opened and a project.json with your settings into a folder you choose on your computer (or one .zip download where the browser cannot write folders). Loading one reads only the folder you pick. Neither sends anything over the network.",
       "There are no analytics, advertising or tracking cookies."
     ]
   },
@@ -199,7 +200,9 @@
       "measure": "Measure",
       "ids": "IDS",
       "bcf": "BCF",
-      "clash": "Clash"
+      "clash": "Clash",
+      "filtersActive": "{count, plural, one {# filter value is on} other {# filter values are on}} — open the tab to change or clear them",
+      "globeActive": "The 3D world context is on"
     },
     "clash": {
       "loadModel": "Load at least one model to detect clashes.",
@@ -1015,6 +1018,13 @@
       }
     },
     "globeControls": {
+      "progress": {
+        "starting": "Starting world maps…",
+        "layer": "Loading map layer…",
+        "preparing": "Preparing terrain and buildings…",
+        "tiles": "Loading map tiles…"
+      },
+      "tilesPending": "{count, plural, one {# tile remaining} other {# tiles remaining}}",
       "title": "3D world context",
       "worldContext": "World context",
       "loadFailed": "The world could not be loaded.",
@@ -1032,9 +1042,19 @@
       "tilesetUrlHint": "Any 3D Tiles set, including one you host yourself — that route involves no third party at all.",
       "noTokenHint": "Set <code>NEXT_PUBLIC_CESIUM_ION_TOKEN</code> to show terrain, imagery and 3D buildings under the model. The rest of this panel works without one.",
       "noOriginHint": "This model has no usable map conversion yet, so there is nowhere on earth to put it.",
-      "googleTerms": "Google Photorealistic 3D Tiles are provided by Google and used under the Google Maps Platform terms, including their attribution and usage conditions."
+      "googleTerms": "Google Photorealistic 3D Tiles are provided by Google and used under the Google Maps Platform terms, including their attribution and usage conditions.",
+      "restore": {
+        "notConfigured": "This deployment has no Cesium ion token, so the 3D world context cannot be shown.",
+        "noOrigin": "This model has no position on the earth, so the 3D world context cannot be shown around it."
+      }
     },
     "contextModel": {
+      "progress": {
+        "reading": "Reading context file…",
+        "processing": "Processing context model…",
+        "displaying": "Adding context to the viewer…"
+      },
+      "alreadyLoading": "A context model is already loading.",
       "title": "Context model",
       "remove": "Remove the context model",
       "loadContext": "Load context",
@@ -1105,6 +1125,12 @@
     },
     "bcfPanel": {
       "title": "BCF topics",
+      "showMarkers": "Show 3D markers",
+      "hideMarkers": "Hide 3D markers",
+      "openMarker": "Open BCF topic: {title}",
+      "markersLoadModel": "Load an IFC model to locate the topics.",
+      "markersMissing": "{count, plural, one {# topic has no location to display.} other {# topics have no location to display.}}",
+      "markersFailed": "The topic locations could not be loaded. Toggle markers to try again.",
       "import": "Import",
       "validate": "Validate",
       "saveDraft": "Save draft",
@@ -1156,6 +1182,65 @@
       "noFloor": "Not on any floor",
       "selectedClass": "{count, plural, one {Selected # element} other {Selected # elements}} of class {type}.",
       "selectedFloor": "{count, plural, one {Selected # element} other {Selected # elements}} on {floor}."
+    },
+    "project": {
+      "button": "Project",
+      "menuHint": "A project folder holds every file you opened, the quantity list and clash matrix as Excel workbooks, and a project.json pointing to them with the rest: filters, section planes, measurements and viewer settings.",
+      "save": "Save project folder…",
+      "saveZip": "Save project (.zip)…",
+      "saveZipHint": "This browser cannot write folders, so the project folder is downloaded as a .zip. Unzip it, or load the .zip directly.",
+      "load": "Load project folder…",
+      "loadZip": "Load project from .zip…",
+      "saving": "Saving the project…",
+      "savingProgress": "Saving the project… {percent}%",
+      "saved": "Project saved in the folder “{name}”.",
+      "savedZip": "Project downloaded as {name}.",
+      "skipped": "Not in the folder, because their original files are no longer available: {names}. Open them again and save once more.",
+      "saveFailed": "The project could not be saved: {message}",
+      "loadFailed": "The project could not be loaded: {message}",
+      "loaded": "Loaded {name}: {models, plural, one {# model} other {# models}}, {clouds, plural, =0 {no point clouds} one {# point cloud} other {# point clouds}}.",
+      "progress": {
+        "reading": "Reading the project…",
+        "models": "Opening models… {done} of {total}",
+        "settings": "Restoring filters, planes and measurements…",
+        "context": "Placing the context model…",
+        "globe": "Turning on the 3D world context…"
+      },
+      "confirm": {
+        "title": "Load the project?",
+        "description": "Loading “{name}” closes what is open and replaces the models, point clouds, context model, filters, section planes, measurements, quantity list, clash matrix, BCF topics and the IDS being validated with the project’s.",
+        "cancel": "Cancel",
+        "load": "Load project",
+        "globe": "Turn on the 3D world context ({layer}). It streams tiles from {provider}, which receives the location of the building.",
+        "providers": {
+          "terrain": "Cesium ion",
+          "terrainMapTiler": "Cesium ion and MapTiler",
+          "ion": "Cesium ion",
+          "google": "Google, through Cesium ion",
+          "url": "{host}"
+        }
+      },
+      "errors": {
+        "noManifest": "There is no project.json in that folder. Choose the folder that “Save project” created.",
+        "notZip": "That file is not a .zip archive.",
+        "notJson": "project.json is not valid JSON.",
+        "notProject": "That folder’s project.json is not a DiCE-IFC project.",
+        "newerVersion": "This project was saved by a newer version of DiCE-IFC (format {detail}). Update the application to open it.",
+        "invalid": "project.json has a value this version cannot read ({detail})."
+      },
+      "warnings": {
+        "missing": "The project names {path}, which is not in the folder.",
+        "failed": "{name} could not be opened: {error}",
+        "originMoved": "The models did not come back in the same place, so section planes and measurements may be offset.",
+        "context": "The context model could not be placed: {error}",
+        "contextNotPlaced": "The context model was not placed. Open the Geo tab and load it again.",
+        "ids": "The IDS editor document could not be read: {error}",
+        "bcf": "The BCF topics could not be read: {error}",
+        "quantities": "The quantity list could not be read from its workbook, so the open list was kept: {error}",
+        "clash": "The clash matrix could not be read from its workbook, so the open matrix was kept: {error}",
+        "globe": "The 3D world context could not be turned on: {error}",
+        "noDetail": "no reason was given"
+      }
     }
   },
   "idsCreate": {

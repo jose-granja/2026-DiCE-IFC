@@ -51,6 +51,7 @@ import * as THREE from "three";
 
 import { ensureEgm96Grid, toEllipsoidalHeight, type Egm96Grid } from "@/lib/georef/geoid";
 import type { WgsPoint } from "@/lib/georef/transform";
+import { trackGlobeLoading, type GlobeLoadingState } from "./globe-loading";
 
 export const CESIUM_ION_API = "https://api.cesium.com";
 export const CESIUM_ION_ASSETS = "https://assets.ion.cesium.com";
@@ -102,6 +103,8 @@ export type Globe = {
   getAttribution: () => string;
   /** For e2e: whether the globe has drawn anything yet. */
   isReady: () => boolean;
+  /** Terrain, imagery and 3D Tiles still needed for the current camera view. */
+  getLoadingState: () => GlobeLoadingState;
   dispose: () => void;
 };
 
@@ -272,6 +275,9 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
   });
 
   const scene = widget.scene;
+  const loading = trackGlobeLoading(scene.globe);
+  let disposed = false;
+  let layerGeneration = 0;
   scene.screenSpaceCameraController.enableInputs = false;
   scene.backgroundColor = Cesium.Color.TRANSPARENT;
   scene.globe.depthTestAgainstTerrain = true;
@@ -328,6 +334,7 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
   let renderToEcefForClipping: InstanceType<typeof Cesium.Matrix4> | null = null;
 
   const removeCurrent = () => {
+    loading.setTileset(null);
     if (current?.primitive) {
       scene.primitives.remove(current.primitive as object);
     }
@@ -414,6 +421,7 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
     const primitive = scene.primitives.add(tileset) as TilesetWithClipOrigin;
     primitive.clippingPlanes = createTilesetClippingPlanes();
     current = { primitive };
+    loading.setTileset(primitive);
     updateClippingTransforms();
   };
 
@@ -518,6 +526,9 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
     },
 
     async setLayer(layer) {
+      const generation = ++layerGeneration;
+      const isCurrent = () => !disposed && generation === layerGeneration;
+      if (!isCurrent()) return;
       removeCurrent();
       layerKind = layer.kind;
 
@@ -536,10 +547,17 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
         ellipsoid they float or sink by the local relief, so that layer gets
         the same terrain as "terrain" does.
       */
-      scene.globe.terrainProvider =
+      const terrainProvider =
         (layer.kind === "terrain" || layer.kind === "osm-buildings") && token
           ? await Cesium.CesiumTerrainProvider.fromIonAssetId(1)
           : new Cesium.EllipsoidTerrainProvider();
+      if (!isCurrent()) return;
+      scene.globe.terrainProvider = terrainProvider;
+
+      const attach = (tileset: InstanceType<typeof Cesium.Cesium3DTileset>) => {
+        if (isCurrent()) addTileset(tileset);
+        else tileset.destroy();
+      };
 
       switch (layer.kind) {
         case "terrain":
@@ -547,7 +565,7 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
 
         case "osm-buildings": {
           const tileset = await Cesium.createOsmBuildingsAsync();
-          addTileset(tileset);
+          attach(tileset);
           break;
         }
 
@@ -557,7 +575,7 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
           // Google's geocoder, which is not what this does — asserting it would
           // be a false statement about our own usage.
           const tileset = await Cesium.createGooglePhotorealistic3DTileset();
-          addTileset(tileset);
+          attach(tileset);
           break;
         }
 
@@ -569,13 +587,13 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
             );
           }
           const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(id);
-          addTileset(tileset);
+          attach(tileset);
           break;
         }
 
         case "tileset-url": {
           const tileset = await Cesium.Cesium3DTileset.fromUrl(layer.url);
-          addTileset(tileset);
+          attach(tileset);
           break;
         }
       }
@@ -762,9 +780,14 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
     },
 
     isReady: () => ready,
+    getLoadingState: () => loading.getState(),
 
     dispose() {
+      if (disposed) return;
+      disposed = true;
+      layerGeneration++;
       removeCurrent();
+      loading.dispose();
       widget.destroy();
     },
   };

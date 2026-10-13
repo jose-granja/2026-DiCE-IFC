@@ -13,9 +13,9 @@
  * is looking — which in this module is where the building is.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Globe2, Loader2 } from "lucide-react";
+import { Globe2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Input } from "@/components/ui/input";
@@ -28,32 +28,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { getActiveRenderer } from "@/lib/viewer/active-renderer";
 import { linkAttribution } from "@/lib/viewer/attribution";
-import { getGlobeCanvas } from "@/lib/viewer/globe-canvas";
-import {
-  createGlobe,
-  ionConfigured,
-  mapTilerConfigured,
-  type Globe,
-  type GlobeLayer,
-} from "@/lib/viewer/globe";
+import { ionConfigured, mapTilerConfigured } from "@/lib/viewer/globe";
+import { getGlobe, useGlobeStore, type GlobeLayerId } from "@/lib/viewer/globe-store";
 import type { WgsPoint } from "@/lib/georef/transform";
+import type { GlobeLoadingState } from "@/lib/viewer/globe-loading";
+import LoadingProgress from "./LoadingProgress";
 
-type LayerId =
-  | "terrain"
-  | "osm-buildings"
-  | "google-photorealistic"
-  | "ion-asset"
-  | "tileset-url";
+type LayerId = GlobeLayerId;
 
 export function GlobeControls({
   origin,
   northCorrection = 0,
+  ready = true,
 }: {
   origin: WgsPoint | null;
   /** Grid convergence at `origin`, radians — see `lib/georef/transform.ts`. */
   northCorrection?: number;
+  /**
+   * True once the panel has worked out where the model sits, whether or not
+   * that gave an origin — what a restored project waits for before it can say
+   * "turned on" or "this model has nowhere on the earth to show it".
+   */
+  ready?: boolean;
 }) {
   const t = useTranslations("viewer.globeControls");
 
@@ -66,107 +63,87 @@ export function GlobeControls({
     "tileset-url": t("layers.tilesetUrl"),
   };
 
-  const globe = useRef<Globe | null>(null);
-  const [on, setOn] = useState(false);
-  const [layer, setLayer] = useState<LayerId>("terrain");
-  const [assetId, setAssetId] = useState("");
-  const [url, setUrl] = useState("");
-  const [busy, setBusy] = useState(false);
+  // The globe is the store's, not this panel's: it stays on when the panel
+  // closes (see `globe-store.ts`).
+  const on = useGlobeStore((s) => s.on);
+  const layer = useGlobeStore((s) => s.layer);
+  const assetId = useGlobeStore((s) => s.assetId);
+  const url = useGlobeStore((s) => s.url);
+  const phase = useGlobeStore((s) => s.phase);
+  const pending = useGlobeStore((s) => s.pending);
+  const setSettings = useGlobeStore((s) => s.setSettings);
+  const setLayer = (next: LayerId) => setSettings({ layer: next });
+  const setAssetId = (value: string) => setSettings({ assetId: value });
+  const setUrl = (value: string) => setSettings({ url: value });
+  const [tiles, setTiles] = useState<GlobeLoadingState>({ loading: false, pending: 0 });
+  const busy = phase !== null;
   const [attribution, setAttribution] = useState("");
 
   const configured = ionConfigured();
   const terrainLabel = mapTilerConfigured() ? t("layers.terrainAndImagery") : t("layers.terrain");
 
-  // Tear the globe down with the panel, or it keeps streaming behind a view
-  // nobody is looking at.
+  // Tell the store where the model is, for as long as this panel is the one
+  // that knows; the globe keeps the last placement when the panel closes.
   useEffect(() => {
-    return () => {
-      getActiveRenderer()?.setGlobe(null, null);
-      globe.current?.dispose();
-      globe.current = null;
-    };
-  }, []);
-
-  // Keep the model's position on the earth current without rebuilding: the
-  // globe is expensive to create and the placement can change while it is up.
-  useEffect(() => {
-    if (!globe.current) return;
-    getActiveRenderer()?.setGlobe(globe.current, origin, northCorrection);
+    useGlobeStore.getState().setPlacement(origin, northCorrection);
   }, [origin, northCorrection]);
 
   useEffect(() => {
     if (!on) return;
     const timer = setInterval(
-      () => setAttribution(globe.current?.getAttribution() ?? ""),
+      () => setAttribution(getGlobe()?.getAttribution() ?? ""),
       2_000,
     );
     return () => clearInterval(timer);
   }, [on]);
 
-  const apply = async (next: LayerId, enabled: boolean) => {
-    const renderer = getActiveRenderer();
-    const canvas = getGlobeCanvas();
-    if (!renderer || !canvas || !origin) return;
+  // Tile streaming continues after setLayer resolves, and restarts when the
+  // camera moves. Read Cesium's live queues without rerendering on every frame.
+  useEffect(() => {
+    if (!on) return;
+    const timer = setInterval(() => {
+      const next = getGlobe()?.getLoadingState() ?? { loading: false, pending: 0 };
+      setTiles((previous) => previous.loading === next.loading && previous.pending === next.pending ? previous : next);
+    }, 200);
+    return () => clearInterval(timer);
+  }, [on]);
 
-    if (!enabled) {
-      renderer.setGlobe(null, null);
-      renderer.setDepthProxy(null);
-      globe.current?.dispose();
-      globe.current = null;
+  const apply = async (enabled: boolean) => {
+    if (enabled) setTiles({ loading: false, pending: 0 });
+    else {
+      setTiles({ loading: false, pending: 0 });
+      setAttribution("");
+    }
+    const outcome = await useGlobeStore.getState().enable(enabled);
+    if (!outcome.ok) toast.error(outcome.reason ? t(`restore.${outcome.reason}`) : outcome.error || t("loadFailed"));
+    return outcome;
+  };
+
+  /*
+    The globe from a restored project, once this panel knows where the model
+    is. The project's consent was asked for when it was loaded; here it is only
+    a matter of having somewhere to put it.
+  */
+  useEffect(() => {
+    if (!pending || !ready) return;
+    const store = useGlobeStore.getState();
+    if (!configured) {
+      store.finishPending({ ok: false, error: t("restore.notConfigured"), reason: "notConfigured" });
       return;
     }
-
-    setBusy(true);
-    try {
-      globe.current ??= await createGlobe(canvas);
-
-      const described: GlobeLayer =
-        next === "ion-asset"
-          ? { kind: "ion-asset", assetId }
-          : next === "tileset-url"
-            ? { kind: "tileset-url", url }
-            : { kind: next };
-
-      await globe.current.setLayer(described);
-      renderer.setGlobe(globe.current, origin, northCorrection);
-
-      /*
-        Build the occluder for whatever was just loaded — terrain, 3D Tiles,
-        or both.
-
-        Deliberately after `setLayer`, and deliberately awaited separately: the
-        globe should appear as soon as it can, and clamping to the scene is a
-        network round trip. A failure here costs occlusion, not the map.
-
-        The extent follows what the camera can see, so a model on a hillside
-        gets the hillside. It is not rebuilt as the camera moves — the proxy is
-        for the ground around the model, and re-sampling on every zoom would
-        put a network request in the middle of a gesture.
-      */
-      try {
-        renderer.setDepthProxy(
-          await globe.current.sampleDepthProxy(
-            origin,
-            renderer.visibleGroundMetres(),
-            northCorrection,
-          ),
-        );
-      } catch {
-        renderer.setDepthProxy(null);
-      }
-    } catch (error) {
-      // A failed layer must not leave a half-built globe hiding the model.
-      renderer.setGlobe(null, null);
-      globe.current?.dispose();
-      globe.current = null;
-      setOn(false);
-      toast.error(
-        error instanceof Error ? error.message : t("loadFailed"),
-      );
-    } finally {
-      setBusy(false);
+    if (!origin) {
+      store.finishPending({ ok: false, error: t("restore.noOrigin"), reason: "noOrigin" });
+      return;
     }
-  };
+    // Claimed before the await, so a re-render cannot start a second one.
+    useGlobeStore.setState({ pending: false });
+    void useGlobeStore
+      .getState()
+      .enable(true)
+      .then((outcome) => useGlobeStore.getState().finishPending(outcome));
+    // `t` is stable for a locale; `configured` cannot change while the page is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, ready, origin]);
 
   const needsValue =
     (layer === "ion-asset" && !assetId.trim()) ||
@@ -181,27 +158,31 @@ export function GlobeControls({
         >
           <Globe2 className="h-3.5 w-3.5" aria-hidden />
           {t("title")}
-          {busy && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
         </Label>
         <Switch
           id="globe-toggle"
           checked={on}
-          disabled={!configured || !origin || needsValue}
-          onCheckedChange={(next) => {
-            setOn(next);
-            void apply(layer, next);
-          }}
+          disabled={!on && (!configured || !origin || needsValue)}
+          onCheckedChange={(next) => void apply(next)}
         />
       </div>
+
+      {on && (busy || tiles.loading) && (
+        <LoadingProgress
+          label={t(`progress.${phase ?? "tiles"}`)}
+          detail={tiles.pending > 0 ? t("tilesPending", { count: tiles.pending }) : undefined}
+        />
+      )}
 
       {configured && origin && (
         <>
           <Select
             value={layer}
+            disabled={busy}
             onValueChange={(value) => {
               const next = value as LayerId;
               setLayer(next);
-              if (on) void apply(next, true);
+              if (on) void apply(true);
             }}
           >
             <SelectTrigger className="h-7 text-xs" aria-label={t("worldContext")}>
@@ -220,8 +201,9 @@ export function GlobeControls({
             <div className="space-y-1">
               <Input
                 value={assetId}
+                disabled={busy}
                 onChange={(event) => setAssetId(event.target.value)}
-                onBlur={() => on && void apply(layer, true)}
+                onBlur={() => on && void apply(true)}
                 placeholder="96188"
                 aria-label={t("ionAssetIdLabel")}
                 className="h-7 font-mono text-xs"
@@ -236,8 +218,9 @@ export function GlobeControls({
             <div className="space-y-1">
               <Input
                 value={url}
+                disabled={busy}
                 onChange={(event) => setUrl(event.target.value)}
-                onBlur={() => on && void apply(layer, true)}
+                onBlur={() => on && void apply(true)}
                 placeholder="https://example.org/tileset.json"
                 aria-label={t("tilesetUrlLabel")}
                 className="h-7 font-mono text-xs"

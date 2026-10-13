@@ -212,6 +212,13 @@ type ViewerState = {
   removeModel: (id: string) => void;
   setModelVisible: (id: string, visible: boolean) => void;
   setManualOffset: (id: string, offset: Vec3 | undefined) => void;
+  /**
+   * Put the models in this order, then re-federate. Order is not cosmetic: the
+   * world origin comes from the first georeferenced model (or the first model),
+   * so it decides where everything in render space — section planes,
+   * measurements — sits. Ids not listed keep their place after the listed ones.
+   */
+  reorderModels: (ids: string[]) => void;
 
   select: (refs: EntityRef[], mode?: "replace" | "add" | "toggle") => void;
   clearSelection: () => void;
@@ -390,6 +397,21 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         m.summary.id === id ? { ...m, visible } : m,
       ),
     })),
+
+  reorderModels: (ids) => {
+    set((state) => {
+      const rank = new Map(ids.map((id, index) => [id, index]));
+      const ranked = state.models
+        .map((model, index) => ({ model, index }))
+        .sort(
+          (a, b) =>
+            (rank.get(a.model.summary.id) ?? ids.length + a.index) -
+            (rank.get(b.model.summary.id) ?? ids.length + b.index),
+        );
+      return { models: ranked.map((entry) => entry.model) };
+    });
+    get().refederate();
+  },
 
   setManualOffset: (id, offset) => {
     set((state) => ({

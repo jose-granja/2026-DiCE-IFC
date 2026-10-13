@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   Download,
+  MapPin,
   MessageSquarePlus,
   Save,
   ShieldCheck,
@@ -17,7 +18,11 @@ import SignatureBadge from "@/components/SignatureBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
@@ -62,10 +67,13 @@ export function BcfPanel() {
   const setAuthor = useBcfStore((s) => s.setAuthor);
   const select = useBcfStore((s) => s.select);
   const selected = useSelectedTopic();
+  const editingGuid = useBcfStore((s) => s.editingGuid);
+  const setEditingGuid = useBcfStore((s) => s.setEditingGuid);
+  const markersVisible = useBcfStore((s) => s.markersVisible);
+  const setMarkersVisible = useBcfStore((s) => s.setMarkersVisible);
 
   const fileInput = useRef<HTMLInputElement>(null);
   const [validating, setValidating] = useState(false);
-  const [editingGuid, setEditingGuid] = useState<string | null>(null);
   const { openViewpoint, openingGuid } = useOpenViewpoint();
 
   const onOpenTopic = (topic: BcfTopic) => {
@@ -115,6 +123,10 @@ export function BcfPanel() {
   useEffect(() => {
     if (restored.current) return;
     restored.current = true;
+    // Opening the panel from a marker must retain the current topic set,
+    // including unsaved edits, instead of replacing it with an older draft.
+    const current = useBcfStore.getState();
+    if (current.file.topics.length > 0 || current.dirty) return;
     loadDraft().catch(() => undefined);
   }, [loadDraft]);
 
@@ -257,6 +269,25 @@ export function BcfPanel() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                variant={markersVisible ? "outline" : "ghost"}
+                size="sm"
+                className="h-7 px-2 text-xs"
+                disabled={file.topics.length === 0}
+                aria-pressed={markersVisible}
+                // Icon only: without this its name is empty to a screen reader.
+                aria-label={t(markersVisible ? "hideMarkers" : "showMarkers")}
+                onClick={() => setMarkersVisible(!markersVisible)}
+              >
+                <MapPin className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {t(markersVisible ? "hideMarkers" : "showMarkers")}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
                 variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-xs"
@@ -271,59 +302,59 @@ export function BcfPanel() {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            aria-label={t("saveDraft")}
-            disabled={!dirty}
-            onClick={async () => {
-              await saveDraft();
-              toast.success(t("draftSaved"));
-            }}
-          >
-            <Save className="h-3.5 w-3.5" />
-          </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("saveDraft")}</TooltipContent>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                aria-label={t("saveDraft")}
+                disabled={!dirty}
+                onClick={async () => {
+                  await saveDraft();
+                  toast.success(t("draftSaved"));
+                }}
+              >
+                <Save className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("saveDraft")}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            aria-label={t("exportBcf")}
-            onClick={onExport}
-            disabled={file.topics.length === 0}
-          >
-            <Download className="h-3.5 w-3.5" />
-          </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("exportBcf")}</TooltipContent>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                aria-label={t("exportBcf")}
+                onClick={onExport}
+                disabled={file.topics.length === 0}
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("exportBcf")}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            aria-label={t("newTopic")}
-            onClick={() => {
-              const topic = createTopic({
-                  title: t("defaultTopicTitle"),
-                  author: author || t("unknownAuthor"),
-                  topicType: file.extensions.topicTypes[0] ?? "Issue",
-                  topicStatus: file.extensions.topicStatuses[0] ?? "Open",
-                });
-              addTopic(topic);
-              setEditingGuid(topic.guid);
-            }}
-          >
-            <MessageSquarePlus className="h-3.5 w-3.5" />
-          </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("newTopic")}</TooltipContent>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                aria-label={t("newTopic")}
+                onClick={() => {
+                  const topic = createTopic({
+                    title: t("defaultTopicTitle"),
+                    author: author || t("unknownAuthor"),
+                    topicType: file.extensions.topicTypes[0] ?? "Issue",
+                    topicStatus: file.extensions.topicStatuses[0] ?? "Open",
+                  });
+                  addTopic(topic);
+                  setEditingGuid(topic.guid);
+                }}
+              >
+                <MessageSquarePlus className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("newTopic")}</TooltipContent>
           </Tooltip>
         </div>
 
@@ -365,14 +396,11 @@ export function BcfPanel() {
             enough to squeeze the topic list to zero height — checking a topic
             made the list disappear.
           */}
-          <div className="max-w-full shrink-0 overflow-auto">
+          <div className="max-h-48 max-w-full shrink-0 overflow-auto">
             <BulkEditBar />
           </div>
           <FilterBar />
-          <RelatedTopics
-            onOpenTopic={onOpenTopic}
-            onEditTopic={onEditTopic}
-          />
+          <RelatedTopics onOpenTopic={onOpenTopic} onEditTopic={onEditTopic} />
           <TopicList
             onOpenTopic={onOpenTopic}
             onEditTopic={onEditTopic}

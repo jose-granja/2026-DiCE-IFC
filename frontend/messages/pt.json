@@ -73,6 +73,7 @@
     "storage": [
       "Um cookie, dice-locale, memoriza se escolheu português ou inglês. É necessário para a escolha se manter e não contém identificador.",
       "O armazenamento do navegador guarda o tema, a largura dos painéis, a matriz de colisões e as definições guardadas, e o trabalho em rascunho no Origin Private File System. Fica no seu navegador; limpar os dados do sítio remove-o.",
+      "Guardar um projeto escreve os ficheiros que abriu e um project.json com as suas definições numa pasta que escolhe no seu computador (ou numa única transferência .zip, quando o navegador não consegue escrever pastas). Abrir um projeto lê apenas a pasta que escolher. Nenhum dos dois envia nada pela rede.",
       "Não há cookies de análise, publicidade ou rastreio."
     ]
   },
@@ -199,7 +200,9 @@
       "measure": "Medir",
       "ids": "IDS",
       "bcf": "BCF",
-      "clash": "Conflitos"
+      "clash": "Conflitos",
+      "filtersActive": "{count, plural, one {# valor de filtro ativo} other {# valores de filtro ativos}} — abra o separador para os alterar ou limpar",
+      "globeActive": "O contexto 3D do mundo está ativo"
     },
     "clash": {
       "loadModel": "Carregue pelo menos um modelo para detetar conflitos.",
@@ -1015,6 +1018,13 @@
       }
     },
     "globeControls": {
+      "progress": {
+        "starting": "A iniciar os mapas…",
+        "layer": "A carregar a camada do mapa…",
+        "preparing": "A preparar o terreno e os edifícios…",
+        "tiles": "A carregar os mosaicos do mapa…"
+      },
+      "tilesPending": "{count, plural, one {Falta # mosaico} other {Faltam # mosaicos}}",
       "title": "Contexto mundial 3D",
       "worldContext": "Contexto mundial",
       "loadFailed": "Não foi possível carregar o mundo.",
@@ -1032,9 +1042,19 @@
       "tilesetUrlHint": "Qualquer conjunto 3D Tiles, incluindo um alojado por si — essa via não envolve terceiros.",
       "noTokenHint": "Defina <code>NEXT_PUBLIC_CESIUM_ION_TOKEN</code> para mostrar terreno, imagem e edifícios 3D sob o modelo. O resto deste painel funciona sem ele.",
       "noOriginHint": "Este modelo ainda não tem uma conversão de mapa utilizável, por isso não há onde o colocar na Terra.",
-      "googleTerms": "Os Google Photorealistic 3D Tiles são fornecidos pela Google e usados ao abrigo dos termos da Google Maps Platform, incluindo as suas condições de atribuição e de utilização."
+      "googleTerms": "Os Google Photorealistic 3D Tiles são fornecidos pela Google e usados ao abrigo dos termos da Google Maps Platform, incluindo as suas condições de atribuição e de utilização.",
+      "restore": {
+        "notConfigured": "Esta instalação não tem token do Cesium ion, por isso o contexto 3D do mundo não pode ser mostrado.",
+        "noOrigin": "Este modelo não tem posição na Terra, por isso o contexto 3D do mundo não pode ser mostrado à sua volta."
+      }
     },
     "contextModel": {
+      "progress": {
+        "reading": "A ler o ficheiro de contexto…",
+        "processing": "A processar o modelo de contexto…",
+        "displaying": "A adicionar o contexto ao visualizador…"
+      },
+      "alreadyLoading": "Já está a ser carregado um modelo de contexto.",
       "title": "Modelo de contexto",
       "remove": "Remover o modelo de contexto",
       "loadContext": "Carregar contexto",
@@ -1105,6 +1125,12 @@
     },
     "bcfPanel": {
       "title": "Tópicos BCF",
+      "showMarkers": "Mostrar marcadores 3D",
+      "hideMarkers": "Ocultar marcadores 3D",
+      "openMarker": "Abrir tópico BCF: {title}",
+      "markersLoadModel": "Carregue um modelo IFC para localizar os tópicos.",
+      "markersMissing": "{count, plural, one {# tópico não tem uma localização para mostrar.} other {# tópicos não têm uma localização para mostrar.}}",
+      "markersFailed": "Não foi possível carregar as localizações dos tópicos. Desative e volte a ativar os marcadores para tentar novamente.",
       "import": "Importar",
       "validate": "Validar",
       "saveDraft": "Guardar rascunho",
@@ -1156,6 +1182,65 @@
       "noFloor": "Não pertence a nenhum piso",
       "selectedClass": "{count, plural, one {# elemento selecionado} other {# elementos selecionados}} da classe {type}.",
       "selectedFloor": "{count, plural, one {# elemento selecionado} other {# elementos selecionados}} em {floor}."
+    },
+    "project": {
+      "button": "Projeto",
+      "menuHint": "Uma pasta de projeto guarda todos os ficheiros que abriu, a lista de quantidades e a matriz de colisões como livros Excel, e um project.json que aponta para eles com o resto: filtros, planos de corte, medições e definições do visualizador.",
+      "save": "Guardar pasta do projeto…",
+      "saveZip": "Guardar projeto (.zip)…",
+      "saveZipHint": "Este navegador não consegue escrever pastas, por isso a pasta do projeto é transferida como .zip. Descompacte-a, ou abra o .zip diretamente.",
+      "load": "Abrir pasta do projeto…",
+      "loadZip": "Abrir projeto a partir de .zip…",
+      "saving": "A guardar o projeto…",
+      "savingProgress": "A guardar o projeto… {percent}%",
+      "saved": "Projeto guardado na pasta «{name}».",
+      "savedZip": "Projeto transferido como {name}.",
+      "skipped": "Não ficaram na pasta, porque os ficheiros originais já não estão disponíveis: {names}. Abra-os de novo e guarde outra vez.",
+      "saveFailed": "Não foi possível guardar o projeto: {message}",
+      "loadFailed": "Não foi possível abrir o projeto: {message}",
+      "loaded": "{name} aberto: {models, plural, one {# modelo} other {# modelos}}, {clouds, plural, =0 {sem nuvens de pontos} one {# nuvem de pontos} other {# nuvens de pontos}}.",
+      "progress": {
+        "reading": "A ler o projeto…",
+        "models": "A abrir modelos… {done} de {total}",
+        "settings": "A repor filtros, planos e medições…",
+        "context": "A posicionar o modelo de contexto…",
+        "globe": "A ativar o contexto 3D do mundo…"
+      },
+      "confirm": {
+        "title": "Abrir o projeto?",
+        "description": "Abrir «{name}» fecha o que está aberto e substitui os modelos, as nuvens de pontos, o modelo de contexto, os filtros, os planos de corte, as medições, a lista de quantidades, a matriz de colisões, os tópicos BCF e o IDS em validação pelos do projeto.",
+        "cancel": "Cancelar",
+        "load": "Abrir projeto",
+        "globe": "Ativar o contexto 3D do mundo ({layer}). Transfere mosaicos de {provider}, que recebe a localização do edifício.",
+        "providers": {
+          "terrain": "Cesium ion",
+          "terrainMapTiler": "Cesium ion e MapTiler",
+          "ion": "Cesium ion",
+          "google": "Google, através do Cesium ion",
+          "url": "{host}"
+        }
+      },
+      "errors": {
+        "noManifest": "Essa pasta não tem project.json. Escolha a pasta criada por «Guardar projeto».",
+        "notZip": "Esse ficheiro não é um arquivo .zip.",
+        "notJson": "O project.json não é JSON válido.",
+        "notProject": "O project.json dessa pasta não é um projeto DiCE-IFC.",
+        "newerVersion": "Este projeto foi guardado por uma versão mais recente do DiCE-IFC (formato {detail}). Atualize a aplicação para o abrir.",
+        "invalid": "O project.json tem um valor que esta versão não consegue ler ({detail})."
+      },
+      "warnings": {
+        "missing": "O projeto refere {path}, que não está na pasta.",
+        "failed": "Não foi possível abrir {name}: {error}",
+        "originMoved": "Os modelos não voltaram ao mesmo sítio, por isso os planos de corte e as medições podem estar deslocados.",
+        "context": "Não foi possível posicionar o modelo de contexto: {error}",
+        "contextNotPlaced": "O modelo de contexto não foi posicionado. Abra o separador Geo e carregue-o de novo.",
+        "ids": "Não foi possível ler o documento do editor IDS: {error}",
+        "bcf": "Não foi possível ler os tópicos BCF: {error}",
+        "quantities": "Não foi possível ler a lista de quantidades do seu livro Excel, por isso manteve-se a lista aberta: {error}",
+        "clash": "Não foi possível ler a matriz de colisões do seu livro Excel, por isso manteve-se a matriz aberta: {error}",
+        "globe": "Não foi possível ativar o contexto 3D do mundo: {error}",
+        "noDetail": "não foi indicado o motivo"
+      }
     }
   },
   "idsCreate": {

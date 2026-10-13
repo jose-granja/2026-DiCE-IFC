@@ -12,10 +12,17 @@ import { getModelHandle } from "@/lib/viewer/loader";
 import { useViewerStore } from "@/lib/viewer/store";
 import { hasAnySnapTarget } from "@/lib/viewer/tools";
 import MeasurementLabels from "./MeasurementLabels";
+import BcfMarkers from "./BcfMarkers";
 import { Button } from "@/components/ui/button";
 import { Axis3D, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { setGlobeCanvas } from "@/lib/viewer/globe-canvas";
+import { useGlobeStore } from "@/lib/viewer/globe-store";
+import {
+  applyDisplaySettings,
+  displaySettingsValues,
+  useDisplaySettingsStore,
+} from "@/lib/viewer/display-settings";
 import type { CameraProjection } from "@/lib/viewer/camera";
 import ViewCube, { type ViewCubeRef } from "./ViewCube";
 import ViewerContextMenu, { type ViewerContextMenuState } from "./ViewerContextMenu";
@@ -137,6 +144,8 @@ export function ViewerCanvas() {
     if (globeRef.current) setGlobeCanvas(globeRef.current);
     rendererRef.current = renderer;
     setActiveRenderer(renderer);
+    // A new renderer starts at its defaults; the controls show the store.
+    applyDisplaySettings(renderer, displaySettingsValues(useDisplaySettingsStore.getState()));
     setReady(true);
     const stopProjectionListener = renderer.onProjectionChange(setProjection);
     const stopRotationListener = renderer.onCameraRotationChange(
@@ -157,6 +166,8 @@ export function ViewerCanvas() {
     return () => {
       stopProjectionListener();
       stopRotationListener();
+      // The globe outlives the Geo panel but not the viewer it is drawn in.
+      useGlobeStore.getState().off();
       renderer.dispose();
       rendererRef.current = null;
       setActiveRenderer(null);
@@ -253,6 +264,12 @@ export function ViewerCanvas() {
         });
     }
   }, [models, ready]);
+
+  // ---- the globe needs a model to stand on; with none left it goes too
+  const modelCount = models.length;
+  useEffect(() => {
+    if (modelCount === 0 && useGlobeStore.getState().on) useGlobeStore.getState().off();
+  }, [modelCount]);
 
   // ---- placements
   useEffect(() => {
@@ -683,6 +700,7 @@ export function ViewerCanvas() {
       />
 
       <MeasurementLabels />
+      <BcfMarkers ready={ready} />
 
       <ViewerContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
 

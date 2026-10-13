@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Sun, SlidersHorizontal, SquareDashed } from "lucide-react";
 
@@ -12,11 +11,15 @@ import {
 } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { DEFAULT_EDGE_WIDTH } from "@/lib/viewer/edges";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
+import {
+  DEFAULT_DISPLAY_SETTINGS,
+  applyDisplaySettings,
+  displaySettingsValues,
+  useDisplaySettingsStore,
+  type DisplaySettingsValues,
+} from "@/lib/viewer/display-settings";
 
-const DEFAULT_LIGHT_INTENSITY = 1;
-const DEFAULT_EXPOSURE = 0.75;
 const LIGHT_INTENSITY_RANGE = { min: 0.4, max: 2, step: 0.05 };
 const EXPOSURE_RANGE = { min: 0.4, max: 1.3, step: 0.05 };
 const EDGE_WIDTH_RANGE = { min: 0.5, max: 5, step: 0.1 };
@@ -24,34 +27,25 @@ const EDGE_WIDTH_RANGE = { min: 0.5, max: 5, step: 0.1 };
 /** Controls render style on the existing scene without adding viewer objects. */
 export function DisplaySettings() {
   const t = useTranslations("viewer.displaySettings");
-  const [lightIntensity, setLightIntensityState] = useState(
-    DEFAULT_LIGHT_INTENSITY,
-  );
-  const [exposure, setExposureState] = useState(DEFAULT_EXPOSURE);
-  const [edgeWidth, setEdgeWidthState] = useState(DEFAULT_EDGE_WIDTH);
-  const [edgesOn, setEdgesOn] = useState(true);
+  // The values live in a store so a project folder can save and restore them.
+  const lightIntensity = useDisplaySettingsStore((s) => s.lightIntensity);
+  const exposure = useDisplaySettingsStore((s) => s.exposure);
+  const edgeWidth = useDisplaySettingsStore((s) => s.edgeWidth);
+  const edgesOn = useDisplaySettingsStore((s) => s.edgesOn);
 
-  const applyEdges = (on: boolean, width: number) => {
-    setEdgesOn(on);
-    setEdgeWidthState(width);
-    getActiveRenderer()?.setEdgeStyle({ width: on ? width : 0 });
+  const change = (patch: Partial<DisplaySettingsValues>) => {
+    const store = useDisplaySettingsStore.getState();
+    store.set(patch);
+    applyDisplaySettings(
+      getActiveRenderer(),
+      displaySettingsValues(useDisplaySettingsStore.getState()),
+    );
   };
 
-  const onLightIntensityChange = (value: number) => {
-    setLightIntensityState(value);
-    getActiveRenderer()?.setLightIntensityScale(value);
-  };
-
-  const onExposureChange = (value: number) => {
-    setExposureState(value);
-    getActiveRenderer()?.setExposure(value);
-  };
-
-  const reset = () => {
-    onLightIntensityChange(DEFAULT_LIGHT_INTENSITY);
-    onExposureChange(DEFAULT_EXPOSURE);
-    applyEdges(true, DEFAULT_EDGE_WIDTH);
-  };
+  const applyEdges = (on: boolean, width: number) => change({ edgesOn: on, edgeWidth: width });
+  const onLightIntensityChange = (value: number) => change({ lightIntensity: value });
+  const onExposureChange = (value: number) => change({ exposure: value });
+  const reset = () => change(DEFAULT_DISPLAY_SETTINGS);
 
   return (
     <Popover>

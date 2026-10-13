@@ -14,19 +14,32 @@ import { defaultMode } from "@/lib/pointcloud/colour";
 import { suggestFrame } from "@/lib/pointcloud/place";
 import { loadPointCloud, type PointCloudLoad } from "@/lib/workers/pointcloud-client";
 
-import { DEFAULT_POINT_SIZE, usePointCloudStore } from "./pointcloud-store";
+import { DEFAULT_POINT_SIZE, usePointCloudStore, type PointCloudEntry } from "./pointcloud-store";
 import { useViewerStore } from "./store";
 
 const jobs = new Map<string, PointCloudLoad>();
 
 let counter = 0;
 
+/** The file each cloud was opened from, for saving it into a project folder. */
+const sources = new Map<string, File>();
+
+export function getPointCloudSource(id: string): File | undefined {
+  return sources.get(id);
+}
+
+/** What a project folder remembers about a cloud, applied once it has decoded. */
+export type PointCloudPreset = Partial<Pick<PointCloudEntry, "frame" | "mode" | "size" | "visible">>;
+
 export type PointCloudOutcome =
   | { file: string; ok: true; cloudId: string }
   | { file: string; ok: false; error: string };
 
 /** Load one file. Resolves when it is on screen or has failed; never rejects. */
-export async function loadPointCloudFile(file: File): Promise<PointCloudOutcome> {
+export async function loadPointCloudFile(
+  file: File,
+  preset: PointCloudPreset = {},
+): Promise<PointCloudOutcome> {
   const format = pointCloudFormat(file.name);
   if (!format) {
     return { file: file.name, ok: false, error: "Not a supported point-cloud file." };
@@ -34,6 +47,7 @@ export async function loadPointCloudFile(file: File): Promise<PointCloudOutcome>
 
   const id = `pointcloud-${Date.now().toString(36)}-${(counter += 1)}`;
   const store = usePointCloudStore.getState();
+  sources.set(id, file);
   store.add({
     id,
     name: file.name,
@@ -44,8 +58,8 @@ export async function loadPointCloudFile(file: File): Promise<PointCloudOutcome>
     cloud: null,
     frame: "model",
     mode: "flat",
-    size: DEFAULT_POINT_SIZE,
-    visible: true,
+    size: preset.size ?? DEFAULT_POINT_SIZE,
+    visible: preset.visible ?? true,
   });
 
   const job = loadPointCloud(file, {
@@ -61,8 +75,10 @@ export async function loadPointCloudFile(file: File): Promise<PointCloudOutcome>
       status: "ready",
       progress: 1,
       cloud,
-      mode: defaultMode(cloud),
-      frame: suggestFrame(cloud.origin, useViewerStore.getState().worldOrigin),
+      // A preset is what the user chose last time; the suggestion is only a
+      // guess from the coordinates' magnitude, so the choice wins.
+      mode: preset.mode ?? defaultMode(cloud),
+      frame: preset.frame ?? suggestFrame(cloud.origin, useViewerStore.getState().worldOrigin),
     });
     return { file: file.name, ok: true, cloudId: id };
   } catch (error) {
@@ -82,5 +98,6 @@ export async function loadPointCloudFile(file: File): Promise<PointCloudOutcome>
 export function removePointCloud(id: string) {
   jobs.get(id)?.cancel();
   jobs.delete(id);
+  sources.delete(id);
   usePointCloudStore.getState().remove(id);
 }

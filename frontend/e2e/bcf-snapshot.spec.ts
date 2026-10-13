@@ -18,7 +18,7 @@ const IFC4 = path.resolve(__dirname, "../fixtures/ifc/georeferenced-wall-ifc4.if
 
 /** Decode the stored snapshot and report how much of it is see-through. */
 async function analyse(page: Page) {
-  const source = await page.locator("img").first().getAttribute("src");
+  const source = await page.getByRole("img", { name: /^Snapshot for / }).getAttribute("src");
   expect(source).toBeTruthy();
 
   return page.evaluate(
@@ -47,11 +47,11 @@ async function analyse(page: Page) {
 }
 
 async function raiseTopic(page: Page, title: string) {
+  await page.getByRole("tab", { name: "BCF", exact: true }).click();
   await page.getByRole("button", { name: "New topic" }).click();
-  await page.getByLabel("Title *").fill(title);
-  await page.getByRole("button", { name: "Create topic" }).click();
-  await expect(page).toHaveURL(/panel=bcf/);
-  await expect(page.locator("img").first()).toBeVisible({ timeout: 20_000 });
+  await page.getByLabel("Topic title").fill(title);
+  await page.getByRole("button", { name: "Capture current view" }).click();
+  await expect(page.getByRole("img", { name: /^Snapshot for / })).toBeVisible({ timeout: 20_000 });
 }
 
 async function load(page: Page) {
@@ -103,8 +103,7 @@ test("the stored snapshot is the size of the viewport, not a stub", async ({
   await raiseTopic(page, "Sized snapshot");
 
   const size = await page
-    .locator("img")
-    .first()
+    .getByRole("img", { name: /^Snapshot for / })
     .evaluate((element) => ({
       width: (element as HTMLImageElement).naturalWidth,
       height: (element as HTMLImageElement).naturalHeight,
