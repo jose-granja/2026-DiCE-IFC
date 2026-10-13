@@ -173,21 +173,40 @@ export function FacetEditor({
 
   return (
     <Collapsible open={open} onOpenChange={onOpenChange} className="rounded border p-3" data-facet-editor>
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <CollapsibleTrigger asChild>
           <button type="button"
             className="hover:bg-accent focus-visible:ring-ring flex min-w-0 flex-1 items-start gap-1.5 rounded text-left focus-visible:ring-2 focus-visible:outline-none"
             aria-label={t(open ? "collapseFacet" : "expandFacet", { label: tFacetKinds(facet.kind) })}>
             <ChevronDown className={`mt-1 h-3.5 w-3.5 shrink-0 transition-transform ${open ? "" : "-rotate-90"}`} aria-hidden />
-            <span className="min-w-0">
+            <span className="min-w-0 flex flex-row truncate items-center gap-2">
               <Badge variant="secondary">{tFacetKinds(facet.kind)}</Badge>
-              <span className="text-muted-foreground mt-1 block truncate text-[11px]" title={summary}>{summary}</span>
+              <span className="text-muted-foreground block truncate text-[11px]" title={summary}>{summary}</span>
             </span>
           </button>
         </CollapsibleTrigger>
 
         <div className="flex shrink-0 items-center gap-1">
-          {cardinality && onCardinalityChange && (
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            aria-label={t("removeFacet", { label: tFacetKinds(facet.kind) })}
+            onClick={onRemove}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Keep local input drafts (for example an unfinished enumeration) when
+          hiding fields; disclosure state must never edit the IDS document. */}
+      <CollapsibleContent forceMount className="space-y-3 pt-3 data-[state=closed]:hidden">
+      <div className="w-full flex justify-between items-center gap-1">
+
+        <p className="text-muted-foreground text-[11px]">{tFacetHints(facet.kind)}</p>
+        {cardinality && onCardinalityChange && (
             <Select
               value={cardinality}
               onValueChange={(value) => onCardinalityChange(value as Cardinality)}
@@ -204,22 +223,7 @@ export function FacetEditor({
               </SelectContent>
             </Select>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            aria-label={t("removeFacet", { label: tFacetKinds(facet.kind) })}
-            onClick={onRemove}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
       </div>
-
-      {/* Keep local input drafts (for example an unfinished enumeration) when
-          hiding fields; disclosure state must never edit the IDS document. */}
-      <CollapsibleContent forceMount className="space-y-3 pt-3 data-[state=closed]:hidden">
-        <p className="text-muted-foreground text-[11px]">{tFacetHints(facet.kind)}</p>
         {facet.kind === "entity" && (
           <>
             <ValueEditor
