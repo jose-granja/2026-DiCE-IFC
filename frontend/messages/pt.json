@@ -73,7 +73,7 @@
     "storage": [
       "Um cookie, dice-locale, memoriza se escolheu português ou inglês. É necessário para a escolha se manter e não contém identificador.",
       "O armazenamento do navegador guarda o tema, a largura dos painéis, a matriz de colisões e as definições guardadas, e o trabalho em rascunho no Origin Private File System. Fica no seu navegador; limpar os dados do sítio remove-o.",
-      "Guardar um projeto escreve os ficheiros que abriu e um project.json com as suas definições numa pasta que escolhe no seu computador (ou numa única transferência .zip, quando o navegador não consegue escrever pastas). Abrir um projeto lê apenas a pasta que escolher. Nenhum dos dois envia nada pela rede.",
+      "Guardar um projeto escreve os ficheiros que abriu e um project.json com as suas definições numa pasta que escolhe no seu computador (ou numa única transferência .zip, quando o navegador não consegue escrever pastas). Abrir um projeto lê apenas a pasta que escolher. Guardar mantém o mesmo projeto no armazenamento privado deste navegador, copiando os ficheiros que o navegador não consiga reabrir por si. Nada disto envia dados pela rede.",
       "Não há cookies de análise, publicidade ou rastreio."
     ]
   },
@@ -404,12 +404,16 @@
     "workspaceActions": {
       "save": "Guardar",
       "restore": "Restaurar",
-      "saved": "{count, plural, one {Espaço de trabalho guardado — # modelo.} other {Espaço de trabalho guardado — # modelos.}}",
-      "unsaveable": "Não guardado: {names}. Ficheiros adicionados por arrastar ou pelo seletor de ficheiros não podem ser reabertos mais tarde — use “Adicionar modelos” num navegador com a File System Access API.",
-      "saveFailed": "Não foi possível guardar o espaço de trabalho.",
-      "noSavedWorkspace": "Sem espaço de trabalho guardado.",
-      "restored": "{count, plural, one {# modelo restaurado.} other {# modelos restaurados.}}",
-      "restoreFailed": "Não foi possível restaurar o espaço de trabalho."
+      "saveHint": "Guardar toda esta sessão neste navegador — modelos, nuvens de pontos, definições, filtros, planos, medições, quantidades, matriz de colisões, IDS e BCF — tal como uma pasta de projeto.",
+      "restoreHint": "Abrir a sessão guardada neste navegador.",
+      "saving": "A guardar a sessão neste navegador…",
+      "saved": "Sessão guardada neste navegador: {models, plural, one {# modelo} other {# modelos}}, {clouds, plural, =0 {sem nuvens de pontos} one {# nuvem de pontos} other {# nuvens de pontos}} e as suas definições.",
+      "savedName": "a sessão guardada",
+      "unavailable": "Este navegador não tem armazenamento privado para guardar a sessão. Use Projeto → Guardar pasta do projeto.",
+      "quota": "Não há espaço suficiente no navegador para esta sessão. Use Projeto → Guardar pasta do projeto.",
+      "saveFailed": "Não foi possível guardar a sessão: {message}",
+      "noSavedWorkspace": "Não há nenhuma sessão guardada neste navegador.",
+      "restoreFailed": "Não foi possível restaurar a sessão: {message}"
     },
     "modelList": {
       "aligned": "Alinhado",

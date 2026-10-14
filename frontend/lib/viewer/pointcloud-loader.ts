@@ -22,9 +22,15 @@ let counter = 0;
 
 /** The file each cloud was opened from, for saving it into a project folder. */
 const sources = new Map<string, File>();
+/** Present when the cloud was opened with the File System Access API — see `loader.ts`. */
+const handles = new Map<string, FileSystemFileHandle>();
 
 export function getPointCloudSource(id: string): File | undefined {
   return sources.get(id);
+}
+
+export function getPointCloudHandle(id: string): FileSystemFileHandle | undefined {
+  return handles.get(id);
 }
 
 /** What a project folder remembers about a cloud, applied once it has decoded. */
@@ -38,6 +44,7 @@ export type PointCloudOutcome =
 export async function loadPointCloudFile(
   file: File,
   preset: PointCloudPreset = {},
+  handle?: FileSystemFileHandle,
 ): Promise<PointCloudOutcome> {
   const format = pointCloudFormat(file.name);
   if (!format) {
@@ -47,6 +54,7 @@ export async function loadPointCloudFile(
   const id = `pointcloud-${Date.now().toString(36)}-${(counter += 1)}`;
   const store = usePointCloudStore.getState();
   sources.set(id, file);
+  if (handle) handles.set(id, handle);
   store.add({
     id,
     name: file.name,
@@ -98,5 +106,6 @@ export function removePointCloud(id: string) {
   jobs.get(id)?.cancel();
   jobs.delete(id);
   sources.delete(id);
+  handles.delete(id);
   usePointCloudStore.getState().remove(id);
 }

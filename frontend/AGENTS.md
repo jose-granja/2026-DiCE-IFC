@@ -888,8 +888,18 @@ and clash matrix as Excel workbooks (`quantities/quantities.xlsx`,
 `clash/clash-matrix.xlsx`), and a `project.json` that points to each file and holds
 the rest — and loads one back (`lib/project/`). It is written to and
 read from the user's own disk; nothing crosses the network, so §1 is unchanged.
-This is separate from the older `WorkspaceActions` (file handles in IndexedDB,
-same machine only): a project folder is portable and carries the bytes.
+**Save and Restore (`WorkspaceActions`) are the same project, kept in the
+browser** (`lib/viewer/workspace.ts`): the folder goes to OPFS
+(`workspaces/project/`) instead of a folder the user picks, and Restore opens it
+through the same `useProjectLoader` as "Load project folder" — same dialog, same
+consent for the globe, same report — so the two cannot disagree about what a
+session is. A file the browser can reopen itself (opened through "Add models"
+with the File System Access API) is kept as a handle in IndexedDB, keyed
+`project:<path>`, not copied; anything else is copied in, so a big dropped
+federation costs browser storage (a quota error says to use a project folder).
+Save is disabled with nothing open, or it would replace the kept session with an
+empty one. The first workspace format (`workspaces/current` + handles keyed
+`index:name`) is still read, as a project of models and a camera.
 
 - **Chromium writes a real folder; Firefox and Safari get a `.zip` of the same
   folder.** Only Chromium has `showDirectoryPicker`. Loading takes a folder

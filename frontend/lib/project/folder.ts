@@ -245,15 +245,26 @@ function indexFiles(entries: Array<{ path: string; file: File }>, fallbackName: 
 
 /** From `<input webkitdirectory>`: every file carries its path in `webkitRelativePath`. */
 export async function readProjectFromFileList(files: Iterable<File>): Promise<ProjectSource> {
-  const entries = [...files].map((file) => ({
-    path: file.webkitRelativePath || file.name,
-    file,
-  }));
-  const { manifest, byPath, name } = indexFiles(entries, "project");
+  return readProjectFromEntries(
+    [...files].map((file) => ({ path: file.webkitRelativePath || file.name, file })),
+    "project",
+  );
+}
+
+/**
+ * From files already gathered with their paths — a folder in the browser's own
+ * storage, say (`lib/viewer/workspace.ts`). `name` is used when the files sit
+ * at the root, with no folder of their own to be named after.
+ */
+export async function readProjectFromEntries(
+  entries: Array<{ path: string; file: File }>,
+  name: string,
+): Promise<ProjectSource> {
+  const indexed = indexFiles(entries, name);
   return {
-    name,
-    manifestText: await manifest.text(),
-    file: (path) => byPath.get(normalise(path).toLocaleLowerCase()),
+    name: indexed.name,
+    manifestText: await indexed.manifest.text(),
+    file: (path) => indexed.byPath.get(normalise(path).toLocaleLowerCase()),
   };
 }
 

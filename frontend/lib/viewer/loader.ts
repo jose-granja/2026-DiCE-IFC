@@ -190,7 +190,7 @@ export async function loadModelFiles(
       ].join(", ")}.`,
     }));
 
-  const cloudResults = Promise.all(clouds.map((p) => loadPointCloudFile(p.file)));
+  const cloudResults = Promise.all(clouds.map((p) => loadPointCloudFile(p.file, {}, p.handle)));
 
   const settled = await Promise.allSettled(
     accepted.map((p) => loadModelFile(p.file, p.handle)),

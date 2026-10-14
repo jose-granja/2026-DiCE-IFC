@@ -5,18 +5,22 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { RotateCcw, Save } from "lucide-react";
 
-import { getFileHandle, loadModelFiles } from "@/lib/viewer/loader";
-import { useViewerStore } from "@/lib/viewer/store";
-import {
-  hasWorkspace,
-  restoreWorkspace,
-  saveWorkspace,
-} from "@/lib/viewer/workspace";
 import { Button } from "@/components/ui/button";
-import { getActiveRenderer } from "@/lib/viewer/active-renderer";
+import { buildCurrentProject } from "@/lib/project/session";
+import { hasWorkspace, readWorkspace, saveWorkspace, WorkspaceUnavailableError } from "@/lib/viewer/workspace";
+import { usePointCloudStore } from "@/lib/viewer/pointcloud-store";
+import { useViewerStore } from "@/lib/viewer/store";
+import { PROJECT_TOAST_ID, useProjectLoader } from "./useProjectLoader";
 
 /**
- * Save and restore the federation.
+ * Save and Restore: the whole session, kept in this browser.
+ *
+ * The same project the "Project" menu writes to a folder — models, point
+ * clouds, the context model, IDS, BCF, quantities, the clash matrix, filters,
+ * planes, measurements, the camera — through the same builder and the same
+ * restore (`lib/viewer/workspace.ts`), so the two never differ in what they
+ * keep. Restore opens through the same dialog as a project folder, asking first
+ * when it would replace what is open or turn the 3D world context on.
  *
  * Restore is a button, not something that happens on load: re-opening a stored
  * file handle needs the user's permission, and the permission prompt requires
@@ -25,69 +29,65 @@ import { getActiveRenderer } from "@/lib/viewer/active-renderer";
  */
 export function WorkspaceActions() {
   const t = useTranslations("viewer.workspaceActions");
+  const tProject = useTranslations("viewer.project");
   const models = useViewerStore((s) => s.models);
+  const cloudCount = usePointCloudStore((s) => s.clouds.length);
   const [restorable, setRestorable] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const loader = useProjectLoader();
+  const busy = saving || loader.busy;
 
   useEffect(() => {
     hasWorkspace().then(setRestorable).catch(() => setRestorable(false));
   }, [models.length]);
 
   const onSave = async () => {
-    setBusy(true);
+    setSaving(true);
     try {
-      const { saved, unsaveable } = await saveWorkspace(
-        models.map((model) => ({
-          name: model.summary.name,
-          colour: model.colour,
-          visible: model.visible,
-          manualOffset: model.manualOffset,
-          handle: getFileHandle(model.summary.id),
-        })),
-        getActiveRenderer()?.getCameraState(),
+      toast.loading(t("saving"), { id: PROJECT_TOAST_ID });
+      const project = buildCurrentProject();
+      await saveWorkspace(project);
+      setRestorable(true);
+      toast.success(
+        t("saved", {
+          models: project.manifest.models.length,
+          clouds: project.manifest.pointClouds.length,
+        }),
+        { id: PROJECT_TOAST_ID },
       );
-
-      if (saved > 0) {
-        toast.success(t("saved", { count: saved }));
-        setRestorable(true);
-      }
-      if (unsaveable.length > 0) {
-        // Never pretend a partial save was complete.
-        toast.warning(t("unsaveable", { names: unsaveable.join(", ") }), {
-          duration: 10_000,
-        });
+      if (project.skipped.length > 0) {
+        // Never let a partial save look complete.
+        toast.warning(
+          tProject("skipped", { names: project.skipped.map((entry) => entry.name).join(", ") }),
+          { duration: 10_000 },
+        );
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("saveFailed"));
+      const quota = error instanceof DOMException && error.name === "QuotaExceededError";
+      toast.error(
+        error instanceof WorkspaceUnavailableError
+          ? t("unavailable")
+          : quota
+            ? t("quota")
+            : t("saveFailed", { message: error instanceof Error ? error.message : String(error) }),
+        { id: PROJECT_TOAST_ID, duration: 10_000 },
+      );
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   };
 
   const onRestore = async () => {
-    setBusy(true);
     try {
-      const result = await restoreWorkspace();
-      if (!result) {
+      // Straight from the click: reopening a stored file needs its activation.
+      const source = await readWorkspace(t("savedName"));
+      if (!source) {
         toast.info(t("noSavedWorkspace"));
         return;
       }
-
-      if (result.models.length > 0) {
-        await loadModelFiles(
-          result.models.map((m) => ({ file: m.file, handle: m.handle })),
-        );
-        if (result.camera) getActiveRenderer()?.setCameraState(result.camera);
-        toast.success(t("restored", { count: result.models.length }));
-      }
-
-      for (const skipped of result.skipped) {
-        toast.error(`${skipped.name}: ${skipped.reason}`);
-      }
+      loader.offer(source);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("restoreFailed"));
-    } finally {
-      setBusy(false);
+      toast.error(t("restoreFailed", { message: loader.describe(error) }));
     }
   };
 
@@ -96,8 +96,12 @@ export function WorkspaceActions() {
       <Button
         variant="ghost"
         size="sm"
-        disabled={busy || models.length === 0}
+        // With nothing open there is nothing to keep, and saving would replace
+        // the session already kept with an empty one.
+        disabled={busy || (models.length === 0 && cloudCount === 0)}
         onClick={onSave}
+        title={t("saveHint")}
+        data-workspace-save
       >
         <Save className="h-4 w-4" />
         {t("save")}
@@ -107,10 +111,13 @@ export function WorkspaceActions() {
         size="sm"
         disabled={busy || !restorable}
         onClick={onRestore}
+        title={t("restoreHint")}
+        data-workspace-restore
       >
         <RotateCcw className="h-4 w-4" />
         {t("restore")}
       </Button>
+      {loader.dialog}
     </div>
   );
 }

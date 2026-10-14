@@ -46,6 +46,8 @@ export type SessionSnapshot = {
     name: string;
     /** Absent when the source file is no longer available. */
     file: File | undefined;
+    /** How the browser can reopen the file later, when it was opened with a picker that gives one. */
+    handle?: FileSystemFileHandle;
     colour: string;
     visible: boolean;
     manualOffset?: Vec3;
@@ -53,6 +55,7 @@ export type SessionSnapshot = {
   pointClouds: Array<{
     name: string;
     file: File | undefined;
+    handle?: FileSystemFileHandle;
     frame: CloudFrame;
     mode: PointColourMode;
     size: number;
@@ -107,6 +110,11 @@ export type BuiltProject = {
   files: ProjectFile[];
   /** Things that could not go into the folder, by name — said, never dropped quietly. */
   skipped: Array<{ name: string; reason: "noSource" }>;
+  /**
+   * The files the browser can reopen by itself, by their path in the folder —
+   * what lets a project kept in the browser store a reference instead of a copy.
+   */
+  handles: Array<{ path: string; handle: FileSystemFileHandle }>;
 };
 
 /** Parse a ref key (`modelId#expressId`) back into its parts. */
@@ -121,6 +129,7 @@ export function parseLiveRefKey(key: string): LiveRef | null {
 export function buildProject(session: SessionSnapshot, savedAt = new Date()): BuiltProject {
   const files: ProjectFile[] = [];
   const skipped: BuiltProject["skipped"] = [];
+  const handles: BuiltProject["handles"] = [];
   const pathFor = uniquePaths();
 
   // Models first: their order decides the federation's world origin, and with
@@ -142,6 +151,7 @@ export function buildProject(session: SessionSnapshot, savedAt = new Date()): Bu
       manualOffset: model.manualOffset,
     });
     files.push({ path, data: model.file });
+    if (model.handle) handles.push({ path, handle: model.handle });
   }
 
   /** A live element as a saved one, or null if its model is not in the folder. */
@@ -168,6 +178,7 @@ export function buildProject(session: SessionSnapshot, savedAt = new Date()): Bu
       visible: cloud.visible,
     });
     files.push({ path, data: cloud.file });
+    if (cloud.handle) handles.push({ path, handle: cloud.handle });
   }
 
   let context: ProjectManifest["context"] = null;
@@ -298,7 +309,7 @@ export function buildProject(session: SessionSnapshot, savedAt = new Date()): Bu
   };
 
   const json = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json" });
-  return { manifest, files: [{ path: PROJECT_FILE, data: json }, ...files], skipped };
+  return { manifest, files: [{ path: PROJECT_FILE, data: json }, ...files], skipped, handles };
 }
 
 // ---------------------------------------------------------------------------

@@ -73,7 +73,7 @@
     "storage": [
       "One cookie, dice-locale, remembers whether you chose Portuguese or English. It is needed for that choice to stick and holds no identifier.",
       "Browser storage keeps your theme, panel widths, clash matrix and saved settings, and draft work in the Origin Private File System. It stays in your browser; clearing site data removes it.",
-      "Saving a project writes the files you opened and a project.json with your settings into a folder you choose on your computer (or one .zip download where the browser cannot write folders). Loading one reads only the folder you pick. Neither sends anything over the network.",
+      "Saving a project writes the files you opened and a project.json with your settings into a folder you choose on your computer (or one .zip download where the browser cannot write folders). Loading one reads only the folder you pick. Save keeps the same project in this browser’s private storage instead, copying in any file the browser could not reopen by itself. None of this sends anything over the network.",
       "There are no analytics, advertising or tracking cookies."
     ]
   },
@@ -404,12 +404,16 @@
     "workspaceActions": {
       "save": "Save",
       "restore": "Restore",
-      "saved": "{count, plural, one {Workspace saved — # model.} other {Workspace saved — # models.}}",
-      "unsaveable": "Not saved: {names}. Files added by drag-and-drop or the file picker fallback cannot be reopened later — use “Add models” in a browser with the File System Access API.",
-      "saveFailed": "Could not save the workspace.",
-      "noSavedWorkspace": "No saved workspace.",
-      "restored": "{count, plural, one {Restored # model.} other {Restored # models.}}",
-      "restoreFailed": "Could not restore the workspace."
+      "saveHint": "Keep this whole session in this browser — models, point clouds, settings, filters, planes, measurements, quantities, clash matrix, IDS and BCF — the same as a project folder.",
+      "restoreHint": "Open the session kept in this browser.",
+      "saving": "Saving the session in this browser…",
+      "saved": "Session saved in this browser: {models, plural, one {# model} other {# models}}, {clouds, plural, =0 {no point clouds} one {# point cloud} other {# point clouds}} and their settings.",
+      "savedName": "the saved session",
+      "unavailable": "This browser has no private storage to keep the session in. Use Project → Save project folder instead.",
+      "quota": "Not enough browser storage for this session. Use Project → Save project folder instead.",
+      "saveFailed": "Could not save the session: {message}",
+      "noSavedWorkspace": "No session is saved in this browser.",
+      "restoreFailed": "Could not restore the session: {message}"
     },
     "modelList": {
       "aligned": "Aligned",

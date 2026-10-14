@@ -167,6 +167,26 @@ describe("saving a session", () => {
   });
 });
 
+describe("files the browser can reopen", () => {
+  it("are listed by their path, so a copy kept in the browser can hold a reference instead", () => {
+    const handle = { kind: "file", name: "Wall.ifc" } as unknown as FileSystemFileHandle;
+    const cloudHandle = { kind: "file", name: "scan.ply" } as unknown as FileSystemFileHandle;
+    const base = session();
+    const { handles, files } = buildProject(
+      session({
+        models: [{ ...base.models[0], handle }, base.models[1]],
+        pointClouds: [{ ...base.pointClouds[0], handle: cloudHandle }],
+      }),
+    );
+    expect(handles).toEqual([
+      { path: "models/Wall.ifc", handle },
+      { path: "pointclouds/scan.ply", handle: cloudHandle },
+    ]);
+    // The folder still holds every file; whoever writes it decides what to copy.
+    expect(files.map((file) => file.path)).toContain("models/Wall.ifc");
+  });
+});
+
 describe("the quantity list and the clash matrix", () => {
   it("go in as Excel workbooks, with only their paths in project.json", () => {
     const { manifest } = buildProject(session());

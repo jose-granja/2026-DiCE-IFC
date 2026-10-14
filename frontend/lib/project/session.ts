@@ -36,9 +36,10 @@ import {
   facetSelectionToJson,
   useFacetSelectionStore,
 } from "@/lib/viewer/facet-selection-store";
-import { getSourceFile, loadModelFile, unloadAllModels } from "@/lib/viewer/loader";
+import { getFileHandle, getSourceFile, loadModelFile, unloadAllModels } from "@/lib/viewer/loader";
 import { useViewerPanelStore } from "@/lib/viewer/panel-store";
 import {
+  getPointCloudHandle,
   getPointCloudSource,
   loadPointCloudFile,
   removePointCloud,
@@ -91,6 +92,7 @@ export function snapshotSession(): SessionSnapshot {
         id: model.summary.id,
         name: model.summary.name,
         file: getSourceFile(model.summary.id),
+        handle: getFileHandle(model.summary.id),
         colour: model.colour,
         visible: model.visible,
         manualOffset: model.manualOffset,
@@ -100,6 +102,7 @@ export function snapshotSession(): SessionSnapshot {
       .map((cloud) => ({
         name: cloud.name,
         file: getPointCloudSource(cloud.id),
+        handle: getPointCloudHandle(cloud.id),
         frame: cloud.frame,
         mode: cloud.mode,
         size: cloud.size,
