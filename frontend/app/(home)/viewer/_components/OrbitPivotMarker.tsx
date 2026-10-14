@@ -39,9 +39,9 @@ export default function OrbitPivotMarker({ ready, active }: { ready: boolean; ac
         data-orbit-pivot=""
         role="img"
         aria-label={t("rotationPoint")}
-        className="border-primary bg-background/70 absolute size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-sm"
+        className="border-primary absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-sm"
       >
-        <span className="bg-primary absolute inset-0.5 rounded-full" />
+        <span className="absolute inset-0.5 rounded-full" />
       </div>
     </div>
   );

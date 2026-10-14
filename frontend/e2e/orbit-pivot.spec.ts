@@ -27,6 +27,10 @@ for (const projection of ["Perspective", "Orthographic"]) {
 
     await page.mouse.move(press.x, press.y);
     await page.mouse.down();
+    await expect(marker).toBeHidden();
+    await page.mouse.move(press.x + 2, press.y + 1);
+    await expect(marker).toBeHidden();
+    await page.mouse.move(press.x + 12, press.y + 6, { steps: 3 });
     await expect(marker).toBeVisible();
     const pivot = await marker.getAttribute("data-orbit-pivot");
     const start = await markerCentre(page);
@@ -43,9 +47,11 @@ for (const projection of ["Perspective", "Orthographic"]) {
     await expect(marker).toBeHidden();
     await expect(page.locator("[data-orbit-pivot]")).toHaveAttribute("data-orbit-pivot", pivot!);
 
-    // Empty-space rotation still uses the saved pivot and shows it only while held.
+    // Empty-space rotation uses the saved pivot, revealed only once dragging starts.
     await page.mouse.move(box.x + 15, box.y + 15);
     await page.mouse.down();
+    await expect(marker).toBeHidden();
+    await page.mouse.move(box.x + 30, box.y + 25, { steps: 3 });
     await expect(marker).toBeVisible();
     await expect(marker).toHaveAttribute("data-orbit-pivot", pivot!);
     await page.mouse.up();
@@ -75,6 +81,7 @@ test("replaces the pivot on another surface press and retains it for empty-space
   await page.mouse.move(centre.x, centre.y);
   await page.mouse.down({ button: "right" });
   await page.mouse.move(centre.x + 40, centre.y + 20, { steps: 10 });
+  await expect(marker).toBeHidden();
   await page.mouse.up({ button: "right" });
   await expect(marker).toHaveAttribute("data-orbit-pivot", second!);
   await expect(marker).toBeHidden();

@@ -64,6 +64,7 @@ export function ViewerCanvas() {
   // Where the current gesture started, so `onPointerUp` can tell a click from
   // a drag; see `onPointerDown`.
   const pointerDownPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const orbitStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const sectionGizmoDraggingRef = useRef(false);
   // The right button pans the camera as well as opening the menu, so like the
   // primary one it only counts as a click if the pointer stayed put.
@@ -439,7 +440,13 @@ export function ViewerCanvas() {
    * for `onPointerUp` and checking how far the pointer travelled is what
    * lets a click still act while a drag does not.
    */
+  const endOrbitGesture = () => {
+    orbitStartRef.current = null;
+    setOrbiting(false);
+  };
+
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    endOrbitGesture();
     const renderer = rendererRef.current;
     if (event.button === 2) {
       secondaryDownRef.current = { x: event.clientX, y: event.clientY };
@@ -463,7 +470,7 @@ export function ViewerCanvas() {
     // section handles must not replace the rotation point.
     if (event.button === 0 && event.isPrimary && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
       renderer?.setOrbitPivotAt(event.clientX - rect.left, event.clientY - rect.top);
-      setOrbiting(true);
+      orbitStartRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
     }
     pointerDownPositionRef.current = { x: event.clientX, y: event.clientY };
   };
@@ -496,7 +503,7 @@ export function ViewerCanvas() {
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    setOrbiting(false);
+    endOrbitGesture();
     const renderer = rendererRef.current;
     if (sectionGizmoDraggingRef.current) {
       sectionGizmoDraggingRef.current = false;
@@ -607,6 +614,15 @@ export function ViewerCanvas() {
     const renderer = rendererRef.current;
     if (!renderer) return;
 
+    // Choose the pivot on press, but show it only for an actual rotation drag.
+    const orbitStart = orbitStartRef.current;
+    if (
+      orbitStart?.pointerId === event.pointerId &&
+      Math.hypot(event.clientX - orbitStart.x, event.clientY - orbitStart.y) > CLICK_DRAG_THRESHOLD_PX
+    ) {
+      setOrbiting(true);
+    }
+
     if (sectionGizmoDraggingRef.current) {
       const rect = event.currentTarget.getBoundingClientRect();
       const update = renderer.updateSectionGizmoDrag(
@@ -645,7 +661,7 @@ export function ViewerCanvas() {
   };
 
   const onPointerCancel = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    setOrbiting(false);
+    endOrbitGesture();
     if (!sectionGizmoDraggingRef.current) return;
     sectionGizmoDraggingRef.current = false;
     rendererRef.current?.endSectionGizmoDrag();
@@ -699,7 +715,7 @@ export function ViewerCanvas() {
         onPointerMove={onPointerMove}
         onPointerLeave={onPointerLeave}
         onPointerCancel={onPointerCancel}
-        onLostPointerCapture={() => setOrbiting(false)}
+        onLostPointerCapture={endOrbitGesture}
         // The camera's own right-button pan is what the menu must not get in the
         // way of, and the browser's menu has nothing to offer a 3D view.
         onContextMenu={(event) => event.preventDefault()}
