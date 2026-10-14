@@ -25,6 +25,7 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { OrbitPivot } from "./orbit-pivot";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
@@ -783,6 +784,7 @@ export class ViewerRenderer {
   private scene = new THREE.Scene();
   private camera: ViewerCamera;
   private controls: OrbitControls<THREE.Camera>;
+  private orbitPivot: OrbitPivot;
   private raycaster = new THREE.Raycaster();
   private models = new Map<string, ModelScene>();
   private resizeObserver: ResizeObserver;
@@ -887,6 +889,8 @@ export class ViewerRenderer {
     this.controls = new OrbitControls<THREE.Camera>(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.1;
+    // Correct the orbit before other camera listeners read its final pose.
+    this.orbitPivot = new OrbitPivot(this.controls);
     this.controls.addEventListener("change", this.notifyCameraRotation);
 
     // IFC Lite's default studio rig. Three's Lambert BRDF divides irradiance
@@ -1000,7 +1004,7 @@ export class ViewerRenderer {
   private animate = () => {
     if (this.disposed) return;
     this.frame = requestAnimationFrame(this.animate);
-    this.controls.update();
+    this.orbitPivot.update();
     this.updateOriginMarkerScales();
     this.updateSectionGizmoScales();
     this.flushSectionCaps();
@@ -1160,6 +1164,7 @@ export class ViewerRenderer {
     const model = this.models.get(modelId);
     if (!model) return;
 
+    this.orbitPivot.set(null);
     this.scene.remove(model.group);
     for (const batch of model.batches) {
       batch.geometry.dispose();
@@ -1418,6 +1423,7 @@ export class ViewerRenderer {
    * length); the default looks from above and to one side.
    */
   fitToBounds(bounds: { min: Vec3; max: Vec3 } | null, direction?: Vec3) {
+    this.orbitPivot.set(null);
     if (!bounds) return;
 
     const box = new THREE.Box3(
@@ -1455,7 +1461,7 @@ export class ViewerRenderer {
     const toCamera = new THREE.Vector3(...(direction ?? [1, 0.8, 1])).normalize();
     this.camera.position.copy(centre).addScaledVector(toCamera, distance);
     this.controls.target.copy(centre);
-    this.controls.update();
+    this.orbitPivot.update();
   }
 
   /** Frame visible model geometry together with every visible model origin. */
@@ -1605,9 +1611,8 @@ export class ViewerRenderer {
   /**
    * `includeContext` is off by default: element selection (`pick()`) must
    * never resolve to the context mesh, which has no expressId and is not an
-   * element — see `setContextGeometry`. Only the measurement tool
-   * (`pickPoint()`) turns it on, because a measurement is just two points and
-   * does not care what surface they came from.
+   * element — see `setContextGeometry`. Measurements and the orbit pivot
+   * (`pickPoint()`) turn it on: both need a world point on the visible surface.
    */
   private raycast(
     offsetX: number,
@@ -1780,8 +1785,9 @@ export class ViewerRenderer {
   /**
    * Pick a point on a surface, snapped to the nearest enabled target on the
    * triangle it hit — a corner, an edge midpoint, or the nearest point on an
-   * edge — when one is close enough. Used by the measurement tool, which is
-   * also the one caller that can land on the context model — see `raycast()`.
+   * edge — when one is close enough. Measurements use snapping; the orbit
+   * pivot disables it to land exactly where pressed. Both include context
+   * geometry — see `raycast()`.
    *
    * `targets` defaults to corner-only — measuring between corners is what
    * people actually want — but a face's true midpoint or an arbitrary edge
@@ -1906,6 +1912,19 @@ export class ViewerRenderer {
     return best;
   }
 
+  /** Choose the exact visible surface, without measurement snapping or recentering. */
+  setOrbitPivotAt(offsetX: number, offsetY: number) {
+    const hit = this.pickPoint(offsetX, offsetY, {
+      corner: false, edgeMidpoint: false, edge: false,
+    });
+    // Empty space keeps the last useful pivot (or the fitted view target).
+    if (hit) this.orbitPivot.set(hit.point);
+  }
+
+  getOrbitPivot(): Vec3 | null {
+    return this.orbitPivot.point;
+  }
+
   /** Where a world point lands on the canvas, in CSS pixels. */
   projectPoint(point: Vec3): ScreenPoint {
     const projected = new THREE.Vector3(...point).project(this.camera);
@@ -1995,7 +2014,7 @@ export class ViewerRenderer {
 
     this.camera = next;
     this.controls.object = next;
-    this.controls.update();
+    this.orbitPivot.update();
     for (const listener of this.projectionListeners) listener(projection);
   }
 
@@ -2031,11 +2050,12 @@ export class ViewerRenderer {
   orbit(deltaX: number, deltaY: number) {
     this.controls.rotateLeft((deltaX * Math.PI) / 180);
     this.controls.rotateUp((deltaY * Math.PI) / 180);
-    this.controls.update();
+    this.orbitPivot.update();
   }
 
   /** Move to a named building view without changing zoom or orbit target. */
   setStandardView(view: StandardView) {
+    this.orbitPivot.set(null);
     const direction = new THREE.Vector3(...standardViewDirection(view)).normalize();
     const distance = Math.max(
       this.camera.position.distanceTo(this.controls.target),
@@ -2051,7 +2071,7 @@ export class ViewerRenderer {
       direction.y > 0.999 ? -1 : direction.y < -0.999 ? 1 : 0,
     );
     this.camera.lookAt(this.controls.target);
-    this.controls.update();
+    this.orbitPivot.update();
     // OrbitControls normally emits `change`, but an exact preset can compare
     // equal to its last internal state. The cube still needs the authoritative
     // camera angles immediately after every face click.
@@ -2224,6 +2244,7 @@ export class ViewerRenderer {
     offset: Vec3 = [0, 0, 0],
   ) {
     if (this.contextMesh) {
+      this.orbitPivot.set(null);
       this.scene.remove(this.contextMesh);
       this.contextMesh.geometry.dispose();
       (this.contextMesh.material as THREE.Material).dispose();
@@ -2319,6 +2340,7 @@ export class ViewerRenderer {
   removePointCloud(id: string) {
     const points = this.pointClouds.get(id);
     if (!points) return;
+    this.orbitPivot.set(null);
     this.scene.remove(points);
     points.geometry.dispose();
     (points.material as THREE.Material).dispose();
@@ -2452,6 +2474,7 @@ export class ViewerRenderer {
   }
 
   setCameraState(state: ViewerCameraState) {
+    this.orbitPivot.set(null);
     if (state.projection) this.setProjection(state.projection);
     this.camera.position.set(...state.position);
     this.controls.target.set(...state.target);
@@ -2472,7 +2495,7 @@ export class ViewerRenderer {
       this.camera.zoom = 1;
     }
     this.camera.updateProjectionMatrix();
-    this.controls.update();
+    this.orbitPivot.update();
   }
 
   /**
@@ -3510,6 +3533,7 @@ export class ViewerRenderer {
     this.controls.removeEventListener("change", this.notifyCameraRotation);
     this.cameraRotationListeners.clear();
     this.projectionListeners.clear();
+    this.orbitPivot.dispose();
     this.controls.dispose();
     for (const modelId of [...this.models.keys()]) this.removeModel(modelId);
     for (const id of [...this.pointClouds.keys()]) this.removePointCloud(id);

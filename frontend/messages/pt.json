@@ -750,6 +750,7 @@
     "canvas": {
       "dropHint": "Largue aqui ficheiros IFC ou nuvens de pontos, ou use “Adicionar modelos”.",
       "fitView": "Ajustar vista",
+      "rotationPoint": "Ponto de rotação",
       "showOrigins": "Mostrar origens dos modelos",
       "hideOrigins": "Ocultar origens dos modelos",
       "viewCube": {

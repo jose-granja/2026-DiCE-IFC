@@ -13,6 +13,7 @@ import { useViewerStore } from "@/lib/viewer/store";
 import { hasAnySnapTarget } from "@/lib/viewer/tools";
 import MeasurementLabels from "./MeasurementLabels";
 import BcfMarkers from "./BcfMarkers";
+import OrbitPivotMarker from "./OrbitPivotMarker";
 import { Button } from "@/components/ui/button";
 import { Axis3D, Contrast, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,7 @@ export function ViewerCanvas() {
   // primary one it only counts as a click if the pointer stayed put.
   const secondaryDownRef = useRef<{ x: number; y: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<ViewerContextMenuState>(null);
+  const [orbiting, setOrbiting] = useState(false);
   const [ready, setReady] = useState(false);
   usePointClouds(rendererRef, ready);
   const cloudCount = usePointCloudStore((state) => state.clouds.length);
@@ -457,6 +459,12 @@ export function ViewerCanvas() {
       event.preventDefault();
       return;
     }
+    // The unmodified primary button (or first touch) rotates. Pan/zoom and
+    // section handles must not replace the rotation point.
+    if (event.button === 0 && event.isPrimary && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+      renderer?.setOrbitPivotAt(event.clientX - rect.left, event.clientY - rect.top);
+      setOrbiting(true);
+    }
     pointerDownPositionRef.current = { x: event.clientX, y: event.clientY };
   };
 
@@ -488,6 +496,7 @@ export function ViewerCanvas() {
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    setOrbiting(false);
     const renderer = rendererRef.current;
     if (sectionGizmoDraggingRef.current) {
       sectionGizmoDraggingRef.current = false;
@@ -636,6 +645,7 @@ export function ViewerCanvas() {
   };
 
   const onPointerCancel = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    setOrbiting(false);
     if (!sectionGizmoDraggingRef.current) return;
     sectionGizmoDraggingRef.current = false;
     rendererRef.current?.endSectionGizmoDrag();
@@ -689,6 +699,7 @@ export function ViewerCanvas() {
         onPointerMove={onPointerMove}
         onPointerLeave={onPointerLeave}
         onPointerCancel={onPointerCancel}
+        onLostPointerCapture={() => setOrbiting(false)}
         // The camera's own right-button pan is what the menu must not get in the
         // way of, and the browser's menu has nothing to offer a 3D view.
         onContextMenu={(event) => event.preventDefault()}
@@ -701,6 +712,7 @@ export function ViewerCanvas() {
       />
 
       <MeasurementLabels />
+      <OrbitPivotMarker ready={ready} active={orbiting} />
       <BcfMarkers ready={ready} />
 
       <ViewerContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />

@@ -750,6 +750,7 @@
     "canvas": {
       "dropHint": "Drop IFC files or point clouds here, or use “Add models”.",
       "fitView": "Fit view",
+      "rotationPoint": "Rotation point",
       "showOrigins": "Show model origins",
       "hideOrigins": "Hide model origins",
       "viewCube": {
