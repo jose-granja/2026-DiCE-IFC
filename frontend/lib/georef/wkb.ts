@@ -74,6 +74,47 @@ export function parseWkb(bytes: Uint8Array): WkbGeometry {
   return out;
 }
 
+/** Linearise SQL/MM circular arcs, preserving their control points and heights. */
+function circularString(points: WkbPoint[]): WkbPoint[] {
+  if (points.length === 0) return [];
+  if (points.length < 3 || points.length % 2 === 0) {
+    throw new WkbError("A circular string needs an odd number of at least three points.");
+  }
+  const result: WkbPoint[] = [points[0]];
+  const tau = 2 * Math.PI;
+  const positive = (angle: number) => (angle % tau + tau) % tau;
+  for (let i = 0; i + 2 < points.length; i += 2) {
+    const [a, b, c] = points.slice(i, i + 3);
+    const ux = b[0] - a[0], uy = b[1] - a[1];
+    const vx = c[0] - a[0], vy = c[1] - a[1];
+    const u2 = ux * ux + uy * uy, v2 = vx * vx + vy * vy;
+    const determinant = 2 * (ux * vy - uy * vx);
+    const fullCircle = a[0] === c[0] && a[1] === c[1];
+    if (!fullCircle && Math.abs(determinant) <= 1e-12 * Math.max(u2, v2)) {
+      result.push(b, c);
+      continue;
+    }
+    const cx = fullCircle ? (a[0] + b[0]) / 2 : a[0] + (vy * u2 - uy * v2) / determinant;
+    const cy = fullCircle ? (a[1] + b[1]) / 2 : a[1] + (ux * v2 - vx * u2) / determinant;
+    const radius = Math.hypot(a[0] - cx, a[1] - cy);
+    const angles = [a, b, c].map((p) => Math.atan2(p[1] - cy, p[0] - cx));
+    const ccw = fullCircle || positive(angles[1] - angles[0]) <= positive(angles[2] - angles[0]);
+    for (let part = 0; part < 2; part++) {
+      const start = [a, b][part], end = [b, c][part];
+      const sweep = fullCircle ? Math.PI : ccw
+        ? positive(angles[part + 1] - angles[part])
+        : -positive(angles[part] - angles[part + 1]);
+      const steps = Math.max(1, Math.ceil(Math.abs(sweep) / (Math.PI / 36)));
+      for (let j = 1; j < steps; j++) {
+        const t = j / steps, angle = angles[part] + sweep * t;
+        result.push([cx + radius * Math.cos(angle), cy + radius * Math.sin(angle), start[2] + (end[2] - start[2]) * t]);
+      }
+      result.push(end);
+    }
+  }
+  return result;
+}
+
 function read(reader: Reader, out: WkbGeometry, depth = 0) {
   if (depth > 8) throw new WkbError("Geometry is nested too deeply to be real.");
 
@@ -132,7 +173,41 @@ function read(reader: Reader, out: WkbGeometry, depth = 0) {
     case 2:
       out.lines.push(ring());
       break;
-    case 3: {
+    case 8:
+      out.lines.push(circularString(ring()));
+      break;
+    case 9: { // CompoundCurve: connected LineStrings and CircularStrings.
+      const parts = reader.uint32();
+      const curve: WkbPoint[] = [];
+      for (let i = 0; i < parts; i++) {
+        const child: WkbGeometry = { polygons: [], lines: [], points: [] };
+        read(reader, child, depth + 1);
+        if (child.polygons.length || child.points.length) throw new WkbError("Invalid compound curve member.");
+        for (const line of child.lines) {
+          const last = curve.at(-1);
+          const shared = last && line[0]?.every((v, axis) => v === last[axis]);
+          for (let j = shared ? 1 : 0; j < line.length; j++) curve.push(line[j]);
+        }
+      }
+      out.lines.push(curve);
+      break;
+    }
+    case 10: { // CurvePolygon: each ring is itself a WKB curve.
+      const count = reader.uint32();
+      const polygon: WkbPolygon = [];
+      for (let i = 0; i < count; i++) {
+        const child: WkbGeometry = { polygons: [], lines: [], points: [] };
+        read(reader, child, depth + 1);
+        if (child.lines.length !== 1 || child.polygons.length || child.points.length) {
+          throw new WkbError("Invalid curve polygon ring.");
+        }
+        polygon.push(child.lines[0]);
+      }
+      out.polygons.push(polygon);
+      break;
+    }
+    case 3:
+    case 17: {
       const rings = reader.uint32();
       const polygon: WkbPolygon = [];
       for (let i = 0; i < rings; i += 1) polygon.push(ring());
@@ -146,7 +221,17 @@ function read(reader: Reader, out: WkbGeometry, depth = 0) {
       // Multi-geometries and collections: each part carries its own byte order
       // and type, so each is read as a geometry in its own right.
       const parts = reader.uint32();
-      for (let i = 0; i < parts && !reader.done; i += 1) read(reader, out, depth + 1);
+      for (let i = 0; i < parts; i += 1) read(reader, out, depth + 1);
+      break;
+    }
+    case 11: // MultiCurve
+    case 12: // MultiSurface
+    case 15: // PolyhedralSurface
+    case 16: { // TIN
+      // Multi-geometries and collections: each part carries its own byte order
+      // and type, so each is read as a geometry in its own right.
+      const parts = reader.uint32();
+      for (let i = 0; i < parts; i += 1) read(reader, out, depth + 1);
       break;
     }
     default:

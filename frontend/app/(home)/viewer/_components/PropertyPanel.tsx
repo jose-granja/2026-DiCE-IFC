@@ -43,6 +43,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getModelHandle } from "@/lib/viewer/loader";
 import { useViewerStore } from "@/lib/viewer/store";
+import { useContextModelStore } from "@/lib/viewer/context-model-store";
+import { ContextPropertyPanel } from "./ContextPropertyPanel";
 import type {
   ElementInfo,
   MaterialDetailView,
@@ -51,6 +53,14 @@ import type {
 } from "@/lib/ifc/types";
 
 export function PropertyPanel() {
+  const loaded = useContextModelStore((s) => s.loaded);
+  const selected = useContextModelStore((s) => s.selectedFeature);
+  const file = useContextModelStore((s) => s.file);
+  const feature = selected === null ? null : loaded?.features?.[selected];
+  return feature ? <ContextPropertyPanel key={selected} feature={feature} filename={file?.name} epsg={loaded!.epsg} /> : <IfcPropertyPanel />;
+}
+
+function IfcPropertyPanel() {
   const t = useTranslations("viewer.propertyPanel");
   const selection = useViewerStore((s) => s.selection);
   const models = useViewerStore((s) => s.models);

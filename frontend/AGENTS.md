@@ -742,17 +742,18 @@ a separate 2D map. `/georef` redirects to `/viewer?panel=georef`.
   `setModelGeometry`: it must stay out of the model list, the spatial tree, the
   federation bounds and IDS validation. Someone else's city reported as the
   user's IDS failures is worse than no context at all.
-- **Except for measurement, which is the one thing the context mesh is
-  allowed to be picked for.** `ViewerRenderer.raycast()` takes an
-  `includeContext` flag rather than always including `contextMesh` in its
-  target list, so `pick()` (element selection) stays exactly as exclusionary
-  as the rule above requires — the context mesh has no expressId, is not an
-  element, and must never resolve to one — while `pickPoint()` (the
-  measurement tool) opts in. Safe specifically because a `Measurement` is two
-  raw points and nothing else (`lib/viewer/store.ts`): it was never going to
-  gain a model/expressId reference, so there is no selection-shaped hole to
-  put the context model through. "How far is my building from its neighbour"
-  needs an answer; "which element did I select" must never be the context.
+- **Context metadata inspection is separate from IFC selection.**
+  `pickInspectable()` includes context and returns a feature index rather than
+  an expressId. `context-model-store` owns that selection; `PropertyPanel`
+  displays source attributes without querying the IFC adapter. Selecting an
+  IFC element clears context selection, and hiding/replacing/removing context
+  clears its inspector. `pick()` remains IFC-only for tools that need an entity
+  reference; `pickPoint()` includes context for measurements and orbit pivots.
+- **Keep feature metadata and triangle ranges through every reader and worker.**
+  `ContextGeometry.features` holds source IDs/attributes and `featureRanges`
+  maps rendered triangle indices to features. Several surfaces may share one
+  feature; highlight them together. Coplanar map hits prefer later triangles,
+  matching layer draw order. Never invent an IFC reference for a context feature.
 - **Every context format resolves to `ContextGeometry`.** CityJSON, GeoJSON and
   anything added later produce the same triangle soup in metres about a
   projected origin, built through `GeometryBuilder` — which owns the one
@@ -812,6 +813,13 @@ a separate 2D map. `/georef` redirects to `/viewer?panel=georef`.
   kept subset, and is skipped entirely when the file is already in that CRS —
   the common case, and why the georef panel's own EPSG shows up with no "not
   reprojected" warning after a clip.
+
+GeoPackage context is read by `geopackage.worker.ts`. Resolve the geometry
+column's SRS through `gpkg_spatial_ref_sys`; its ID need not equal the EPSG
+authority code. Clip triangles and curve segments before reprojection so a
+global sea polygon never feeds its faraway corners to a local engineering CRS.
+`vector-context.ts` preserves concave outlines and holes; do not replace it with
+a triangle fan. QGIS compound circular curves are geometry, not text labels.
 
 ## 8c. Point clouds
 
@@ -960,6 +968,49 @@ empty one. The first workspace format (`workspaces/current` + handles keyed
 - **The header's hidden folder and `.zip` inputs come after "Add models"**, so the
   model picker stays the page's first `input[type=file]` — which the e2e suite
   relies on in dozens of places.
+
+## 8c-ter. Lenses
+
+The **Lens** tab saves ways of looking at the model, as on ifclite.com
+(`lib/lens/`, `LensPanel.tsx`, applied by the always-mounted `LensSync.tsx`). A
+lens is either **rules** — ordered, each an `ElementFilter` (the clash group
+editor, reused) with an action: colour, see-through or hide; the first rule an
+element matches decides it — or **auto-colour** by one source (class, type,
+predefined type, material, group, storey, model, a classification system, a
+property), every value its own colour. What nothing matched is ghosted, kept or
+hidden. Built-ins live in `presets.ts`; they are shown translated and can only
+be duplicated.
+
+- **The workers answer, `evaluate.ts` decides.** Per model, `selectElements`
+  per rule or `groupElementsByValue` per source; `evaluateLens` (pure, tested)
+  turns that into colours, hidden and translucent sets and a legend. Answers are
+  cached on what changes them — a rule's filter, the source — so recolouring,
+  renaming or switching a legend entry off asks no worker anything.
+- **A lens is a view, not a filter.** It reaches the renderer through
+  `lensView` in the viewer store, never `hidden` (the user's own) or
+  `colouring` (IDS and BCF's). Colours sit beneath highlights and the
+  selection; an isolation still wins over lens hiding and ghosting.
+- **Ghosts are a second mesh per batch.** A batch is drawn with one material,
+  opaque or translucent, so vertex alpha cannot ghost part of an opaque batch.
+  `setEntityVisibility`'s `isTranslucent` moves those elements out of the
+  batch's index into its `ghost` mesh, which shares the batch's vertex buffers
+  (no copy) and draws them with one translucent, depth-less material. Ghosts are
+  not pickable. `data-translucent-entities` reports how many there are.
+- **While a lens is edited it is what the viewport shows** (`draft`), so every
+  change is a preview; Cancel takes it away.
+- **Saved lenses persist in `localStorage`, and travel as a lens list**
+  (`lib/lens/file.ts`, `{format: "dice-ifc-lenses", version, activeId,
+  lenses}`). One format for both doors: the Lens tab's Download/Upload, and
+  `lenses/lenses.json` in a project folder, which `project.json` points to
+  (`lenses: {path, activeId}`) like the workbooks. So a predefined set made once
+  can be handed round on its own or inside a project. Built-ins are never
+  written — every copy has them, and the schema has no `builtin` for a file to
+  claim. A lens that fails the schema is left out and counted, not the whole
+  list. Upload and restore both **merge** by id — a newer copy of a list
+  replaces the old one instead of doubling it, and opening someone's project
+  never deletes the user's own lenses. A restore turns the saved lens on only if
+  it is there. Projects from before the file carried `lenses.saved` inline;
+  still read.
 
 ## 8d. Notices, attribution and disclaimers
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -55,6 +56,7 @@ const CLICK_DRAG_THRESHOLD_PX = 5;
  * own; the tree is the alternative, not a convenience.
  */
 export function ViewerCanvas() {
+  const contextSelection = useContextModelStore((s) => s.selectedFeature);
   const t = useTranslations("viewer.canvas");
   const edgeShading = usePointCloudStore((s) => s.edgeShading);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -298,6 +300,10 @@ export function ViewerCanvas() {
     rendererRef.current?.setSelection(selection);
   }, [selection]);
 
+  useEffect(() => {
+    rendererRef.current?.setContextSelection(contextSelection);
+  }, [contextSelection]);
+
   // ---- colouring (clash detection, BCF viewpoints)
   const colouring = useViewerStore((s) => s.colouring);
   useEffect(() => {
@@ -309,13 +315,21 @@ export function ViewerCanvas() {
     );
   }, [colouring, models]);
 
+  // ---- the active lens's colours (lib/lens/, applied by LensSync)
+  const lensView = useViewerStore((s) => s.lensView);
+  useEffect(() => {
+    rendererRef.current?.setLensColours(lensView?.colours ?? null);
+  }, [lensView, models]);
+
   // ---- visibility, isolation and the filters
   useEffect(() => {
     const renderer = rendererRef.current;
     if (!renderer) return;
 
+    const translucent = lensView?.translucent;
     for (const model of models) {
-      renderer.setEntityVisibility(model.summary.id, (expressId) =>
+      const modelId = model.summary.id;
+      renderer.setEntityVisibility(modelId, (expressId) =>
         /*
           The store's own rule, not a copy of it.
 
@@ -329,6 +343,15 @@ export function ViewerCanvas() {
           modelId: model.summary.id,
           expressId,
         }),
+        // A lens's ghosts are shown, see-through; an isolation shows its
+        // elements solid, whatever the lens says.
+        translucent && translucent.size > 0
+          ? (expressId) => {
+              const key = `${modelId}#${expressId}`;
+              const isolated = useViewerStore.getState().isolated;
+              return translucent.has(key) && !isolated?.has(key);
+            }
+          : undefined,
       );
     }
     // Every input to `isVisible` has to be a dependency, or the effect will not
@@ -341,6 +364,7 @@ export function ViewerCanvas() {
     typeVisibility,
     typeFilter,
     facetVisible,
+    lensView,
   ]);
 
   // ---- section planes
@@ -491,12 +515,18 @@ export function ViewerCanvas() {
     if (store.tool !== "select") return;
 
     const rect = event.currentTarget.getBoundingClientRect();
-    const hit = renderer.pick(event.clientX - rect.left, event.clientY - rect.top);
+    const hit = renderer.pickInspectable(event.clientX - rect.left, event.clientY - rect.top);
     if (!hit) {
       setContextMenu(null);
       return;
     }
 
+    if (hit.kind === "context") {
+      store.clearSelection();
+      useContextModelStore.getState().selectFeature(hit.featureIndex);
+      setContextMenu(null);
+      return;
+    }
     const target = { modelId: hit.modelId, expressId: hit.expressId };
     if (!store.isSelected(target)) store.select([target], "replace");
     setContextMenu({ x: event.clientX, y: event.clientY, target });
@@ -591,12 +621,19 @@ export function ViewerCanvas() {
       }
     }
 
-    const hit = renderer.pick(x, y);
+    const hit = renderer.pickInspectable(x, y);
     if (!hit) {
       if (!event.shiftKey) store.clearSelection();
       return;
     }
-    store.select([hit], event.shiftKey ? "toggle" : "replace");
+    if (hit.kind === "context") {
+      const context = useContextModelStore.getState();
+      const index = event.shiftKey && context.selectedFeature === hit.featureIndex ? null : hit.featureIndex;
+      store.clearSelection();
+      context.selectFeature(index);
+      return;
+    }
+    store.select([{ modelId: hit.modelId, expressId: hit.expressId }], event.shiftKey ? "toggle" : "replace");
   };
 
   /**

@@ -12,6 +12,7 @@
  */
 
 import { create } from "zustand";
+import { useContextModelStore } from "./context-model-store";
 
 import type { SignatureSummary } from "@/lib/signing/summary";
 
@@ -145,6 +146,18 @@ type ViewerState = {
   facetVisible: Set<string> | null;
 
   /**
+   * What the active lens draws (`lib/lens/`, applied by `LensSync`): colours,
+   * elements it hides, and those it shows see-through. Null with no lens on.
+   * A view, not a filter: an isolation still wins over it, and it never
+   * touches `hidden`, which is the user's own.
+   */
+  lensView: {
+    colours: Map<string, string>;
+    hidden: Set<string>;
+    translucent: Set<string>;
+  } | null;
+
+  /**
    * What a click in the viewport does. Selecting and every measuring mode
    * consume the primary click, so only one can be live — the mode is
    * explicit rather than modified by a held key, which would be invisible to
@@ -232,6 +245,7 @@ type ViewerState = {
   ) => void;
   /** Null clears the filter; a set narrows visibility to exactly those refs. */
   setFacetVisible: (keys: Set<string> | null) => void;
+  setLensView: (view: ViewerState["lensView"]) => void;
   clearIsolation: () => void;
   resetVisibility: () => void;
   isVisible: (ref: EntityRef) => boolean;
@@ -337,6 +351,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   typeVisibility: defaultTypeVisibility(),
   typeFilter: new Set(),
   facetVisible: null,
+  lensView: null,
   tool: "select",
   sectionPlanes: [],
   sectionCapStyle: DEFAULT_SECTION_CAP_STYLE,
@@ -427,7 +442,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     get().refederate();
   },
 
-  select: (refs, mode = "replace") =>
+  select: (refs, mode = "replace") => {
+    useContextModelStore.getState().clearSelection();
     set((state) => {
       if (mode === "replace") return { selection: refs };
 
@@ -438,9 +454,13 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         else existing.set(key, ref);
       }
       return { selection: [...existing.values()] };
-    }),
+    });
+  },
 
-  clearSelection: () => set({ selection: [] }),
+  clearSelection: () => {
+    useContextModelStore.getState().clearSelection();
+    set({ selection: [] });
+  },
 
   isSelected: (ref) => {
     const key = refKey(ref);
@@ -510,10 +530,13 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     if (state.facetVisible && !state.facetVisible.has(key)) return false;
 
     if (state.isolated) return state.isolated.has(key);
+    if (state.lensView?.hidden.has(key)) return false;
     const category = typeVisibilityCategory(state.entityTypeByRef.get(key));
     if (category && !state.typeVisibility[category]) return false;
     return !state.hidden.has(key);
   },
+
+  setLensView: (lensView) => set({ lensView }),
 
   setColouring: (entries) =>
     set((state) => {

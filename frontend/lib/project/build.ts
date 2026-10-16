@@ -23,6 +23,8 @@ import type {
 } from "@/lib/viewer/tools";
 import type { TypeVisibilityState } from "@/lib/viewer/type-visibility";
 import type { GlobeLayerId } from "@/lib/viewer/globe-layers";
+import { serializeLenses } from "@/lib/lens/file";
+import type { Lens } from "@/lib/lens/types";
 import type { StoredQueryListItem } from "@/lib/viewer/quantity-list-storage";
 import type { ViewerCameraState } from "@/lib/viewer/renderer";
 import type { PointColourMode } from "@/lib/pointcloud/colour";
@@ -97,6 +99,7 @@ export type SessionSnapshot = {
   isolationFilterMode: "replace" | "intersect" | null;
   selection: LiveRef[];
 
+  lenses: { saved: Lens[]; activeId: string | null };
   sectionPlanes: SectionPlane[];
   measurements: Measurement[];
   angleMeasurements: AngleMeasurement[];
@@ -233,6 +236,20 @@ export function buildProject(session: SessionSnapshot, savedAt = new Date()): Bu
     files.push({ path, data: new Blob([createClashWorkbook(session.clash) as BlobPart], { type: xlsx }) });
   }
 
+  // Lenses go in as the lens list the Lens tab downloads, so a project's lenses
+  // can be uploaded on their own elsewhere. Built-ins are in every copy of the
+  // app; with none of the user's own there is no file, only which one was on.
+  const ownLenses = session.lenses.saved.filter((lens) => !lens.builtin);
+  const lenses: ProjectManifest["lenses"] = { path: null, activeId: session.lenses.activeId };
+  if (ownLenses.length > 0) {
+    const path = pathFor("lenses", "lenses.json");
+    lenses.path = path;
+    files.push({
+      path,
+      data: new Blob([serializeLenses(ownLenses, session.lenses.activeId)], { type: "application/json" }),
+    });
+  }
+
   let bcf: ProjectManifest["bcf"] = null;
   if (session.bcf) {
     const path = pathFor("bcf", "topics.bcf");
@@ -299,6 +316,7 @@ export function buildProject(session: SessionSnapshot, savedAt = new Date()): Bu
       isolationFilterMode: session.isolationFilterMode,
       selection: refs(session.selection),
     },
+    lenses,
     sectionPlanes: session.sectionPlanes,
     measurements: {
       distances: session.measurements,
@@ -327,6 +345,8 @@ export type RestorePlan = {
   /** The quantity list's workbook; read by `session.ts`, which has a DOM to parse it with. */
   quantities: File | null;
   clash: File | null;
+  /** The lens list; read by `session.ts` before anything is closed. */
+  lenses: File | null;
   /** Files the manifest names that the folder does not have. */
   missing: string[];
 };
@@ -359,6 +379,7 @@ export function planRestore(manifest: ProjectManifest, source: ProjectSource): R
   const bcfFile = manifest.bcf ? find(manifest.bcf.path) : undefined;
   const quantitiesFile = manifest.quantities ? find(manifest.quantities.path) : undefined;
   const clashFile = manifest.clash ? find(manifest.clash.path) : undefined;
+  const lensesFile = manifest.lenses.path ? find(manifest.lenses.path) : undefined;
 
   return {
     manifest,
@@ -380,6 +401,7 @@ export function planRestore(manifest: ProjectManifest, source: ProjectSource): R
     bcf: bcfFile ?? null,
     quantities: quantitiesFile ?? null,
     clash: clashFile ?? null,
+    lenses: lensesFile ?? null,
     missing,
   };
 }

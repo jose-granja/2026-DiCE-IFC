@@ -32,7 +32,10 @@ import {
   fanTriangles,
   GeometryBuilder,
   type ContextGeometry,
+  type ContextFeature,
 } from "./context-geometry";
+
+import { gmlFeatureElement, readGmlFeature } from "./gml-metadata";
 
 export class CityGmlError extends Error {}
 
@@ -59,9 +62,6 @@ const COLOURS: Record<string, [number, number, number]> = {
   CityFurniture: [0.55, 0.55, 0.58],
 };
 const DEFAULT_COLOUR: [number, number, number] = [0.55, 0.56, 0.6];
-
-/** The feature types worth reporting, by local name. */
-const FEATURE_NAMES = new Set(Object.keys(COLOURS));
 
 /** `urn:ogc:def:crs:EPSG::3763`, `EPSG:3763`, `…/epsg/0/3763` → 3763. */
 export function epsgFromSrsName(srsName: string | null | undefined): number | null {
@@ -171,16 +171,6 @@ function ringPoints(ring: Element, defaultDimension: number): Point[] {
   return points;
 }
 
-/** The nearest ancestor that is a named city object, for colour and counting. */
-function featureNameOf(element: Element): string {
-  let current: Element | null = element;
-  while (current) {
-    if (FEATURE_NAMES.has(current.localName)) return current.localName;
-    current = current.parentElement;
-  }
-  return "Feature";
-}
-
 export function parseCityGml(
   text: string,
   targetEpsg: number | null = null,
@@ -246,7 +236,8 @@ export function parseCityGml(
           return [map.easting, map.northing, point[2]];
         };
 
-  type Ready = { name: string; rings: Point[][] };
+  type Ready = { name: string; feature: ContextFeature; rings: Point[][] };
+  const metadata = new Map<Element, ContextFeature>();
   const ready: Ready[] = [];
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
@@ -273,7 +264,10 @@ export function parseCityGml(
       if (z > maxZ) maxZ = z;
     }
 
-    ready.push({ name: featureNameOf(polygon), rings: [points] });
+    const owner = gmlFeatureElement(polygon);
+    let feature = metadata.get(owner);
+    if (!feature) { feature = readGmlFeature(owner, String(metadata.size + 1)); metadata.set(owner, feature); }
+    ready.push({ name: feature.type, feature, rings: [points] });
   }
 
   if (ready.length === 0) {
@@ -292,20 +286,19 @@ export function parseCityGml(
   const counts = new Map<string, number>();
 
   for (const entry of ready) {
+    const firstTriangle = builder.triangleCount;
     const colour = COLOURS[entry.name] ?? DEFAULT_COLOUR;
     for (const ring of entry.rings) {
       for (const [a, b, c] of fanTriangles(ring)) {
         builder.triangle(a, b, c, colour, origin);
       }
     }
+    builder.addFeature(entry.feature, firstTriangle);
     counts.set(entry.name, (counts.get(entry.name) ?? 0) + 1);
   }
 
-  const { positions, colours } = builder.finish();
-
   return {
-    positions,
-    colours,
+    ...builder.finish(),
     origin,
     epsg: outputEpsg,
     // Surfaces, not buildings: a CityGML building is many polygons, and

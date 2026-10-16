@@ -41,25 +41,14 @@
 
 import { mapToWgs84, wgs84ToMap } from "./transform";
 
-export type CityJsonParseResult = {
-  /** Triangles in metres, relative to `origin`, Y-up (render convention). */
-  positions: Float32Array;
-  /** One RGB triple per vertex, from the object type. */
-  colours: Float32Array;
-  /** Projected coordinates of the local origin, in `epsg`. */
-  origin: { easting: number; northing: number; height: number };
-  epsg: number | null;
-  objectCount: number;
-  /** Types encountered, most frequent first, so the user sees what loaded. */
-  types: Array<{ type: string; count: number }>;
-  /** Extent in metres, for framing. */
-  sizeMetres: number;
-};
+import { ContextFeatureIndex, contextFeatureName, type ContextGeometry } from "./context-geometry";
+
+export type CityJsonParseResult = ContextGeometry;
 
 export class CityJsonError extends Error {}
 
 type Geometry = { type?: string; lod?: string | number; boundaries?: unknown };
-type CityObject = { type?: string; geometry?: Geometry[] };
+type CityObject = { type?: string; attributes?: Record<string, unknown>; geometry?: Geometry[] };
 
 type CityJson = {
   type?: string;
@@ -144,7 +133,7 @@ function triangulate(ring: number[]): Array<[number, number, number]> {
  * readers so triangulation only exists once.
  */
 function buildGeometry(
-  cityObjects: Iterable<CityObject>,
+  cityObjects: Iterable<[string, CityObject]>,
   xs: Float64Array,
   ys: Float64Array,
   zs: Float64Array,
@@ -173,10 +162,12 @@ function buildGeometry(
 
   const positions: number[] = [];
   const colours: number[] = [];
+  const featureIndex = new ContextFeatureIndex();
   const typeCounts = new Map<string, number>();
   let objectCount = 0;
 
-  for (const object of cityObjects) {
+  for (const [id, object] of cityObjects) {
+    const firstTriangle = positions.length / 9;
     const type = object.type ?? "Unknown";
     const colour = COLOURS[type] ?? DEFAULT_COLOUR;
     let drewSomething = false;
@@ -206,6 +197,9 @@ function buildGeometry(
     }
 
     if (drewSomething) {
+      const properties = object.attributes ?? {};
+      featureIndex.add({ id, type, source: "CityJSON", properties,
+        name: contextFeatureName(properties) }, firstTriangle, positions.length / 9);
       objectCount += 1;
       typeCounts.set(type, (typeCounts.get(type) ?? 0) + 1);
     }
@@ -218,6 +212,8 @@ function buildGeometry(
   }
 
   return {
+    features: featureIndex.features,
+    featureRanges: featureIndex.featureRanges,
     positions: new Float32Array(positions),
     colours: new Float32Array(colours),
     origin,
@@ -263,7 +259,7 @@ export function parseCityJson(text: string): CityJsonParseResult {
     zs[i] = v[2] * (scale[2] ?? 1) + (translate[2] ?? 0);
   }
 
-  const result = buildGeometry(Object.values(data.CityObjects ?? {}), xs, ys, zs);
+  const result = buildGeometry(Object.entries(data.CityObjects ?? {}), xs, ys, zs);
   return { ...result, epsg: epsgFromReferenceSystem(data.metadata?.referenceSystem) };
 }
 
@@ -294,7 +290,11 @@ export function* topLevelEntries(text: string): Generator<[string, string]> {
   while (i < end) {
     const keyStart = text.indexOf('"', i) + 1;
     if (keyStart === 0 || keyStart > end) return;
-    const keyEnd = text.indexOf('"', keyStart);
+    let keyEnd = keyStart;
+    for (; keyEnd < end; keyEnd++) {
+      if (text[keyEnd] === "\\") keyEnd++;
+      else if (text[keyEnd] === '"') break;
+    }
     const key = text.slice(keyStart, keyEnd);
     const valueStart = text.indexOf(":", keyEnd) + 1;
 
@@ -457,10 +457,10 @@ export function parseCityJsonClipped(
   const cityObjectsText = findTopLevelValue(text, "CityObjects");
   if (!cityObjectsText) throw new CityJsonError("This CityJSON file has no CityObjects.");
 
-  const keptObjects: CityObject[] = [];
+  const keptObjects: Array<[string, CityObject]> = [];
   const usedVertexIndices = new Set<number>();
 
-  for (const [, valueText] of topLevelEntries(cityObjectsText)) {
+  for (const [id, valueText] of topLevelEntries(cityObjectsText)) {
     let object: CityObject;
     try {
       object = JSON.parse(valueText) as CityObject;
@@ -481,7 +481,7 @@ export function parseCityJsonClipped(
     }
 
     if (matches) {
-      keptObjects.push(object);
+      keptObjects.push([JSON.parse(`"${id}"`) as string, object]);
       for (const index of objectIndices) usedVertexIndices.add(index);
     }
   }
@@ -530,7 +530,7 @@ export function parseCityJsonClipped(
     return node.map(remapBoundaries);
   }
 
-  for (const object of keptObjects) {
+  for (const [, object] of keptObjects) {
     for (const geometry of object.geometry ?? []) {
       geometry.boundaries = remapBoundaries(geometry.boundaries);
     }

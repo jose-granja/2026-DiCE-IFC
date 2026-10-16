@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   // Next 16: Turbopack config is top-level, no longer under `experimental`.
   turbopack: {
     resolveAlias: {
+      // Geometry 7.8.1's worker pool retains a source .ts URL, but its npm
+      // package ships only .js workers. Remove once upstream fixes that URL.
+      "./geometry.worker.ts": "./node_modules/@ifc-lite/geometry/dist/geometry.worker.js",
       // `@ifc-lite/pointcloud`'s own LAZ reader reaches `laz-perf` through a
       // dynamic import. Turbopack traces the target, and laz-perf's emscripten
       // loader imports the bare WASI specifiers `env` and

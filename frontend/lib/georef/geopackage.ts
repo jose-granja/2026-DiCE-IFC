@@ -22,15 +22,29 @@
  * - **`srs_id` is per geometry column**, and need not match the model's.
  */
 
-import { mapToWgs84, wgs84ToMap } from "./transform";
+import proj4 from "proj4";
+import { findCrs, WGS84_PROJ4 } from "@/config/epsg";
+import type { WgsPoint } from "./transform";
 import {
-  fanTriangles,
   GeometryBuilder,
+  contextFeatureName,
+  type ContextFeature,
   type ContextGeometry,
 } from "./context-geometry";
 import { parseWkb, unwrapGeoPackageBlob, type WkbPoint } from "./wkb";
+import { contextTriangles, transformClipBox, type ClipBox, type ContextTriangle } from "./vector-context";
 
-export class GeoPackageError extends Error {}
+export type GeoPackageErrorCode = "invalidFile" | "openFailed" | "noFeatures" | "noGeometry" | "nothingNearby" | "unsupportedCrs";
+export class GeoPackageError extends Error {
+  constructor(readonly code: GeoPackageErrorCode) { super(code); }
+}
+
+export type GeoPackageOptions = {
+  clip?: { reference: WgsPoint; radiusMetres: number };
+  /** A CRS selected from the full registry in the host tab. */
+  targetDefinition?: string;
+  onProgress?: (percent: number) => void;
+};
 
 const COLOURS: Record<string, [number, number, number]> = {
   building: [0.62, 0.64, 0.68],
@@ -41,15 +55,12 @@ const COLOURS: Record<string, [number, number, number]> = {
 };
 const DEFAULT_COLOUR: [number, number, number] = [0.55, 0.56, 0.6];
 
-const LINE_WIDTH = 1.5;
-const POINT_SIZE = 1.5;
-
 /** Guess a kind from the table's name, for colour only. */
 function kindOf(table: string): string {
   const name = table.toLowerCase();
   if (/build|edific|predio/.test(name)) return "building";
   if (/road|street|rua|estrada|via|high/.test(name)) return "road";
-  if (/water|rio|agua|lake/.test(name)) return "water";
+  if (/water|rio|agua|lake|sea|ocean|oceano|^mar$/.test(name)) return "water";
   if (/park|tree|veget|verde/.test(name)) return "vegetation";
   if (/parcel|cadastr|lot|terreno/.test(name)) return "parcel";
   return "feature";
@@ -70,6 +81,7 @@ type SqliteDb = {
     sql: string;
     rowMode?: string;
     returnValue?: string;
+    callback?: (row: Record<string, unknown>) => void;
   }) => unknown[];
   close: () => void;
 };
@@ -104,20 +116,20 @@ async function sqlite(): Promise<Sqlite> {
       print: () => {},
       printErr: () => {},
     });
-  })();
+  })().catch((error) => {
+    sqlitePromise = null;
+    throw error;
+  });
 
   return sqlitePromise;
 }
 
 /** Open a GeoPackage's bytes as an in-memory database. */
 async function open(bytes: Uint8Array): Promise<{ db: SqliteDb; close: () => void }> {
-  const engine = await sqlite();
-
   if (bytes.length < 16 || new TextDecoder().decode(bytes.subarray(0, 15)) !== "SQLite format 3") {
-    throw new GeoPackageError(
-      "That file is not a GeoPackage — a GeoPackage is a SQLite database, and this does not start like one.",
-    );
+    throw new GeoPackageError("invalidFile");
   }
+  const engine = await sqlite();
 
   const db = new engine.oo1.DB();
   const pointer = engine.wasm.allocFromTypedArray(bytes);
@@ -141,7 +153,7 @@ async function open(bytes: Uint8Array): Promise<{ db: SqliteDb; close: () => voi
 
   if (result !== 0) {
     db.close();
-    throw new GeoPackageError("SQLite could not open that file.");
+    throw new GeoPackageError("openFailed");
   }
 
   return { db, close: () => db.close() };
@@ -154,183 +166,132 @@ function rows(db: SqliteDb, sql: string): Record<string, unknown>[] {
   >[];
 }
 
+/** Database SRS IDs are local keys, not necessarily EPSG codes. */
+function layerDefinition(layer: Record<string, unknown>): string {
+  if (String(layer.authority).toUpperCase() === "EPSG") {
+    const known = findCrs(Number(layer.code));
+    if (known) return known.proj4;
+  }
+  const wkt = String(layer.definition ?? "");
+  if (wkt && wkt !== "undefined") return wkt;
+  throw new GeoPackageError("unsupportedCrs");
+}
+
+const quote = (name: string) => `"${name.replace(/"/g, '""')}"`;
+
 export async function parseGeoPackage(
   bytes: Uint8Array,
-  targetEpsg: number,
+  targetEpsg: number | null,
+  options: GeoPackageOptions = {},
 ): Promise<ContextGeometry> {
   const { db, close } = await open(bytes);
-
   try {
-    // The schema says where the data is. Joined so a table with no declared
-    // geometry column is skipped rather than guessed at.
-    const layers = rows(
-      db,
-      `SELECT c.table_name AS name, g.column_name AS geom, g.srs_id AS srs
-         FROM gpkg_contents c
-         JOIN gpkg_geometry_columns g ON g.table_name = c.table_name
-        WHERE c.data_type = 'features'`,
-    );
+    const layers = rows(db, `
+      SELECT c.table_name AS name, g.column_name AS geom, g.geometry_type_name AS geometryType,
+             s.organization AS authority, s.organization_coordsys_id AS code,
+             s.definition AS definition
+        FROM gpkg_contents c
+        JOIN gpkg_geometry_columns g ON g.table_name = c.table_name
+        LEFT JOIN gpkg_spatial_ref_sys s ON s.srs_id = g.srs_id
+       WHERE c.data_type = 'features'
+    `);
+    if (!layers.length) throw new GeoPackageError("noFeatures");
 
-    if (layers.length === 0) {
-      throw new GeoPackageError(
-        "This GeoPackage has no feature tables — it may hold only tiles or attributes.",
-      );
+    // With no IFC placement, keep a declared projected CRS where possible.
+    // Geographic data needs metre coordinates, so use Web Mercator for a local preview.
+    if (targetEpsg === null) {
+      targetEpsg = layers.flatMap((layer) => {
+        const crs = String(layer.authority).toUpperCase() === "EPSG" ? findCrs(Number(layer.code)) : null;
+        return crs && !/\+proj=(longlat|latlong)\b/.test(crs.proj4) ? [crs.code] : [];
+      })[0] ?? 3857;
+    }
+    const target = options.targetDefinition ?? findCrs(targetEpsg)?.proj4;
+    if (!target || /\+proj=(longlat|latlong)\b/.test(target)) throw new GeoPackageError("unsupportedCrs");
+
+    let targetClip: ClipBox | undefined;
+    if (options.clip) {
+      const { reference, radiusMetres: radius } = options.clip;
+      if (!Number.isFinite(radius) || radius <= 0) throw new GeoPackageError("nothingNearby");
+      const [x, y] = proj4(WGS84_PROJ4, target, [reference.longitude, reference.latitude]);
+      targetClip = { minX: x - radius, maxX: x + radius, minY: y - radius, maxY: y + radius };
     }
 
-    type Ready = { kind: string; polygons: WkbPoint[][][]; lines: WkbPoint[][]; points: WkbPoint[] };
-    const ready: Ready[] = [];
-    let minX = Infinity, minY = Infinity, minZ = Infinity;
-    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    // Coplanar map layers share one mesh: draw water first so land stays visible.
+    layers.sort((a, b) => Number(kindOf(String(b.name)) === "water") - Number(kindOf(String(a.name)) === "water"));
+    const total = layers.reduce((count, layer) => count + Number(rows(db, `SELECT count(*) AS n FROM ${quote(String(layer.name))}`)[0].n), 0);
+    const ready: Array<{ kind: string; triangles: ContextTriangle[]; feature: ContextFeature }> = [];
+    let skippedObjects = 0, visited = 0, lastProgress = -1;
+    let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity;
+    options.onProgress?.(0);
 
     for (const layer of layers) {
-      const table = String(layer.name);
-      const column = String(layer.geom);
-      const srsId = Number(layer.srs);
-
-      const reproject =
-        !Number.isFinite(srsId) || srsId === targetEpsg || srsId === 0
-          ? null
-          : (point: WkbPoint): WkbPoint => {
-              const wgs = mapToWgs84(
-                { easting: point[0], northing: point[1], height: point[2] },
-                srsId,
-              );
-              const map = wgs84ToMap(wgs, targetEpsg);
-              return [map.easting, map.northing, point[2]];
-            };
-
-      // Quoted: table and column names in the wild contain spaces and hyphens.
-      const features = rows(
-        db,
-        `SELECT "${column.replace(/"/g, '""')}" AS g FROM "${table.replace(/"/g, '""')}"`,
-      );
-
-      for (const feature of features) {
-        const blob = feature.g;
-        if (!(blob instanceof Uint8Array)) continue;
-
-        let geometry;
-        try {
-          const { wkb } = unwrapGeoPackageBlob(blob);
-          geometry = parseWkb(wkb);
-        } catch {
-          // One unreadable row must not lose the layer.
-          continue;
-        }
-
-        const fix = (points: WkbPoint[]) =>
-          reproject ? points.map(reproject) : points;
-
-        const entry: Ready = {
-          kind: kindOf(table),
-          polygons: geometry.polygons.map((rings) => rings.map(fix)),
-          lines: geometry.lines.map(fix),
-          points: fix(geometry.points),
-        };
-
-        for (const group of [
-          ...entry.polygons.flat(),
-          ...entry.lines,
-          [...entry.points],
-        ]) {
-          for (const [x, y, z] of group) {
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-            if (z < minZ) minZ = z;
-            if (z > maxZ) maxZ = z;
-          }
-        }
-
-        ready.push(entry);
+      let converter: proj4.Converter;
+      let sourceClip: ClipBox | undefined;
+      try {
+        converter = proj4(layerDefinition(layer), target);
+        sourceClip = targetClip ? transformClipBox(targetClip, (p) => {
+          const [x, y] = converter.inverse([p[0], p[1]]);
+          return [x, y, p[2]];
+        }) : undefined;
+      } catch {
+        throw new GeoPackageError("unsupportedCrs");
       }
+      const project = (p: WkbPoint): WkbPoint => {
+        const [x, y] = converter.forward([p[0], p[1]]);
+        return [x, y, p[2]];
+      };
+      const primaryKey = rows(db, `PRAGMA table_info(${quote(String(layer.name))})`).find((column) => Number(column.pk) === 1)?.name;
+      let rowNumber = 0;
+      db.exec({
+        sql: `SELECT * FROM ${quote(String(layer.name))}`,
+        rowMode: "object",
+        callback: (feature) => {
+          rowNumber++;
+          const blob = feature[String(layer.geom)];
+          const progress = Math.floor(++visited / Math.max(1, total) * 100);
+          if (progress !== lastProgress) options.onProgress?.(lastProgress = progress);
+          if (blob === null) return;
+          if (!(blob instanceof Uint8Array)) { skippedObjects++; return; }
+          let triangles: ContextTriangle[];
+          try {
+            const { wkb } = unwrapGeoPackageBlob(blob);
+            triangles = contextTriangles(parseWkb(wkb), project, sourceClip, targetClip);
+          } catch {
+            skippedObjects++;
+            return;
+          }
+          if (!triangles.length) return;
+          for (const triangle of triangles) for (const [x, y, z] of triangle) {
+            minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+            minZ = Math.min(minZ, z);
+          }
+          const properties = Object.fromEntries(Object.entries(feature)
+            .filter(([key]) => key !== layer.geom)
+            .map(([key, value]) => [key, typeof value === "bigint" ? String(value)
+              : value instanceof Uint8Array ? { bytes: value.byteLength } : value]));
+          ready.push({ kind: kindOf(String(layer.name)), triangles,
+            feature: { id: String(primaryKey ? feature[String(primaryKey)] : rowNumber),
+              type: String(layer.geometryType), source: "GeoPackage", layer: String(layer.name),
+              name: contextFeatureName(properties), properties } });
+        },
+      });
     }
-
-    if (ready.length === 0) {
-      throw new GeoPackageError(
-        "No geometry could be read from this GeoPackage's feature tables.",
-      );
-    }
-
-    const origin = {
-      easting: (minX + maxX) / 2,
-      northing: (minY + maxY) / 2,
-      height: Number.isFinite(minZ) ? minZ : 0,
-    };
-
+    if (!ready.length) throw new GeoPackageError(options.clip && skippedObjects === 0 ? "nothingNearby" : "noGeometry");
+    const origin = { easting: (minX + maxX) / 2, northing: (minY + maxY) / 2, height: minZ };
     const builder = new GeometryBuilder();
     const counts = new Map<string, number>();
-    let objectCount = 0;
-
-    for (const entry of ready) {
-      const colour = COLOURS[entry.kind] ?? DEFAULT_COLOUR;
-      const before = builder.triangleCount;
-
-      for (const rings of entry.polygons) {
-        // Exterior only; holes are dropped rather than fanned.
-        const ring = rings[0];
-        if (!ring || ring.length < 3) continue;
-        for (const [a, b, c] of fanTriangles(ring)) {
-          builder.triangle(a, b, c, colour, origin);
-        }
-      }
-
-      for (const line of entry.lines) {
-        for (let i = 0; i + 1 < line.length; i += 1) {
-          const [ax, ay, az] = line[i];
-          const [bx, by] = line[i + 1];
-          const dx = bx - ax;
-          const dy = by - ay;
-          const length = Math.hypot(dx, dy);
-          if (length === 0) continue;
-          const nx = (-dy / length) * (LINE_WIDTH / 2);
-          const ny = (dx / length) * (LINE_WIDTH / 2);
-          builder.triangle(
-            [ax + nx, ay + ny, az],
-            [ax - nx, ay - ny, az],
-            [bx - nx, by - ny, az],
-            colour,
-            origin,
-          );
-          builder.triangle(
-            [ax + nx, ay + ny, az],
-            [bx - nx, by - ny, az],
-            [bx + nx, by + ny, az],
-            colour,
-            origin,
-          );
-        }
-      }
-
-      for (const [x, y, z] of entry.points) {
-        const half = POINT_SIZE / 2;
-        builder.triangle([x - half, y - half, z], [x + half, y - half, z], [x + half, y + half, z], colour, origin);
-        builder.triangle([x - half, y - half, z], [x + half, y + half, z], [x - half, y + half, z], colour, origin);
-      }
-
-      if (builder.triangleCount > before) {
-        objectCount += 1;
-        counts.set(entry.kind, (counts.get(entry.kind) ?? 0) + 1);
-      }
+    for (const { kind, triangles, feature } of ready) {
+      const firstTriangle = builder.triangleCount;
+      for (const [a, b, c] of triangles) builder.triangle(a, b, c, COLOURS[kind] ?? DEFAULT_COLOUR, origin);
+      builder.addFeature(feature, firstTriangle);
+      counts.set(kind, (counts.get(kind) ?? 0) + 1);
     }
-
-    if (builder.triangleCount === 0) {
-      throw new GeoPackageError("Nothing in this GeoPackage could be drawn.");
-    }
-
-    const { positions, colours } = builder.finish();
-
+    options.onProgress?.(100);
     return {
-      positions,
-      colours,
-      origin,
-      epsg: targetEpsg,
-      objectCount,
-      types: [...counts.entries()]
-        .map(([type, count]) => ({ type, count }))
-        .sort((a, b) => b.count - a.count),
-      sizeMetres: Math.max(maxX - minX, maxY - minY),
+      ...builder.finish(), origin, epsg: targetEpsg, objectCount: ready.length,
+      types: [...counts].map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count),
+      sizeMetres: Math.max(maxX - minX, maxY - minY), skippedObjects,
     };
   } finally {
     close();

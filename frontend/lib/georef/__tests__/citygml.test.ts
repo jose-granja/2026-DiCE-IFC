@@ -200,3 +200,13 @@ describe("parseCityGml", () => {
     ).toThrow(/no gml:Polygon/);
   });
 });
+
+it("groups surfaces under their owning feature and retains XML metadata without coordinates", () => {
+  const xml = building().replace('<bldg:lod2Solid>', '<gml:name>School &amp; Library</gml:name><bldg:lod2Solid>')
+    .replace('</bldg:Building>', '<bldg:measuredHeight uom="m">12</bldg:measuredHeight></bldg:Building>');
+  const polygon = /<gml:Polygon>[\s\S]*?<\/gml:Polygon>/.exec(xml)![0];
+  const geometry = parseCityGml(xml.replace(polygon, polygon + polygon));
+  expect(geometry.features).toEqual([{ id: "B1", name: "School & Library", type: "Building", source: "CityGML / GML",
+    properties: { name: "School & Library", "measuredHeight.@uom": "m", measuredHeight: "12" } }]);
+  expect(geometry.featureRanges).toEqual([{ firstTriangle: 0, triangleCount: 2, featureIndex: 0 }]);
+});

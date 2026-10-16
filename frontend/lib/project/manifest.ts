@@ -26,6 +26,7 @@
 import { z } from "zod";
 
 import { HATCH_PATTERNS } from "@/lib/viewer/section-cap";
+import { lensListSchema } from "@/lib/lens/schema";
 import { TYPE_VISIBILITY_CATEGORIES } from "@/lib/viewer/type-visibility";
 import { GLOBE_LAYERS } from "@/lib/viewer/globe-layers";
 
@@ -260,6 +261,19 @@ export const projectManifestSchema = z.object({
     })
     .default({}),
 
+  /**
+   * The user's lenses (`lib/lens/`) as a lens list in the folder — the same
+   * file the Lens tab downloads and uploads — and which lens was on, which may
+   * be a built-in. `path` is null when the session had no saved lenses.
+   * `saved` is how the first projects carried them, inline; still read.
+   */
+  lenses: z
+    .object({
+      path: path.nullable().default(null),
+      activeId: z.string().max(200).nullable().default(null),
+      saved: lensListSchema.optional(),
+    })
+    .default({ path: null, activeId: null }),
   sectionPlanes: z.array(sectionPlane).max(100).default([]),
   measurements: measurements.default({ distances: [], angles: [], areas: [], volumes: [] }),
 });

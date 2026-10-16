@@ -67,6 +67,8 @@ import {
   type MaterialRef,
   type PropertyValue,
   type FilterFacets,
+  type FilterFacetValue,
+  type ElementGroupSource,
   type ModelVocabulary,
   type IdsModelReport,
   type IdsSpecificationResultView,
@@ -997,6 +999,115 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
       materials: toFacet(materials),
       groups: toFacet(groups),
     };
+  },
+
+  async groupElementsByValue(
+    modelId: ModelId,
+    source: ElementGroupSource,
+  ): Promise<FilterFacetValue[]> {
+    const { store } = must(modelId);
+
+    // Four of these are the filter panel's own facets; one walk serves both.
+    if (source.kind === "class" || source.kind === "objectType" || source.kind === "material" || source.kind === "group") {
+      const facets = await ifcLiteAdapter.getFilterFacets(modelId);
+      return source.kind === "class"
+        ? facets.classes
+        : source.kind === "objectType"
+          ? facets.types
+          : source.kind === "material"
+            ? facets.materials
+            : facets.groups;
+    }
+
+    const buckets = new Map<string, number[]>();
+    const add = (value: string, expressId: number) => {
+      const bucket = buckets.get(value) ?? [];
+      if (bucket.at(-1) !== expressId) bucket.push(expressId);
+      buckets.set(value, bucket);
+    };
+    const tree = store.spatialHierarchy ? toSpatialNodeView(store.spatialHierarchy.project) : null;
+
+    if (source.kind === "storey") {
+      // Everything beneath a storey, spaces and their contents included — how a
+      // floor is read — under the storey's own name.
+      const collect = (node: SpatialNodeView, into: number[]) => {
+        if (node.type === "IfcSpace") into.push(node.expressId);
+        appendAll(into, node.elementIds);
+        for (const child of node.children) collect(child, into);
+      };
+      const walk = (node: SpatialNodeView) => {
+        if (node.type === "IfcBuildingStorey") {
+          const members: number[] = [];
+          collect(node, members);
+          for (const id of members) add(node.name || `IfcBuildingStorey #${node.expressId}`, id);
+          return;
+        }
+        for (const child of node.children) walk(child);
+      };
+      if (tree) walk(tree);
+    } else {
+      // Per placed occurrence, as the filter facets are.
+      const placed = new Set<number>();
+      if (tree) {
+        const walk = (node: SpatialNodeView) => {
+          if (node.type === "IfcSpace") placed.add(node.expressId);
+          for (const id of node.elementIds) placed.add(id);
+          for (const child of node.children) walk(child);
+        };
+        walk(tree);
+      }
+      const occurrences: number[] = [];
+      for (const ids of store.entityIndex.byType.values()) {
+        for (const id of ids) if (placed.size === 0 || placed.has(id)) occurrences.push(id);
+      }
+
+      const wantedSystem = source.kind === "classification" ? source.system?.trim() : undefined;
+      const systemMatcher = wantedSystem ? compileTextMatcher(wantedSystem) : null;
+
+      for (const expressId of occurrences) {
+        if (source.kind === "predefinedType") {
+          const value = extractAllEntityAttributes(store, expressId).find(
+            (attribute) => attribute.name.toLocaleLowerCase() === "predefinedtype",
+          )?.value;
+          const text = value === undefined || value === null ? "" : String(value).trim();
+          if (text) add(text, expressId);
+        } else if (source.kind === "classification") {
+          for (const entry of extractClassificationsOnDemand(store, expressId)) {
+            if (entry.unresolved) continue;
+            if (systemMatcher && !systemMatcher.test(entry.system ?? "")) continue;
+            const code = entry.identification?.trim();
+            const name = entry.name?.trim();
+            const label = code && name ? `${code} · ${name}` : code || name;
+            if (label) add(label, expressId);
+          }
+        } else if (source.kind === "property") {
+          const toView = (
+            sets: Array<{ name: string; properties: Array<{ name: string; value: unknown }> }>,
+          ): PropertySetView[] =>
+            sets.map((set) => ({
+              name: set.name,
+              properties: set.properties.map((property) => ({
+                name: property.name,
+                value: (property.value ?? null) as PropertyValue,
+              })),
+            }));
+          const value = findSetValue(
+            [
+              ...toView(extractPropertiesOnDemand(store, expressId)),
+              ...toView(extractTypePropertiesOnDemand(store, expressId)?.properties ?? []),
+            ],
+            source.setName,
+            source.propertyName,
+          );
+          if (value === undefined || value === null || value === "") continue;
+          add(typeof value === "boolean" ? (value ? "TRUE" : "FALSE") : String(value).trim(), expressId);
+        }
+      }
+    }
+
+    return [...buckets.entries()]
+      .map(([value, expressIds]) => ({ value, expressIds }))
+      .sort((a, b) => b.expressIds.length - a.expressIds.length || a.value.localeCompare(b.value));
   },
 
   async selectElements(

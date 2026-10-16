@@ -16,9 +16,11 @@ import { WorkerPool } from "./pool";
 import type { IfcWorkerApi } from "./ifc.worker";
 import type {
   ElementFilter,
+  ElementGroupSource,
   ElementMatch,
   ElementInfo,
   FilterFacets,
+  FilterFacetValue,
   EntityQuery,
   EntitySummary,
   MaterialDetailView,
@@ -56,6 +58,8 @@ export type ModelHandle = {
   getSpatialTree(): Promise<SpatialNodeView>;
   /** Everything the viewer can filter by, with membership. */
   getFilterFacets(): Promise<FilterFacets>;
+  /** Every placed element grouped by one value, for a lens to colour by. */
+  groupElementsByValue(source: ElementGroupSource): Promise<FilterFacetValue[]>;
   /** Everything the information panel shows for one element, in one read. */
   getElementInfo(expressId: ExpressId): Promise<ElementInfo>;
   /** Everything the information panel shows for one material, opened from `ElementInfo.materials`. */
@@ -136,6 +140,7 @@ export async function openModel(
     getProperties: (expressId) => api.getProperties(summary.id, expressId),
     getSpatialTree: () => api.getSpatialTree(summary.id),
     getFilterFacets: () => api.getFilterFacets(summary.id),
+    groupElementsByValue: (source) => api.groupElementsByValue(summary.id, source),
     getElementInfo: (expressId) => api.getElementInfo(summary.id, expressId),
     getMaterialInfo: (materialExpressId) =>
       api.getMaterialInfo(summary.id, materialExpressId),

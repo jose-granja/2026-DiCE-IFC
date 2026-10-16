@@ -10,15 +10,78 @@
  * produce this.
  */
 
+/** Source attributes stay separate from IFC entity references. */
+export type ContextFeature = {
+  id: string;
+  name?: string;
+  type: string;
+  source: string;
+  layer?: string;
+  properties: Record<string, unknown>;
+};
+
+export type ContextFeatureRange = {
+  firstTriangle: number;
+  triangleCount: number;
+  featureIndex: number;
+};
+
+/** Compact mapping: one range per surface, not one id per vertex. */
+export class ContextFeatureIndex {
+  readonly features: ContextFeature[] = [];
+  readonly featureRanges: ContextFeatureRange[] = [];
+  private readonly indices = new Map<ContextFeature, number>();
+
+  add(feature: ContextFeature, firstTriangle: number, endTriangle: number) {
+    if (endTriangle <= firstTriangle) return;
+    let featureIndex = this.indices.get(feature);
+    if (featureIndex === undefined) {
+      featureIndex = this.features.length;
+      this.indices.set(feature, featureIndex);
+      this.features.push(feature);
+    }
+    const previous = this.featureRanges.at(-1);
+    if (previous?.featureIndex === featureIndex && previous.firstTriangle + previous.triangleCount === firstTriangle) {
+      previous.triangleCount += endTriangle - firstTriangle;
+    } else {
+      this.featureRanges.push({ firstTriangle, triangleCount: endTriangle - firstTriangle, featureIndex });
+    }
+  }
+}
+
+export function contextFeatureAt(ranges: readonly ContextFeatureRange[], triangle: number): number | null {
+  if (!Number.isInteger(triangle) || triangle < 0) return null;
+  let low = 0, high = ranges.length - 1;
+  while (low <= high) {
+    const middle = (low + high) >>> 1;
+    const range = ranges[middle];
+    if (triangle < range.firstTriangle) high = middle - 1;
+    else if (triangle >= range.firstTriangle + range.triangleCount) low = middle + 1;
+    else return range.featureIndex;
+  }
+  return null;
+}
+
+export function contextFeatureName(properties: Record<string, unknown>): string | undefined {
+  for (const key of ["name", "Name", "NAME", "nome", "title", "label"]) {
+    const value = properties[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+}
+
 export type ContextGeometry = {
   /** Triangles in metres, relative to `origin`, Y-up (render convention). */
   positions: Float32Array;
   /** One RGB triple per vertex. */
   colours: Float32Array;
+  features?: ContextFeature[];
+  featureRanges?: ContextFeatureRange[];
   /** Projected coordinates of the local origin, in `epsg`. */
   origin: { easting: number; northing: number; height: number };
   epsg: number | null;
   objectCount: number;
+  /** Features with unreadable or unsupported geometry, reported by the loader. */
+  skippedObjects?: number;
   /** What was read, most frequent first, so the user can see what loaded. */
   types: Array<{ type: string; count: number }>;
   /** Extent in metres, for framing. */
@@ -31,6 +94,10 @@ export const CONTEXT_EXTENSIONS = [
   ".cityjson",
   ".geojson",
   ".json",
+  ".gml",
+  ".xml",
+  ".citygml",
+  ".gpkg",
 ] as const;
 
 /**
@@ -43,6 +110,11 @@ export const CONTEXT_EXTENSIONS = [
 export class GeometryBuilder {
   private readonly positions: number[] = [];
   private readonly colours: number[] = [];
+  private readonly featureIndex = new ContextFeatureIndex();
+
+  addFeature(feature: ContextFeature, firstTriangle: number) {
+    this.featureIndex.add(feature, firstTriangle, this.triangleCount);
+  }
 
   /**
    * Add a triangle, converting from projected/Z-up to render/Y-up.
@@ -73,10 +145,12 @@ export class GeometryBuilder {
     return this.positions.length / 9;
   }
 
-  finish(): { positions: Float32Array; colours: Float32Array } {
+  finish() {
     return {
       positions: new Float32Array(this.positions),
       colours: new Float32Array(this.colours),
+      features: this.featureIndex.features,
+      featureRanges: this.featureIndex.featureRanges,
     };
   }
 }

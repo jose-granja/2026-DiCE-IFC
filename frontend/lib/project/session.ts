@@ -26,6 +26,10 @@ import { useValidateStore } from "@/lib/ids/validate-store";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
 import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import { useGlobeStore } from "@/lib/viewer/globe-store";
+import { parseLensFile } from "@/lib/lens/file";
+import { builtinLens } from "@/lib/lens/presets";
+import { useLensStore } from "@/lib/lens/store";
+import type { Lens } from "@/lib/lens/types";
 import {
   applyDisplaySettings,
   displaySettingsValues,
@@ -151,6 +155,10 @@ export function snapshotSession(): SessionSnapshot {
     isolationFilterMode: viewer.isolationFilterMode,
     selection: viewer.selection.map((ref) => ({ modelId: ref.modelId, expressId: ref.expressId })),
 
+    lenses: (() => {
+      const lens = useLensStore.getState();
+      return { saved: lens.lenses, activeId: lens.activeId };
+    })(),
     sectionPlanes: viewer.sectionPlanes,
     measurements: viewer.measurements,
     angleMeasurements: viewer.angleMeasurements,
@@ -192,7 +200,9 @@ export type RestoreWarning =
   | { kind: "bcf"; error: string }
   | { kind: "globe"; error: string }
   | { kind: "quantities"; error: string }
-  | { kind: "clash"; error: string };
+  | { kind: "clash"; error: string }
+  | { kind: "lenses"; error: string }
+  | { kind: "lensesSkipped"; count: number };
 
 /** Fresh ids for restored items, so they can never equal one the store mints next. */
 function restoredId(kind: string, index: number) {
@@ -325,6 +335,20 @@ export async function restoreProject(
       clash = readClashWorkbook(new Uint8Array(await plan.clash.arrayBuffer()));
     } catch (error) {
       report.warnings.push({ kind: "clash", error: message(error) });
+    }
+  }
+  // Lenses the same way: a list that will not read leaves the user's own alone.
+  // A project from before the list was a file carries them inline.
+  let lenses: Lens[] = (manifest.lenses.saved as Lens[] | undefined) ?? [];
+  if (plan.lenses) {
+    try {
+      const read = parseLensFile(await plan.lenses.text());
+      lenses = read.lenses;
+      if (read.skipped > 0) {
+        report.warnings.push({ kind: "lensesSkipped", count: read.skipped });
+      }
+    } catch (error) {
+      report.warnings.push({ kind: "lenses", error: message(error) });
     }
   }
   aborted(signal);
@@ -489,6 +513,18 @@ export async function restoreProject(
   }
 
   // ---- data the other panels hold
+  {
+    // The saved lens is turned on only if it is here: a list that did not read
+    // leaves the user's own on rather than pointing at nothing.
+    const store = useLensStore.getState();
+    const wanted = manifest.lenses.activeId;
+    const known =
+      wanted === null ||
+      builtinLens(wanted) !== undefined ||
+      lenses.some((lens) => lens.id === wanted) ||
+      store.lenses.some((lens) => lens.id === wanted);
+    store.merge(lenses, known ? wanted : store.activeId);
+  }
   if (quantities) replaceStoredQueryList(quantities);
   if (clash) useClashStore.getState().setMatrix(clash);
 

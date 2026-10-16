@@ -133,7 +133,9 @@ export function useProjectLoader() {
       ...report.warnings.map((warning) =>
         "error" in warning
           ? t(`warnings.${warning.kind}`, { error: warning.error || t("warnings.noDetail") })
-          : t(`warnings.${warning.kind}`),
+          : "count" in warning
+            ? t(`warnings.${warning.kind}`, { count: warning.count })
+            : t(`warnings.${warning.kind}`),
       ),
     ];
     for (const problem of problems) toast.warning(problem, { duration: 12_000 });

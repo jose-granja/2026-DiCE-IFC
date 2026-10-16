@@ -29,7 +29,8 @@ import { Switch } from "@/components/ui/switch";
 import { parseCityJson, sniffJsonType } from "@/lib/georef/cityjson";
 import { parseGeoJson } from "@/lib/georef/geojson";
 import { parseCityGml } from "@/lib/georef/citygml";
-import { parseGeoPackage } from "@/lib/georef/geopackage";
+import { findCrs } from "@/config/epsg";
+import { readGeoPackage } from "@/lib/workers/geopackage-client";
 import type { ContextGeometry } from "@/lib/georef/context-geometry";
 import { readContextFile } from "@/lib/georef/read-context-file";
 import { mapToLocal, type Placement, type WgsPoint } from "@/lib/georef/transform";
@@ -63,9 +64,8 @@ export function ContextModel({
 }) {
   const t = useTranslations("viewer.contextModel");
   /**
-   * GeoJSON and GeoPackage need to know what to project into, and that comes
-   * from the model's own map conversion. GML declares its source CRS and can
-   * therefore still be displayed at the local origin when the IFC has none.
+   * GeoJSON needs the model's map conversion. GML and GeoPackage declare
+   * their source CRS and can also be previewed locally without an IFC placement.
    */
   const NEEDS_PLACEMENT = t("needsPlacement");
 
@@ -130,9 +130,10 @@ export function ContextModel({
     }
 
     renderer.setContextGeometry(
-      { positions: result.positions, colours: result.colours },
+      { positions: result.positions, colours: result.colours, featureRanges: result.featureRanges },
       offset,
     );
+    renderer.setContextSelection(useContextModelStore.getState().selectedFeature);
   };
 
   /**
@@ -158,10 +159,16 @@ export function ContextModel({
     */
     const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
     if (new TextDecoder().decode(head.subarray(0, 15)) === "SQLite format 3") {
-      if (epsg === null) throw new Error(NEEDS_PLACEMENT);
       const bytes = await readContextFile(file, "buffer", setProgress);
       await processing();
-      return parseGeoPackage(new Uint8Array(bytes), epsg);
+      const result = await readGeoPackage(new Uint8Array(bytes), epsg, {
+        targetDefinition: epsg === null ? undefined : findCrs(epsg)?.proj4,
+        clip: clipEnabled && canClip && radiusValid
+          ? { reference: referencePoint!, radiusMetres }
+          : undefined,
+      }, setProgress);
+      if (!result.ok) throw new Error(t(`geoPackageErrors.${result.error}`));
+      return result.geometry;
     }
 
     // Detect XML from a small prefix. A national CityGML delivery can be
@@ -260,6 +267,7 @@ export function ContextModel({
         .map((entry) => `${entry.count} ${entry.type}`)
         .join(", ");
       toast.success(t("loaded", { count: result.objectCount, summary }));
+      if (result.skippedObjects) toast.warning(t("skippedObjects", { count: result.skippedObjects }));
 
       if (placement && result.epsg && placement.epsg && result.epsg !== placement.epsg) {
         // Not fatal: the coordinates may still be close enough to be useful,

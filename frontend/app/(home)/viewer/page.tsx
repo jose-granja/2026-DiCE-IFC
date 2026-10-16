@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   Crosshair,
   Funnel,
+  Glasses,
   Globe,
   ListTree,
   MessagesSquare,
@@ -21,6 +22,7 @@ const PANELS = [
   "models",
   "structure",
   "classes",
+  "lens",
   "quantities",
   "section",
   "measure",
@@ -37,6 +39,7 @@ import { useViewerPanelStore } from "@/lib/viewer/panel-store";
 import { useFacetSelectionStore } from "@/lib/viewer/facet-selection-store";
 import { FACET_DIMENSIONS } from "@/lib/viewer/facets";
 import { useGlobeStore } from "@/lib/viewer/globe-store";
+import { useLensStore } from "@/lib/lens/store";
 
 import { ResizeHandle, useResizableWidth } from "@/components/PanelResizeHandle";
 import ViewerCanvas from "./_components/ViewerCanvas";
@@ -56,6 +59,8 @@ import PointCloudList from "./_components/PointCloudList";
 import WorkspaceActions from "./_components/WorkspaceActions";
 import ProjectActions from "./_components/ProjectActions";
 import FacetFilterSync from "./_components/FacetFilterSync";
+import LensSync from "./_components/LensSync";
+import LensPanel from "./_components/LensPanel";
 import { QuantityQueryPanel } from "./_components/QuantityQueryPanel";
 import TypeVisibilitySettings from "./_components/TypeVisibilitySettings";
 import DisplaySettings from "./_components/DisplaySettings";
@@ -129,6 +134,7 @@ export default function ViewerPage() {
   }, [tab]);
 
   const globeOn = useGlobeStore((s) => s.on);
+  const lensOn = useLensStore((s) => s.activeId !== null || s.draft !== null);
   const filterCount = useFacetSelectionStore((s) =>
     FACET_DIMENSIONS.reduce((count, dimension) => count + s.selection[dimension].size, 0),
   );
@@ -188,7 +194,7 @@ export default function ViewerPage() {
                 every case — `getByRole("tab", { name: "Classes" })` works
                 whichever is showing, and so does a screen reader.
               */}
-              <TabsList className="m-2 grid grid-cols-10 bg-transparent p-0">
+              <TabsList className="m-2 grid grid-cols-11 bg-transparent p-0">
                 <TabsTrigger value="models" className="text-xs">
                   <Boxes className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
                   <span className="panel-tab-text">{t("tabs.models")}</span>
@@ -212,6 +218,17 @@ export default function ViewerPage() {
                   <Funnel className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
                   <span className="panel-tab-text">{t("tabs.filters")}</span>
                   {filterCount > 0 && <ActiveDot />}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="lens"
+                  className="relative text-xs"
+                  // A lens stays on when this tab is closed, so the tab says so.
+                  title={lensOn ? t("tabs.lensActive") : undefined}
+                  data-lens-active={lensOn || undefined}
+                >
+                  <Glasses className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
+                  <span className="panel-tab-text">{t("tabs.lens")}</span>
+                  {lensOn && <ActiveDot />}
                 </TabsTrigger>
                 <TabsTrigger value="quantities" className="text-xs">
                   <Sigma className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
@@ -261,6 +278,9 @@ export default function ViewerPage() {
               <TabsContent value="classes" className="min-h-0 flex-1 overflow-hidden">
                 <FilterPanel />
               </TabsContent>
+              <TabsContent value="lens" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <LensPanel />
+              </TabsContent>
               <TabsContent value="quantities" className="min-h-0 flex-1 overflow-hidden">
                 <QuantityQueryPanel />
               </TabsContent>
@@ -303,6 +323,7 @@ export default function ViewerPage() {
           <div className="relative min-h-0 flex-1">
             <ViewerCanvas />
             <FacetFilterSync />
+            <LensSync />
           </div>
 
           <ResizeHandle

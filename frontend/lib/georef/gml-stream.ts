@@ -8,7 +8,8 @@
  * only projects/builds the small area around the IFC model.
  */
 
-import { GeometryBuilder, fanTriangles, type ContextGeometry } from "./context-geometry";
+import { GmlMetadataStream } from "./gml-metadata";
+import { GeometryBuilder, fanTriangles, type ContextFeature, type ContextGeometry } from "./context-geometry";
 import { epsgFromSrsName } from "./citygml";
 import { mapToWgs84, wgs84ToMap, type WgsPoint } from "./transform";
 
@@ -154,7 +155,8 @@ export async function parseLargeGml(
   ) || 3;
   const referenceInTarget = wgs84ToMap(options.reference, options.targetEpsg);
 
-  const retained: Point[][] = [];
+  const retained: Array<{ ring: Point[]; feature: ContextFeature }> = [];
+  const metadata = new GmlMetadataStream();
   let axisOrder: "longitude-latitude" | "latitude-longitude" | null = null;
   let pending = "";
   let offset = 0;
@@ -173,16 +175,24 @@ export async function parseLargeGml(
     opening.lastIndex = 0;
     while (true) {
       const match = opening.exec(pending);
-      if (!match) break;
+      if (!match) {
+        const lastOpening = pending.lastIndexOf("<");
+        const end = lastOpening >= consumed && !pending.slice(lastOpening).includes(">") ? lastOpening : pending.length;
+        metadata.feed(pending.slice(consumed, end));
+        consumed = end;
+        break;
+      }
       const contentStart = opening.lastIndex;
       const closing = /<\/(?:[\w.-]+:)?posList\s*>/gi;
       closing.lastIndex = contentStart;
       const close = closing.exec(pending);
       if (!close) {
+        metadata.feed(pending.slice(consumed, match.index));
         consumed = match.index;
         break;
       }
 
+      metadata.feed(pending.slice(consumed, contentStart));
       const dimension = Number(
         /\bsrsDimension\s*=\s*["'](\d+)["']/i.exec(match[1])?.[1],
       ) || globalDimension;
@@ -208,16 +218,17 @@ export async function parseLargeGml(
             options.targetEpsg,
           )
         ) {
-          retained.push(projectRing(points, sourceEpsg, options.targetEpsg, order));
+          retained.push({ ring: projectRing(points, sourceEpsg, options.targetEpsg, order),
+            feature: metadata.feature ?? { id: String(seenPosLists), type: "GML surface", source: "CityGML / GML", properties: {} } });
         }
       }
 
+      metadata.feed(pending.slice(close.index, closing.lastIndex));
       consumed = closing.lastIndex;
       opening.lastIndex = consumed;
     }
 
-    if (consumed > 0) pending = pending.slice(consumed);
-    else if (!/<(?:[\w.-]+:)?posList\b/i.test(pending)) pending = pending.slice(-256);
+    pending = pending.slice(consumed);
 
     options.onProgress?.(Math.round((offset / blob.size) * 100));
     // Give the worker event loop a chance to deliver progress and cancellation.
@@ -235,7 +246,7 @@ export async function parseLargeGml(
 
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity;
-  for (const ring of retained) {
+  for (const { ring } of retained) {
     for (const [x, y, z] of ring) {
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
@@ -250,15 +261,16 @@ export async function parseLargeGml(
     height: Number.isFinite(minZ) ? minZ : 0,
   };
   const builder = new GeometryBuilder();
-  for (const ring of retained) {
+  for (const { ring, feature } of retained) {
+    const firstTriangle = builder.triangleCount;
     for (const [a, b, c] of fanTriangles(ring)) {
       builder.triangle(a, b, c, BUILDING_COLOUR, origin);
     }
+    builder.addFeature(feature, firstTriangle);
   }
-  const { positions, colours } = builder.finish();
+
   return {
-    positions,
-    colours,
+    ...builder.finish(),
     origin,
     epsg: options.targetEpsg,
     objectCount: retained.length,

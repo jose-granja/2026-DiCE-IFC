@@ -27,6 +27,8 @@ import { wgs84ToMap, type WgsPoint } from "./transform";
 import {
   fanTriangles,
   GeometryBuilder,
+  contextFeatureName,
+  type ContextFeature,
   type ContextGeometry,
 } from "./context-geometry";
 
@@ -41,6 +43,7 @@ type Geometry = {
 };
 
 type Feature = {
+  id?: string | number;
   type?: string;
   geometry?: Geometry | null;
   properties?: Record<string, unknown> | null;
@@ -159,6 +162,7 @@ export function parseGeoJson(text: string, epsg: number): ContextGeometry {
     without the geometry visibly jittering.
   */
   type Ready = {
+    feature: ContextFeature;
     kind: string;
     height: number;
     geometry: Geometry;
@@ -178,13 +182,16 @@ export function parseGeoJson(text: string, epsg: number): ContextGeometry {
     if (northing > maxY) maxY = northing;
   };
 
-  for (const feature of features) {
+  for (const [index, feature] of features.entries()) {
     if (!feature.geometry) continue;
     const projected = new Map<Position, [number, number]>();
     for (const position of positionsOf(feature.geometry)) project(position, projected);
     if (projected.size === 0) continue;
 
+    const properties = feature.properties ?? {};
     ready.push({
+      feature: { id: String(feature.id ?? index + 1), name: contextFeatureName(properties),
+        type: feature.geometry.type ?? "Feature", source: "GeoJSON", properties },
       kind: kindOf(feature.properties),
       height: heightOf(feature.properties),
       geometry: feature.geometry,
@@ -215,6 +222,7 @@ export function parseGeoJson(text: string, epsg: number): ContextGeometry {
 
     build(entry.geometry, entry.projected, entry.height, colour, builder, origin);
 
+    builder.addFeature(entry.feature, before);
     if (builder.triangleCount > before) {
       objectCount += 1;
       counts.set(entry.kind, (counts.get(entry.kind) ?? 0) + 1);
@@ -227,11 +235,8 @@ export function parseGeoJson(text: string, epsg: number): ContextGeometry {
     );
   }
 
-  const { positions, colours } = builder.finish();
-
   return {
-    positions,
-    colours,
+    ...builder.finish(),
     origin,
     epsg,
     objectCount,

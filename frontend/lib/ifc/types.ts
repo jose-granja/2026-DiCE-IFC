@@ -255,6 +255,22 @@ export type FilterFacetValue = {
  * `hierarchy` is absent here — the spatial tree already carries it, and
  * duplicating it would let the two disagree.
  */
+/**
+ * What a lens colours by (`lib/lens/`): one value per element, each distinct
+ * value its own colour. `model` is not here — it needs no worker, every
+ * element of a model has that model's name.
+ */
+export type ElementGroupSource =
+  | { kind: "class" }
+  | { kind: "objectType" }
+  | { kind: "predefinedType" }
+  | { kind: "material" }
+  | { kind: "group" }
+  | { kind: "storey" }
+  /** Codes of one system, or of every system when `system` is empty. */
+  | { kind: "classification"; system?: string }
+  | { kind: "property"; setName: string; propertyName: string };
+
 export type FilterFacets = {
   /** IFC class, e.g. `IfcWall`. */
   classes: FilterFacetValue[];
@@ -774,6 +790,13 @@ export interface IfcEngineAdapter {
    * quietly leave things on screen that the user asked to hide.
    */
   getFilterFacets(modelId: ModelId): Promise<FilterFacets>;
+
+  /**
+   * Every placed element grouped by one value — its class, material, storey, a
+   * property… — for a lens to give each value a colour. Elements without the
+   * value are in no group. Largest group first.
+   */
+  groupElementsByValue(modelId: ModelId, source: ElementGroupSource): Promise<FilterFacetValue[]>;
 
   /** The elements of one model that an `ElementFilter` selects. */
   selectElements(modelId: ModelId, filter: ElementFilter): Promise<ElementMatch[]>;

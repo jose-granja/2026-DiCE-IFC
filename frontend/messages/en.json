@@ -202,7 +202,9 @@
       "bcf": "BCF",
       "clash": "Clash",
       "filtersActive": "{count, plural, one {# filter value is on} other {# filter values are on}} — open the tab to change or clear them",
-      "globeActive": "The 3D world context is on"
+      "globeActive": "The 3D world context is on",
+      "lens": "Lens",
+      "lensActive": "A lens is on"
     },
     "clash": {
       "loadModel": "Load at least one model to detect clashes.",
@@ -723,6 +725,13 @@
       "unknownClass": "Unspecified class"
     },
     "propertyPanel": {
+      "contextFeature": "Context feature",
+      "contextSource": "Format",
+      "contextId": "Feature ID",
+      "contextLayer": "Layer",
+      "contextCrs": "Display CRS",
+      "contextNoMatches": "No properties match your search.",
+      "contextNoMetadata": "This feature has no additional metadata.",
       "selectElement": "Select an element in the viewport or the tree.",
       "filterProperties": "Filter properties",
       "attributes": "Attributes",
@@ -1076,12 +1085,21 @@
       "loaded": "Loaded {count} objects — {summary}.",
       "crsMismatch": "The city model is in EPSG:{resultEpsg} but the IFC is in EPSG:{placementEpsg}. It is placed without reprojection, so it may be offset.",
       "readFailed": "That file could not be read.",
+      "geoPackageErrors": {
+        "invalidFile": "This file is not a GeoPackage database.",
+        "openFailed": "The GeoPackage could not be opened.",
+        "noFeatures": "This GeoPackage has no vector layers. Raster tiles and attribute-only tables cannot be used as context geometry.",
+        "noGeometry": "No supported geometry could be drawn from this GeoPackage.",
+        "nothingNearby": "No GeoPackage geometry falls within the clip area. Increase the radius or turn clipping off.",
+        "unsupportedCrs": "The GeoPackage coordinate system could not be transformed into the model's projected coordinate system."
+      },
+      "skippedObjects": "{count, number} context features were skipped because their geometry could not be read.",
       "summary": "{count, number} objects, {metres, number} m across{crs}.",
       "summaryCrs": ", EPSG:{epsg}",
       "summaryNoCrs": ", no CRS declared",
       "noPlacementNote": "The model has no map conversion, so this is placed at the origin rather than aligned.",
       "formatsHint": "CityJSON, CityGML/GML, GeoJSON or GeoPackage — neighbouring buildings, plot boundaries, terrain. Flat footprints carrying a height are extruded. Read in this tab and never uploaded.",
-      "clipHint": "Georeference the model to clip a large CityJSON or GML file to the area around it instead of loading the whole dataset."
+      "clipHint": "Georeference the model to clip CityJSON, GML or GeoPackage context to the area around it instead of loading the whole dataset."
     },
     "idsPanel": {
       "title": "IDS verification",
@@ -1274,7 +1292,153 @@
         "quantities": "The quantity list could not be read from its workbook, so the open list was kept: {error}",
         "clash": "The clash matrix could not be read from its workbook, so the open matrix was kept: {error}",
         "globe": "The 3D world context could not be turned on: {error}",
+        "lenses": "The lenses could not be read from their list, so your own were kept: {error}",
+        "lensesSkipped": "{count, plural, one {# lens} other {# lenses}} in the project could not be read and {count, plural, one {was} other {were}} left out.",
         "noDetail": "no reason was given"
+      }
+    },
+    "lens": {
+      "title": "Lens",
+      "new": "New",
+      "newRules": "Lens with rules",
+      "newAuto": "Auto-colour lens",
+      "download": "Download the saved lenses as a list",
+      "downloadNone": "No saved lenses to download",
+      "upload": {
+        "button": "Upload a list of lenses",
+        "done": "{count, plural, one {# lens} other {# lenses}} added to Saved.",
+        "skipped": "{count, plural, one {# lens} other {# lenses}} in the file could not be read and {count, plural, one {was} other {were}} left out.",
+        "empty": "{name} has no lenses in it.",
+        "errors": {
+          "notJson": "{name} is not a valid JSON file.",
+          "notLensFile": "{name} is not a DiCE-IFC lens list. Use a file made with “Download” in the Lens tab.",
+          "newerVersion": "{name} was saved by a newer version of DiCE-IFC. Update the application to read it."
+        }
+      },
+      "hint": "A lens is a saved way of looking at the model: it colours, hides or ghosts elements by what they are. Click one to turn it on; it stays on in every tab.",
+      "builtinTitle": "Built-in",
+      "savedTitle": "Saved",
+      "noSaved": "No saved lenses yet. Create one, or duplicate a built-in to change it.",
+      "newLensName": "New lens",
+      "newRuleName": "Rule {number}",
+      "copyName": "{name} (copy)",
+      "kinds": {
+        "rules": "Rules",
+        "auto": "Auto"
+      },
+      "edit": "Edit {name}",
+      "duplicate": "Duplicate {name}",
+      "delete": "Delete {name}",
+      "running": "Applying the lens…",
+      "turnOff": "Turn off",
+      "failed": "The lens could not be applied: {message}",
+      "nothingToShow": "Nothing in the loaded models matches this lens.",
+      "unmatchedLegend": {
+        "ghost": "Everything else (ghosted)",
+        "keep": "Everything else",
+        "hide": "Everything else (hidden)"
+      },
+      "actions": {
+        "colour": "Colour",
+        "transparent": "See-through",
+        "hide": "Hide"
+      },
+      "showEntry": "Show {name}",
+      "hideEntry": "Hide {name}",
+      "editTitle": "Edit lens",
+      "newTitle": "New lens",
+      "name": "Name",
+      "rules": "Rules",
+      "rulesHint": "Each element takes the first rule it matches, top to bottom. A rule with no filter matches nothing.",
+      "addRule": "Add rule",
+      "unmatched": "Elements no rule matches",
+      "unmatchedOptions": {
+        "ghost": "Ghost them (see-through grey)",
+        "keep": "Leave them as they are",
+        "hide": "Hide them"
+      },
+      "cancel": "Cancel",
+      "save": "Save lens",
+      "ruleEnabled": "{name} on",
+      "ruleColour": "Colour of {name}",
+      "ruleName": "Rule name",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "removeRule": "Remove {name}",
+      "ruleAction": "What {name} does",
+      "hideFilter": "Hide filter",
+      "editFilter": "Edit filter",
+      "colourBy": "Colour by",
+      "sources": {
+        "class": "IFC class",
+        "objectType": "Type",
+        "predefinedType": "Predefined type",
+        "material": "Material",
+        "group": "Group or zone",
+        "storey": "Storey",
+        "model": "Model",
+        "classification": "Classification code",
+        "property": "A property"
+      },
+      "system": "Classification system",
+      "anySystem": "Every system",
+      "propertySet": "Property set",
+      "property": "Property",
+      "builtin": {
+        "by-class": {
+          "name": "By IFC class"
+        },
+        "by-type": {
+          "name": "By type"
+        },
+        "by-material": {
+          "name": "By material"
+        },
+        "by-storey": {
+          "name": "By storey"
+        },
+        "by-model": {
+          "name": "By model"
+        },
+        "structural": {
+          "name": "Structural",
+          "rules": {
+            "columns": "Columns",
+            "beams": "Beams",
+            "slabs": "Slabs",
+            "foundations": "Foundations",
+            "load-bearing": "Load-bearing walls"
+          }
+        },
+        "envelope": {
+          "name": "Building envelope",
+          "rules": {
+            "roofs": "Roofs",
+            "curtain-walls": "Curtain walls",
+            "windows": "Windows",
+            "doors": "Doors",
+            "external-walls": "External walls"
+          }
+        },
+        "openings": {
+          "name": "Openings and circulation",
+          "rules": {
+            "doors": "Doors",
+            "windows": "Windows",
+            "stairs": "Stairs",
+            "ramps": "Ramps",
+            "railings": "Railings"
+          }
+        },
+        "mep": {
+          "name": "MEP systems",
+          "rules": {
+            "ducts": "Ductwork",
+            "pipes": "Pipework",
+            "electrical": "Electrical",
+            "equipment": "Equipment"
+          }
+        }
       }
     }
   },

@@ -76,3 +76,14 @@ describe("parseLargeGml", () => {
     })).rejects.toThrow(/No GML geometry was found within 100 m/);
   });
 });
+
+it("retains feature metadata after geometry and across split opening tags", async () => {
+  const prefix = `<CityModel xmlns:gml="http://www.opengis.net/gml" srsName="EPSG:4326"><cityObjectMember><Building gml:id="A"><gml:name>School &amp; Library</gml:name><lod1Solid><gml:Polygon><gml:exterior><gml:LinearRing>`;
+  const padding = " ".repeat(4 * 1024 * 1024 - prefix.length - 8);
+  const ring = "41.11880 -8.62260 0 41.11880 -8.62250 0 41.11890 -8.62250 0 41.11880 -8.62260 0";
+  const xml = `${prefix}${padding}<gml:posList>${ring}</gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></lod1Solid><measuredHeight uom="m">12</measuredHeight></Building></cityObjectMember></CityModel>`;
+  const result = await parseLargeGml(new Blob([xml]), { targetEpsg: TARGET_EPSG, reference: REFERENCE, radiusMetres: 100 });
+  expect(result.features).toEqual([{ id: "A", type: "Building", source: "CityGML / GML", name: "School & Library",
+    properties: { name: "School & Library", "measuredHeight.@uom": "m", measuredHeight: "12" } }]);
+  expect(result.featureRanges).toEqual([{ firstTriangle: 0, triangleCount: 1, featureIndex: 0 }]);
+});

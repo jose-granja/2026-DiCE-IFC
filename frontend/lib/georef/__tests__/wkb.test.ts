@@ -24,6 +24,27 @@ function point(little = true): Uint8Array {
   return new Uint8Array(buffer);
 }
 
+function curve(type: number, points: number[][], little = true): Uint8Array {
+  const view = new DataView(new ArrayBuffer(9 + points.length * 16));
+  view.setUint8(0, little ? 1 : 0);
+  view.setUint32(1, type, little);
+  view.setUint32(5, points.length, little);
+  points.forEach(([x, y], i) => {
+    view.setFloat64(9 + i * 16, x, little);
+    view.setFloat64(17 + i * 16, y, little);
+  });
+  return new Uint8Array(view.buffer);
+}
+
+function collection(type: number, parts: Uint8Array[]) {
+  const out = new Uint8Array(9 + parts.reduce((n, p) => n + p.length, 0));
+  const view = new DataView(out.buffer);
+  view.setUint8(0, 1); view.setUint32(1, type, true); view.setUint32(5, parts.length, true);
+  let at = 9;
+  for (const part of parts) { out.set(part, at); at += part.length; }
+  return out;
+}
+
 describe("parseWkb", () => {
   it("reads a little-endian point", () => {
     expect(parseWkb(point(true)).points[0]).toEqual([1, 2, 0]);
@@ -73,6 +94,38 @@ describe("parseWkb", () => {
 
   it("refuses a type it does not know rather than inventing geometry", () => {
     expect(() => parseWkb(bytes(1, 99, 0, 0, 0))).toThrow(WkbError);
+  });
+
+  it("draws a compound circular curve, as QGIS uses for map label paths", () => {
+    const data = collection(9, [curve(2, [[-2, 0], [-1, 0]], false), curve(8, [[-1, 0], [0, 1], [1, 0]])]);
+    const [line] = parseWkb(data).lines;
+    expect(line[0]).toEqual([-2, 0, 0]);
+    expect(line.at(-1)).toEqual([1, 0, 0]);
+    expect(line).toContainEqual([0, 1, 0]);
+    expect(line.length).toBeGreaterThan(20);
+    for (const [x, y] of line.slice(1)) {
+      expect(Math.hypot(x, y)).toBeCloseTo(1, 10);
+      expect(y).toBeGreaterThanOrEqual(-1e-12);
+    }
+  });
+
+  it("reads full circles as closed curve-polygon rings", () => {
+    const result = parseWkb(collection(10, [curve(8, [[1, 0], [-1, 0], [1, 0]])]));
+    const ring = result.polygons[0][0];
+    expect(ring[0]).toEqual(ring.at(-1));
+    expect(ring.length).toBeGreaterThan(60);
+    expect(Math.min(...ring.map((p) => p[1]))).toBeCloseTo(-1);
+    expect(Math.max(...ring.map((p) => p[1]))).toBeCloseTo(1);
+  });
+
+  it("keeps collinear circular-string control points finite", () => {
+    expect(parseWkb(curve(8, [[0, 0], [1, 1], [2, 2]])).lines[0]).toEqual([[0, 0, 0], [1, 1, 0], [2, 2, 0]]);
+  });
+
+  it("refuses a truncated collection rather than reporting partial geometry", () => {
+    const data = collection(11, [curve(2, [[0, 0], [1, 1]])]);
+    new DataView(data.buffer).setUint32(5, 2, true);
+    expect(() => parseWkb(data)).toThrow();
   });
 });
 

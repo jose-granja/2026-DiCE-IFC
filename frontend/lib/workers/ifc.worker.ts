@@ -20,6 +20,7 @@ import { getIfcAdapter } from "@/lib/ifc/adapter";
 import type {
   EditableAttribute,
   ElementFilter,
+  ElementGroupSource,
   EntityQuery,
   ExpressId,
   GeoreferencePatch,
@@ -84,6 +85,10 @@ const api = {
 
   getFilterFacets(modelId: ModelId) {
     return adapter.getFilterFacets(modelId);
+  },
+
+  groupElementsByValue(modelId: ModelId, source: ElementGroupSource) {
+    return adapter.groupElementsByValue(modelId, source);
   },
 
   getElementInfo(modelId: ModelId, expressId: ExpressId) {

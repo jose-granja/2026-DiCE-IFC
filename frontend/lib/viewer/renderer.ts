@@ -24,6 +24,7 @@
  */
 
 import * as THREE from "three";
+import { contextFeatureAt, type ContextGeometry, type ContextFeatureRange } from "@/lib/georef/context-geometry";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { OrbitPivot } from "./orbit-pivot";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
@@ -621,6 +622,13 @@ type Batch = {
   baseColours: Float32Array;
   /** Filled IFC material owned by this batch. */
   fillMaterial: THREE.MeshStandardMaterial;
+  /**
+   * The batch's translucent elements — a lens's ghosted and see-through ones —
+   * drawn again from the same vertex buffers with their own index and a
+   * translucent material. Made the first time one is needed. A batch is drawn
+   * with one material, opaque or not, so vertex alpha alone cannot do this.
+   */
+  ghost?: THREE.Mesh;
 };
 
 type ModelScene = {
@@ -832,6 +840,9 @@ export class ViewerRenderer {
    */
   private snapPreviewMarkers: Record<SnapTargetType, THREE.Points>;
   private contextMesh: THREE.Mesh | null = null;
+  private contextFeatureRanges: ContextFeatureRange[] = [];
+  private contextBaseColours: Float32Array | null = null;
+  private selectedContextFeature: number | null = null;
   /** Scanned point clouds, by id. Not models — see `addPointCloud`. */
   private pointClouds = new Map<string, THREE.Points>();
   /** Edge shading for the clouds (eye-dome lighting) — see `point-edl.ts`. On by default. */
@@ -1126,6 +1137,35 @@ export class ViewerRenderer {
     });
   }
 
+  /** One translucent material for every ghost: drawn after the solids, writing no depth. */
+  private ghostMaterial: THREE.MeshStandardMaterial | null = null;
+
+  private createGhost(batch: Batch, model: ModelScene): THREE.Mesh {
+    // The batch's own vertex buffers, by reference: no copy of the geometry,
+    // and the lens's colours (written to the shared colour attribute) show through.
+    const geometry = new THREE.BufferGeometry();
+    for (const name of ["position", "normal", "color"]) {
+      const attribute = batch.geometry.getAttribute(name);
+      if (attribute) geometry.setAttribute(name, attribute);
+    }
+    geometry.boundingSphere = batch.geometry.boundingSphere;
+    this.ghostMaterial ??= new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.16,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      roughness: 0.9,
+      metalness: 0,
+      clippingPlanes: this.clipPlanes,
+    });
+    const ghost = new THREE.Mesh(geometry, this.ghostMaterial);
+    ghost.renderOrder = 1;
+    batch.ghost = ghost;
+    model.group.add(ghost);
+    return ghost;
+  }
+
   private material(transparent = false): THREE.MeshStandardMaterial {
     return applyIfcLiteMaterialFinish(
       new THREE.MeshStandardMaterial({
@@ -1169,6 +1209,7 @@ export class ViewerRenderer {
     for (const batch of model.batches) {
       batch.geometry.dispose();
       batch.fillMaterial.dispose();
+      batch.ghost?.geometry.dispose();
     }
     disposeObject(model.originMarker);
     if (model.siteMarker) disposeObject(model.siteMarker);
@@ -1324,6 +1365,17 @@ export class ViewerRenderer {
     this.repaintColours();
   }
 
+  /**
+   * A lens's colours (`lib/lens/`), keyed `modelId#expressId`. Beneath
+   * highlights and the selection: a clash or an IDS failure shown on top of a
+   * lens is still that colour, and a selected element is still the selection.
+   */
+  setLensColours(colours: ReadonlyMap<string, string> | null) {
+    this.lensColours = colours;
+    this.repaintColours();
+  }
+
+  private lensColours: ReadonlyMap<string, string> | null = null;
   private selectionRefs: Array<{ modelId: string; expressId: number }> = [];
   private highlights: Array<{ modelId: string; expressId: number; colour: string }> = [];
 
@@ -1339,6 +1391,31 @@ export class ViewerRenderer {
     }
 
     const colour = new THREE.Color();
+    if (this.lensColours) {
+      // Decoded once per distinct colour: a lens has a handful, over every element.
+      const decoded = new Map<string, THREE.Color>();
+      for (const [key, css] of this.lensColours) {
+        const at = key.lastIndexOf("#");
+        const model = this.models.get(key.slice(0, at));
+        const spans = model?.ranges.get(Number(key.slice(at + 1)));
+        if (!model || !spans) continue;
+        let linear = decoded.get(css);
+        if (!linear) {
+          linear = new THREE.Color(css);
+          decoded.set(css, linear);
+        }
+        for (const span of spans) {
+          const colours = model.batches[span.batch].geometry.getAttribute("color") as THREE.BufferAttribute;
+          const array = colours.array as Float32Array;
+          for (let v = span.start; v < span.start + span.count; v += 1) {
+            array[v * 4] = linear.r;
+            array[v * 4 + 1] = linear.g;
+            array[v * 4 + 2] = linear.b;
+          }
+          colours.needsUpdate = true;
+        }
+      }
+    }
     for (const entry of this.highlights) {
       const model = this.models.get(entry.modelId);
       const spans = model?.ranges.get(entry.expressId);
@@ -1390,28 +1467,51 @@ export class ViewerRenderer {
   setEntityVisibility(
     modelId: string,
     isVisible: (expressId: number) => boolean,
+    /** Shown, but see-through — a lens's ghosts. Drawn by the batch's ghost mesh. */
+    isTranslucent?: (expressId: number) => boolean,
   ) {
     const model = this.models.get(modelId);
     if (!model) return;
 
     let total = 0;
     let shown = 0;
+    let seeThrough = 0;
     for (const batch of model.batches) {
       for (const id of new Set(batch.entityIds)) {
         total += 1;
         if (isVisible(id)) shown += 1;
+        if (isVisible(id) && isTranslucent?.(id)) seeThrough += 1;
       }
-      const kept = visibleIndices(batch.allIndices, batch.entityIds, isVisible);
+      const kept = visibleIndices(
+        batch.allIndices,
+        batch.entityIds,
+        isTranslucent ? (id) => isVisible(id) && !isTranslucent(id) : isVisible,
+      );
       batch.geometry.setIndex(
         new THREE.BufferAttribute(new Uint32Array(kept), 1),
       );
       batch.geometry.index!.needsUpdate = true;
+
+      const ghosted = isTranslucent
+        ? visibleIndices(batch.allIndices, batch.entityIds, (id) => isVisible(id) && isTranslucent(id))
+        : [];
+      if (ghosted.length > 0) {
+        const ghost = batch.ghost ?? this.createGhost(batch, model);
+        ghost.geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(ghosted), 1));
+        ghost.geometry.index!.needsUpdate = true;
+        ghost.visible = true;
+      } else if (batch.ghost) {
+        batch.ghost.visible = false;
+      }
     }
 
     this.markSectionCapsDirty();
 
     const marker = document.querySelector<HTMLElement>("[data-rendered-models]");
-    if (marker) marker.dataset.visibleEntities = `${shown}/${total}`;
+    if (marker) {
+      marker.dataset.visibleEntities = `${shown}/${total}`;
+      marker.dataset.translucentEntities = String(seeThrough);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -1609,10 +1709,9 @@ export class ViewerRenderer {
    *    been sliced away and are not on screen.
    */
   /**
-   * `includeContext` is off by default: element selection (`pick()`) must
-   * never resolve to the context mesh, which has no expressId and is not an
-   * element — see `setContextGeometry`. Measurements and the orbit pivot
-   * (`pickPoint()`) turn it on: both need a world point on the visible surface.
+   * IFC tools (`pick()`) exclude context because it has no expressId.
+   * Metadata inspection (`pickInspectable()`), measurements and the orbit
+   * pivot (`pickPoint()`) include it to resolve the visible surface.
    */
   private raycast(
     offsetX: number,
@@ -1636,7 +1735,11 @@ export class ViewerRenderer {
     }
     if (includeContext && this.contextMesh) targets.push(this.contextMesh);
 
-    for (const hit of this.raycaster.intersectObjects(targets, false)) {
+    const hits = this.raycaster.intersectObjects(targets, false);
+    // Later triangles are the visible layer when map features are coplanar.
+    hits.sort((a, b) => a.object === this.contextMesh && b.object === this.contextMesh && Math.abs(a.distance - b.distance) < 1e-7
+      ? (b.faceIndex ?? 0) - (a.faceIndex ?? 0) : a.distance - b.distance);
+    for (const hit of hits) {
       if (!hit.face) continue;
       if (this.isClipped(hit.point)) continue;
 
@@ -1663,6 +1766,19 @@ export class ViewerRenderer {
       modelId: result.model.modelId,
       expressId: result.batch.entityIds[result.hit.face!.a],
     };
+  }
+
+  /** Inspect the nearest visible IFC element or context feature. */
+  pickInspectable(offsetX: number, offsetY: number):
+    | { kind: "model"; modelId: string; expressId: number }
+    | { kind: "context"; featureIndex: number | null }
+    | null {
+    const result = this.raycast(offsetX, offsetY, true);
+    if (!result) return null;
+    if (result.kind === "context") {
+      return { kind: "context", featureIndex: contextFeatureAt(this.contextFeatureRanges, result.hit.faceIndex ?? -1) };
+    }
+    return { kind: "model", modelId: result.model.modelId, expressId: result.batch.entityIds[result.hit.face!.a] };
   }
 
   /**
@@ -2235,12 +2351,12 @@ export class ViewerRenderer {
    * A CityJSON context model — the neighbours, the terrain, the street.
    *
    * Separate from `setModelGeometry` on purpose. This is not a model under
-   * review: it is not selectable, not in the spatial tree, not validated, and
-   * not part of the federation bounds. Treating it as a model would put someone
-   * else's city into the user's IDS results.
+   * review: it supports read-only metadata inspection but stays outside the
+   * spatial tree, validation and federation bounds. Treating it as an IFC
+   * model would put someone else's city into the user's IDS results.
    */
   setContextGeometry(
-    data: { positions: Float32Array; colours: Float32Array } | null,
+    data: Pick<ContextGeometry, "positions" | "colours" | "featureRanges"> | null,
     offset: Vec3 = [0, 0, 0],
   ) {
     if (this.contextMesh) {
@@ -2250,13 +2366,16 @@ export class ViewerRenderer {
       (this.contextMesh.material as THREE.Material).dispose();
       this.contextMesh = null;
     }
+    this.contextFeatureRanges = data?.featureRanges ?? [];
+    this.contextBaseColours = data?.colours ?? null;
+    this.selectedContextFeature = null;
     document.querySelector("[data-context-model]")?.remove();
 
     if (!data || data.positions.length === 0) return;
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(data.positions, 3));
-    geometry.setAttribute("color", new THREE.BufferAttribute(data.colours, 3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(data.colours.slice(), 3));
     geometry.computeVertexNormals();
 
     const mesh = new THREE.Mesh(
@@ -2289,6 +2408,26 @@ export class ViewerRenderer {
       marker.dataset.contextTriangles = String(data.positions.length / 9);
       marker.style.display = "none";
     }
+  }
+
+  /** Highlight all surfaces belonging to the feature without altering source colours. */
+  setContextSelection(featureIndex: number | null) {
+    if (!this.contextMesh || !this.contextBaseColours || this.selectedContextFeature === featureIndex) return;
+    const colours = this.contextMesh.geometry.getAttribute("color") as THREE.BufferAttribute;
+    const array = colours.array as Float32Array;
+    for (const range of this.contextFeatureRanges) {
+      const start = range.firstTriangle * 9, end = start + range.triangleCount * 9;
+      if (range.featureIndex === this.selectedContextFeature) array.set(this.contextBaseColours.subarray(start, end), start);
+      if (range.featureIndex === featureIndex) {
+        for (let i = start; i < end; i += 3) {
+          array[i] = SELECTION_COLOUR.r;
+          array[i + 1] = SELECTION_COLOUR.g;
+          array[i + 2] = SELECTION_COLOUR.b;
+        }
+      }
+    }
+    colours.needsUpdate = true;
+    this.selectedContextFeature = featureIndex;
   }
 
   /**
@@ -3538,6 +3677,7 @@ export class ViewerRenderer {
     for (const modelId of [...this.models.keys()]) this.removeModel(modelId);
     for (const id of [...this.pointClouds.keys()]) this.removePointCloud(id);
     this.pointEdl.dispose();
+    this.ghostMaterial?.dispose();
     disposeGroup(this.measurementGroup);
     disposeGroup(this.angleGroup);
     disposeGroup(this.areaGroup);

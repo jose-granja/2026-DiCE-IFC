@@ -31,6 +31,9 @@ type ContextModelState = ContextModelSettings & {
   /** The file the shown geometry came from, for saving into a project. */
   file: File | null;
   loaded: ContextGeometry | null;
+  selectedFeature: number | null;
+  selectFeature: (index: number | null) => void;
+  clearSelection: () => void;
   /** A file from a restored project, waiting for the Geo panel to place it. */
   pending: File | null;
   /** Set when the panel has finished with `pending`, whether it placed it or not. */
@@ -49,12 +52,17 @@ export const useContextModelStore = create<ContextModelState>((set) => ({
   clipRadius: String(DEFAULT_CLIP_RADIUS_METRES),
   file: null,
   loaded: null,
+  selectedFeature: null,
   pending: null,
   pendingOutcome: null,
 
-  setLoaded: (file, loaded) => set({ file, loaded }),
-  setSettings: (patch) => set(patch),
-  restore: (file, settings) => set({ ...settings, pending: file, pendingOutcome: null }),
+  selectFeature: (index) => set((state) => ({
+    selectedFeature: state.visible && index !== null && state.loaded?.features?.[index] ? index : null,
+  })),
+  clearSelection: () => set({ selectedFeature: null }),
+  setLoaded: (file, loaded) => set({ file, loaded, selectedFeature: null }),
+  setSettings: (patch) => set({ ...patch, ...(patch.visible === false ? { selectedFeature: null } : {}) }),
+  restore: (file, settings) => set({ ...settings, pending: file, pendingOutcome: null, selectedFeature: null }),
   finishPending: (outcome) => set({ pending: null, pendingOutcome: outcome }),
-  clear: () => set({ file: null, loaded: null, pending: null, pendingOutcome: null }),
+  clear: () => set({ file: null, loaded: null, pending: null, pendingOutcome: null, selectedFeature: null }),
 }));

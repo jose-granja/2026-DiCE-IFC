@@ -82,9 +82,42 @@ A GeoPackage is a SQLite database, so reading one needs a SQL engine.
 ## Consequences
 
 - Four formats, one code path, one set of traps written down.
-- Fan triangulation means rings with holes are drawn without their holes.
-  Dropping a courtyard is a smaller lie than inventing a wall across it, and
-  the alternative is an ear-clipping triangulator — worth adding if anyone
-  complains about a real file, not before.
+- GeoPackage uses ear-clipping triangulation for concave polygons and holes.
+  Other vector readers still use triangle fans.
 - A GeoPackage's tile pyramids and attribute-only tables are ignored; only
   `data_type = 'features'` is read.
+
+### GeoPackage map context (2026-10-15)
+
+The Portugal small-scale map exposed three limitations: country boundaries
+cannot be triangulated as fans, QGIS label paths can be compound circular
+curves, and a world-sized sea polygon cannot be projected as a whole into a
+local engineering CRS.
+
+GeoPackage parsing now runs in a dedicated worker, with processing progress.
+Its database and geometry buffers stay on the device; the worker is terminated
+after a load to release SQLite's peak memory. Polygon triangles and curve
+segments are clipped in the source frame before reprojection, then bounded to
+the requested area in the model's CRS. Holes survive the clipping. Curves are
+linearised for display; QGIS label text and styling are not interpreted.
+
+CRSs are resolved through `gpkg_spatial_ref_sys.organization` and
+`organization_coordsys_id`, or its WKT definition: `srs_id` is a database key,
+not an EPSG code. Without an IFC placement, a declared projected CRS is used
+for a local preview, or EPSG:3857 for geographic coordinates; the existing UI
+states that this preview is not aligned to the IFC. Unreadable features are
+counted and reported instead of disappearing silently.
+
+### Context feature inspection (2026-10-15)
+
+Readers retain source feature IDs, types, layers and attributes alongside compact
+triangle ranges. GeoPackage reads non-geometry columns; GeoJSON keeps properties;
+CityJSON keeps CityObject IDs/attributes; GML groups surfaces by owning feature
+and reads non-geometry XML fields. The large GML reader tracks metadata while
+streaming, including fields after geometry, without retaining distant objects.
+
+Canvas inspection raycasts the visible IFC and context surfaces together. Context
+selection highlights every surface of the feature and shows its read-only metadata
+in the existing properties panel. It has independent state and never creates an
+IFC entity reference or enters IDS, BCF element references, clash or federation data.
+Hiding, replacing or removing context clears this selection.

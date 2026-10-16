@@ -202,7 +202,9 @@
       "bcf": "BCF",
       "clash": "Conflitos",
       "filtersActive": "{count, plural, one {# valor de filtro ativo} other {# valores de filtro ativos}} — abra o separador para os alterar ou limpar",
-      "globeActive": "O contexto 3D do mundo está ativo"
+      "globeActive": "O contexto 3D do mundo está ativo",
+      "lens": "Vista",
+      "lensActive": "Há uma vista ativa"
     },
     "clash": {
       "loadModel": "Carregue pelo menos um modelo para detetar conflitos.",
@@ -723,6 +725,13 @@
       "unknownClass": "Classe não especificada"
     },
     "propertyPanel": {
+      "contextFeature": "Elemento de contexto",
+      "contextSource": "Formato",
+      "contextId": "ID do elemento",
+      "contextLayer": "Camada",
+      "contextCrs": "SRC de visualização",
+      "contextNoMatches": "Nenhuma propriedade corresponde à pesquisa.",
+      "contextNoMetadata": "Este elemento não tem metadados adicionais.",
       "selectElement": "Selecione um elemento na vista 3D ou na árvore.",
       "filterProperties": "Filtrar propriedades",
       "attributes": "Atributos",
@@ -1076,12 +1085,21 @@
       "loaded": "Carregados {count} objetos — {summary}.",
       "crsMismatch": "O modelo de cidade está em EPSG:{resultEpsg} mas o IFC está em EPSG:{placementEpsg}. É colocado sem reprojeção, pelo que pode estar desalinhado.",
       "readFailed": "Não foi possível ler esse ficheiro.",
+      "geoPackageErrors": {
+        "invalidFile": "Este ficheiro não é uma base de dados GeoPackage.",
+        "openFailed": "Não foi possível abrir o GeoPackage.",
+        "noFeatures": "Este GeoPackage não contém camadas vetoriais. Mosaicos raster e tabelas apenas com atributos não podem ser usados como geometria de contexto.",
+        "noGeometry": "Não foi possível desenhar geometria suportada a partir deste GeoPackage.",
+        "nothingNearby": "Nenhuma geometria do GeoPackage se encontra na área de recorte. Aumente o raio ou desative o recorte.",
+        "unsupportedCrs": "Não foi possível transformar o sistema de coordenadas do GeoPackage para o sistema projetado do modelo."
+      },
+      "skippedObjects": "Foram ignorados {count, number} elementos de contexto cuja geometria não pôde ser lida.",
       "summary": "{count, number} objetos, {metres, number} m de extensão{crs}.",
       "summaryCrs": ", EPSG:{epsg}",
       "summaryNoCrs": ", sem CRS declarado",
       "noPlacementNote": "O modelo não tem conversão de mapa, pelo que isto é colocado na origem em vez de alinhado.",
       "formatsHint": "CityJSON, CityGML/GML, GeoJSON ou GeoPackage — edifícios vizinhos, limites de lote, terreno. Contornos planos com altura são extrudidos. Lido nesta aba e nunca enviado.",
-      "clipHint": "Georreferencie o modelo para recortar um ficheiro CityJSON ou GML grande à área em seu redor, em vez de carregar o conjunto completo."
+      "clipHint": "Georreferencie o modelo para recortar o contexto CityJSON, GML ou GeoPackage à área em seu redor, em vez de carregar o conjunto completo."
     },
     "idsPanel": {
       "title": "Verificação IDS",
@@ -1274,7 +1292,153 @@
         "quantities": "Não foi possível ler a lista de quantidades do seu livro Excel, por isso manteve-se a lista aberta: {error}",
         "clash": "Não foi possível ler a matriz de colisões do seu livro Excel, por isso manteve-se a matriz aberta: {error}",
         "globe": "Não foi possível ativar o contexto 3D do mundo: {error}",
+        "lenses": "Não foi possível ler as vistas da sua lista, por isso mantiveram-se as suas: {error}",
+        "lensesSkipped": "{count, plural, one {# vista} other {# vistas}} do projeto não {count, plural, one {pôde} other {puderam}} ser {count, plural, one {lida e foi deixada} other {lidas e foram deixadas}} de fora.",
         "noDetail": "não foi indicado o motivo"
+      }
+    },
+    "lens": {
+      "title": "Vista",
+      "new": "Nova",
+      "newRules": "Vista com regras",
+      "newAuto": "Vista de cor automática",
+      "download": "Descarregar as vistas guardadas como lista",
+      "downloadNone": "Não há vistas guardadas para descarregar",
+      "upload": {
+        "button": "Carregar uma lista de vistas",
+        "done": "{count, plural, one {# vista adicionada} other {# vistas adicionadas}} às Guardadas.",
+        "skipped": "{count, plural, one {# vista} other {# vistas}} do ficheiro não {count, plural, one {pôde} other {puderam}} ser {count, plural, one {lida e foi deixada} other {lidas e foram deixadas}} de fora.",
+        "empty": "{name} não tem vistas.",
+        "errors": {
+          "notJson": "{name} não é um ficheiro JSON válido.",
+          "notLensFile": "{name} não é uma lista de vistas DiCE-IFC. Use um ficheiro criado com “Descarregar” no separador Vista.",
+          "newerVersion": "{name} foi guardado por uma versão mais recente do DiCE-IFC. Atualize a aplicação para o ler."
+        }
+      },
+      "hint": "Uma vista é uma forma guardada de ver o modelo: colore, oculta ou esbate elementos pelo que são. Clique numa para a ativar; continua ativa em todos os separadores.",
+      "builtinTitle": "Incluídas",
+      "savedTitle": "Guardadas",
+      "noSaved": "Ainda não há vistas guardadas. Crie uma, ou duplique uma incluída para a alterar.",
+      "newLensName": "Nova vista",
+      "newRuleName": "Regra {number}",
+      "copyName": "{name} (cópia)",
+      "kinds": {
+        "rules": "Regras",
+        "auto": "Auto"
+      },
+      "edit": "Editar {name}",
+      "duplicate": "Duplicar {name}",
+      "delete": "Eliminar {name}",
+      "running": "A aplicar a vista…",
+      "turnOff": "Desativar",
+      "failed": "Não foi possível aplicar a vista: {message}",
+      "nothingToShow": "Nada nos modelos carregados corresponde a esta vista.",
+      "unmatchedLegend": {
+        "ghost": "Tudo o resto (esbatido)",
+        "keep": "Tudo o resto",
+        "hide": "Tudo o resto (oculto)"
+      },
+      "actions": {
+        "colour": "Colorir",
+        "transparent": "Transparente",
+        "hide": "Ocultar"
+      },
+      "showEntry": "Mostrar {name}",
+      "hideEntry": "Ocultar {name}",
+      "editTitle": "Editar vista",
+      "newTitle": "Nova vista",
+      "name": "Nome",
+      "rules": "Regras",
+      "rulesHint": "Cada elemento fica com a primeira regra a que corresponde, de cima para baixo. Uma regra sem filtro não corresponde a nada.",
+      "addRule": "Adicionar regra",
+      "unmatched": "Elementos sem regra correspondente",
+      "unmatchedOptions": {
+        "ghost": "Esbatê-los (cinzento transparente)",
+        "keep": "Deixá-los como estão",
+        "hide": "Ocultá-los"
+      },
+      "cancel": "Cancelar",
+      "save": "Guardar vista",
+      "ruleEnabled": "{name} ativa",
+      "ruleColour": "Cor de {name}",
+      "ruleName": "Nome da regra",
+      "moveUp": "Subir",
+      "moveDown": "Descer",
+      "removeRule": "Remover {name}",
+      "ruleAction": "O que {name} faz",
+      "hideFilter": "Ocultar filtro",
+      "editFilter": "Editar filtro",
+      "colourBy": "Colorir por",
+      "sources": {
+        "class": "Classe IFC",
+        "objectType": "Tipo",
+        "predefinedType": "Tipo predefinido",
+        "material": "Material",
+        "group": "Grupo ou zona",
+        "storey": "Piso",
+        "model": "Modelo",
+        "classification": "Código de classificação",
+        "property": "Uma propriedade"
+      },
+      "system": "Sistema de classificação",
+      "anySystem": "Todos os sistemas",
+      "propertySet": "Conjunto de propriedades",
+      "property": "Propriedade",
+      "builtin": {
+        "by-class": {
+          "name": "Por classe IFC"
+        },
+        "by-type": {
+          "name": "Por tipo"
+        },
+        "by-material": {
+          "name": "Por material"
+        },
+        "by-storey": {
+          "name": "Por piso"
+        },
+        "by-model": {
+          "name": "Por modelo"
+        },
+        "structural": {
+          "name": "Estrutura",
+          "rules": {
+            "columns": "Pilares",
+            "beams": "Vigas",
+            "slabs": "Lajes",
+            "foundations": "Fundações",
+            "load-bearing": "Paredes resistentes"
+          }
+        },
+        "envelope": {
+          "name": "Envolvente",
+          "rules": {
+            "roofs": "Coberturas",
+            "curtain-walls": "Fachadas-cortina",
+            "windows": "Janelas",
+            "doors": "Portas",
+            "external-walls": "Paredes exteriores"
+          }
+        },
+        "openings": {
+          "name": "Vãos e circulação",
+          "rules": {
+            "doors": "Portas",
+            "windows": "Janelas",
+            "stairs": "Escadas",
+            "ramps": "Rampas",
+            "railings": "Guardas"
+          }
+        },
+        "mep": {
+          "name": "Instalações (MEP)",
+          "rules": {
+            "ducts": "Condutas",
+            "pipes": "Tubagens",
+            "electrical": "Eletricidade",
+            "equipment": "Equipamentos"
+          }
+        }
       }
     }
   },

@@ -18,6 +18,7 @@ import {
 } from "../build";
 import type { ProjectSource } from "../folder";
 import { PROJECT_FILE, parseProjectManifest } from "../manifest";
+import { parseLensFile } from "@/lib/lens/file";
 
 // Reading a workbook parses its XML, which Node needs jsdom for.
 const { JSDOM } = createRequire(import.meta.url)("jsdom") as {
@@ -72,6 +73,10 @@ function session(over: Partial<SessionSnapshot> = {}): SessionSnapshot {
     areaMode: "face",
     volumeMode: "box",
     pointCloudEdgeShading: false,
+    lenses: {
+      saved: [{ id: "lens-1", name: "Slabs", kind: "auto", source: { kind: "class" }, unmatched: "ghost" }],
+      activeId: "lens-1",
+    },
     globe: { on: true, layer: "google-photorealistic", assetId: "", url: "" },
     worldOrigin: { source: "mapConversion", mapPosition: [100, 200, 0] },
     typeFilter: ["IfcWall"],
@@ -127,12 +132,30 @@ describe("saving a session", () => {
       "ids/Fire safety.ids",
       "quantities/quantities.xlsx",
       "clash/clash-matrix.xlsx",
+      "lenses/lenses.json",
       "bcf/topics.bcf",
     ]);
     // The model files are the originals, by reference, not re-encoded copies.
     expect(files[1].data).toBe(wall);
     // A model whose source is gone is reported, not silently left out.
     expect(skipped).toEqual([{ name: "Lost.ifc", reason: "noSource" }]);
+  });
+
+  it("writes the lenses as the list the Lens tab uploads, and records which one was on", async () => {
+    const { manifest, files } = buildProject(session());
+    expect(manifest.lenses).toEqual({ path: "lenses/lenses.json", activeId: "lens-1" });
+    const list = files.find((file) => file.path === "lenses/lenses.json")!;
+    expect(parseLensFile(await list.data.text()).lenses).toEqual([
+      { id: "lens-1", name: "Slabs", kind: "auto", source: { kind: "class" }, unmatched: "ghost" },
+    ]);
+  });
+
+  it("writes no lens list without lenses of the user's own, but keeps a built-in that was on", () => {
+    const { manifest, files } = buildProject(
+      session({ lenses: { saved: [], activeId: "builtin:by-class" } }),
+    );
+    expect(manifest.lenses).toEqual({ path: null, activeId: "builtin:by-class" });
+    expect(files.some((file) => file.path.startsWith("lenses/"))).toBe(false);
   });
 
   it("records whether the point clouds were edge-shaded", () => {
@@ -245,6 +268,24 @@ describe("a saved project read back", () => {
     expect(plan.validationIds).toMatchObject({ title: "Fire safety", source: "file" });
     expect(plan.quantities?.name).toBe("quantities.xlsx");
     expect(plan.clash?.name).toBe("clash-matrix.xlsx");
+    expect(plan.lenses?.name).toBe("lenses.json");
+  });
+
+  it("still reads the lenses a first project carried inline", () => {
+    const built = buildProject(session());
+    const legacy = {
+      ...built.manifest,
+      lenses: {
+        saved: [{ id: "old", name: "Old", kind: "auto", source: { kind: "storey" } }],
+        activeId: "old",
+      },
+    };
+    const manifest = parseProjectManifest(JSON.stringify(legacy));
+    expect(manifest.lenses).toEqual({
+      path: null,
+      activeId: "old",
+      saved: [{ id: "old", name: "Old", kind: "auto", source: { kind: "storey" }, unmatched: "ghost" }],
+    });
   });
 
   it("lists what the folder is missing rather than failing the whole restore", async () => {

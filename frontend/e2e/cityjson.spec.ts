@@ -16,6 +16,7 @@ const CITY = path.resolve(__dirname, "../fixtures/cityjson/two-blocks.city.json"
 const GEOJSON = path.resolve(__dirname, "../fixtures/geojson/context.geojson");
 const CITYGML = path.resolve(__dirname, "../fixtures/citygml/two-blocks.gml");
 const GEOPACKAGE = path.resolve(__dirname, "../fixtures/geopackage/context.gpkg");
+const CURVED_GEOPACKAGE = path.resolve(__dirname, "../fixtures/geopackage/curved-map.gpkg");
 
 async function openGeoref(page: import("@playwright/test").Page) {
   await page.goto("/viewer");
@@ -134,6 +135,49 @@ test("loads a GeoPackage, which is a SQLite database", async ({ page }) => {
 
   // Two building polygons and a road: two triangles each.
   expect(await triangles(page)).toBe(6);
+});
+
+test("clips GeoPackage map layers and reads curves using the declared CRS authority", async ({ page }) => {
+  await openGeoref(page);
+  await page.getByRole("switch", { name: "Clip context to the model" }).click();
+  await cityInput(page).setInputFiles(CURVED_GEOPACKAGE);
+  expect(await triangles(page)).toBeGreaterThan(10);
+  await expect(page.getByText(/3 objects, 200 m across, EPSG:3763/)).toBeVisible();
+  await expect(page.getByRole("progressbar")).toHaveCount(0);
+});
+
+test("previews a GeoPackage when the IFC has no map conversion", async ({ page }) => {
+  await page.goto("/viewer");
+  await page.setInputFiles('input[type="file"]', [IFC_WITHOUT_GEOREF]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  await page.getByRole("tab", { name: "Geo" }).click();
+  await cityInput(page).setInputFiles(CURVED_GEOPACKAGE);
+  expect(await triangles(page)).toBeGreaterThan(10);
+  await expect(page.getByText(/placed at the origin rather than aligned/i)).toBeVisible();
+});
+
+test("loads the local Portugal small-scale map as clipped context", async ({ page, baseURL }) => {
+  test.skip(!process.env.CONTEXT_TEST_GPKG, "Set CONTEXT_TEST_GPKG to the local PortugalSmallScaleMap.gpkg");
+  const foreign: string[] = [];
+  const payloads: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).origin !== new URL(baseURL!).origin) foreign.push(request.url());
+    if (request.postDataBuffer()?.length) payloads.push(request.url());
+  });
+  await openGeoref(page);
+  await page.getByRole("switch", { name: "Clip context to the model" }).click();
+  await cityInput(page).setInputFiles(process.env.CONTEXT_TEST_GPKG!);
+  expect(await triangles(page)).toBeGreaterThan(0);
+  await expect(page.getByText(/objects, 200 m across, EPSG:3763/)).toBeVisible();
+  expect(foreign).toEqual([]);
+  expect(payloads).toEqual([]);
+
+  // Without a clip all thirteen source features, including three curved paths, load.
+  await page.getByRole("button", { name: "Remove the context model" }).click();
+  await page.getByRole("switch", { name: "Clip context to the model" }).click();
+  await cityInput(page).setInputFiles(process.env.CONTEXT_TEST_GPKG!);
+  expect(await triangles(page)).toBeGreaterThan(1000);
+  await expect(page.getByText(/13 objects,.*EPSG:3763/)).toBeVisible();
 });
 
 test("SQLite is not loaded unless a GeoPackage is opened", async ({ page }) => {
