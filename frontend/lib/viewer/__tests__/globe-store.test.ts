@@ -42,7 +42,7 @@ describe("the 3D world context store", () => {
     expect(globe.dispose).not.toHaveBeenCalled();
   });
 
-  it("follows the model when the Geo panel reports a new placement", async () => {
+  it("follows the model when the GIS panel reports a new placement", async () => {
     useGlobeStore.getState().setPlacement(ORIGIN, 0);
     await useGlobeStore.getState().enable(true);
     const moved = { ...ORIGIN, latitude: 41.2 };
@@ -65,7 +65,7 @@ describe("the 3D world context store", () => {
     expect(createGlobe).not.toHaveBeenCalled();
   });
 
-  it("holds a restored project's request until the Geo panel can act on it", () => {
+  it("holds a restored project's request until the GIS panel can act on it", () => {
     useGlobeStore.getState().restore({ layer: "google-photorealistic", assetId: "", url: "" }, true);
     expect(useGlobeStore.getState()).toMatchObject({ layer: "google-photorealistic", pending: true, on: false });
     // Restored without consent: the layer is kept, nothing is asked for.

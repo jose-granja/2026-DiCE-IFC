@@ -841,6 +841,7 @@ export class ViewerRenderer {
    */
   private snapPreviewMarkers: Record<SnapTargetType, THREE.Points>;
   private contextMesh: THREE.Mesh | null = null;
+  private contextTexture: THREE.Texture | null = null;
   private contextFeatureRanges: ContextFeatureRange[] = [];
   private contextFeatures: ContextFeature[] = [];
   private contextSourceColours: Float32Array | null = null;
@@ -2365,7 +2366,7 @@ export class ViewerRenderer {
    * model would put someone else's city into the user's IDS results.
    */
   setContextGeometry(
-    data: Pick<ContextGeometry, "positions" | "colours" | "featureRanges" | "features" | "edgeMasks"> | null,
+    data: Pick<ContextGeometry, "positions" | "colours" | "featureRanges" | "features" | "edgeMasks" | "raster"> | null,
     offset: Vec3 = [0, 0, 0],
   ) {
     if (this.contextMesh) {
@@ -2375,6 +2376,8 @@ export class ViewerRenderer {
       (this.contextMesh.material as THREE.Material).dispose();
       this.contextMesh = null;
     }
+    this.contextTexture?.dispose();
+    this.contextTexture = null;
     this.contextFeatureRanges = data?.featureRanges ?? [];
     this.contextFeatures = data?.features ?? [];
     this.contextSourceColours = data?.colours ?? null;
@@ -2391,9 +2394,19 @@ export class ViewerRenderer {
     geometry.setAttribute("aEdgeMask", new THREE.BufferAttribute(data.edgeMasks ?? new Uint8Array(data.positions.length / 3), 1));
     geometry.computeVertexNormals();
 
+    if (data.raster) {
+      geometry.setAttribute("uv", new THREE.BufferAttribute(data.raster.uvs, 2));
+      this.contextTexture = new THREE.Texture(data.raster.image);
+      this.contextTexture.colorSpace = THREE.SRGBColorSpace;
+      this.contextTexture.needsUpdate = true;
+    }
     const mesh = new THREE.Mesh(
       geometry,
-      applyIfcLiteMaterialFinish(
+      this.contextTexture ? new THREE.MeshBasicMaterial({
+        map: this.contextTexture, vertexColors: true, transparent: true, alphaTest: 0.01,
+        side: THREE.DoubleSide, clippingPlanes: this.clipPlanes,
+        polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+      }) : applyIfcLiteMaterialFinish(
         new THREE.MeshStandardMaterial({
           vertexColors: true,
           metalness: 0,
@@ -3717,6 +3730,7 @@ export class ViewerRenderer {
     cancelAnimationFrame(this.frame);
     this.resizeObserver.disconnect();
     this.setGlobe(null, null);
+    this.setContextGeometry(null);
     this.controls.removeEventListener("change", this.notifyCameraRotation);
     this.cameraRotationListeners.clear();
     this.projectionListeners.clear();

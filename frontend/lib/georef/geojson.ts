@@ -20,17 +20,18 @@
  *   otherwise, which this refuses rather than silently misplacing by hundreds
  *   of metres.
  * - **A polygon's first ring is the exterior**, the rest are holes. Holes are
- *   dropped rather than fanned; see `fanTriangles`.
+ *   triangulated together, preserving courtyard holes.
  */
 
 import { wgs84ToMap, type WgsPoint } from "./transform";
 import {
-  fanTriangles,
+  openRing,
   GeometryBuilder,
   contextFeatureName,
   type ContextFeature,
   type ContextGeometry,
 } from "./context-geometry";
+import { polygonTriangles } from "./polygon-triangulation";
 
 export class GeoJsonError extends Error {}
 
@@ -283,30 +284,32 @@ function build(
 ) {
   const at = (position: Position, z: number): [number, number, number] => {
     const point = projected.get(position)!;
-    return [point[0], point[1], z];
+    return [point[0], point[1], (position[2] ?? 0) + z];
   };
 
   const polygon = (rings: Position[][]) => {
-    // First ring only: holes are dropped rather than fanned.
     const ring = rings[0];
     if (!ring || ring.length < 3) return;
 
-    for (const [a, b, c] of fanTriangles(ring)) {
-      builder.triangle(at(a, 0), at(b, 0), at(c, 0), colour, origin);
+    for (const [a, b, c] of polygonTriangles(rings.map((ring) => ring.map((p) => at(p, 0))))) {
+      builder.triangle(a, b, c, colour, origin);
     }
 
     if (height <= 0) return;
 
     // Roof, and a wall per edge. Turning a footprint into massing is the whole
     // reason to read a flat format into a 3D scene.
-    for (const [a, b, c] of fanTriangles(ring)) {
-      builder.triangle(at(a, height), at(b, height), at(c, height), colour, origin);
+    for (const [a, b, c] of polygonTriangles(rings.map((ring) => ring.map((p) => at(p, height))))) {
+      builder.triangle(a, b, c, colour, origin);
     }
-    for (let i = 0; i + 1 < ring.length; i += 1) {
-      const a = ring[i];
-      const b = ring[i + 1];
+    for (const closed of rings) {
+      const boundary = openRing(closed);
+      for (let i = 0; i < boundary.length; i += 1) {
+      const a = boundary[i];
+      const b = boundary[(i + 1) % boundary.length];
       builder.triangle(at(a, 0), at(b, 0), at(b, height), colour, origin);
       builder.triangle(at(a, 0), at(b, height), at(a, height), colour, origin);
+      }
     }
   };
 
@@ -324,10 +327,11 @@ function build(
       const nx = (-dy / length) * (LINE_WIDTH / 2);
       const ny = (dx / length) * (LINE_WIDTH / 2);
 
-      const p1: [number, number, number] = [ax + nx, ay + ny, 0];
-      const p2: [number, number, number] = [ax - nx, ay - ny, 0];
-      const p3: [number, number, number] = [bx - nx, by - ny, 0];
-      const p4: [number, number, number] = [bx + nx, by + ny, 0];
+      const az = points[i][2] ?? 0, bz = points[i + 1][2] ?? 0;
+      const p1: [number, number, number] = [ax + nx, ay + ny, az];
+      const p2: [number, number, number] = [ax - nx, ay - ny, az];
+      const p3: [number, number, number] = [bx - nx, by - ny, bz];
+      const p4: [number, number, number] = [bx + nx, by + ny, bz];
 
       builder.triangle(p1, p2, p3, colour, origin);
       builder.triangle(p1, p3, p4, colour, origin);
@@ -336,11 +340,12 @@ function build(
 
   const point = (position: Position) => {
     const [x, y] = projected.get(position)!;
+    const z = position[2] ?? 0;
     const half = POINT_SIZE / 2;
-    const a: [number, number, number] = [x - half, y - half, 0];
-    const b: [number, number, number] = [x + half, y - half, 0];
-    const c: [number, number, number] = [x + half, y + half, 0];
-    const d: [number, number, number] = [x - half, y + half, 0];
+    const a: [number, number, number] = [x - half, y - half, z];
+    const b: [number, number, number] = [x + half, y - half, z];
+    const c: [number, number, number] = [x + half, y + half, z];
+    const d: [number, number, number] = [x - half, y + half, z];
     builder.triangle(a, b, c, colour, origin);
     builder.triangle(a, c, d, colour, origin);
   };

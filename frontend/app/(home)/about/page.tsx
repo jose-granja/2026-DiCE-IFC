@@ -48,6 +48,7 @@ const COMPONENTS: Array<{ key: string; name: string; licence: string; href: stri
 
 /** Where each provider explains its own terms — the link a credit should lead to. */
 const DATA: Array<{ key: string; href: string }> = [
+  { key: "ogc", href: "https://www.ogc.org/standards/" },
   { key: "osm", href: "https://www.openstreetmap.org/copyright" },
   { key: "openfreemap", href: "https://openfreemap.org" },
   { key: "maptiler", href: "https://www.maptiler.com/copyright/" },

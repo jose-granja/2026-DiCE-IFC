@@ -77,7 +77,7 @@ test("a snapshot taken with the world context on is not transparent", async ({
 }) => {
   // The regression this file exists for.
   await load(page);
-  await page.getByRole("tab", { name: "Geo" }).click();
+  await page.getByRole("tab", { name: "GIS" }).click();
 
   const toggle = page.getByLabel("3D world context");
   test.skip(

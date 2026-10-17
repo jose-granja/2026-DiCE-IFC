@@ -21,7 +21,7 @@ for (const streamed of [false, true]) {
     await page.getByRole("button", { name: "Orthographic", exact: true }).click();
     await page.getByRole("tab", { name: "Models", exact: true }).click();
     await page.getByRole("button", { name: "Hide georeferenced-wall-ifc4.ifc", exact: true }).click();
-    await page.getByRole("tab", { name: "Geo", exact: true }).click();
+    await page.getByRole("tab", { name: "GIS", exact: true }).click();
     const file = testInfo.outputPath(streamed ? "large-courtyard.gml" : "courtyard.xml");
     // Real >64 MiB file exercises the production dispatch and Comlink worker.
     // Small comments keep the parser's streaming memory bounded.

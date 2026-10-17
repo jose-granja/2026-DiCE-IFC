@@ -36,6 +36,7 @@ import {
 
 import { gmlFeatureElement, readGmlFeature } from "./gml-metadata";
 import { polygonTriangles } from "./polygon-triangulation";
+import { contextTriangles } from "./vector-context";
 
 export class CityGmlError extends Error {}
 
@@ -181,6 +182,7 @@ function ringPoints(ring: Element, defaultDimension: number): Point[] {
 export function parseCityGml(
   text: string,
   targetEpsg: number | null = null,
+  options: { sourceCrs?: string; geographicAxis?: "xy" | "yx" } = {},
 ): ContextGeometry {
   const document_ = new DOMParser().parseFromString(text, "application/xml");
   if (document_.querySelector("parsererror")) {
@@ -197,9 +199,9 @@ export function parseCityGml(
     [...root.querySelectorAll("*")]
       .map((element) => element.getAttribute("srsName"))
       .find(Boolean) ??
-    null;
+    options.sourceCrs ?? null;
 
-  const sourceEpsg = epsgFromSrsName(srsName);
+  const sourceEpsg = /CRS:?84$/i.test(srsName ?? "") ? 4326 : epsgFromSrsName(srsName);
   if (sourceEpsg === null) {
     throw new CityGmlError(
       "This file does not say which coordinate system it is in (no srsName), so its coordinates cannot be placed.",
@@ -207,16 +209,24 @@ export function parseCityGml(
   }
   const outputEpsg = targetEpsg ?? sourceEpsg;
 
+  const wfs = root.localName === "FeatureCollection";
+  const swap = sourceEpsg === 4326 && (options.geographicAxis === "yx" || (!options.geographicAxis && wfs && /urn:|\/def\/crs\//i.test(srsName ?? "") && !/CRS:?84$/i.test(srsName ?? "")));
   const defaultDimension =
     Number(
       root.getAttribute("srsDimension") ??
         byLocalName(root, "Envelope")[0]?.getAttribute("srsDimension"),
-    ) || 3;
+    ) || (wfs ? 2 : 3);
 
   const polygons = [
     ...byLocalName(root, "Polygon"),
     ...byLocalName(root, "PolygonPatch"),
     ...byLocalName(root, "Triangle"),
+    ...["Point", "LineString", "LineStringSegment"].flatMap((name) => byLocalName(root, name)).filter((node) => {
+      for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+        if (/^(Polygon|PolygonPatch|Triangle|LinearRing|Envelope)$/.test(parent.localName)) return false;
+      }
+      return true;
+    }),
   ];
   if (polygons.length === 0) {
     throw new CityGmlError(
@@ -232,26 +242,27 @@ export function parseCityGml(
     national grid the model is placed in.
   */
   const reproject =
-    sourceEpsg === outputEpsg
+    sourceEpsg === outputEpsg && !swap
       ? null
       : (point: Point): Point => {
           const wgs = mapToWgs84(
-            { easting: point[0], northing: point[1], height: point[2] },
+            { easting: point[swap ? 1 : 0], northing: point[swap ? 0 : 1], height: point[2] },
             sourceEpsg,
           );
           const map = wgs84ToMap(wgs, outputEpsg);
           return [map.easting, map.northing, point[2]];
         };
 
-  type Ready = { name: string; feature: ContextFeature; rings: Point[][] };
+  type Ready = { name: string; feature: ContextFeature; rings: Point[][]; kind: "polygon" | "line" | "point" };
   const metadata = new Map<Element, ContextFeature>();
   const ready: Ready[] = [];
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
 
   for (const polygon of polygons) {
+    const kind = polygon.localName === "Point" ? "point" : /LineString/.test(polygon.localName) ? "line" : "polygon";
     const exterior = localChild(polygon, "exterior") ?? localChild(polygon, "outerBoundaryIs");
-    const ringElement = exterior
+    const ringElement = kind !== "polygon" ? polygon : exterior
       ? byLocalName(exterior, "LinearRing")[0]
       : byLocalName(polygon, "LinearRing")[0];
     if (!ringElement) continue;
@@ -264,7 +275,7 @@ export function parseCityGml(
       return reproject ? points.map(reproject) : points;
     });
     const points = rings[0];
-    if (points.length < 3) continue;
+    if (points.length < (kind === "point" ? 1 : kind === "line" ? 2 : 3)) continue;
 
     for (const [x, y, z] of points) {
       if (x < minX) minX = x;
@@ -278,7 +289,8 @@ export function parseCityGml(
     const owner = gmlFeatureElement(polygon);
     let feature = metadata.get(owner);
     if (!feature) { feature = readGmlFeature(owner, String(metadata.size + 1)); metadata.set(owner, feature); }
-    ready.push({ name: feature.type, feature, rings });
+    if (wfs) feature.source = "WFS / GML";
+    ready.push({ name: feature.type, feature, rings, kind });
   }
 
   if (ready.length === 0) {
@@ -299,7 +311,10 @@ export function parseCityGml(
   for (const entry of ready) {
     const firstTriangle = builder.triangleCount;
     const colour = COLOURS[entry.name] ?? DEFAULT_COLOUR;
-    for (const [a, b, c] of polygonTriangles(entry.rings)) {
+    const triangles = entry.kind === "polygon" ? polygonTriangles(entry.rings) : contextTriangles({
+      polygons: [], lines: entry.kind === "line" ? entry.rings : [], points: entry.kind === "point" ? entry.rings[0] : [],
+    }, (point) => point);
+    for (const [a, b, c] of triangles) {
       builder.triangle(a, b, c, colour, origin);
     }
     builder.addFeature(entry.feature, firstTriangle);

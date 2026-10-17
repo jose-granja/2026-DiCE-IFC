@@ -76,6 +76,10 @@ export type ContextGeometry = {
   colours: Float32Array;
   /** Per-vertex feature edge flags, prepared once in a worker after parsing. */
   edgeMasks?: Uint8Array;
+  /** Local WMS image, with UVs matching the projected grid. */
+  raster?: { image: ImageBitmap; uvs: Float32Array };
+  attribution?: string;
+  attributionUrl?: string;
   features?: ContextFeature[];
   featureRanges?: ContextFeatureRange[];
   /** Projected coordinates of the local origin, in `epsg`. */
@@ -100,6 +104,10 @@ export const CONTEXT_EXTENSIONS = [
   ".xml",
   ".citygml",
   ".gpkg",
+  ".wfs",
+  ".wms",
+  ".context-map",
+  ".context-features",
 ] as const;
 
 /**

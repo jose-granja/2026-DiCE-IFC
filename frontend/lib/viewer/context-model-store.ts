@@ -4,12 +4,12 @@
  * The context model (CityJSON, GeoJSON, CityGML, GeoPackage) shown around the
  * federation.
  *
- * Outside the Geo panel so it survives the panel unmounting — the geometry
+ * Outside the GIS panel so it survives the panel unmounting — the geometry
  * already stayed in the scene when the user switched tabs, but the panel forgot
  * it had loaded anything and offered "Load context" over a city that was still
  * drawn — and so a project folder can save the file and put it back.
  *
- * Placing a context model needs the model's map conversion, which the Geo panel
+ * Placing a context model needs the model's map conversion, which the GIS panel
  * works out. So a restored file is left in `pending` and the panel reads it the
  * next time it is mounted with a placement to put it in.
  */
@@ -36,7 +36,7 @@ type ContextModelState = ContextModelSettings & {
   selectedFeature: number | null;
   selectFeature: (index: number | null) => void;
   clearSelection: () => void;
-  /** A file from a restored project, waiting for the Geo panel to place it. */
+  /** A file from a restored project, waiting for the GIS panel to place it. */
   pending: File | null;
   /** Set when the panel has finished with `pending`, whether it placed it or not. */
   pendingOutcome: { ok: true } | { ok: false; error: string } | null;
@@ -63,11 +63,18 @@ export const useContextModelStore = create<ContextModelState>((set) => ({
     selectedFeature: state.visible && index !== null && state.loaded?.features?.[index] ? index : null,
   })),
   clearSelection: () => set({ selectedFeature: null }),
-  setLoaded: (file, loaded) => set((state) => ({ file, loaded, selectedFeature: null,
-    appearance: state.pending ? state.appearance : { ...state.appearance, colouring: null },
-  })),
+  setLoaded: (file, loaded) => set((state) => {
+    if (state.loaded?.raster?.image !== loaded.raster?.image) state.loaded?.raster?.image.close();
+    return {
+      file, loaded, selectedFeature: null,
+      appearance: state.pending ? state.appearance : { ...state.appearance, colouring: null },
+    };
+  }),
   setSettings: (patch) => set({ ...patch, ...(patch.visible === false ? { selectedFeature: null } : {}) }),
   restore: (file, settings) => set({ ...settings, pending: file, pendingOutcome: null, selectedFeature: null }),
   finishPending: (outcome) => set({ pending: null, pendingOutcome: outcome }),
-  clear: () => set({ file: null, loaded: null, pending: null, pendingOutcome: null, selectedFeature: null, appearance: DEFAULT_CONTEXT_APPEARANCE }),
+  clear: () => set((state) => {
+    state.loaded?.raster?.image.close();
+    return { file: null, loaded: null, pending: null, pendingOutcome: null, selectedFeature: null, appearance: DEFAULT_CONTEXT_APPEARANCE };
+  }),
 }));

@@ -9,7 +9,7 @@ async function load(page: Page) {
   await page.goto("/viewer");
   await page.setInputFiles('input[type="file"]', IFC);
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
-  await page.getByRole("tab", { name: "Geo", exact: true }).click();
+  await page.getByRole("tab", { name: "GIS", exact: true }).click();
   await page.getByRole("button", { name: "Top view", exact: true }).press("Enter");
   await page.getByRole("button", { name: "Orthographic", exact: true }).click();
 }

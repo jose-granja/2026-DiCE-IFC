@@ -58,6 +58,8 @@ const CLICK_DRAG_THRESHOLD_PX = 5;
 export function ViewerCanvas() {
   const contextSelection = useContextModelStore((s) => s.selectedFeature);
   const contextAppearance = useContextModelStore((s) => s.appearance);
+  const contextAttribution = useContextModelStore((s) => s.visible ? s.loaded?.attribution : undefined);
+  const contextAttributionUrl = useContextModelStore((s) => s.loaded?.attributionUrl);
   const t = useTranslations("viewer.canvas");
   const edgeShading = usePointCloudStore((s) => s.edgeShading);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -772,6 +774,9 @@ export function ViewerCanvas() {
       <MeasurementLabels />
       <OrbitPivotMarker ready={ready} active={orbiting} />
       <BcfMarkers ready={ready} />
+      {contextAttribution && <div data-context-attribution className="bg-background/80 text-muted-foreground absolute bottom-0 right-1 z-10 max-w-[65%] rounded px-1 text-right text-[10px]">
+        {contextAttributionUrl ? <a href={contextAttributionUrl} target="_blank" rel="noopener noreferrer" className="underline">{contextAttribution}</a> : contextAttribution}
+      </div>}
 
       <ViewerContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
 

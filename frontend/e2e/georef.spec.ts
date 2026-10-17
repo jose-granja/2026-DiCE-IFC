@@ -33,13 +33,13 @@ async function loadAndOpenGeoref(page: Page) {
   });
 
   await page.getByRole("tab", { name: "Geo" }).click();
-  await expect(page.getByLabel("3D world context")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Report", exact: true })).toBeVisible();
 }
 
 test("the old page redirects to the viewer panel", async ({ page }) => {
   await page.goto("/georef");
   await expect(page).toHaveURL(/\/viewer\?panel=georef/);
-  await expect(page.getByLabel("3D world context")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Geo", exact: true })).toHaveAttribute("data-state", "active");
 });
 
 test("tells you to load a model when none is open", async ({ page }) => {
@@ -55,10 +55,16 @@ test("the model stays loaded when the panel opens", async ({ page }) => {
   await expect(page.locator("[data-rendered-models='1']")).toBeAttached();
 });
 
-test("the world context is off until asked for", async ({ page }) => {
+test("GIS holds the context controls separately from Geo and stays off until asked for", async ({ page }) => {
   // It is the only part of this app that talks to a third party, and a tile
   // request says roughly where the building is (ADR 003).
   await loadAndOpenGeoref(page);
+  await expect(page.getByLabel("3D world context")).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Load context", exact: true })).not.toBeVisible();
+  await page.getByRole("tab", { name: "GIS", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Report", exact: true })).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Load context", exact: true })).toBeVisible();
+  await expect(page.getByLabel("3D world context")).toBeVisible();
   await expect(page.getByLabel("3D world context")).not.toBeChecked();
   await expect(
     page.getByText(/Tile requests reveal roughly where this model is/),
@@ -112,6 +118,13 @@ test("editing the placement updates the diff, and revert undoes it", async ({
   await expect(page.getByText("No changes — matches the file")).toBeVisible();
 
   await page.getByLabel("Eastings").fill("-39000");
+  await expect(page.getByText("Changes to be written")).toBeVisible();
+
+  // GIS uses the same draft; switching tabs must not reseed it from the IFC.
+  await page.getByRole("tab", { name: "GIS", exact: true }).click();
+  await expect(page.getByLabel("Eastings")).not.toBeVisible();
+  await page.getByRole("tab", { name: "Geo", exact: true }).click();
+  await expect(page.getByLabel("Eastings")).toHaveValue("-39000");
   await expect(page.getByText("Changes to be written")).toBeVisible();
 
   const row = page.getByRole("row").filter({ hasText: "Eastings" });

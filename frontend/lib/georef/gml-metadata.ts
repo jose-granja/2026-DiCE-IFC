@@ -6,7 +6,7 @@ const FEATURES = new Set([
   "CityFurniture", "Tunnel", "GenericCityObject",
 ]);
 const GEOMETRY = /^(?:Multi.*(?:Surface|Solid|Curve|Point|Geometry)|Composite.*|Solid|Shell|Surface|Polygon|PolygonPatch|Triangle|TriangulatedSurface|Tin|LinearRing|Ring|LineString|Curve|Point|Envelope|posList|pos|coordinates|coord)$/;
-const MEMBER = /^(?:cityObjectMember|featureMember|member)$/;
+const MEMBER = /^(?:cityObjectMember|featureMember|featureMembers|member)$/;
 
 function addProperty(feature: ContextFeature, key: string, value: string) {
   if (!key || !value) return;
@@ -29,7 +29,7 @@ export function gmlFeatureElement(polygon: Element): Element {
 
 export function readGmlFeature(element: Element, fallbackId: string): ContextFeature {
   const feature: ContextFeature = {
-    id: [...element.attributes].find((attribute) => attribute.localName === "id")?.value ?? fallbackId,
+    id: [...element.attributes].find((attribute) => attribute.localName === "id" || attribute.localName === "fid")?.value ?? fallbackId,
     type: element.localName, source: "CityGML / GML", properties: {},
   };
   const visit = (node: Element, path: string) => {

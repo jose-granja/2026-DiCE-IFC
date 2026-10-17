@@ -29,21 +29,14 @@ import PlacementEditor from "@/app/(home)/georef/_components/PlacementEditor";
 import WriteBackPanel from "@/app/(home)/georef/_components/WriteBackPanel";
 
 /**
- * Georeferencing, in the viewer.
- *
- * The old page put a 2D map beside the model and drew its footprint on it as a
- * polygon. The question being answered — is this building in the right place,
- * facing the right way — is a 3D one, so the map now goes **under the model**
- * in the viewport and you fly around it.
- *
- * The map is optional and off by default: it is the only part of this
- * application that talks to a third party, and a tile request says roughly
- * where the building is (ADR 003).
+ * Geo and GIS share one placement calculation and draft lifecycle. Both tab
+ * contents stay mounted so changing tabs preserves edits, context geometry,
+ * map downloads and pending project restores. Maps remain opt-in (ADR 003).
  */
 /** Shared so the prop identity is stable across renders. */
 const ZERO: Vec3 = [0, 0, 0];
 
-export function GeorefPanel() {
+export function GeorefPanels() {
   const t = useTranslations("viewer.georefPanel");
   const models = useViewerStore((s) => s.models);
   const placements = useViewerStore((s) => s.placements);
@@ -229,64 +222,67 @@ export function GeorefPanel() {
   }, [model?.summary.id, ready, draft?.epsg, draft?.conversion, siteLatitude, siteLongitude, siteElevation, lengthUnitScale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <GlobeControls
-        origin={modelAnchor?.centre ?? null}
-        northCorrection={modelAnchor?.northCorrection ?? 0}
-        ready={Boolean(model?.coordinates && draft)}
-      />
-      <ContextModel
-        placement={
-          draft && model?.coordinates && !isTrivialMapConversion(draft.conversion)
-            ? { conversion: draft.conversion, epsg: draft.epsg, lengthUnitScale }
-            : null
-        }
-        referencePoint={modelAnchor?.centre ?? null}
-        originShift={model?.coordinates?.originShift ?? [0, 0, 0]}
-        modelOffset={model ? (placements[model.summary.id]?.offset ?? ZERO) : ZERO}
-        ready={Boolean(model?.coordinates && draft)}
-      />
+    <>
+      <TabsContent value="gis" forceMount className="min-h-0 flex-1 overflow-auto data-[state=inactive]:hidden">
+        <GlobeControls
+          origin={modelAnchor?.centre ?? null}
+          northCorrection={modelAnchor?.northCorrection ?? 0}
+          ready={Boolean(model?.coordinates && draft)}
+        />
+        <ContextModel
+          placement={
+            draft && model?.coordinates && !isTrivialMapConversion(draft.conversion)
+              ? { conversion: draft.conversion, epsg: draft.epsg, lengthUnitScale }
+              : null
+          }
+          referencePoint={modelAnchor?.centre ?? null}
+          originShift={model?.coordinates?.originShift ?? [0, 0, 0]}
+          modelOffset={model ? (placements[model.summary.id]?.offset ?? ZERO) : ZERO}
+          ready={Boolean(model?.coordinates && draft)}
+        />
+      </TabsContent>
+      <TabsContent value="georef" forceMount className="flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
+        {!model ? (
+          <p className="text-muted-foreground p-3 text-xs">
+            {t("loadModel")}
+          </p>
+        ) : (
+          <Tabs defaultValue="report" className="flex min-h-0 flex-1 flex-col">
+            <TabsList className="m-2 grid grid-cols-3 bg-transparent p-0">
+              <TabsTrigger value="report" className="text-xs">
+                {t("tabs.report")}
+              </TabsTrigger>
+              <TabsTrigger value="place" className="text-xs">
+                {t("tabs.place")}
+              </TabsTrigger>
+              <TabsTrigger value="points" className="text-xs">
+                {t("tabs.points")}
+              </TabsTrigger>
+            </TabsList>
 
-      {!model ? (
-        <p className="text-muted-foreground p-3 text-xs">
-          {t("loadModel")}
-        </p>
-      ) : (
-        <Tabs defaultValue="report" className="flex min-h-0 flex-1 flex-col">
-          <TabsList className="m-2 grid grid-cols-3 bg-transparent p-0">
-            <TabsTrigger value="report" className="text-xs">
-              {t("tabs.report")}
-            </TabsTrigger>
-            <TabsTrigger value="place" className="text-xs">
-              {t("tabs.place")}
-            </TabsTrigger>
-            <TabsTrigger value="points" className="text-xs">
-              {t("tabs.points")}
-            </TabsTrigger>
-          </TabsList>
+            <TabsContent value="report" className="min-h-0 flex-1 overflow-auto">
+              {georeference ? (
+                <GeorefReportPanel view={georeference} />
+              ) : (
+                <p className="text-muted-foreground p-3 text-xs">
+                  {t("readingGeoreferencing")}
+                </p>
+              )}
+            </TabsContent>
 
-          <TabsContent value="report" className="min-h-0 flex-1 overflow-auto">
-            {georeference ? (
-              <GeorefReportPanel view={georeference} />
-            ) : (
-              <p className="text-muted-foreground p-3 text-xs">
-                {t("readingGeoreferencing")}
-              </p>
-            )}
-          </TabsContent>
+            <TabsContent value="place" className="min-h-0 flex-1 overflow-auto">
+              <PlacementEditor lengthUnitScale={lengthUnitScale} />
+              <WriteBackPanel modelName={model.summary.name} />
+            </TabsContent>
 
-          <TabsContent value="place" className="min-h-0 flex-1 overflow-auto">
-            <PlacementEditor lengthUnitScale={lengthUnitScale} />
-            <WriteBackPanel modelName={model.summary.name} />
-          </TabsContent>
-
-          <TabsContent value="points" className="min-h-0 flex-1 overflow-hidden">
-            <ControlPointsPanel lengthUnitScale={lengthUnitScale} />
-          </TabsContent>
-        </Tabs>
-      )}
-    </div>
+            <TabsContent value="points" className="min-h-0 flex-1 overflow-hidden">
+              <ControlPointsPanel lengthUnitScale={lengthUnitScale} />
+            </TabsContent>
+          </Tabs>
+        )}
+      </TabsContent>
+    </>
   );
 }
 
-export default GeorefPanel;
+export default GeorefPanels;

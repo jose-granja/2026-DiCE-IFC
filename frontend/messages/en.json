@@ -40,6 +40,12 @@
         "when": "Only when you sign with “Add a time-stamp” ticked, and only if this deployment has a time-stamp authority configured",
         "where": "This app's own server, which forwards it to the configured time-stamp authority (/api/tsa)",
         "why": "A time-stamp is a third party's signed statement that the signature existed at a given moment — it is what lets a signature be checked after its certificate has expired. Time-stamp authorities send no CORS headers and the paid ones need credentials that must not reach a browser, so the request goes through this app's server. The hash is of the signature, which is itself a signature over digests: it says nothing about your model, no file name travels with it, and the server never stores or logs it. The authority sees this deployment's address, not yours."
+      },
+      {
+        "what": "WFS/WMS service URL, selected layer and requested map bounds",
+        "when": "Only after you choose Read layers or Load selected layer in Context model",
+        "where": "The public service you choose, through this app’s read-only /api/ogc proxy",
+        "why": "To download context features or a map image around the model. The provider receives the requested area and the deployment’s IP address. No model geometry, properties or files are sent. Loading a saved project uses the saved layer snapshot without contacting the service."
       }
     ],
     "localOnly": [
@@ -54,13 +60,13 @@
       "BCF issue sets, comments, viewpoints or snapshots",
       "IDS specifications, whether authored here or imported",
       "Validation results, reports and the entities that failed",
-      "Coordinates, control points or georeferencing parameters",
+      "Control points and detailed georeferencing parameters; only the requested map area is sent when you explicitly load online context",
       "Your signature PIN — the Autenticação.gov middleware asks for it, not this app",
       "Your private key — it never leaves the Cartão de Cidadão",
       "The signature value and the signed container"
     ],
     "enforce1": "Files are read with the File System Access API or drag-and-drop, parsed by WebAssembly inside Web Workers, cached in the Origin Private File System (a per-site sandbox that no other site and no server can read), and rendered by WebGPU or WebGL. All of that is browser-local by construction.",
-    "enforce2": "On top of that, the codebase forbids passing a File, Blob or ArrayBuffer to any network call — a lint rule fails the build if someone tries — and a Content-Security-Policy blocks connections to origins other than this app's own origin, the configured map and 3D providers, and the signing companion on loopback. bSDD is reached through this app's own server rather than from the tab, so that service never sees your browser or your address. There is no account, no project database and no other backend: the app is a static front end.",
+    "enforce2": "On top of that, the codebase forbids passing a File, Blob or ArrayBuffer to any network call — a lint rule fails the build if someone tries — and a Content-Security-Policy blocks connections to origins other than this app's own origin, the configured map and 3D providers, and the signing companion on loopback. bSDD is reached through this app's own server rather than from the tab, so that service never sees your browser or your address. There is no account or project database, and model processing stays in the browser. WFS/WMS downloads use the same-origin read-only OGC proxy; local and private-network destinations, redirects and write operations are refused.",
     "enforce3": "Signing works the same way. The document is hashed in the browser; only signature metadata containing digests and the signing certificate are handed to the local companion. The Autenticação.gov middleware hashes the metadata as required by the card. It asks you for the signature PIN directly — this app has no PIN field and never sees one. The browser assembles either the signed container or the IFC with an embedded signature and offers it for download.",
     "enforce4": "Clearing site data removes the OPFS cache and every draft stored with it.",
     "metaDescription": "Exactly which data DiCE-IFC sends over the network, and which data never does.",
@@ -196,6 +202,7 @@
       "filters": "Filters",
       "quantities": "QTO",
       "geo": "Geo",
+      "gis": "GIS",
       "section": "Section",
       "measure": "Measure",
       "ids": "IDS",
@@ -1115,8 +1122,47 @@
       "summaryCrs": ", EPSG:{epsg}",
       "summaryNoCrs": ", no CRS declared",
       "noPlacementNote": "The model has no map conversion, so this is placed at the origin rather than aligned.",
-      "formatsHint": "CityJSON, CityGML/GML, GeoJSON or GeoPackage — neighbouring buildings, plot boundaries, terrain. Flat footprints carrying a height are extruded. Read in this tab and never uploaded.",
-      "clipHint": "Georeference the model to clip CityJSON, GML or GeoPackage context to the area around it instead of loading the whole dataset."
+      "formatsHint": "CityJSON, CityGML/GML, GeoJSON or GeoPackage — neighbouring buildings, plot boundaries, terrain. Flat footprints carrying a height are extruded. Read in this tab and never uploaded. Also accepts WFS feature exports, WFS/WMS GetCapabilities XML, and saved service layers.",
+      "clipHint": "Georeference the model to clip CityJSON, GML or GeoPackage context to the area around it instead of loading the whole dataset.",
+      "service": {
+        "open": "Add WFS / WMS service",
+        "close": "Close service settings",
+        "kind": "Service type",
+        "url": "Service URL",
+        "connect": "Read layers",
+        "layer": "Service layer",
+        "radius": "Area radius (m)",
+        "height": "Map elevation (m)",
+        "load": "Load selected layer",
+        "loading": "Loading map service…",
+        "cancel": "Cancel",
+        "explanation": "Open a service URL or load a saved GetCapabilities XML file. WFS supplies features and properties; WMS supplies a map image.",
+        "privacy": "Reading layers contacts the chosen provider through this app. Loading a layer also sends the requested map bounds. Your model files stay on this device.",
+        "rasterNote": "WMS is a flat map image at the selected elevation. It has no individual feature geometry or property colours. The loaded image is saved with the project.",
+        "errors": {
+          "invalidUrl": "Enter a public HTTP(S) service URL without a username or password. Only standard HTTP/HTTPS ports and read-only map parameters are supported.",
+          "invalidXml": "This file is not valid XML.",
+          "invalidCapabilities": "The service did not return a WFS or WMS capabilities document.",
+          "missingEndpoint": "The capabilities file has no HTTP GET endpoint. Paste the service URL instead.",
+          "unsupportedVersion": "Supported versions: WMS 1.1.1/1.3.0 and WFS 1.0/1.1/2.0.",
+          "noLayers": "This service lists no usable layers.",
+          "unsupportedCrs": "This layer needs to offer EPSG:3763, EPSG:3857, EPSG:4326 or CRS:84 for placement.",
+          "unsupportedImage": "The WMS layer must provide a readable PNG or JPEG image.",
+          "invalidRadius": "Enter an area radius between 1 and 100,000 metres.",
+          "invalidHeight": "Enter a finite map elevation in metres.",
+          "needsPlacement": "Georeference the IFC model before loading a service layer.",
+          "serviceError": "The service could not provide this layer. Check the URL, selected layer and service availability.",
+          "unreachable": "The service could not be reached or timed out.",
+          "publicServiceOnly": "This service address is not public. Local and private-network addresses cannot be downloaded through this app.",
+          "readOnly": "Only GetCapabilities, GetFeature and GetMap requests are supported.",
+          "tooLarge": "The response is too large. Reduce the area radius.",
+          "tooManyFeatures": "The service returned an incomplete layer or more than 10,000 features. Reduce the radius and try again.",
+          "noFeatures": "No features were returned for this area. Try a larger radius or another layer.",
+          "invalidMapFile": "This file is not a valid saved context map.",
+          "invalidFeatureFile": "This file is not a valid saved WFS layer.",
+          "invalidCertificate": "The service’s HTTPS certificate could not be verified. Use an endpoint with a valid certificate."
+        }
+      }
     },
     "idsPanel": {
       "title": "IDS verification",
@@ -1303,7 +1349,7 @@
         "failed": "{name} could not be opened: {error}",
         "originMoved": "The models did not come back in the same place, so section planes and measurements may be offset.",
         "context": "The context model could not be placed: {error}",
-        "contextNotPlaced": "The context model was not placed. Open the Geo tab and load it again.",
+        "contextNotPlaced": "The context model was not placed. Open the GIS tab and load it again.",
         "ids": "The IDS editor document could not be read: {error}",
         "bcf": "The BCF topics could not be read: {error}",
         "quantities": "The quantity list could not be read from its workbook, so the open list was kept: {error}",
@@ -2256,6 +2302,10 @@
         "buildingsmart": {
           "name": "buildingSMART",
           "text": "IDS and BCF schemas and the buildingSMART Data Dictionary. Each dictionary has its own licence, shown on bSDD. IFC, BCF, IDS and bSDD are names of buildingSMART International; this application is not endorsed by or affiliated with it."
+        },
+        "ogc": {
+          "name": "WFS / WMS",
+          "text": "User-selected OGC services. Attribution supplied by the layer is shown in the viewer and preserved in saved projects. Data remains subject to the provider’s terms."
         }
       }
     },

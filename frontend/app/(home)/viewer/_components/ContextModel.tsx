@@ -42,6 +42,10 @@ import type { Vec3 } from "@/lib/ifc/types";
 import LoadingProgress from "./LoadingProgress";
 import { ContextAppearanceControls } from "./ContextAppearanceControls";
 import { prepareContextEdges } from "@/lib/workers/context-edges-client";
+import { OgcError, readCapabilities, type OgcService } from "@/lib/georef/ogc-service";
+import { readMapSnapshot } from "@/lib/georef/context-map";
+import { readFeatureSnapshot } from "@/lib/georef/context-features";
+import ContextServiceControls from "./ContextServiceControls";
 
 const LARGE_TEXT_FILE_BYTES = 64 * 1024 * 1024;
 
@@ -76,6 +80,8 @@ export function ContextModel({
   const [progress, setProgress] = useState<number | null>(null);
   const [phase, setPhase] = useState<"reading" | "processing" | "displaying">("reading");
   const [loadingName, setLoadingName] = useState("");
+  const [service, setService] = useState<OgcService | null>(null);
+  const [serviceBusy, setServiceBusy] = useState(false);
   const inFlight = useRef(false);
   // In a store, not here: the panel unmounts on every tab switch while the
   // geometry stays in the scene, and a project folder saves and restores it.
@@ -150,7 +156,7 @@ export function ContextModel({
   const read = async (
     file: File,
     epsg: number | null,
-  ): Promise<ContextGeometry> => {
+  ): Promise<ContextGeometry | null> => {
     /*
       Sniff the bytes, not the extension.
 
@@ -161,6 +167,10 @@ export function ContextModel({
       be either GML or something else entirely.
     */
     const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    if (head[0] === 0x50 && head[1] === 0x4b) {
+      await processing();
+      return readMapSnapshot(file, epsg);
+    }
     if (new TextDecoder().decode(head.subarray(0, 15)) === "SQLite format 3") {
       const bytes = await readContextFile(file, "buffer", setProgress);
       await processing();
@@ -203,6 +213,8 @@ export function ContextModel({
       }
       const text = await readContextFile(file, "text", setProgress);
       await processing();
+      const capabilities = readCapabilities(text);
+      if (capabilities) { setService(capabilities); return null; }
       return parseCityGml(text, epsg);
     }
 
@@ -227,6 +239,7 @@ export function ContextModel({
     // point of clipping is to avoid paying full-parse cost on a file that
     // can be hundreds of megabytes, and sniffing the format is no exception.
     const kind = sniffJsonType(text);
+    if (kind === "DiCEContextFeatures") return readFeatureSnapshot(text, epsg);
     if (kind === undefined) {
       throw new Error(t("neitherJsonNorXml", { name }));
     }
@@ -249,22 +262,30 @@ export function ContextModel({
     return parseGeoJson(text, epsg);
   };
 
-  const onFile = async (file: File, show = true) => {
+  const onFile = async (file: File, show = true, signal?: AbortSignal) => {
     if (inFlight.current) return { ok: false, error: t("alreadyLoading") } as const;
     inFlight.current = true;
     setLoading(true);
     setLoadingName(file.name);
     setPhase("reading");
     setProgress(null);
+    let result: ContextGeometry | null = null;
+    let adopted = false;
     try {
-      const result = await read(file, placement?.epsg ?? null);
+      signal?.throwIfAborted();
+      result = await read(file, placement?.epsg ?? null);
+      signal?.throwIfAborted();
+      if (!result) return { ok: true } as const;
       setPhase("processing");
       setProgress(null);
-      result.edgeMasks = await prepareContextEdges(result);
+      if (!result.raster) result.edgeMasks = await prepareContextEdges(result);
+      signal?.throwIfAborted();
       setPhase("displaying");
       setProgress(null);
       await new Promise<void>((resolve) => setTimeout(resolve, 16));
+      signal?.throwIfAborted();
       useContextModelStore.getState().setLoaded(file, result);
+      adopted = true;
       setVisible(show);
       place(result, show);
 
@@ -284,10 +305,11 @@ export function ContextModel({
       }
       return { ok: true } as const;
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("readFailed");
-      toast.error(message);
+      const message = error instanceof OgcError ? t(`service.errors.${error.code}`) : error instanceof Error ? error.message : t("readFailed");
+      if (!signal?.aborted) toast.error(message);
       return { ok: false, error: message } as const;
     } finally {
+      if (!adopted) result?.raster?.image.close();
       inFlight.current = false;
       setLoading(false);
       setProgress(null);
@@ -335,7 +357,7 @@ export function ContextModel({
             <Switch
               id="georef-context"
               checked={visible}
-              disabled={loading}
+              disabled={loading || serviceBusy}
               onCheckedChange={(on) => {
                 setVisible(on);
                 place(loaded, on);
@@ -346,7 +368,7 @@ export function ContextModel({
               size="icon"
               className="h-6 w-6"
               onClick={clear}
-              disabled={loading}
+              disabled={loading || serviceBusy}
               aria-label={t("remove")}
             >
               <X className="h-3.5 w-3.5" />
@@ -358,7 +380,7 @@ export function ContextModel({
             variant="ghost"
             className="h-7 text-[11px]"
             onClick={() => input.current?.click()}
-            disabled={loading}
+            disabled={loading || serviceBusy}
           >
             {t("loadContext")}
           </Button>
@@ -373,9 +395,9 @@ export function ContextModel({
         ref={input}
         data-context-file-input
         type="file"
-        accept=".json,.city.json,.cityjson,.geojson,.gml,.xml,.citygml,.gpkg,application/json,application/geo+json,application/gml+xml,text/xml"
+        accept=".json,.city.json,.cityjson,.geojson,.gml,.xml,.citygml,.gpkg,.wfs,.wms,.context-map,.context-features,application/json,application/geo+json,application/gml+xml,text/xml"
         className="hidden"
-        disabled={loading}
+        disabled={loading || serviceBusy}
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
@@ -383,7 +405,9 @@ export function ContextModel({
         }}
       />
 
-      {loaded && <ContextAppearanceControls geometry={loaded} disabled={loading} />}
+      <ContextServiceControls service={service} setService={setService} placement={placement} reference={referencePoint} onFile={(file, signal) => onFile(file, true, signal)} disabled={loading} onBusyChange={setServiceBusy} />
+      {loaded && !loaded.raster && <ContextAppearanceControls geometry={loaded} disabled={loading} />}
+      {loaded?.raster && <p className="text-muted-foreground text-[11px]">{t("service.rasterNote")}</p>}
 
       {!loaded && canClip && (
         <div className="flex items-center justify-between gap-2">

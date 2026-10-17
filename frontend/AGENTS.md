@@ -20,7 +20,7 @@ Two things override everything else in this file:
 
 Every byte of IFC, BCF and IDS data is parsed, validated, rendered, signed and
 zipped **in the browser**. There is no backend: the app is a Next.js front end, and
-its own server only serves pages and proxies bSDD (below).
+its own server serves pages and the explicitly documented service proxies below.
 
 **The boundary is the machine, not the tab.** Signing needs a smart card, and a
 browser cannot reach one, so a local companion runs alongside (`companion/`, ADR
@@ -57,6 +57,7 @@ else** — permission to send more is not a reason to.
 |---|---|---|
 | bSDD search text and class names (opt-in) | `app/api/bsdd/route.ts`, this app's own server | bSDD sends no CORS headers (ADR 009) |
 | Map tiles, 3D tiles | the configured provider (opt-in) | basemap and 3D context |
+| WFS/WMS service URL, layer and map bounds | user-selected public provider via `/api/ogc` (opt-in) | context features and map images; ADR 010 |
 | SHA-256 of a `SignatureValue` + a nonce (opt-in, when a `TSA_URL` is configured) | `app/api/tsa/route.ts`, this app's own server, then the time-stamp authority | RFC 3161 time-stamps send no CORS headers and the paid ones need credentials (ADR 012) |
 
 There is no account, no project database and no Django API any more. Anything
@@ -555,6 +556,12 @@ in the right place, facing the right way — is a 3D one, so the basemap goes
 *under the model* in the viewport instead of beside it as a footprint polygon on
 a separate 2D map. `/georef` redirects to `/viewer?panel=georef`.
 
+- **Geo and GIS are separate tabs.** Geo (globe icon) holds Report, Place and
+  Points; GIS (map-pinned icon) holds world context and context models, including
+  WFS/WMS. `GeorefPanels` computes the shared placement once and keeps both tab
+  contents mounted. Do not reseed the draft, cancel a download or dispose context
+  when switching tabs. Project restores place context through GIS.
+
 - **The basemap is off by default.** It is the only part of this application
   that talks to a third party, and a tile request says roughly where the
   building is (ADR 003). The panel says so on screen.
@@ -606,7 +613,7 @@ a separate 2D map. `/georef` redirects to `/viewer?panel=georef`.
   `lib/georef/transform.ts` measures γ the same way a compass bearing is
   measured — step along `+northing` in the projected CRS, unproject both
   ends, read the true bearing of that step — rather than a closed-form
-  formula that would need reproducing per projection. `GeorefPanel` computes
+  formula that would need reproducing per projection. `GeorefPanels` computes
   it once per anchor and threads it through `GlobeControls` →
   `Renderer#setGlobe` → `Globe#sync`/`Globe#sampleDepthProxy` as
   `northCorrection`, an extra yaw applied before the fixed ENU rotation.
@@ -773,6 +780,13 @@ a separate 2D map. `/georef` redirects to `/viewer?panel=georef`.
   the dominant plane so vertical walls survive, and triangulates the exterior
   with all holes. The large GML reader retains polygon identity across chunks
   and clips the exterior and holes together; never fill each `posList` alone.
+- **WFS/WMS services are explicit reads, saved as local snapshots.** Capability
+  files only populate the layer picker; they never initiate a request. WFS
+  features keep metadata/colouring, WMS images use a projected textured grid.
+  Reopening projects must not contact their source service. `/api/ogc` permits
+  only bounded public GetCapabilities/GetFeature/GetMap downloads: no payloads,
+  redirects, credentials or private network destinations. Keep the pinned DNS
+  lookup, response limits and visible attribution when changing this path.
 - **Dispatch on the file's `type` member, not its extension.** CityJSON's
   convention is `.city.json` and half the GeoJSON municipalities publish is
   plain `.json`, so the extension decides nothing.
@@ -957,7 +971,7 @@ empty one. The first workspace format (`workspaces/current` + handles keyed
 - **The context model and the 3D world context are placed through the Geo
   panel**, which is what works out where the model sits on the earth. The restore
   leaves each `pending` in its store (`context-model-store`, `globe-store`), opens
-  the Geo tab until both are placed, then opens the saved tab. Both stay when the
+  the GIS tab until both are placed, then opens the saved tab. Both stay when the
   tab closes.
 - **Work that a project saves must not die with its panel.** The filter ticks
   and the globe used to be cleared when their tab closed, so the two could never

@@ -574,8 +574,8 @@ export async function restoreProject(
 
   // ---- context model and 3D world context
   //
-  // Both are placed through the Geo panel, which is what works out where the
-  // model sits on the earth, so the Geo tab is opened long enough for them to
+  // Both are placed through GIS using the shared georeferencing placement,
+  // so the GIS tab is opened long enough for them to
   // be put down. Both stay when the tab closes again.
   const panels = useViewerPanelStore.getState();
   const globe = viewer.globe;
@@ -604,7 +604,7 @@ export async function restoreProject(
         appearance: plan.context.entry.appearance,
       });
     }
-    panels.open("georef");
+    panels.open("gis");
 
     const contextDone = wantsContext
       ? waitFor(

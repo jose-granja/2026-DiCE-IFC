@@ -121,7 +121,7 @@ test("measures on a point cloud with no model loaded", async ({ page }) => {
 });
 
 test("sections and measures a context model with no model loaded", async ({ page }) => {
-  await page.goto("/viewer?panel=georef");
+  await page.goto("/viewer?panel=gis");
   await page.locator('input[accept*=".city.json"]').setInputFiles(CITYGML);
   await expect(page.locator("[data-context-model='true']")).toHaveAttribute("data-context-triangles", "24", {
     timeout: 45_000,

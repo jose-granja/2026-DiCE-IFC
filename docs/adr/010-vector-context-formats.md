@@ -82,8 +82,8 @@ A GeoPackage is a SQLite database, so reading one needs a SQL engine.
 ## Consequences
 
 - Four formats, one code path, one set of traps written down.
-- GeoPackage and GML use ear-clipping triangulation for concave polygons and
-  holes. CityJSON and GeoJSON still use triangle fans.
+- GeoPackage, GML and GeoJSON use ear-clipping triangulation for concave polygons
+  and holes. CityJSON still uses triangle fans.
 - A GeoPackage's tile pyramids and attribute-only tables are ignored; only
   `data_type = 'features'` is read.
 
@@ -150,3 +150,31 @@ Clipping retains an exterior and its holes together; a courtyard is never
 treated as a separate filled surface. Feature metadata and triangle ranges
 remain attached to the resulting triangles. Parsing stays on the device and
 large files still run in the worker without creating a full XML document.
+
+### WFS/WMS context services (2026-10-17)
+
+Context accepts WFS feature exports and WFS/WMS GetCapabilities documents,
+as well as service URLs. Opening capabilities from disk only lists layers;
+Read layers and Load selected layer are explicit network actions. The UI names
+the provider and states that service requests disclose the chosen map bounds.
+WFS produces inspectable features; WMS produces an image on a projected grid
+at a chosen elevation, without inventing feature geometry or attributes.
+
+Downloads use a same-origin `/api/ogc` GET route to support providers without
+CORS. The CSP remains unchanged. This route accepts only GetCapabilities,
+GetFeature and GetMap, bounded response sizes, bounded image dimensions and
+feature counts. It accepts no files, bodies, cookies or authorization headers.
+Public DNS answers are validated and pinned to the outgoing socket; private
+addresses, nonstandard ports and redirects are refused. It does not store or
+log responses. The only outbound parameters are the chosen public endpoint,
+layer, map bounds and standard read parameters (plus provider URL keys).
+
+CRS negotiation currently covers PT-TM06 (3763), Web Mercator (3857), WGS84
+(4326) and CRS:84, with version-specific geographic axis ordering. Incomplete
+WFS results prompt a smaller radius instead of silently truncating the layer.
+WMS supports PNG/JPEG and a fixed 1024-pixel snapshot of the chosen area.
+
+Projects store a `.context-features` snapshot of a WFS response or a
+`.context-map` archive containing the WMS image and georeferencing. Restoring
+these is offline. Provider attribution remains visible while the context is
+shown and is included in the snapshot. No IFC, BCF or IDS payload is sent.

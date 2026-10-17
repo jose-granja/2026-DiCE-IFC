@@ -11,6 +11,7 @@ import {
   Glasses,
   Globe,
   ListTree,
+  MapPinned,
   MessagesSquare,
   Ruler,
   Scissors,
@@ -28,20 +29,23 @@ const PANELS = [
   "measure",
   "ids",
   "georef",
+  "gis",
   "clash",
   "bcf",
 ];
 
 import ModuleHeader from "@/components/ModuleHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useViewerStore } from "@/lib/viewer/store";
 import { useViewerPanelStore } from "@/lib/viewer/panel-store";
 import { useFacetSelectionStore } from "@/lib/viewer/facet-selection-store";
 import { FACET_DIMENSIONS } from "@/lib/viewer/facets";
 import { useGlobeStore } from "@/lib/viewer/globe-store";
 import { useLensStore } from "@/lib/lens/store";
 
-import { ResizeHandle, useResizableWidth } from "@/components/PanelResizeHandle";
+import {
+  ResizeHandle,
+  useResizableWidth,
+} from "@/components/PanelResizeHandle";
 import ViewerCanvas from "./_components/ViewerCanvas";
 import ModelList from "./_components/ModelList";
 import SpatialTree from "./_components/SpatialTree";
@@ -51,7 +55,7 @@ import FilterPanel from "./_components/FilterPanel";
 import SectionPanel from "./_components/SectionPanel";
 import MeasurePanel from "./_components/MeasurePanel";
 import IdsPanel from "./_components/IdsPanel";
-import GeorefPanel from "./_components/GeorefPanel";
+import GeorefPanels from "./_components/GeorefPanels";
 import BcfPanel from "./_components/BcfPanel";
 import ClashPanel from "./_components/ClashPanel";
 import ModelDropZone, { AddModelsButton } from "./_components/ModelDropZone";
@@ -64,6 +68,11 @@ import LensPanel from "./_components/LensPanel";
 import { QuantityQueryPanel } from "./_components/QuantityQueryPanel";
 import TypeVisibilitySettings from "./_components/TypeVisibilitySettings";
 import DisplaySettings from "./_components/DisplaySettings";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 /**
  * The federated IFC viewer.
@@ -88,7 +97,6 @@ function ActiveDot() {
 
 export default function ViewerPage() {
   const t = useTranslations("viewer");
-  // const modelCount = useViewerStore((s) => s.models.length);
 
   /**
    * `?panel=ids` opens straight onto a tab.
@@ -136,7 +144,10 @@ export default function ViewerPage() {
   const globeOn = useGlobeStore((s) => s.on);
   const lensOn = useLensStore((s) => s.activeId !== null || s.draft !== null);
   const filterCount = useFacetSelectionStore((s) =>
-    FACET_DIMENSIONS.reduce((count, dimension) => count + s.selection[dimension].size, 0),
+    FACET_DIMENSIONS.reduce(
+      (count, dimension) => count + s.selection[dimension].size,
+      0,
+    ),
   );
 
   // Models deliberately survive leaving this page. `/georef` grades and
@@ -188,128 +199,203 @@ export default function ViewerPage() {
               className="panel-tabs flex min-h-0 flex-1 flex-col"
             >
               {/*
-                Each trigger carries its label as text *and* an icon, with CSS
-                choosing between them by panel width. The text node stays in the
-                DOM when hidden, so the tab's accessible name is the word in
-                every case — `getByRole("tab", { name: "Classes" })` works
-                whichever is showing, and so does a screen reader.
+                Icon tabs keep a permanent accessible name. Tooltips provide
+                the visible label on hover or focus, but are not a replacement
+                for aria-label when the tooltip is closed. Explicit data-state on
+                each child also keeps TooltipTrigger from replacing the tab state
+                with its own open/closed state (which removes active styling).
               */}
-              <TabsList className="m-2 grid grid-cols-11 bg-transparent p-0">
-                <TabsTrigger value="models" className="text-xs">
-                  <Boxes className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
-                  <span className="panel-tab-text">{t("tabs.models")}</span>
-                  {/* {modelCount > 0 && (
-                    <span className="panel-tab-text text-muted-foreground ml-0.5">
-                      ({modelCount})
-                    </span>
-                  )} */}
-                </TabsTrigger>
-                <TabsTrigger value="structure" className="text-xs">
-                  <ListTree className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
-                  <span className="panel-tab-text">{t("tabs.structure")}</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="classes"
-                  className="relative text-xs"
-                  // A filter stays on when this tab is closed, so the tab says so.
-                  title={filterCount > 0 ? t("tabs.filtersActive", { count: filterCount }) : undefined}
-                  data-filter-active={filterCount > 0 || undefined}
-                >
-                  <Funnel className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
-                  <span className="panel-tab-text">{t("tabs.filters")}</span>
-                  {filterCount > 0 && <ActiveDot />}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="lens"
-                  className="relative text-xs"
-                  // A lens stays on when this tab is closed, so the tab says so.
-                  title={lensOn ? t("tabs.lensActive") : undefined}
-                  data-lens-active={lensOn || undefined}
-                >
-                  <Glasses className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
-                  <span className="panel-tab-text">{t("tabs.lens")}</span>
-                  {lensOn && <ActiveDot />}
-                </TabsTrigger>
-                <TabsTrigger value="quantities" className="text-xs">
-                  <Sigma className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
-                  <span className="panel-tab-text">{t("tabs.quantities")}</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="georef"
-                  className="relative text-xs"
-                  // The globe stays on when this tab is closed, and it is the
-                  // one thing streaming from a third party, so the tab says so.
-                  title={globeOn ? t("tabs.globeActive") : undefined}
-                  data-globe-active={globeOn || undefined}
-                >
-                  <Globe className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
-                  <span className="panel-tab-text">{t("tabs.geo")}</span>
-                  {globeOn && <ActiveDot />}
-                </TabsTrigger>
-                <TabsTrigger value="section" className="text-xs">
-                  <Scissors className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
-                  <span className="panel-tab-text">{t("tabs.section")}</span>
-                </TabsTrigger>
-                <TabsTrigger value="measure" className="text-xs">
-                  <Ruler className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
-                  <span className="panel-tab-text">{t("tabs.measure")}</span>
-                </TabsTrigger>
-                <TabsTrigger value="ids" className="text-xs">
-                  <ClipboardCheck className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
-                  <span className="panel-tab-text">{t("tabs.ids")}</span>
-                </TabsTrigger>
-                <TabsTrigger value="clash" className="text-xs">
-                  <Crosshair className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
-                  <span className="panel-tab-text">{t("tabs.clash")}</span>
-                </TabsTrigger>
-                <TabsTrigger value="bcf" className="text-xs">
-                  <MessagesSquare className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
-                  <span className="panel-tab-text">{t("tabs.bcf")}</span>
-                </TabsTrigger>
+              <TabsList className="m-2 grid w-auto shrink-0 grid-cols-12 bg-transparent p-0 [&>[role=tab]]:min-w-0 [&>[role=tab]]:px-0">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="models" data-state={tab === "models" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.models")}>
+                      <Boxes className="h-3.5 w-3.5" aria-hidden />
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.models")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="structure" data-state={tab === "structure" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.structure")}>
+                      <ListTree className="h-3.5 w-3.5" aria-hidden />
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.structure")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger
+                      value="classes" data-state={tab === "classes" ? "active" : "inactive"}
+                      aria-label={t("tabs.filters")}
+                      className="relative text-xs"
+                      // A filter stays on when this tab is closed, so the tab says so.
+                      title={
+                        filterCount > 0
+                          ? t("tabs.filtersActive", { count: filterCount })
+                          : undefined
+                      }
+                      data-filter-active={filterCount > 0 || undefined}
+                    >
+                      <Funnel className="h-3.5 w-3.5" aria-hidden />
+                      {filterCount > 0 && <ActiveDot />}
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.filters")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger
+                      value="lens" data-state={tab === "lens" ? "active" : "inactive"}
+                      aria-label={t("tabs.lens")}
+                      className="relative text-xs"
+                      // A lens stays on when this tab is closed, so the tab says so.
+                      title={lensOn ? t("tabs.lensActive") : undefined}
+                      data-lens-active={lensOn || undefined}
+                    >
+                      <Glasses className="h-3.5 w-3.5" aria-hidden />
+                      {lensOn && <ActiveDot />}
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.lens")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="quantities" data-state={tab === "quantities" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.quantities")}>
+                      <Sigma className="h-3.5 w-3.5" aria-hidden />
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.quantities")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger
+                      value="georef" data-state={tab === "georef" ? "active" : "inactive"}
+                      aria-label={t("tabs.geo")}
+                      className="text-xs"
+                    >
+                      <Globe className="h-3.5 w-3.5" aria-hidden />
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.geo")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger
+                      value="gis" data-state={tab === "gis" ? "active" : "inactive"}
+                      aria-label={t("tabs.gis")}
+                      className="relative text-xs"
+                      // World context keeps streaming when its controls are hidden.
+                      title={globeOn ? t("tabs.globeActive") : undefined}
+                      data-globe-active={globeOn || undefined}
+                    >
+                      <MapPinned className="h-3.5 w-3.5" aria-hidden />
+                      {globeOn && <ActiveDot />}
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.gis")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="section" data-state={tab === "section" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.section")}>
+                      <Scissors className="h-3.5 w-3.5" aria-hidden />
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.section")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="measure" data-state={tab === "measure" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.measure")}>
+                      <Ruler className="h-3.5 w-3.5" aria-hidden />
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.measure")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="ids" data-state={tab === "ids" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.ids")}>
+                      <ClipboardCheck className="h-3.5 w-3.5" aria-hidden />
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.ids")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="clash" data-state={tab === "clash" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.clash")}>
+                      <Crosshair className="h-3.5 w-3.5" aria-hidden />
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.clash")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="bcf" data-state={tab === "bcf" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.bcf")}>
+                      <MessagesSquare className="h-3.5 w-3.5" aria-hidden />
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.bcf")}</TooltipContent>
+                </Tooltip>
               </TabsList>
 
-              <TabsContent value="models" className="min-h-0 flex-1 overflow-auto">
+              <TabsContent
+                value="models"
+                className="min-h-0 flex-1 overflow-auto"
+              >
                 <ModelList />
                 <PointCloudList />
               </TabsContent>
-              <TabsContent value="structure" className="min-h-0 flex-1 overflow-auto">
+              <TabsContent
+                value="structure"
+                className="min-h-0 flex-1 overflow-auto"
+              >
                 <SpatialTree />
               </TabsContent>
-              <TabsContent value="classes" className="min-h-0 flex-1 overflow-hidden">
+              <TabsContent
+                value="classes"
+                className="min-h-0 flex-1 overflow-hidden"
+              >
                 <FilterPanel />
               </TabsContent>
-              <TabsContent value="lens" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <TabsContent
+                value="lens"
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
                 <LensPanel />
               </TabsContent>
-              <TabsContent value="quantities" className="min-h-0 flex-1 overflow-hidden">
+              <TabsContent
+                value="quantities"
+                className="min-h-0 flex-1 overflow-hidden"
+              >
                 <QuantityQueryPanel />
               </TabsContent>
-              <TabsContent value="section" className="min-h-0 flex-1 overflow-hidden">
+              <TabsContent
+                value="section"
+                className="min-h-0 flex-1 overflow-hidden"
+              >
                 <SectionPanel />
               </TabsContent>
-              <TabsContent value="measure" className="min-h-0 flex-1 overflow-hidden">
+              <TabsContent
+                value="measure"
+                className="min-h-0 flex-1 overflow-hidden"
+              >
                 <MeasurePanel />
               </TabsContent>
-              <TabsContent value="ids" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <TabsContent
+                value="ids"
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
                 <IdsPanel />
               </TabsContent>
-              {/*
-                Keep the georeferencing panel mounted while another viewer tab
-                is active. Its globe and context-model controls own long-lived
-                renderer resources; unmounting this content used to dispose
-                both as soon as the user opened Sections to cut them.
-              */}
+              <GeorefPanels />
               <TabsContent
-                value="georef"
-                forceMount
-                className="flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
+                value="clash"
+                className="min-h-0 flex-1 overflow-hidden"
               >
-                <GeorefPanel />
-              </TabsContent>
-              <TabsContent value="clash" className="min-h-0 flex-1 overflow-hidden">
                 <ClashPanel />
               </TabsContent>
-              <TabsContent value="bcf" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <TabsContent
+                value="bcf"
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
                 <BcfPanel />
               </TabsContent>
             </Tabs>

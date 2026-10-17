@@ -315,7 +315,7 @@ test("refuses a project.json it cannot read before closing anything", async ({ p
 
 /**
  * A project folder written by hand, for what the round trip above does not
- * reach through the UI: a context model (which has to be placed through the Geo
+ * reach through the UI: a context model (which has to be placed through the GIS
  * panel), a measurement, the filter panel's ticks and the display settings.
  */
 test("restores the context model, measurements, filter ticks and display settings", async ({
@@ -354,17 +354,17 @@ test("restores the context model, measurements, filter ticks and display setting
   await page.locator("[data-project-folder-input]").setInputFiles(folder);
   await expect(page.getByText(/^Loaded .*: 1 model, no point clouds\.$/)).toBeVisible({ timeout: 60_000 });
 
-  // The context model went through the Geo panel and is in the scene: two
+  // The context model went through the GIS panel and is in the scene: two
   // LoD1 blocks, six faces each, two triangles a face.
   await expect(page.locator("[data-context-model='true']")).toHaveAttribute("data-context-triangles", "24");
 
-  // The Geo detour ended on the tab that was saved, with its ticks applied.
+  // The GIS detour ended on the tab that was saved, with its ticks applied.
   await expect(tab(page, "classes")).toHaveAttribute("data-state", "active");
   await expect(page.getByRole("checkbox", { name: "IfcSlab" })).toBeChecked();
   await expect(page.getByRole("checkbox", { name: "IfcWall" })).not.toBeChecked();
 
-  // The Geo panel remembers the context model rather than offering to load one.
-  await tab(page, "georef").click();
+  // The GIS panel remembers the context model rather than offering to load one.
+  await tab(page, "gis").click();
   await expect(page.getByRole("button", { name: "Remove the context model" })).toBeVisible();
 
   await tab(page, "measure").click();
@@ -397,7 +397,7 @@ test("keeps an element filter that was set before switching to another tab", asy
   const visible = (target: Page) => target.locator("[data-visible-entities]");
   await expect(visible(page)).toHaveAttribute("data-visible-entities", "1/3");
   // Saved from another tab: the filter has to have outlived the panel.
-  await tab(page, "georef").click();
+  await tab(page, "gis").click();
   await expect(visible(page)).toHaveAttribute("data-visible-entities", "1/3");
 
   await page.locator("[data-project-menu]").click();
@@ -412,7 +412,7 @@ test("keeps an element filter that was set before switching to another tab", asy
   await fresh.goto("/viewer");
   await fresh.locator("[data-project-zip-input]").setInputFiles(zipPath);
   await expect(fresh.getByText(/^Loaded /)).toBeVisible({ timeout: 60_000 });
-  await expect(tab(fresh, "georef")).toHaveAttribute("data-state", "active");
+  await expect(tab(fresh, "gis")).toHaveAttribute("data-state", "active");
   await expect(visible(fresh)).toHaveAttribute("data-visible-entities", "1/3");
   await expect(tab(fresh, "classes")).toHaveAttribute("data-filter-active", "true");
   await loading.close();
@@ -456,9 +456,9 @@ test("asks before a project turns the 3D world context on, naming who gets the l
   await page.locator("[data-project-confirm]").getByRole("button", { name: "Load project" }).click();
   await expect(page.getByText(/^Loaded /)).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText(/3D world context could not be turned on/)).toHaveCount(0);
-  await expect(tab(page, "georef")).not.toHaveAttribute("data-globe-active", "true");
+  await expect(tab(page, "gis")).not.toHaveAttribute("data-globe-active", "true");
   // The layer choice came back all the same, for when the user turns it on.
-  await tab(page, "georef").click();
+  await tab(page, "gis").click();
   await expect(page.locator("[data-globe-controls]")).toBeVisible();
 });
 
@@ -487,13 +487,13 @@ test.describe("with a Cesium ion token", () => {
     await page.setInputFiles('input[type="file"]', [path.resolve(__dirname, "../fixtures/ifc/georeferenced-wall-ifc4.ifc")]);
     await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 120_000 });
 
-    await tab(page, "georef").click();
+    await tab(page, "gis").click();
     await page.getByLabel("3D world context").click({ force: true });
     await expect(page.locator("[data-depth-proxy]")).toBeAttached({ timeout: 90_000 });
 
-    // Another tab: the globe is still there, and the Geo tab says so.
+    // Another tab: the globe is still there, and the GIS tab says so.
     await tab(page, "section").click();
-    await expect(tab(page, "georef")).toHaveAttribute("data-globe-active", "true");
+    await expect(tab(page, "gis")).toHaveAttribute("data-globe-active", "true");
     await expect(page.locator("[data-depth-proxy]")).toBeAttached();
 
     await page.locator("[data-project-menu]").click();
@@ -513,9 +513,9 @@ test.describe("with a Cesium ion token", () => {
 
     // Back on the saved tab, with the globe on behind it.
     await expect(tab(fresh, "section")).toHaveAttribute("data-state", "active");
-    await expect(tab(fresh, "georef")).toHaveAttribute("data-globe-active", "true");
+    await expect(tab(fresh, "gis")).toHaveAttribute("data-globe-active", "true");
     await expect(fresh.locator("[data-depth-proxy]")).toBeAttached({ timeout: 90_000 });
-    await tab(fresh, "georef").click();
+    await tab(fresh, "gis").click();
     await expect(fresh.getByLabel("3D world context")).toBeChecked();
     await loading.close();
   });

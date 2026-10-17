@@ -18,13 +18,13 @@ const CITYGML = path.resolve(__dirname, "../fixtures/citygml/two-blocks.gml");
 const GEOPACKAGE = path.resolve(__dirname, "../fixtures/geopackage/context.gpkg");
 const CURVED_GEOPACKAGE = path.resolve(__dirname, "../fixtures/geopackage/curved-map.gpkg");
 
-async function openGeoref(page: import("@playwright/test").Page) {
+async function openGis(page: import("@playwright/test").Page) {
   await page.goto("/viewer");
   await page.setInputFiles('input[type="file"]', [IFC4]);
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({
     timeout: 60_000,
   });
-  await page.getByRole("tab", { name: "Geo" }).click();
+  await page.getByRole("tab", { name: "GIS" }).click();
 
   // These fixtures are placed for what each test is actually about — a CRS
   // match, a format quirk — not for being within a realistic distance of
@@ -71,7 +71,7 @@ for (const fixture of [CITY, GEOPACKAGE]) {
       };
     }, path.basename(fixture));
 
-    await openGeoref(page);
+    await openGis(page);
     await cityInput(page).setInputFiles(fixture);
     const progress = page.getByRole("progressbar", { name: "Reading context file…" });
     await expect(progress).toBeVisible();
@@ -91,7 +91,7 @@ for (const fixture of [CITY, GEOPACKAGE]) {
 
 test("loads CityGML, which is already three-dimensional", async ({ page }) => {
   // Two LoD1 blocks, six faces each, two triangles a face.
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([CITYGML]);
 
   expect(await triangles(page)).toBe(24);
@@ -106,7 +106,7 @@ test("loads a plain .gml context with legacy coordinates", async ({ page }) => {
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({
     timeout: 60_000,
   });
-  await page.getByRole("tab", { name: "Geo" }).click();
+  await page.getByRole("tab", { name: "GIS" }).click();
   await cityInput(page).setInputFiles({
     name: "parcel-context.gml",
     mimeType: "application/gml+xml",
@@ -130,7 +130,7 @@ test("loads a GeoPackage, which is a SQLite database", async ({ page }) => {
   // The heaviest reader: it starts a real SQL engine in the browser, reads the
   // OGC schema to find where the geometry is, and unwraps GeoPackage blobs to
   // the WKB inside.
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([GEOPACKAGE]);
 
   // Two building polygons and a road: two triangles each.
@@ -138,7 +138,7 @@ test("loads a GeoPackage, which is a SQLite database", async ({ page }) => {
 });
 
 test("clips GeoPackage map layers and reads curves using the declared CRS authority", async ({ page }) => {
-  await openGeoref(page);
+  await openGis(page);
   await page.getByRole("switch", { name: "Clip context to the model" }).click();
   await cityInput(page).setInputFiles(CURVED_GEOPACKAGE);
   expect(await triangles(page)).toBeGreaterThan(10);
@@ -150,7 +150,7 @@ test("previews a GeoPackage when the IFC has no map conversion", async ({ page }
   await page.goto("/viewer");
   await page.setInputFiles('input[type="file"]', [IFC_WITHOUT_GEOREF]);
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
-  await page.getByRole("tab", { name: "Geo" }).click();
+  await page.getByRole("tab", { name: "GIS" }).click();
   await cityInput(page).setInputFiles(CURVED_GEOPACKAGE);
   expect(await triangles(page)).toBeGreaterThan(10);
   await expect(page.getByText(/placed at the origin rather than aligned/i)).toBeVisible();
@@ -164,7 +164,7 @@ test("loads the local Portugal small-scale map as clipped context", async ({ pag
     if (new URL(request.url()).origin !== new URL(baseURL!).origin) foreign.push(request.url());
     if (request.postDataBuffer()?.length) payloads.push(request.url());
   });
-  await openGeoref(page);
+  await openGis(page);
   await page.getByRole("switch", { name: "Clip context to the model" }).click();
   await cityInput(page).setInputFiles(process.env.CONTEXT_TEST_GPKG!);
   expect(await triangles(page)).toBeGreaterThan(0);
@@ -187,7 +187,7 @@ test("SQLite is not loaded unless a GeoPackage is opened", async ({ page }) => {
     if (request.url().includes("sqlite")) wasm.push(request.url());
   });
 
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([GEOJSON]);
   await triangles(page);
 
@@ -199,7 +199,7 @@ test("loads GeoJSON, extruding the footprints that carry a height", async ({
 }) => {
   // The reason to read a flat format into a 3D scene: a cadastral layer becomes
   // the massing around the model rather than a picture of it.
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([GEOJSON]);
 
   // The panel's own summary, not the toast — both say "4 objects".
@@ -216,7 +216,7 @@ test("loads GeoJSON, extruding the footprints that carry a height", async ({
 test("picks the reader from the file's contents, not its name", async ({ page }) => {
   // Both formats are `.json` as often as not, so the extension decides nothing.
   // The `type` member does.
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([
     {
       name: "ambiguous.json",
@@ -252,7 +252,7 @@ test("picks the reader from the file's contents, not its name", async ({ page })
 });
 
 test("loads a CityJSON file into the scene", async ({ page }) => {
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([CITY]);
 
   // The panel's own summary, not the toast — both say "2 objects".
@@ -273,7 +273,7 @@ test("loads a CityJSON file into the scene", async ({ page }) => {
 });
 
 test("hides and removes the context without touching the model", async ({ page }) => {
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([CITY]);
   await expect(page.locator("[data-context-model='true']")).toBeAttached({
     timeout: 30_000,
@@ -296,7 +296,7 @@ test("the context is not treated as one of the user's models", async ({ page }) 
   // This is the guarantee that matters. A city model that leaked into the model
   // list would be validated against the user's IDS and reported as their
   // failures.
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([CITY]);
   await expect(page.locator("[data-context-model='true']")).toBeAttached({
     timeout: 30_000,
@@ -308,7 +308,7 @@ test("the context is not treated as one of the user's models", async ({ page }) 
 });
 
 test("the context stays mounted while section planes are edited", async ({ page }) => {
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([CITY]);
   const context = page.locator("[data-context-model='true']");
   await expect(context).toBeAttached({ timeout: 30_000 });
@@ -324,7 +324,7 @@ test("says what is wrong with a file it cannot draw", async ({ page }) => {
   // A bare `FeatureCollection` used to be rejected as "not CityJSON". It is now
   // a format this reads, so the honest complaint is the one that is actually
   // true of the file: it has no features in it.
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([
     {
       name: "empty.json",
@@ -344,7 +344,7 @@ test("says what is wrong with a file it cannot draw", async ({ page }) => {
 });
 
 test("rejects a file that is neither format", async ({ page }) => {
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([
     {
       name: "nonsense.json",
@@ -366,7 +366,7 @@ test("sends nothing to the network while reading a city model", async ({
     if (new URL(r.url()).origin !== ownOrigin) foreign.push(r.url());
   });
 
-  await openGeoref(page);
+  await openGis(page);
   await cityInput(page).setInputFiles([CITY]);
   await expect(page.locator("[data-context-model='true']")).toBeAttached({
     timeout: 30_000,

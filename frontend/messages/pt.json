@@ -40,6 +40,12 @@
         "when": "Apenas quando assina com “Acrescentar um selo temporal” assinalado, e só se esta instalação tiver uma autoridade de selos temporais configurada",
         "where": "O servidor desta aplicação, que o reencaminha para a autoridade de selos temporais configurada (/api/tsa)",
         "why": "Um selo temporal é a declaração assinada de um terceiro de que a assinatura existia num dado momento — é o que permite verificar uma assinatura depois de o seu certificado ter expirado. As autoridades de selos temporais não enviam cabeçalhos CORS e as pagas exigem credenciais que não podem chegar a um navegador, por isso o pedido passa pelo servidor desta aplicação. O resumo é da assinatura, que por sua vez é uma assinatura sobre resumos: não diz nada sobre o seu modelo, nenhum nome de ficheiro o acompanha e o servidor nunca o guarda nem regista. A autoridade vê o endereço desta instalação, não o seu."
+      },
+      {
+        "what": "URL do serviço WFS/WMS, camada selecionada e limites da área pedida",
+        "when": "Apenas após escolher Ler camadas ou Carregar camada selecionada no Modelo de contexto",
+        "where": "O serviço público escolhido, através do proxy de leitura /api/ogc desta aplicação",
+        "why": "Para descarregar elementos de contexto ou uma imagem de mapa à volta do modelo. O fornecedor recebe a área pedida e o endereço IP do alojamento. Não são enviados geometria, propriedades ou ficheiros do modelo. Abrir um projeto guardado utiliza a cópia local da camada sem contactar o serviço."
       }
     ],
     "localOnly": [
@@ -54,13 +60,13 @@
       "Conjuntos de questões BCF, comentários, pontos de vista ou capturas",
       "Especificações IDS, criadas aqui ou importadas",
       "Resultados de validação, relatórios e as entidades que falharam",
-      "Coordenadas, pontos de controlo ou parâmetros de georreferenciação",
+      "Pontos de controlo e parâmetros detalhados de georreferenciação; apenas a área pedida é enviada ao carregar explicitamente contexto online",
       "O PIN de assinatura — é o middleware Autenticação.gov que o pede, não esta aplicação",
       "A sua chave privada — nunca sai do Cartão de Cidadão",
       "O valor da assinatura e o contentor assinado"
     ],
     "enforce1": "Os ficheiros são lidos com a File System Access API ou por arrastar-e-largar, analisados por WebAssembly dentro de Web Workers, guardados em cache no Origin Private File System (uma área isolada por site que nenhum outro site e nenhum servidor consegue ler) e desenhados por WebGPU ou WebGL. Tudo isso é local ao navegador por construção.",
-    "enforce2": "Além disso, o código proíbe passar um File, Blob ou ArrayBuffer a qualquer chamada de rede — uma regra de lint faz falhar a compilação a quem tentar — e uma Content-Security-Policy bloqueia ligações a origens que não sejam a da própria aplicação, os fornecedores de mapa e 3D configurados e o companheiro de assinatura em loopback. O bSDD é alcançado através do servidor desta aplicação e não a partir do separador, pelo que esse serviço nunca vê o seu navegador nem o seu endereço. Não há conta, base de dados de projetos nem outro backend: a aplicação é um front end estático.",
+    "enforce2": "Além disso, o código proíbe passar um File, Blob ou ArrayBuffer a qualquer chamada de rede — uma regra de lint faz falhar a compilação a quem tentar — e uma Content-Security-Policy bloqueia ligações a origens que não sejam a da própria aplicação, os fornecedores de mapa e 3D configurados e o companheiro de assinatura em loopback. O bSDD é alcançado através do servidor desta aplicação e não a partir do separador, pelo que esse serviço nunca vê o seu navegador nem o seu endereço. Não há conta nem base de dados de projetos, e o processamento dos modelos permanece no navegador. Os descarregamentos WFS/WMS usam o proxy OGC de leitura da mesma origem; destinos locais e de redes privadas, redirecionamentos e operações de escrita são recusados.",
     "enforce3": "A assinatura funciona da mesma forma. O resumo criptográfico do documento é calculado no navegador; apenas os metadados da assinatura com resumos e o certificado de assinatura são entregues ao companion local. O middleware Autenticação.gov calcula o resumo dos metadados conforme exigido pelo cartão. É o middleware que lhe pede o PIN de assinatura — esta aplicação não tem campo de PIN e nunca vê nenhum. O navegador monta o contentor assinado ou o IFC com a assinatura incluída e disponibiliza-o para descarregar.",
     "enforce4": "Limpar os dados do site remove a cache OPFS e todos os rascunhos aí guardados.",
     "metaDescription": "Exatamente que dados o DiCE-IFC envia pela rede, e que dados nunca envia.",
@@ -196,6 +202,7 @@
       "filters": "Filtros",
       "quantities": "MQT",
       "geo": "Geo",
+      "gis": "GIS",
       "section": "Corte",
       "measure": "Medir",
       "ids": "IDS",
@@ -1115,8 +1122,47 @@
       "summaryCrs": ", EPSG:{epsg}",
       "summaryNoCrs": ", sem CRS declarado",
       "noPlacementNote": "O modelo não tem conversão de mapa, pelo que isto é colocado na origem em vez de alinhado.",
-      "formatsHint": "CityJSON, CityGML/GML, GeoJSON ou GeoPackage — edifícios vizinhos, limites de lote, terreno. Contornos planos com altura são extrudidos. Lido nesta aba e nunca enviado.",
-      "clipHint": "Georreferencie o modelo para recortar o contexto CityJSON, GML ou GeoPackage à área em seu redor, em vez de carregar o conjunto completo."
+      "formatsHint": "CityJSON, CityGML/GML, GeoJSON ou GeoPackage — edifícios vizinhos, limites de lote, terreno. Contornos planos com altura são extrudidos. Lido nesta aba e nunca enviado. Também aceita exportações de elementos WFS, XML GetCapabilities WFS/WMS e camadas de serviço guardadas.",
+      "clipHint": "Georreferencie o modelo para recortar o contexto CityJSON, GML ou GeoPackage à área em seu redor, em vez de carregar o conjunto completo.",
+      "service": {
+        "open": "Adicionar serviço WFS / WMS",
+        "close": "Fechar definições do serviço",
+        "kind": "Tipo de serviço",
+        "url": "URL do serviço",
+        "connect": "Ler camadas",
+        "layer": "Camada do serviço",
+        "radius": "Raio da área (m)",
+        "height": "Cota do mapa (m)",
+        "load": "Carregar camada selecionada",
+        "loading": "A carregar serviço de mapas…",
+        "cancel": "Cancelar",
+        "explanation": "Abra um URL de serviço ou carregue um ficheiro XML GetCapabilities guardado. O WFS fornece elementos e propriedades; o WMS fornece uma imagem de mapa.",
+        "privacy": "A leitura das camadas contacta o fornecedor escolhido através desta aplicação. Carregar uma camada envia também os limites da área pedida. Os ficheiros dos modelos permanecem neste dispositivo.",
+        "rasterNote": "O WMS é uma imagem de mapa plana à cota selecionada. Não contém geometria de elementos individuais nem cores por propriedade. A imagem carregada é guardada com o projeto.",
+        "errors": {
+          "invalidUrl": "Introduza um URL HTTP(S) público sem nome de utilizador nem palavra-passe. Apenas são suportadas portas HTTP/HTTPS padrão e parâmetros de leitura de mapas.",
+          "invalidXml": "Este ficheiro não contém XML válido.",
+          "invalidCapabilities": "O serviço não devolveu um documento de capacidades WFS ou WMS.",
+          "missingEndpoint": "O ficheiro de capacidades não contém um endereço HTTP GET. Cole o URL do serviço.",
+          "unsupportedVersion": "Versões suportadas: WMS 1.1.1/1.3.0 e WFS 1.0/1.1/2.0.",
+          "noLayers": "Este serviço não apresenta camadas utilizáveis.",
+          "unsupportedCrs": "A camada deve disponibilizar EPSG:3763, EPSG:3857, EPSG:4326 ou CRS:84 para ser posicionada.",
+          "unsupportedImage": "A camada WMS deve fornecer uma imagem PNG ou JPEG legível.",
+          "invalidRadius": "Introduza um raio entre 1 e 100 000 metros.",
+          "invalidHeight": "Introduza uma cota finita em metros.",
+          "needsPlacement": "Georreferencie o modelo IFC antes de carregar uma camada de serviço.",
+          "serviceError": "O serviço não conseguiu fornecer esta camada. Verifique o URL, a camada selecionada e a disponibilidade do serviço.",
+          "unreachable": "Não foi possível contactar o serviço ou o pedido excedeu o tempo limite.",
+          "publicServiceOnly": "O endereço deste serviço não é público. Os endereços locais e de redes privadas não podem ser descarregados através desta aplicação.",
+          "readOnly": "Apenas são suportados pedidos GetCapabilities, GetFeature e GetMap.",
+          "tooLarge": "A resposta é demasiado grande. Reduza o raio da área.",
+          "tooManyFeatures": "O serviço devolveu uma camada incompleta ou mais de 10 000 elementos. Reduza o raio e tente novamente.",
+          "noFeatures": "Não foram devolvidos elementos para esta área. Experimente um raio maior ou outra camada.",
+          "invalidMapFile": "Este ficheiro não é um mapa de contexto guardado válido.",
+          "invalidFeatureFile": "Este ficheiro não é uma camada WFS guardada válida.",
+          "invalidCertificate": "Não foi possível verificar o certificado HTTPS do serviço. Utilize um endereço com um certificado válido."
+        }
+      }
     },
     "idsPanel": {
       "title": "Verificação IDS",
@@ -1303,7 +1349,7 @@
         "failed": "Não foi possível abrir {name}: {error}",
         "originMoved": "Os modelos não voltaram ao mesmo sítio, por isso os planos de corte e as medições podem estar deslocados.",
         "context": "Não foi possível posicionar o modelo de contexto: {error}",
-        "contextNotPlaced": "O modelo de contexto não foi posicionado. Abra o separador Geo e carregue-o de novo.",
+        "contextNotPlaced": "O modelo de contexto não foi posicionado. Abra o separador GIS e carregue-o de novo.",
         "ids": "Não foi possível ler o documento do editor IDS: {error}",
         "bcf": "Não foi possível ler os tópicos BCF: {error}",
         "quantities": "Não foi possível ler a lista de quantidades do seu livro Excel, por isso manteve-se a lista aberta: {error}",
@@ -2256,6 +2302,10 @@
         "buildingsmart": {
           "name": "buildingSMART",
           "text": "Esquemas IDS e BCF e o buildingSMART Data Dictionary. Cada dicionário tem a sua própria licença, indicada no bSDD. IFC, BCF, IDS e bSDD são nomes da buildingSMART International; esta aplicação não é por ela apoiada nem a ela está associada."
+        },
+        "ogc": {
+          "name": "WFS / WMS",
+          "text": "Serviços OGC escolhidos pelo utilizador. A atribuição fornecida pela camada é apresentada no visualizador e preservada nos projetos guardados. Os dados estão sujeitos às condições do fornecedor."
         }
       }
     },

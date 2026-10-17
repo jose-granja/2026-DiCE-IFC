@@ -23,7 +23,7 @@ async function open(page: Page) {
   await page.getByRole("button", { name: "Orthographic", exact: true }).click();
   await tab(page, "Models").click();
   await page.getByRole("button", { name: "Hide georeferenced-wall-ifc4.ifc", exact: true }).click();
-  await tab(page, "Geo").click();
+  await tab(page, "GIS").click();
   await page.locator('[data-context-file-input]').setInputFiles({ name: "plots.city.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(city)) });
   await expect(page.locator("[data-context-model]")).toBeAttached();
 }
@@ -90,7 +90,7 @@ test("draws feature borders, colours by values, and retains styles after inspect
   expect(await pixel(page, 0.25, 0.35)).toEqual(blue);
   await tab(page, "Models").click();
   expect(await pixel(page, 0.25, 0.35)).toEqual(blue);
-  await tab(page, "Geo").click();
+  await tab(page, "GIS").click();
   await appearance(page).getByRole("textbox", { name: "Filter values…" }).fill("Park");
   await expect(appearance(page).getByLabel("Colour for Residential", { exact: true })).toHaveCount(0);
   await expect(appearance(page).getByLabel("Colour for Park", { exact: true })).toBeVisible();
@@ -125,7 +125,7 @@ test("saves context appearance in a project and restores it in a fresh browser",
     await fresh.goto("/viewer");
     await fresh.locator("[data-project-zip-input]").setInputFiles(zip);
     await expect(fresh.locator("[data-context-model]")).toBeAttached({ timeout: 60_000 });
-    await tab(fresh, "Geo").click();
+    await tab(fresh, "GIS").click();
     await expect(appearance(fresh).getByRole("switch", { name: "Show context edges" })).not.toBeChecked();
     await expect(appearance(fresh).getByRole("combobox", { name: "Colour by property" })).toContainText("category");
     await expect(appearance(fresh).getByLabel("Colour for Residential", { exact: true })).toHaveValue("#00ff00");

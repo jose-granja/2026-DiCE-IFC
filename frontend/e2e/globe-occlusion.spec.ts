@@ -28,7 +28,7 @@ async function showGlobe(page: import("@playwright/test").Page) {
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({
     timeout: 120_000,
   });
-  await page.getByRole("tab", { name: "Geo" }).click();
+  await page.getByRole("tab", { name: "GIS" }).click();
 
   const toggle = page.getByLabel("3D world context");
   await toggle.click({ force: true });

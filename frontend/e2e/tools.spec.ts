@@ -31,7 +31,7 @@ async function loadModel(page: Page) {
 /** The model plus a context building standing right next to it. */
 async function loadModelWithContext(page: Page) {
   await loadModel(page);
-  await page.getByRole("tab", { name: "Geo" }).click();
+  await page.getByRole("tab", { name: "GIS" }).click();
   await page.locator('input[accept*=".city.json"]').setInputFiles([NEIGHBOUR]);
   await expect(page.locator("[data-context-model='true']")).toBeAttached({
     timeout: 30_000,

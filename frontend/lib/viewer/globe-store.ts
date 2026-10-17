@@ -4,7 +4,7 @@
  * The 3D world context: the Cesium globe under the model, with terrain, OSM or
  * Google buildings, an ion asset or a 3D Tiles URL.
  *
- * Owned here rather than by the Geo panel, so it stays on when the user opens
+ * Owned here rather than by the GIS panel, so it stays on when the user opens
  * another tab — the globe is drawn in the viewport, which is still on screen —
  * and so a project folder can save it and turn it back on. It used to be torn
  * down with the panel, which made it impossible to look at a filtered model
@@ -14,7 +14,7 @@
  * party: a tile request says roughly where the building is (ADR 003). A
  * restored project asks before turning it on (`ProjectActions`).
  *
- * What it needs from the Geo panel is where the model sits on the earth; the
+ * What it needs from the GIS panel is where the model sits on the earth; the
  * panel reports that through `setPlacement` while it is open, and the last
  * report is kept for when it is not.
  */
@@ -44,10 +44,10 @@ export type GlobeOutcome =
 type GlobeState = GlobeSettings & {
   on: boolean;
   phase: "starting" | "layer" | "preparing" | null;
-  /** Where the model sits on the earth, as the Geo panel last reported it. */
+  /** Where the model sits on the earth, as the GIS panel last reported it. */
   origin: WgsPoint | null;
   northCorrection: number;
-  /** A restored project asked for the globe; the Geo panel turns it on once it has an origin. */
+  /** A restored project asked for the globe; the GIS panel turns it on once it has an origin. */
   pending: boolean;
   pendingOutcome: GlobeOutcome | null;
 
