@@ -320,8 +320,8 @@ describe("ref keys", () => {
   });
 });
 
-it("carries context edges and property colour overrides through a project round trip", async () => {
-  const appearance = { edgesOn: false, edgeWidth: 2.5, colouring: { property: "height", overrides: { "number:12": "#123456" } } };
+it("carries context edges, property colour overrides and hidden values through a project round trip", async () => {
+  const appearance = { edgesOn: false, edgeWidth: 2.5, colouring: { property: "height", overrides: { "number:12": "#123456" }, hiddenValues: ["number:12"] } };
   const result = await buildProject(session({ context: { file: city, visible: true, clipEnabled: true, clipRadius: "100", appearance } }));
   const folder = folderOf(result.files);
   const manifest = parseProjectManifest(await folder.manifestBlob.text());

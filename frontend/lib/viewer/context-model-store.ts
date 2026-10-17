@@ -17,7 +17,7 @@
 import { create } from "zustand";
 
 import type { ContextGeometry } from "@/lib/georef/context-geometry";
-import { DEFAULT_CONTEXT_APPEARANCE, type ContextAppearance } from "./context-appearance";
+import { DEFAULT_CONTEXT_APPEARANCE, contextFeatureHidden, type ContextAppearance } from "./context-appearance";
 
 export const DEFAULT_CLIP_RADIUS_METRES = 100;
 
@@ -60,7 +60,8 @@ export const useContextModelStore = create<ContextModelState>((set) => ({
   pendingOutcome: null,
 
   selectFeature: (index) => set((state) => ({
-    selectedFeature: state.visible && index !== null && state.loaded?.features?.[index] ? index : null,
+    selectedFeature: state.visible && index !== null && state.loaded?.features?.[index]
+      && !contextFeatureHidden(state.loaded.features[index], state.appearance.colouring) ? index : null,
   })),
   clearSelection: () => set({ selectedFeature: null }),
   setLoaded: (file, loaded) => set((state) => {
@@ -70,7 +71,12 @@ export const useContextModelStore = create<ContextModelState>((set) => ({
       appearance: state.pending ? state.appearance : { ...state.appearance, colouring: null },
     };
   }),
-  setSettings: (patch) => set({ ...patch, ...(patch.visible === false ? { selectedFeature: null } : {}) }),
+  setSettings: (patch) => set((state) => ({
+    ...patch,
+    ...(patch.visible === false || (state.selectedFeature !== null
+      && contextFeatureHidden(state.loaded?.features?.[state.selectedFeature], (patch.appearance ?? state.appearance).colouring))
+      ? { selectedFeature: null } : {}),
+  })),
   restore: (file, settings) => set({ ...settings, pending: file, pendingOutcome: null, selectedFeature: null }),
   finishPending: (outcome) => set({ pending: null, pendingOutcome: outcome }),
   clear: () => set((state) => {

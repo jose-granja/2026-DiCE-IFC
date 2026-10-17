@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,10 +48,19 @@ export function ContextAppearanceControls({ geometry, disabled }: { geometry: Co
     {appearance.colouring && <>
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground text-[11px]">{t("values", { count: groups.length })}</span>
+        {!!appearance.colouring.hiddenValues?.length && <Button className="h-6 px-1 text-[11px]" variant="ghost" disabled={disabled}
+          onClick={() => change({ colouring: { ...appearance.colouring!, hiddenValues: [] } })}>{t("showAll")}</Button>}
         <Button className="h-6 px-1 text-[11px]" variant="ghost" disabled={disabled || !Object.keys(appearance.colouring.overrides).length}
           onClick={() => change({ colouring: { ...appearance.colouring!, overrides: {} } })}>{t("reset")}</Button>
       </div>
-      <ColourLegend key={appearance.colouring.property} groups={groups} disabled={disabled} onColour={(key, colour) => {
+      <ColourLegend key={appearance.colouring.property} groups={groups} disabled={disabled} hiddenValues={appearance.colouring.hiddenValues ?? []}
+        onToggleVisibility={(key) => {
+          const current = useContextModelStore.getState().appearance.colouring;
+          if (!current) return;
+          const hidden = new Set(current.hiddenValues);
+          if (hidden.has(key)) hidden.delete(key); else hidden.add(key);
+          change({ colouring: { ...current, hiddenValues: [...hidden] } });
+        }} onColour={(key, colour) => {
         const current = useContextModelStore.getState().appearance.colouring;
         if (current) change({ colouring: { ...current, overrides: { ...current.overrides, [key]: colour } } });
       }} />
@@ -58,13 +68,15 @@ export function ContextAppearanceControls({ geometry, disabled }: { geometry: Co
   </div>;
 }
 
-function ColourLegend({ groups, disabled, onColour }: {
+function ColourLegend({ groups, disabled, hiddenValues, onToggleVisibility, onColour }: {
   groups: ContextColourGroup[]; disabled: boolean; onColour: (key: string, colour: string) => void;
+  hiddenValues: string[]; onToggleVisibility: (key: string) => void;
 }) {
   "use no memo"; // TanStack Virtual reads a mutable instance on each render.
   const t = useTranslations("viewer.contextModel.appearance");
   const [filter, setFilter] = useState("");
   const scroll = useRef<HTMLDivElement>(null);
+  const hidden = new Set(hiddenValues);
   const rows = groups.map((group) => ({ ...group, label: group.value === undefined ? t("missingValue")
     : group.value === null ? t("nullValue") : group.value === "" ? t("emptyValue")
       : typeof group.value === "boolean" ? t(group.value ? "yes" : "no")
@@ -80,12 +92,19 @@ function ColourLegend({ groups, disabled, onColour }: {
       <div style={{ height: virtual.getTotalSize(), position: "relative" }}>
         {virtual.getVirtualItems().map((item) => {
           const row = rows[item.index];
+          const isHidden = hidden.has(row.key);
           return <div key={row.key} className="absolute top-0 left-0 flex w-full items-center gap-2 text-[11px]"
             style={{ height: item.size, transform: `translateY(${item.start}px)` }}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" disabled={disabled}
+              aria-label={t(isHidden ? "showValue" : "hideValue", { value: row.label })}
+              title={t(isHidden ? "showValue" : "hideValue", { value: row.label })}
+              onClick={() => onToggleVisibility(row.key)}>
+              {isHidden ? <EyeOff className="size-3.5 text-muted-foreground" /> : <Eye className="size-3.5" />}
+            </Button>
             <input type="color" value={row.colour} disabled={disabled} aria-label={t("valueColour", { value: row.label })}
               className="h-6 w-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
               onChange={(event) => onColour(row.key, event.target.value)} />
-            <span className="min-w-0 flex-1 truncate" title={row.label}>{row.label}</span>
+            <span className={`min-w-0 flex-1 truncate${isHidden ? " text-muted-foreground line-through" : ""}`} title={row.label}>{row.label}</span>
             <span className="text-muted-foreground tabular-nums">{row.count}</span>
           </div>;
         })}

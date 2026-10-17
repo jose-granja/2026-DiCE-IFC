@@ -41,3 +41,18 @@ it("clears stale feature indices when hiding, replacing, removing or restoring c
     expect(useContextModelStore.getState().selectedFeature).toBeNull();
   }
 });
+
+it("clears inspection only when its colour group is hidden and rejects hidden selections", () => {
+  const context = useContextModelStore.getState();
+  const appearance = { ...DEFAULT_CONTEXT_APPEARANCE, colouring: { property: "name", overrides: {}, hiddenValues: ['string:"Spain"'] } };
+  context.selectFeature(0);
+  context.setSettings({ appearance });
+  expect(useContextModelStore.getState().selectedFeature).toBe(0);
+  context.setSettings({ appearance: { ...appearance, colouring: { ...appearance.colouring, hiddenValues: ['string:"Portugal"'] } } });
+  expect(useContextModelStore.getState().selectedFeature).toBeNull();
+  context.selectFeature(0);
+  expect(useContextModelStore.getState().selectedFeature).toBeNull();
+  context.setSettings({ appearance });
+  context.selectFeature(0);
+  expect(useContextModelStore.getState().selectedFeature).toBe(0);
+});

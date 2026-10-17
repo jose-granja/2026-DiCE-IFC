@@ -20,7 +20,7 @@ export class OgcProxyError extends Error {
   constructor(readonly code: string, readonly status = 400) { super(code); }
 }
 
-export function validateOgcRequest(value: string): { url: URL; limit: number; image: boolean } {
+export function validateOgcRequest(value: string, legendOnly = false): { url: URL; limit: number; image: boolean } {
   let url: URL;
   try { url = new URL(value); } catch { throw new OgcProxyError("invalidUrl"); }
   if (value.length > 4096 || !["http:","https:"].includes(url.protocol) || url.username || url.password || url.hash || (url.port && !["80","443"].includes(url.port))) throw new OgcProxyError("invalidUrl");
@@ -31,34 +31,46 @@ export function validateOgcRequest(value: string): { url: URL; limit: number; im
     params.set(name,value);
   }
   const service = params.get("SERVICE")?.toUpperCase(), operation = params.get("REQUEST")?.toUpperCase();
+  const providerKeys = ["MAP","KEY","APIKEY","API_KEY","TOKEN"];
+  // Some WMS LegendURLs are static images. Restrict this mode to raster file
+  // paths and provider keys, never arbitrary URLs/operations or active SVG/HTML.
+  if (legendOnly && !operation && /\.(png|jpe?g)$/i.test(url.pathname)) {
+    if ([...params].some(([key,value]) => !providerKeys.includes(key) || value.length > 1024 || /[<>\r\n]/.test(value))) throw new OgcProxyError("invalidUrl");
+    return { url, limit:2*1024*1024, image:true };
+  }
   const capabilities = operation === "GETCAPABILITIES";
-  const image = service === "WMS" && operation === "GETMAP";
+  const legend = service === "WMS" && operation === "GETLEGENDGRAPHIC";
+  const image = service === "WMS" && (operation === "GETMAP" || legend);
   const features = service === "WFS" && operation === "GETFEATURE";
+  if (legendOnly && !legend) throw new OgcProxyError("readOnly");
   if (!["WMS","WFS"].includes(service ?? "") || !(capabilities || image || features)) throw new OgcProxyError("readOnly");
   // No arbitrary filters, XML requests, schema URLs, remote styles or callbacks.
-  const allowed = new Set(["SERVICE","REQUEST","VERSION","ACCEPTVERSIONS","LAYERS","STYLES","CRS","SRS","BBOX","WIDTH","HEIGHT","FORMAT","TRANSPARENT","TYPENAMES","TYPENAME","SRSNAME","OUTPUTFORMAT","COUNT","MAXFEATURES","MAP","KEY","APIKEY","API_KEY","TOKEN"]);
+  const allowed = new Set(legend ? ["SERVICE","REQUEST","VERSION","LAYER","STYLE","RULE","SCALE","WIDTH","HEIGHT","FORMAT",...providerKeys]
+    : ["SERVICE","REQUEST","VERSION","ACCEPTVERSIONS","LAYERS","STYLES","CRS","SRS","BBOX","WIDTH","HEIGHT","FORMAT","TRANSPARENT","TYPENAMES","TYPENAME","SRSNAME","OUTPUTFORMAT","COUNT","MAXFEATURES",...providerKeys]);
   for (const [key,value] of params) if (!allowed.has(key) || value.length > 1024 || /[<>\r\n]/.test(value)) throw new OgcProxyError("invalidUrl");
-  if (!capabilities) {
+  if (!capabilities && !legend) {
     const bounds = (params.get("BBOX") ?? "").split(",");
     if (bounds.length < 4 || bounds.length > 5 || !bounds.slice(0,4).every((v) => v.trim() && Number.isFinite(Number(v)))) throw new OgcProxyError("invalidRadius");
     if (Number(bounds[0]) >= Number(bounds[2]) || Number(bounds[1]) >= Number(bounds[3])) throw new OgcProxyError("invalidRadius");
   }
   if (image) {
     for (const key of ["WIDTH","HEIGHT"]) {
+      if (legend && !params.has(key)) continue;
       const n = Number(params.get(key));
       if (!Number.isInteger(n) || n < 1 || n > 2048) throw new OgcProxyError("invalidRadius");
     }
     if (!/^image\/(png|jpeg)$/i.test(params.get("FORMAT") ?? "")) throw new OgcProxyError("unsupportedImage");
   }
+  if (legend && (!params.get("LAYER")?.trim() || (params.has("SCALE") && (!Number.isFinite(Number(params.get("SCALE"))) || Number(params.get("SCALE")) <= 0)))) throw new OgcProxyError("invalidUrl");
   if (features) {
     const count = Number(params.get("COUNT") ?? params.get("MAXFEATURES"));
     if (!Number.isInteger(count) || count < 1 || count > 10001) throw new OgcProxyError("tooManyFeatures");
   }
-  return { url, image, limit: capabilities ? 8*1024*1024 : image ? 20*1024*1024 : 64*1024*1024 };
+  return { url, image, limit: legend ? 2*1024*1024 : capabilities ? 8*1024*1024 : image ? 20*1024*1024 : 64*1024*1024 };
 }
 
-export async function downloadOgc(value: string, signal?: AbortSignal): Promise<{ bytes: Uint8Array; contentType: string }> {
-  const { url, limit, image } = validateOgcRequest(value);
+export async function downloadOgc(value: string, signal?: AbortSignal, legendOnly = false): Promise<{ bytes: Uint8Array; contentType: string }> {
+  const { url, limit, image } = validateOgcRequest(value, legendOnly);
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
   const addresses = await lookup(hostname, { all:true, verbatim:true }).catch(() => { throw new OgcProxyError("unreachable",502); });
   if (!addresses.length || addresses.some(({address}) => !publicAddress(address))) throw new OgcProxyError("publicServiceOnly",403);
@@ -77,6 +89,9 @@ export async function downloadOgc(value: string, signal?: AbortSignal): Promise<
     }, (response) => {
       if (response.statusCode !== 200) { response.destroy(); reject(new OgcProxyError("serviceError",502)); return; }
       const contentType = (response.headers["content-type"] ?? "application/xml").split(";")[0].toLowerCase();
+      if (legendOnly && !/^image\/(png|jpeg)$/.test(contentType)) {
+        response.destroy(); reject(new OgcProxyError("unsupportedImage",502)); return;
+      }
       if (!/^(application\/(xml|json|geo\+json|gml\+xml|vnd\.ogc\.[\w.+-]+)|text\/(xml|plain)|image\/(png|jpeg))$/.test(contentType) || (response.headers["content-encoding"] && response.headers["content-encoding"] !== "identity")) {
         response.destroy(); reject(new OgcProxyError("serviceError",502)); return;
       }

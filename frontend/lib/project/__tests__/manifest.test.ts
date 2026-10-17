@@ -83,6 +83,7 @@ it("restores old context projects with default appearance and validates new styl
   expect(parse({ ...minimal, context }).context?.appearance).toEqual({ edgesOn: true, edgeWidth: 1, colouring: null });
   const appearance = { edgesOn: false, edgeWidth: 2, colouring: { property: "NAME", overrides: { 'string:"Portugal"': "#123456" } } };
   expect(parse({ ...minimal, context: { ...context, appearance } }).context?.appearance).toEqual(appearance);
+  expect(() => parse({ ...minimal, context: { ...context, appearance: { ...appearance, colouring: { ...appearance.colouring, hiddenValues: [12] } } } })).toThrow(ProjectFormatError);
   expect(() => parse({ ...minimal, context: { ...context, appearance: { ...appearance, edgeWidth: -1 } } })).toThrow(ProjectFormatError);
   expect(() => parse({ ...minimal, context: { ...context, appearance: { ...appearance, colouring: { property: "NAME", overrides: { bad: "red;url(x)" } } } } })).toThrow(ProjectFormatError);
 });

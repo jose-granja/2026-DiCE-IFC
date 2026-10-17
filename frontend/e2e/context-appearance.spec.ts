@@ -102,13 +102,59 @@ test("draws feature borders, colours by values, and retains styles after inspect
   expect(errors).toEqual([]);
 });
 
-test("saves context appearance in a project and restores it in a fresh browser", async ({ page, browser }, testInfo) => {
+test("hides colour groups from drawing and picking, and restores them without losing their colours", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await open(page);
+  await colourByCategory(page);
+  const green = await pixel(page, 0.25, 0.35), red = await pixel(page, 0.75, 0.35);
+  await clickCanvas(page, 0.25, 0.35);
+  await expect(page.locator("[data-context-properties]")).toContainText("West plot");
+  await appearance(page).getByRole("button", { name: "Hide Residential", exact: true }).click();
+  await expect(page.locator("[data-context-properties]")).toHaveCount(0);
+  const hidden = await pixel(page, 0.25, 0.35);
+  expect(hidden).not.toEqual(green);
+  expect(await pixel(page, 0.75, 0.35)).toEqual(red);
+  await clickCanvas(page, 0.25, 0.35);
+  await expect(page.locator("[data-context-properties]")).toHaveCount(0);
+  // The visible triangle's draw index has changed; its metadata must not.
+  await clickCanvas(page, 0.75, 0.35);
+  await expect(page.locator("[data-context-properties]")).toContainText("East plot");
+  await clickCanvas(page, 0.02, 0.02);
+  await setColour(page, "Residential", "#0000ff");
+  expect(await pixel(page, 0.25, 0.35)).toEqual(hidden);
+  await page.getByRole("switch", { name: "Context model", exact: true }).click();
+  await page.getByRole("switch", { name: "Context model", exact: true }).click();
+  await tab(page, "Models").click();
+  await tab(page, "GIS").click();
+  expect(await pixel(page, 0.25, 0.35)).toEqual(hidden);
+  await appearance(page).getByRole("button", { name: "Hide Park", exact: true }).click();
+  expect(await pixel(page, 0.75, 0.35)).not.toEqual(red);
+  await clickCanvas(page, 0.75, 0.35);
+  await expect(page.locator("[data-context-properties]")).toHaveCount(0);
+  await appearance(page).getByRole("button", { name: "Show all", exact: true }).click();
+  const blue = await pixel(page, 0.25, 0.35);
+  expect(blue[2]).toBeGreaterThan(blue[1] + 80);
+  expect(await pixel(page, 0.75, 0.35)).toEqual(red);
+  await appearance(page).getByRole("button", { name: "Hide Residential", exact: true }).click();
+  await appearance(page).getByRole("button", { name: "Reset colours", exact: true }).click();
+  await expect(appearance(page).getByRole("button", { name: "Show Residential", exact: true })).toBeVisible();
+  expect(await pixel(page, 0.25, 0.35)).toEqual(hidden);
+  await appearance(page).getByRole("combobox", { name: "Colour by property" }).click();
+  await page.getByRole("option", { name: "Original colours", exact: true }).click();
+  expect(await pixel(page, 0.25, 0.35)).not.toEqual(hidden);
+  expect(errors).toEqual([]);
+});
+
+test("saves context appearance and hidden colours in a project and restores them in a fresh browser", async ({ page, browser }, testInfo) => {
   test.setTimeout(90_000);
   await page.addInitScript(() => Object.defineProperty(window, "showDirectoryPicker", { value: undefined, configurable: true }));
   await open(page);
   await colourByCategory(page);
   await appearance(page).getByRole("slider", { name: "Context edge width" }).press("End");
   await appearance(page).getByRole("switch", { name: "Show context edges" }).click();
+  await appearance(page).getByRole("button", { name: "Hide Residential", exact: true }).click();
+  const hidden = await pixel(page, 0.25, 0.35);
   await page.locator("[data-project-menu]").click();
   const downloading = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Save project (.zip)…" }).click();
@@ -118,7 +164,7 @@ test("saves context appearance in a project and restores it in a fresh browser",
   const entries = unzipSync(new Uint8Array(await readFile(zip)));
   const manifest = JSON.parse(new TextDecoder().decode(Object.entries(entries).find(([name]) => name.endsWith("/project.json"))![1]));
   expect(manifest.context.appearance).toEqual({ edgesOn: false, edgeWidth: 3,
-    colouring: { property: "category", overrides: { 'string:"Residential"': "#00ff00", 'string:"Park"': "#ff0000" } } });
+    colouring: { property: "category", overrides: { 'string:"Residential"': "#00ff00", 'string:"Park"': "#ff0000" }, hiddenValues: ['string:"Residential"'] } });
   const context = await browser.newContext();
   try {
     const fresh = await context.newPage();
@@ -129,6 +175,8 @@ test("saves context appearance in a project and restores it in a fresh browser",
     await expect(appearance(fresh).getByRole("switch", { name: "Show context edges" })).not.toBeChecked();
     await expect(appearance(fresh).getByRole("combobox", { name: "Colour by property" })).toContainText("category");
     await expect(appearance(fresh).getByLabel("Colour for Residential", { exact: true })).toHaveValue("#00ff00");
+    expect(await pixel(fresh, 0.25, 0.35)).toEqual(hidden);
+    await appearance(fresh).getByRole("button", { name: "Show Residential", exact: true }).click();
     const green = await pixel(fresh, 0.25, 0.35);
     expect(green[1]).toBeGreaterThan(green[0] + 80);
   } finally { await context.close(); }

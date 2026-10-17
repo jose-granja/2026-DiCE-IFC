@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ContextFeature } from "@/lib/georef/context-geometry";
-import { contextColourGroups, contextValueKey, DEFAULT_CONTEXT_APPEARANCE } from "../context-appearance";
+import { contextColourGroups, contextValueKey, contextVisibleIndices, DEFAULT_CONTEXT_APPEARANCE } from "../context-appearance";
 import { contextEdgeMasks } from "../context-edges";
 import { useContextModelStore } from "../context-model-store";
 
@@ -24,6 +24,28 @@ describe("context property colours", () => {
   });
 });
 
+describe("context visibility", () => {
+  const features = [feature(0), feature("0"), feature(undefined)];
+  const ranges = [
+    { firstTriangle: 0, triangleCount: 1, featureIndex: 0 },
+    { firstTriangle: 1, triangleCount: 1, featureIndex: 1 },
+    { firstTriangle: 2, triangleCount: 1, featureIndex: 0 },
+    { firstTriangle: 4, triangleCount: 1, featureIndex: 2 },
+  ];
+  it("hides every range with the chosen typed value, retaining original vertices and unlabelled surfaces", () => {
+    const colouring = { property: "category", overrides: {}, hiddenValues: [contextValueKey(0), contextValueKey(undefined)] };
+    expect([...contextVisibleIndices(15, features, ranges, colouring)!]).toEqual([3, 4, 5, 9, 10, 11]);
+    expect(contextVisibleIndices(15, features, ranges, { ...colouring, hiddenValues: [] })).toBeNull();
+    expect(contextVisibleIndices(15, features, ranges, null)).toBeNull();
+  });
+  it("allows an empty draw list when all features are hidden and tolerates unavailable values", () => {
+    expect(contextVisibleIndices(9, features, ranges.slice(0, 3), {
+      property: "category", overrides: {}, hiddenValues: [contextValueKey(0), contextValueKey("0"), "obsolete"],
+    })).toHaveLength(0);
+    expect(contextVisibleIndices(15, features, ranges, { property: "category", overrides: {}, hiddenValues: ["obsolete"] })).toBeNull();
+  });
+});
+
 describe("context outlines", () => {
   const square = new Float32Array([0,0,0, 1,0,0, 1,0,1, 0,0,0, 1,0,1, 0,0,1]);
   it("omits triangulation seams across ranges belonging to the same feature", () => {
@@ -40,7 +62,7 @@ it("preserves restored styling while loading, then clears property colours for a
   const store = useContextModelStore.getState();
   store.clear();
   const file = new File([], "context.geojson");
-  const appearance = { edgesOn: false, edgeWidth: 2, colouring: { property: "category", overrides: { [contextValueKey("Park")]: "#123456" } } };
+  const appearance = { edgesOn: false, edgeWidth: 2, colouring: { property: "category", overrides: { [contextValueKey("Park")]: "#123456" }, hiddenValues: [contextValueKey("Park")] } };
   store.restore(file, { visible: true, clipEnabled: true, clipRadius: "100", appearance });
   const geometry = { positions: new Float32Array(), colours: new Float32Array(), origin: { easting: 0, northing: 0, height: 0 }, epsg: 3763, objectCount: 0, types: [], sizeMetres: 0 };
   store.setLoaded(file, geometry);

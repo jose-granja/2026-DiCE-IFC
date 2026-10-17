@@ -27,7 +27,7 @@ import * as THREE from "three";
 import { contextFeatureAt, type ContextGeometry, type ContextFeature, type ContextFeatureRange } from "@/lib/georef/context-geometry";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { OrbitPivot } from "./orbit-pivot";
-import { DEFAULT_CONTEXT_APPEARANCE, contextColourGroups, contextPropertyValue, contextValueKey, type ContextAppearance } from "./context-appearance";
+import { DEFAULT_CONTEXT_APPEARANCE, contextColourGroups, contextFeatureHidden, contextPropertyValue, contextValueKey, contextVisibleIndices, type ContextAppearance } from "./context-appearance";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
@@ -1786,7 +1786,9 @@ export class ViewerRenderer {
     const result = this.raycast(offsetX, offsetY, true);
     if (!result) return null;
     if (result.kind === "context") {
-      return { kind: "context", featureIndex: contextFeatureAt(this.contextFeatureRanges, result.hit.faceIndex ?? -1) };
+      // Filtering compacts draw indices, but each triangle keeps its original
+      // vertices. faceIndex would resolve the wrong feature after a hidden one.
+      return { kind: "context", featureIndex: contextFeatureAt(this.contextFeatureRanges, result.hit.face!.a / 3) };
     }
     return { kind: "model", modelId: result.model.modelId, expressId: result.batch.entityIds[result.hit.face!.a] };
   }
@@ -2438,14 +2440,38 @@ export class ViewerRenderer {
     }
   }
 
-  /** Recolour in place; selection remains a temporary overlay on this style. */
+  /** Filter/recolour in place; selection remains a temporary overlay on this style. */
   setContextAppearance(appearance: ContextAppearance) {
     this.contextAppearance = appearance;
     this.contextEdgeUniforms.uEdgeWidth.value = appearance.edgesOn ? appearance.edgeWidth : 0;
     if (!this.contextMesh || !this.contextSourceColours) return;
     // Width/toggle changes need no geometry or colour-buffer rebuild.
     if (this.contextAppliedColouring === appearance.colouring) return;
+    const previous = this.contextAppliedColouring;
     this.contextAppliedColouring = appearance.colouring;
+    if (previous?.property !== appearance.colouring?.property || previous?.hiddenValues !== appearance.colouring?.hiddenValues) {
+      const geometry = this.contextMesh.geometry;
+      const vertexCount = geometry.getAttribute("position").count;
+      const visible = contextVisibleIndices(vertexCount, this.contextFeatures, this.contextFeatureRanges, appearance.colouring);
+      let index = geometry.getIndex();
+      if (visible || index) {
+        // Reuse one GPU index buffer, with capacity for every source triangle.
+        // Drawing and raycasting both respect drawRange, including zero faces.
+        if (!index) {
+          index = new THREE.BufferAttribute(new Uint32Array(vertexCount), 1).setUsage(THREE.DynamicDrawUsage);
+          geometry.setIndex(index);
+        }
+        if (visible) (index.array as Uint32Array).set(visible);
+        else for (let i = 0; i < vertexCount; i++) index.array[i] = i;
+        index.needsUpdate = true;
+        geometry.setDrawRange(0, visible?.length ?? vertexCount);
+      }
+      if (this.selectedContextFeature !== null && contextFeatureHidden(this.contextFeatures[this.selectedContextFeature], appearance.colouring)) {
+        this.setContextSelection(null);
+      }
+    }
+    // Visibility changes do not alter the source or styled colour buffers.
+    if (previous !== undefined && previous?.property === appearance.colouring?.property && previous?.overrides === appearance.colouring?.overrides) return;
     const base = appearance.colouring ? this.contextSourceColours.slice() : this.contextSourceColours;
     if (appearance.colouring) {
       const colouring = appearance.colouring;
@@ -2473,6 +2499,7 @@ export class ViewerRenderer {
 
   /** Highlight all surfaces belonging to the feature without altering source colours. */
   setContextSelection(featureIndex: number | null) {
+    if (featureIndex !== null && contextFeatureHidden(this.contextFeatures[featureIndex], this.contextAppearance.colouring)) featureIndex = null;
     if (!this.contextMesh || !this.contextBaseColours || this.selectedContextFeature === featureIndex) return;
     const colours = this.contextMesh.geometry.getAttribute("color") as THREE.BufferAttribute;
     const array = colours.array as Float32Array;
@@ -2605,10 +2632,20 @@ export class ViewerRenderer {
   getContextBounds(): { min: Vec3; max: Vec3 } | null {
     const mesh = this.contextMesh;
     if (!mesh || !mesh.visible) return null;
-    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
-    mesh.updateMatrixWorld();
-    const box = mesh.geometry.boundingBox!.clone().applyMatrix4(mesh.matrixWorld);
+    const geometry = mesh.geometry;
+    const index = geometry.getIndex();
+    const box = new THREE.Box3();
+    if (index) {
+      const positions = geometry.getAttribute("position");
+      const point = new THREE.Vector3();
+      for (let i = 0; i < geometry.drawRange.count; i++) box.expandByPoint(point.fromBufferAttribute(positions, index.getX(i)));
+    } else {
+      if (!geometry.boundingBox) geometry.computeBoundingBox();
+      box.copy(geometry.boundingBox!);
+    }
     if (box.isEmpty()) return null;
+    mesh.updateMatrixWorld();
+    box.applyMatrix4(mesh.matrixWorld);
     return { min: box.min.toArray() as Vec3, max: box.max.toArray() as Vec3 };
   }
 

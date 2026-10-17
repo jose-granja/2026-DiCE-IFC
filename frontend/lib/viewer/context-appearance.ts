@@ -1,8 +1,13 @@
-import type { ContextFeature } from "@/lib/georef/context-geometry";
+import type { ContextFeature, ContextFeatureRange } from "@/lib/georef/context-geometry";
 import { paletteColour } from "@/lib/lens/palette";
 import { DEFAULT_EDGE_WIDTH } from "./edges";
 
-export type ContextColouring = { property: string; overrides: Record<string, string> };
+export type ContextColouring = {
+  property: string;
+  overrides: Record<string, string>;
+  /** Typed property-value keys. Omitted in older projects: all values visible. */
+  hiddenValues?: string[];
+};
 export type ContextAppearance = {
   edgesOn: boolean;
   edgeWidth: number;
@@ -22,6 +27,32 @@ export function contextValueKey(value: unknown): string {
 
 export function contextPropertyValue(feature: ContextFeature, property: string): unknown {
   return Object.prototype.hasOwnProperty.call(feature.properties, property) ? feature.properties[property] : undefined;
+}
+
+export function contextFeatureHidden(feature: ContextFeature | undefined, colouring: ContextColouring | null): boolean {
+  return !!feature && !!colouring?.hiddenValues?.includes(contextValueKey(contextPropertyValue(feature, colouring.property)));
+}
+
+/** Keep original vertex IDs and triangle order, including surfaces without metadata. */
+export function contextVisibleIndices(
+  vertexCount: number, features: readonly ContextFeature[], ranges: readonly ContextFeatureRange[], colouring: ContextColouring | null,
+): Uint32Array | null {
+  if (!colouring?.hiddenValues?.length) return null;
+  const hidden = new Set(colouring.hiddenValues);
+  const hiddenRanges = ranges.filter((range) => {
+    const feature = features[range.featureIndex];
+    return feature && hidden.has(contextValueKey(contextPropertyValue(feature, colouring.property)));
+  });
+  if (!hiddenRanges.length) return null;
+  const indices = new Uint32Array(vertexCount - hiddenRanges.reduce((sum, range) => sum + range.triangleCount * 3, 0));
+  let cursor = 0, next = 0;
+  for (const range of hiddenRanges) {
+    const start = range.firstTriangle * 3;
+    for (; cursor < start; cursor++) indices[next++] = cursor;
+    cursor = (range.firstTriangle + range.triangleCount) * 3;
+  }
+  for (; cursor < vertexCount; cursor++) indices[next++] = cursor;
+  return indices;
 }
 
 export type ContextColourGroup = { key: string; value: unknown; count: number; colour: string };

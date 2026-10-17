@@ -46,6 +46,7 @@ import { OgcError, readCapabilities, type OgcService } from "@/lib/georef/ogc-se
 import { readMapSnapshot } from "@/lib/georef/context-map";
 import { readFeatureSnapshot } from "@/lib/georef/context-features";
 import ContextServiceControls from "./ContextServiceControls";
+import { ContextMapLegend } from "./ContextMapLegend";
 
 const LARGE_TEXT_FILE_BYTES = 64 * 1024 * 1024;
 
@@ -408,6 +409,7 @@ export function ContextModel({
       <ContextServiceControls service={service} setService={setService} placement={placement} reference={referencePoint} onFile={(file, signal) => onFile(file, true, signal)} disabled={loading} onBusyChange={setServiceBusy} />
       {loaded && !loaded.raster && <ContextAppearanceControls geometry={loaded} disabled={loading} />}
       {loaded?.raster && <p className="text-muted-foreground text-[11px]">{t("service.rasterNote")}</p>}
+      {visible && loaded?.raster?.legend && <ContextMapLegend legend={loaded.raster.legend} />}
 
       {!loaded && canClip && (
         <div className="flex items-center justify-between gap-2">

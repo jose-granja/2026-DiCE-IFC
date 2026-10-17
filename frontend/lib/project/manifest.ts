@@ -171,6 +171,7 @@ export const projectManifestSchema = z.object({
         colouring: z.object({
           property: text,
           overrides: z.record(text, z.string().regex(/^#[\da-f]{6}$/i)).default({}),
+          hiddenValues: textList.optional(),
         }).nullable().default(null),
       }).default({ edgesOn: true, edgeWidth: 1, colouring: null }),
     })

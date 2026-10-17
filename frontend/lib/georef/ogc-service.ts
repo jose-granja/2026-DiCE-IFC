@@ -3,7 +3,7 @@ import { mapToWgs84, wgs84ToMap, type WgsPoint } from "./transform";
 import { transformClipBox, type ClipBox } from "./vector-context";
 
 export type OgcKind = "WFS" | "WMS";
-export type OgcLayer = { name: string; title: string; crs: string[]; attribution: string; attributionUrl?: string };
+export type OgcLayer = { name: string; title: string; crs: string[]; attribution: string; attributionUrl?: string; style?: string; legendUrl?: string };
 export type OgcService = { kind: OgcKind; version: string; title: string; url: string; formats: string[]; layers: OgcLayer[] };
 export class OgcError extends Error {
   constructor(readonly code: string) { super(code); }
@@ -23,7 +23,7 @@ export function ogcUrl(value: string): URL {
 /** Ignore stale operation parameters on pasted GetMap/GetFeature links. */
 export function requestUrl(endpoint: string, params: Record<string, string>): string {
   const url = ogcUrl(endpoint);
-  const reserved = new Set(["service", "request", "version", "acceptversions", "layers", "styles", "crs", "srs", "bbox", "width", "height", "format", "transparent", "typenames", "typename", "srsname", "outputformat", "count", "maxfeatures", "startindex", "filter", "cql_filter", "resulttype", "featureid", "resourceid"]);
+  const reserved = new Set(["service", "request", "version", "acceptversions", "layers", "styles", "layer", "style", "rule", "scale", "legend_options", "sld", "sld_body", "crs", "srs", "bbox", "width", "height", "format", "transparent", "typenames", "typename", "srsname", "outputformat", "count", "maxfeatures", "startindex", "filter", "cql_filter", "resulttype", "featureid", "resourceid"]);
   for (const key of [...url.searchParams.keys()]) if (reserved.has(key.toLowerCase())) url.searchParams.delete(key);
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
   return url.href;
@@ -64,7 +64,10 @@ export function readCapabilities(text: string, fallbackUrl?: string): OgcService
       layers.push({ name, title: childText(node, "Title") || name, crs, attribution: serviceTitle });
     }
   } else {
-    const visit = (node: Element, inherited: string[], credit: string, creditUrl?: string) => {
+    const legendOperation = descendants(root, "GetLegendGraphic")[0];
+    const legendEndpoint = legendOperation && href(descendants(legendOperation, "OnlineResource")[0]);
+    const legendFormat = legendOperation && descendants(legendOperation, "Format").map((node) => node.textContent?.trim()).find((format) => /^image\/(png|jpeg)$/i.test(format ?? ""));
+    const visit = (node: Element, inherited: string[], credit: string, creditUrl?: string, inheritedStyles: Element[] = []) => {
       const crs = [...new Set([...inherited, ...["CRS", "SRS"].flatMap((key) => children(node, key).flatMap((c) => (c.textContent ?? "").trim().split(/\s+/)))])];
       const attribution = children(node, "Attribution")[0];
       const text = attribution ? childText(attribution, "Title") || credit : credit;
@@ -74,8 +77,22 @@ export function readCapabilities(text: string, fallbackUrl?: string): OgcService
         try { attributionUrl = ogcUrl(new URL(resource, url).href).href; } catch { /* Keep the text credit for an unusable link. */ }
       }
       const name = childText(node, "Name");
-      if (name) layers.push({ name, title: childText(node, "Title") || name, crs, attribution: text, attributionUrl });
-      for (const child of children(node, "Layer")) visit(child, crs, text, attributionUrl);
+      // Use the same explicit style for both the map and its legend. Never
+      // borrow a sibling layer's legend or one from an unrelated alternate style.
+      const localStyles = children(node, "Style");
+      const styles = [...localStyles, ...inheritedStyles.filter((style) => !localStyles.some((local) => childText(local, "Name") === childText(style, "Name")))];
+      const style = styles[0] ? childText(styles[0], "Name") : undefined;
+      let legendUrl: string | undefined;
+      for (const legend of styles[0] ? children(styles[0], "LegendURL") : []) {
+        const resource = href(descendants(legend, "OnlineResource")[0]);
+        if (!resource || !/^image\/(png|jpeg)$/i.test(childText(legend, "Format"))) continue;
+        try { legendUrl = ogcUrl(new URL(resource, url).href).href; break; } catch { /* Ignore unusable legend links. */ }
+      }
+      if (!legendUrl && name && legendEndpoint && legendFormat) {
+        try { legendUrl = requestUrl(new URL(legendEndpoint, url).href, { SERVICE:"WMS", VERSION:version, REQUEST:"GetLegendGraphic", FORMAT:legendFormat, LAYER:name, ...(style ? { STYLE:style } : {}) }); } catch { /* A legend must not prevent loading its map. */ }
+      }
+      if (name) layers.push({ name, title: childText(node, "Title") || name, crs, attribution: text, attributionUrl, ...(style ? { style } : {}), ...(legendUrl ? { legendUrl } : {}) });
+      for (const child of children(node, "Layer")) visit(child, crs, text, attributionUrl, styles);
     };
     const capability = descendants(root, "Capability")[0];
     for (const layer of capability ? children(capability, "Layer") : []) visit(layer, [], serviceTitle);
@@ -120,7 +137,7 @@ export function layerRequest(service: OgcService, layer: OgcLayer, targetEpsg: n
   if (service.kind === "WMS") {
     const format = service.formats.find((f) => f.toLowerCase() === "image/png") ?? service.formats.find((f) => f.toLowerCase() === "image/jpeg");
     if (!format) throw new OgcError("unsupportedImage");
-    Object.assign(params, { LAYERS:layer.name, STYLES:"", FORMAT:format, TRANSPARENT:"TRUE", WIDTH:"1024", HEIGHT:"1024", [service.version === "1.3.0" ? "CRS" : "SRS"]:crs });
+    Object.assign(params, { LAYERS:layer.name, STYLES:layer.style ?? "", FORMAT:format, TRANSPARENT:"TRUE", WIDTH:"1024", HEIGHT:"1024", [service.version === "1.3.0" ? "CRS" : "SRS"]:crs });
   } else {
     Object.assign(params, { [service.version.startsWith("2.") ? "TYPENAMES" : "TYPENAME"]:layer.name, SRSNAME:requestCrs,
       [service.version.startsWith("2.") ? "COUNT" : "MAXFEATURES"]:"10001", BBOX:`${bbox},${requestCrs}` });
@@ -129,8 +146,8 @@ export function layerRequest(service: OgcService, layer: OgcLayer, targetEpsg: n
   return { url:requestUrl(service.url, params), crs:requestCrs, box, epsg, json };
 }
 
-export async function fetchOgc(url: string, signal?: AbortSignal): Promise<Blob> {
-  const response = await fetch(`/api/ogc?url=${encodeURIComponent(ogcUrl(url).href)}`, { signal, cache:"no-store" });
+export async function fetchOgc(url: string, signal?: AbortSignal, legend = false): Promise<Blob> {
+  const response = await fetch(`/api/ogc?url=${encodeURIComponent(ogcUrl(url).href)}${legend ? "&legend=1" : ""}`, { signal, cache:"no-store" });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     throw new OgcError(typeof body?.error === "string" ? body.error : "serviceError");

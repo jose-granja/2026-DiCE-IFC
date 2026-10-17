@@ -1,7 +1,7 @@
 /** Offline WMS snapshots: georeferencing + image, saved with the project. */
 import { unzipSync, zipSync, strFromU8, strToU8 } from "fflate";
 import { z } from "zod";
-import { GeometryBuilder, type ContextGeometry } from "./context-geometry";
+import { GeometryBuilder, type ContextGeometry, type ContextLegend } from "./context-geometry";
 import { mapToWgs84, wgs84ToMap } from "./transform";
 import { OgcError } from "./ogc-service";
 
@@ -14,12 +14,27 @@ export const mapSnapshotSchema = z.object({
   box:z.object({minX:finite,minY:finite,maxX:finite,maxY:finite}).refine((b) => b.maxX>b.minX && b.maxY>b.minY),
   height:finite,
   mimeType:z.enum(["image/png","image/jpeg"]),
+  legend:z.object({ title:z.string().max(4096), mimeType:z.enum(["image/png","image/jpeg"]) }).optional(),
 });
 export type MapSnapshot = z.infer<typeof mapSnapshotSchema>;
 
-export async function saveMapSnapshot(metadata: MapSnapshot, image: Blob): Promise<File> {
-  const bytes = zipSync({ "map.json":strToU8(JSON.stringify(mapSnapshotSchema.parse(metadata))), "map-image":new Uint8Array(await image.arrayBuffer()) }, {level:0});
+export async function saveMapSnapshot(metadata: MapSnapshot, image: Blob, legend?: ContextLegend): Promise<File> {
+  const document = mapSnapshotSchema.parse({ ...metadata, legend:legend ? { title:legend.title, mimeType:legend.image.type } : undefined });
+  const bytes = zipSync({ "map.json":strToU8(JSON.stringify(document)), "map-image":new Uint8Array(await image.arrayBuffer()),
+    ...(legend ? { "legend-image":new Uint8Array(await legend.image.arrayBuffer()) } : {}),
+  }, {level:0});
   return new File([bytes as Uint8Array<ArrayBuffer>], `${metadata.name.replace(/[^\p{L}\p{N}._-]/gu,"_")}.context-map`, {type:"application/zip"});
+}
+
+/** Legends are passive PNG/JPEG images; reject errors, oversized images and SVG. */
+export async function readMapLegend(image: Blob, title: string): Promise<ContextLegend> {
+  if (!/^image\/(png|jpeg)$/.test(image.type)) throw new OgcError("unsupportedImage");
+  if (image.size > 2*1024*1024) throw new OgcError("tooLarge");
+  const bitmap = await createImageBitmap(image).catch(() => { throw new OgcError("unsupportedImage"); });
+  try {
+    if (bitmap.width > 4096 || bitmap.height > 16384 || bitmap.width*bitmap.height > 16*1024*1024) throw new OgcError("tooLarge");
+  } finally { bitmap.close(); }
+  return { title, image };
 }
 
 /** A grid retains the map's georeferencing when its CRS differs from the IFC. */
@@ -55,7 +70,7 @@ export async function readMapSnapshot(file: Blob, targetEpsg: number | null): Pr
   if (file.size>24*1024*1024) throw new OgcError("tooLarge");
   let entries: ReturnType<typeof unzipSync>;
   try {
-    entries=unzipSync(new Uint8Array(await file.arrayBuffer()),{filter:(entry) => (entry.name === "map.json" && entry.originalSize<32768) || (entry.name === "map-image" && entry.originalSize<=20*1024*1024)});
+    entries=unzipSync(new Uint8Array(await file.arrayBuffer()),{filter:(entry) => (entry.name === "map.json" && entry.originalSize<32768) || (entry.name === "map-image" && entry.originalSize<=20*1024*1024) || (entry.name === "legend-image" && entry.originalSize<=2*1024*1024)});
   } catch { throw new OgcError("invalidMapFile"); }
   let document: unknown;
   try { document=JSON.parse(strFromU8(entries["map.json"] ?? new Uint8Array())); } catch { throw new OgcError("invalidMapFile"); }
@@ -65,5 +80,9 @@ export async function readMapSnapshot(file: Blob, targetEpsg: number | null): Pr
   // ImageBitmap orientation must be applied at decode time, not via Texture.flipY.
   const image = await createImageBitmap(new Blob([entries["map-image"] as Uint8Array<ArrayBuffer>],{type:parsed.data.mimeType}),{imageOrientation:"flipY"}).catch(() => {throw new OgcError("unsupportedImage");});
   if (image.width>4096 || image.height>4096) {image.close();throw new OgcError("tooLarge");}
-  return {...geometry,raster:{image,uvs}};
+  // A missing/corrupt optional legend must not make an otherwise usable map fail.
+  const legend = parsed.data.legend && entries["legend-image"]
+    ? await readMapLegend(new Blob([entries["legend-image"] as Uint8Array<ArrayBuffer>],{type:parsed.data.legend.mimeType}),parsed.data.legend.title).catch(() => undefined)
+    : undefined;
+  return {...geometry,raster:{image,uvs,legend}};
 }

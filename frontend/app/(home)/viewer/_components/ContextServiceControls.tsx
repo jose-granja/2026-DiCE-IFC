@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { capabilitiesUrl, fetchOgc, layerRequest, OgcError, readCapabilities, type OgcKind, type OgcService } from "@/lib/georef/ogc-service";
 import { checkFeatureResponse, featureSnapshotFile } from "@/lib/georef/context-features";
-import { saveMapSnapshot } from "@/lib/georef/context-map";
+import { readMapLegend, saveMapSnapshot } from "@/lib/georef/context-map";
+import type { ContextLegend } from "@/lib/georef/context-geometry";
 import type { Placement, WgsPoint } from "@/lib/georef/transform";
 import LoadingProgress from "./LoadingProgress";
 
@@ -21,12 +22,13 @@ export default function ContextServiceControls({ service, setService, placement,
   const [open,setOpen]=useState(false), [kind,setKind]=useState<OgcKind>("WFS"), [url,setUrl]=useState("");
   const [layerName,setLayerName]=useState(""), [radius,setRadius]=useState("100"), [height,setHeight]=useState("");
   const [busy,setBusy]=useState(false), [error,setError]=useState("");
+  const [warning,setWarning]=useState("");
   const request=useRef<AbortController|null>(null);
   useEffect(() => () => request.current?.abort(),[]);
   const layer=service?.layers.find((l)=>l.name === layerName) ?? service?.layers[0];
   const run=async (job:(signal:AbortSignal)=>Promise<void>) => {
     if (request.current) return;
-    const controller=new AbortController();request.current=controller;setBusy(true);onBusyChange(true);setError("");
+    const controller=new AbortController();request.current=controller;setBusy(true);onBusyChange(true);setError("");setWarning("");
     try { await job(controller.signal); } catch (e) {
       if (!controller.signal.aborted) setError(t(`errors.${e instanceof OgcError ? e.code : "serviceError"}`));
     } finally { request.current=null;setBusy(false);onBusyChange(false); }
@@ -43,16 +45,24 @@ export default function ContextServiceControls({ service, setService, placement,
     const response=await fetchOgc(selected.url,signal);
     if (signal.aborted) return;
     let file:File;
+    let legendFailed = false;
     if (service.kind === "WMS") {
       const elevation=height.trim() ? Number(height) : placement.conversion.orthogonalHeight;
       if (!Number.isFinite(elevation)) throw new OgcError("invalidHeight");
       if (!/^image\/(png|jpeg)$/.test(response.type)) throw new OgcError("serviceError");
-      file=await saveMapSnapshot({format:"dice-context-map",version:1,name:layer.title,attribution:layer.attribution,attributionUrl:layer.attributionUrl,sourceEpsg:selected.epsg,box:selected.box,height:elevation,mimeType:response.type as "image/png"|"image/jpeg"},response);
+      let legend:ContextLegend|undefined;
+      if (layer.legendUrl) {
+        try { legend=await readMapLegend(await fetchOgc(layer.legendUrl,signal,true),layer.title); }
+        catch { if (signal.aborted) return; legendFailed=true; }
+      }
+      if (signal.aborted) return;
+      file=await saveMapSnapshot({format:"dice-context-map",version:1,name:layer.title,attribution:layer.attribution,attributionUrl:layer.attributionUrl,sourceEpsg:selected.epsg,box:selected.box,height:elevation,mimeType:response.type as "image/png"|"image/jpeg"},response,legend);
     } else {
       const text=await response.text();checkFeatureResponse(text);
       file=featureSnapshotFile({type:"DiCEContextFeatures",version:1,name:layer.title,attribution:layer.attribution,crs:selected.crs,body:text});
     }
     if (!signal.aborted) await onFile(file,signal);
+    if (!signal.aborted && legendFailed) setWarning(t("legendUnavailable"));
   });
   const visible=open || service;
   return <div className="space-y-2" data-context-service>
@@ -82,6 +92,7 @@ export default function ContextServiceControls({ service, setService, placement,
       </>}
       {busy && <><LoadingProgress label={t("loading")} percent={null} /><Button variant="ghost" size="sm" onClick={()=>request.current?.abort()}>{t("cancel")}</Button></>}
       {error && <p role="alert" className="text-destructive text-xs">{error}</p>}
+      {warning && <p role="status" className="text-muted-foreground text-xs">{warning}</p>}
     </div>}
   </div>;
 }

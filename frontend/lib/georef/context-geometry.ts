@@ -26,6 +26,9 @@ export type ContextFeatureRange = {
   featureIndex: number;
 };
 
+/** A local copy of the legend for the loaded WMS layer/style. */
+export type ContextLegend = { title: string; image: Blob };
+
 /** Compact mapping: one range per surface, not one id per vertex. */
 export class ContextFeatureIndex {
   readonly features: ContextFeature[] = [];
@@ -77,7 +80,7 @@ export type ContextGeometry = {
   /** Per-vertex feature edge flags, prepared once in a worker after parsing. */
   edgeMasks?: Uint8Array;
   /** Local WMS image, with UVs matching the projected grid. */
-  raster?: { image: ImageBitmap; uvs: Float32Array };
+  raster?: { image: ImageBitmap; uvs: Float32Array; legend?: ContextLegend };
   attribution?: string;
   attributionUrl?: string;
   features?: ContextFeature[];

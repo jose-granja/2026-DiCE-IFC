@@ -758,11 +758,14 @@ a separate 2D map. `/georef` redirects to `/viewer?panel=georef`.
   reference; `pickPoint()` includes context for measurements and orbit pivots.
 - **Keep feature metadata and triangle ranges through every reader and worker.**
   `ContextGeometry.features` holds source IDs/attributes and `featureRanges`
-  maps rendered triangle indices to features. Several surfaces may share one
+  maps source triangle indices to features. Several surfaces may share one
   feature; highlight them together. Coplanar map hits prefer later triangles,
   matching layer draw order. Never invent an IFC reference for a context feature.
 - **Context appearance belongs to `context-model-store` and the project.**
-  `appearance` contains its edge toggle/width and property colour overrides.
+  `appearance` contains its edge toggle/width, property colour overrides and
+  hidden value keys. Hidden values stay in the legend and are saved with the
+  project. Filtering updates draw indices, so context inspection resolves the
+  original triangle from the hit's first vertex, not its compacted `faceIndex`.
   Missing appearance fields in old projects receive defaults. Switching Geo tabs
   must not remove styling; `ViewerCanvas` synchronizes it independently.
 - **Context edges use the IFC surface shader, with masks built in a worker.**
