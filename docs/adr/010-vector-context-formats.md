@@ -178,3 +178,13 @@ Projects store a `.context-features` snapshot of a WFS response or a
 `.context-map` archive containing the WMS image and georeferencing. Restoring
 these is offline. Provider attribution remains visible while the context is
 shown and is included in the snapshot. No IFC, BCF or IDS payload is sent.
+
+GAIURB's `opendata.gaiurb.pt` server currently sends only its leaf certificate,
+omitting Sectigo Public Server Authentication CA DV R36. `ogc-tls.ts` supplies
+that public intermediate for this exact hostname, preserving Node's default
+trust roots (including configured extra roots on current Node versions). The
+PEM comes from Sectigo's published repository and its SHA-256 is pinned in a
+regression test. It introduces no new root, disables no verification, and does
+not enable partial-chain trust: TLS must still reach an existing trusted root
+and validate the hostname and dates. Other providers retain their default CA
+selection. No certificate-discovery requests are made at runtime.

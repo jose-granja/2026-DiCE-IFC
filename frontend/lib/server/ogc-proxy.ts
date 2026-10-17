@@ -3,6 +3,7 @@ import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
+import { ogcTlsOptions } from "./ogc-tls";
 
 const blocked = new BlockList();
 for (const [address, prefix] of [["0.0.0.0",8],["10.0.0.0",8],["100.64.0.0",10],["127.0.0.0",8],["169.254.0.0",16],["172.16.0.0",12],["192.0.0.0",24],["192.0.2.0",24],["192.168.0.0",16],["198.18.0.0",15],["198.51.100.0",24],["203.0.113.0",24],["224.0.0.0",3]] as const) blocked.addSubnet(address,prefix,"ipv4");
@@ -66,6 +67,7 @@ export async function downloadOgc(value: string, signal?: AbortSignal): Promise<
   const timeout = AbortSignal.timeout(30_000);
   return new Promise((resolve,reject) => {
     const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(url, {
+      ...(url.protocol === "https:" ? ogcTlsOptions(hostname) : {}),
       method:"GET", signal:signal ? AbortSignal.any([signal,timeout]) : timeout,
       headers:{ Accept:image ? "image/png,image/jpeg,application/xml" : "application/xml,application/gml+xml,application/json,text/xml", "Accept-Encoding":"identity" },
       lookup:(_hostname, options, callback) => {
