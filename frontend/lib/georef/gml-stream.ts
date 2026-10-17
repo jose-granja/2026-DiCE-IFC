@@ -9,7 +9,8 @@
  */
 
 import { GmlMetadataStream } from "./gml-metadata";
-import { GeometryBuilder, fanTriangles, type ContextFeature, type ContextGeometry } from "./context-geometry";
+import { GeometryBuilder, type ContextFeature, type ContextGeometry } from "./context-geometry";
+import { polygonTriangles } from "./polygon-triangulation";
 import { epsgFromSrsName } from "./citygml";
 import { mapToWgs84, wgs84ToMap, type WgsPoint } from "./transform";
 
@@ -155,13 +156,34 @@ export async function parseLargeGml(
   ) || 3;
   const referenceInTarget = wgs84ToMap(options.reference, options.targetEpsg);
 
-  const retained: Array<{ ring: Point[]; feature: ContextFeature }> = [];
+  type Surface = { exterior: Point[]; holes: Point[][]; feature: ContextFeature };
+  const retained: Surface[] = [];
+  let current: (Surface & { polygon: object }) | undefined;
   const metadata = new GmlMetadataStream();
   let axisOrder: "longitude-latitude" | "latitude-longitude" | null = null;
   let pending = "";
   let offset = 0;
   let seenPosLists = 0;
   const decoder = new TextDecoder();
+
+  const finishSurface = () => {
+    if (!current) return;
+    const { exterior, holes, feature } = current;
+    const order = axisOrder ?? "longitude-latitude";
+    // Clip the surface as a whole. Testing holes separately can either fill a
+    // courtyard or lose its boundary when only the exterior intersects the clip.
+    if (exterior.length >= 3 && intersectsClip(
+      exterior, sourceEpsg, order, options.reference, options.radiusMetres,
+      referenceInTarget, options.targetEpsg,
+    )) {
+      retained.push({
+        exterior: projectRing(exterior, sourceEpsg, options.targetEpsg, order),
+        holes: holes.map((ring) => projectRing(ring, sourceEpsg, options.targetEpsg, order)),
+        feature,
+      });
+    }
+    current = undefined;
+  };
 
   while (offset < blob.size) {
     const end = Math.min(blob.size, offset + CHUNK_BYTES);
@@ -193,34 +215,23 @@ export async function parseLargeGml(
       }
 
       metadata.feed(pending.slice(consumed, contentStart));
-      const dimension = Number(
-        /\bsrsDimension\s*=\s*["'](\d+)["']/i.exec(match[1])?.[1],
-      ) || globalDimension;
+      const polygon = metadata.polygon;
+      if (polygon !== current?.polygon) finishSurface();
+      const dimension = metadata.dimension ?? globalDimension;
       const values = numbersIn(pending.slice(contentStart, close.index));
       const points: Point[] = [];
       for (let i = 0; i + dimension - 1 < values.length; i += dimension) {
         points.push([values[i], values[i + 1], dimension >= 3 ? values[i + 2] : 0]);
       }
       seenPosLists += 1;
-      if (points.length >= 3) {
+      if (points.length >= 3 && polygon) {
         if (sourceEpsg === 4326 && axisOrder === null) {
           axisOrder = detectAxisOrder(points[0][0], points[0][1], options.reference);
         }
-        const order = axisOrder ?? "longitude-latitude";
-        if (
-          intersectsClip(
-            points,
-            sourceEpsg,
-            order,
-            options.reference,
-            options.radiusMetres,
-            referenceInTarget,
-            options.targetEpsg,
-          )
-        ) {
-          retained.push({ ring: projectRing(points, sourceEpsg, options.targetEpsg, order),
-            feature: metadata.feature ?? { id: String(seenPosLists), type: "GML surface", source: "CityGML / GML", properties: {} } });
-        }
+        current ??= { polygon, exterior: [], holes: [],
+          feature: metadata.feature ?? { id: String(seenPosLists), type: "GML surface", source: "CityGML / GML", properties: {} } };
+        if (metadata.interior) current.holes.push(points);
+        else current.exterior = points;
       }
 
       metadata.feed(pending.slice(close.index, closing.lastIndex));
@@ -234,6 +245,7 @@ export async function parseLargeGml(
     // Give the worker event loop a chance to deliver progress and cancellation.
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
+  finishSurface();
 
   if (seenPosLists === 0) {
     throw new Error("This GML file contains no gml:posList geometry.");
@@ -246,8 +258,8 @@ export async function parseLargeGml(
 
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity;
-  for (const { ring } of retained) {
-    for (const [x, y, z] of ring) {
+  for (const { exterior } of retained) {
+    for (const [x, y, z] of exterior) {
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
       if (y < minY) minY = y;
@@ -261,9 +273,9 @@ export async function parseLargeGml(
     height: Number.isFinite(minZ) ? minZ : 0,
   };
   const builder = new GeometryBuilder();
-  for (const { ring, feature } of retained) {
+  for (const { exterior, holes, feature } of retained) {
     const firstTriangle = builder.triangleCount;
-    for (const [a, b, c] of fanTriangles(ring)) {
+    for (const [a, b, c] of polygonTriangles([exterior, ...holes])) {
       builder.triangle(a, b, c, BUILDING_COLOUR, origin);
     }
     builder.addFeature(feature, firstTriangle);

@@ -165,6 +165,14 @@ export const projectManifestSchema = z.object({
       visible: z.boolean().default(true),
       clipEnabled: z.boolean().default(true),
       clipRadius: text.default("100"),
+      appearance: z.object({
+        edgesOn: z.boolean().default(true),
+        edgeWidth: finite.min(0.5).max(3).default(1),
+        colouring: z.object({
+          property: text,
+          overrides: z.record(text, z.string().regex(/^#[\da-f]{6}$/i)).default({}),
+        }).nullable().default(null),
+      }).default({ edgesOn: true, edgeWidth: 1, colouring: null }),
     })
     .nullable()
     .default(null),

@@ -27,6 +27,7 @@ import { serializeLenses } from "@/lib/lens/file";
 import type { Lens } from "@/lib/lens/types";
 import type { StoredQueryListItem } from "@/lib/viewer/quantity-list-storage";
 import type { ViewerCameraState } from "@/lib/viewer/renderer";
+import type { ContextModelSettings } from "@/lib/viewer/context-model-store";
 import type { PointColourMode } from "@/lib/pointcloud/colour";
 import type { CloudFrame } from "@/lib/pointcloud/place";
 
@@ -63,12 +64,7 @@ export type SessionSnapshot = {
     size: number;
     visible: boolean;
   }>;
-  context: {
-    file: File;
-    visible: boolean;
-    clipEnabled: boolean;
-    clipRadius: string;
-  } | null;
+  context: ({ file: File } & ContextModelSettings) | null;
   /** The IDS the validator is set to, as XML. */
   validationIds: { xml: string; title: string; source: "file" | "editor" } | null;
   /** The IDS editor's document, serialised — null when it has no specifications. */
@@ -193,6 +189,7 @@ export function buildProject(session: SessionSnapshot, savedAt = new Date()): Bu
       visible: session.context.visible,
       clipEnabled: session.context.clipEnabled,
       clipRadius: session.context.clipRadius,
+      appearance: session.context.appearance,
     };
     files.push({ path, data: session.context.file });
   }

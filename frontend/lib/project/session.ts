@@ -119,6 +119,7 @@ export function snapshotSession(): SessionSnapshot {
             visible: context.visible,
             clipEnabled: context.clipEnabled,
             clipRadius: context.clipRadius,
+            appearance: context.appearance,
           }
         : null,
     validationIds: validate.idsXml
@@ -600,6 +601,7 @@ export async function restoreProject(
         visible: plan.context.entry.visible,
         clipEnabled: plan.context.entry.clipEnabled,
         clipRadius: plan.context.entry.clipRadius,
+        appearance: plan.context.entry.appearance,
       });
     }
     panels.open("georef");

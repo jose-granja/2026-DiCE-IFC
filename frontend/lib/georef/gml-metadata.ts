@@ -58,7 +58,8 @@ function decodeXml(text: string): string {
   });
 }
 
-type Frame = { name: string; path: string; text: string; children: boolean; geometry: boolean; feature?: ContextFeature };
+const POLYGON = /^(?:Polygon|PolygonPatch|Triangle)$/;
+type Frame = { name: string; path: string; text: string; children: boolean; geometry: boolean; feature?: ContextFeature; dimension?: number };
 
 /**
  * Metadata-only XML scanner for the large-file worker. Coordinate text is
@@ -72,6 +73,20 @@ export class GmlMetadataStream {
   private sequence = 0;
 
   get feature(): ContextFeature | undefined { return this.stack.at(-1)?.feature; }
+
+  /** Identity of the enclosing surface, retained across chunk boundaries. */
+  get polygon(): object | undefined { return this.stack.findLast((frame) => POLYGON.test(frame.name)); }
+
+  get interior(): boolean {
+    for (let i = this.stack.length - 1; i >= 0; i--) {
+      const name = this.stack[i].name;
+      if (name === "interior" || name === "innerBoundaryIs") return true;
+      if (POLYGON.test(name)) break;
+    }
+    return false;
+  }
+
+  get dimension(): number | undefined { return this.stack.at(-1)?.dimension; }
 
   feed(xml: string) {
     this.pending += xml;
@@ -103,7 +118,7 @@ export class GmlMetadataStream {
       const parent = this.stack.at(-1);
       if (parent) parent.children = true;
       const isFeature = FEATURES.has(name) || MEMBER.test(parent?.name ?? "");
-      const fallbackSurface = !parent?.feature && /^(?:Polygon|PolygonPatch|Triangle)$/.test(name);
+      const fallbackSurface = !parent?.feature && POLYGON.test(name);
       const feature = isFeature || fallbackSurface ? {
         id: Object.entries(attributes).find(([key]) => key.split(":").at(-1) === "id")?.[1] ?? String(++this.sequence),
         type: name, source: "CityGML / GML", properties: {},
@@ -116,7 +131,9 @@ export class GmlMetadataStream {
           addProperty(feature, `${path ? `${path}.` : ""}@${key}`, value);
         }
       }
-      this.stack.push({ name, path, text: "", children: false, geometry, feature });
+      const declaredDimension = Number(attributes.srsDimension);
+      const dimension = declaredDimension === 2 || declaredDimension === 3 ? declaredDimension : parent?.dimension;
+      this.stack.push({ name, path, text: "", children: false, geometry, feature, dimension });
       if (/\/\s*>$/.test(tag)) this.close();
     }
     this.pending = this.pending.slice(cursor);

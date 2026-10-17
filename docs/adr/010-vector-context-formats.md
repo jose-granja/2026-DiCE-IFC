@@ -82,8 +82,8 @@ A GeoPackage is a SQLite database, so reading one needs a SQL engine.
 ## Consequences
 
 - Four formats, one code path, one set of traps written down.
-- GeoPackage uses ear-clipping triangulation for concave polygons and holes.
-  Other vector readers still use triangle fans.
+- GeoPackage and GML use ear-clipping triangulation for concave polygons and
+  holes. CityJSON and GeoJSON still use triangle fans.
 - A GeoPackage's tile pyramids and attribute-only tables are ignored; only
   `data_type = 'features'` is read.
 
@@ -121,3 +121,32 @@ selection highlights every surface of the feature and shows its read-only metada
 in the existing properties panel. It has independent state and never creates an
 IFC entity reference or enters IDS, BCF element references, clash or federation data.
 Hiding, replacing or removing context clears this selection.
+
+### Context outlines and property colours (2026-10-16)
+
+Context surfaces use the same edge shader as IFC models. Edge masks are computed
+once in a dedicated worker, with adjacency partitioned by source feature so
+coplanar parcels keep their shared boundary. The Geo panel controls their width
+and visibility separately from IFC edges.
+
+A selected metadata property groups features by typed values; the panel assigns
+automatic colours and lets the user override each value through a searchable,
+virtualized legend. Missing, null, zero, false and empty text remain distinct.
+Selection highlighting overlays this style and restores it on deselection.
+The context appearance travels in `project.json`; older projects default to
+visible one-pixel edges and original colours. All processing stays local.
+
+### GML surface triangulation (2026-10-16)
+
+Concave urban-area boundaries and CityGML roofs exposed triangle fans drawing
+outside the source polygon, overlapping adjacent surfaces. Both GML readers
+now triangulate complete polygons with their interior rings. The shared helper
+projects each surface onto its dominant plane, preserving vertical walls,
+sloping roofs, original elevations and winding. Local coordinates keep the
+projection stable with large survey coordinates.
+
+The large-file reader tracks polygon identity and hole roles across chunks.
+Clipping retains an exterior and its holes together; a courtyard is never
+treated as a separate filled surface. Feature metadata and triangle ranges
+remain attached to the resulting triangles. Parsing stays on the device and
+large files still run in the worker without creating a full XML document.

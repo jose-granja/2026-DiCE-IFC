@@ -57,6 +57,7 @@ const CLICK_DRAG_THRESHOLD_PX = 5;
  */
 export function ViewerCanvas() {
   const contextSelection = useContextModelStore((s) => s.selectedFeature);
+  const contextAppearance = useContextModelStore((s) => s.appearance);
   const t = useTranslations("viewer.canvas");
   const edgeShading = usePointCloudStore((s) => s.edgeShading);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -303,6 +304,10 @@ export function ViewerCanvas() {
   useEffect(() => {
     rendererRef.current?.setContextSelection(contextSelection);
   }, [contextSelection]);
+
+  useEffect(() => {
+    rendererRef.current?.setContextAppearance(contextAppearance);
+  }, [contextAppearance]);
 
   // ---- colouring (clash detection, BCF viewpoints)
   const colouring = useViewerStore((s) => s.colouring);

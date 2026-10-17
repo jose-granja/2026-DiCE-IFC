@@ -74,6 +74,8 @@ export type ContextGeometry = {
   positions: Float32Array;
   /** One RGB triple per vertex. */
   colours: Float32Array;
+  /** Per-vertex feature edge flags, prepared once in a worker after parsing. */
+  edgeMasks?: Uint8Array;
   features?: ContextFeature[];
   featureRanges?: ContextFeatureRange[];
   /** Projected coordinates of the local origin, in `epsg`. */
@@ -156,13 +158,9 @@ export class GeometryBuilder {
 }
 
 /**
- * Fan-triangulate a closed ring of projected points.
- *
- * Correct for convex rings and acceptable for the gently non-convex footprints
- * that dominate cadastral and city data. Rings with holes are handled by the
- * caller dropping them — a hole fanned into the exterior draws a solid wedge
- * across the courtyard, and a missing courtyard is a smaller lie than an
- * invented wall.
+ * Fan-triangulate a convex ring (for example a clipped triangle).
+ * Concave surfaces and holes need polygonTriangles instead: a fan can extend
+ * outside the boundary and create overlapping coplanar triangles.
  */
 export function fanTriangles<T>(ring: T[]): Array<[T, T, T]> {
   ring = openRing(ring);

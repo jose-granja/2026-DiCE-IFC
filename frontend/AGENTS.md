@@ -754,11 +754,25 @@ a separate 2D map. `/georef` redirects to `/viewer?panel=georef`.
   maps rendered triangle indices to features. Several surfaces may share one
   feature; highlight them together. Coplanar map hits prefer later triangles,
   matching layer draw order. Never invent an IFC reference for a context feature.
+- **Context appearance belongs to `context-model-store` and the project.**
+  `appearance` contains its edge toggle/width and property colour overrides.
+  Missing appearance fields in old projects receive defaults. Switching Geo tabs
+  must not remove styling; `ViewerCanvas` synchronizes it independently.
+- **Context edges use the IFC surface shader, with masks built in a worker.**
+  `context-edges-client` copies positions before transfer; feature IDs partition
+  adjacency so neighbouring coplanar parcels retain their border while triangles
+  within a feature do not show their diagonals. Keep source colours immutable:
+  selection restores the current property colours, not the original palette.
 - **Every context format resolves to `ContextGeometry`.** CityJSON, GeoJSON and
   anything added later produce the same triangle soup in metres about a
   projected origin, built through `GeometryBuilder` — which owns the one
   conversion nobody should re-derive: projected/Z-up to render/Y-up with −Z
   north. Getting that wrong is silent; the geometry renders, on its side.
+- **GML surfaces need planar polygon triangulation, not fans.** Concave roofs
+  otherwise overlap neighbouring buildings. `polygonTriangles` projects onto
+  the dominant plane so vertical walls survive, and triangulates the exterior
+  with all holes. The large GML reader retains polygon identity across chunks
+  and clips the exterior and holes together; never fill each `posList` alone.
 - **Dispatch on the file's `type` member, not its extension.** CityJSON's
   convention is `.city.json` and half the GeoJSON municipalities publish is
   plain `.json`, so the extension decides nothing.

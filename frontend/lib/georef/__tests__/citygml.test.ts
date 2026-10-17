@@ -157,17 +157,30 @@ describe("parseCityGml", () => {
     expect(parseCityGml(xml, EPSG).positions.length).toBe(9);
   });
 
-  it("drops interior rings rather than drawing across the hole", () => {
-    const xml = building().replace(
+  it.each([["exterior", "interior"], ["outerBoundaryIs", "innerBoundaryIs"]])("preserves a concave outline and holes using %s/%s", (outer, inner) => {
+    const xml = building({ posList: "0 0 0 6 0 0 6 6 0 4 6 0 4 2 0 2 2 0 2 6 0 0 6 0 0 0 0" }).replace(
       "</gml:exterior>",
       `</gml:exterior>
        <gml:interior><gml:LinearRing><gml:posList srsDimension="3">
-         -37998 165002 100 -37996 165002 100 -37996 165004 100 -37998 165002 100
+         0.5 3 0 1.5 3 0 1.5 4 0 0.5 4 0 0.5 3 0
        </gml:posList></gml:LinearRing></gml:interior>`,
-    );
+    ).replaceAll("gml:exterior", `gml:${outer}`).replaceAll("gml:interior", `gml:${inner}`);
 
-    // Still one triangle: the hole is skipped, not fanned into the exterior.
-    expect(parseCityGml(xml, EPSG).positions.length).toBe(9);
+    const result = parseCityGml(xml, EPSG);
+    const p = result.positions;
+    let area = 0;
+    for (let i = 0; i < p.length; i += 9) {
+      area += Math.abs((p[i+3]-p[i])*(p[i+8]-p[i+2])-(p[i+5]-p[i+2])*(p[i+6]-p[i]))/2;
+    }
+    expect(area).toBeCloseTo(27);
+    expect(result.objectCount).toBe(1);
+    expect(result.featureRanges).toEqual([{ firstTriangle: 0, triangleCount: p.length / 9, featureIndex: 0 }]);
+  });
+
+  it("inherits a 2D coordinate dimension from the polygon", () => {
+    const xml = building({ dimension: 2, posList: "0 0 10 0 10 10 0 0" })
+      .replaceAll(' srsDimension="2"', '').replace('<gml:Polygon>', '<gml:Polygon srsDimension="2">');
+    expect(parseCityGml(xml).positions.length).toBe(9);
   });
 
   it("reprojects when the file's CRS differs from the model's", () => {

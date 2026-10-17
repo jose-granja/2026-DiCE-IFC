@@ -40,6 +40,8 @@ import { getActiveRenderer } from "@/lib/viewer/active-renderer";
 import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import type { Vec3 } from "@/lib/ifc/types";
 import LoadingProgress from "./LoadingProgress";
+import { ContextAppearanceControls } from "./ContextAppearanceControls";
+import { prepareContextEdges } from "@/lib/workers/context-edges-client";
 
 const LARGE_TEXT_FILE_BYTES = 64 * 1024 * 1024;
 
@@ -130,9 +132,10 @@ export function ContextModel({
     }
 
     renderer.setContextGeometry(
-      { positions: result.positions, colours: result.colours, featureRanges: result.featureRanges },
+      result,
       offset,
     );
+    renderer.setContextAppearance(useContextModelStore.getState().appearance);
     renderer.setContextSelection(useContextModelStore.getState().selectedFeature);
   };
 
@@ -255,6 +258,9 @@ export function ContextModel({
     setProgress(null);
     try {
       const result = await read(file, placement?.epsg ?? null);
+      setPhase("processing");
+      setProgress(null);
+      result.edgeMasks = await prepareContextEdges(result);
       setPhase("displaying");
       setProgress(null);
       await new Promise<void>((resolve) => setTimeout(resolve, 16));
@@ -376,6 +382,8 @@ export function ContextModel({
           if (file) void onFile(file);
         }}
       />
+
+      {loaded && <ContextAppearanceControls geometry={loaded} disabled={loading} />}
 
       {!loaded && canClip && (
         <div className="flex items-center justify-between gap-2">

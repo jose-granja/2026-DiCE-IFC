@@ -1,3 +1,4 @@
+import { DEFAULT_CONTEXT_APPEARANCE } from "@/lib/viewer/context-appearance";
 import { beforeEach, expect, it } from "vitest";
 import { useContextModelStore } from "../context-model-store";
 import { useViewerStore } from "../store";
@@ -31,7 +32,7 @@ it("clears stale feature indices when hiding, replacing, removing or restoring c
     () => useContextModelStore.getState().setSettings({ visible: false }),
     () => useContextModelStore.getState().setLoaded(file, { ...geometry, features: [] }),
     () => useContextModelStore.getState().clear(),
-    () => useContextModelStore.getState().restore(file, { visible: true, clipEnabled: true, clipRadius: "100" }),
+    () => useContextModelStore.getState().restore(file, { visible: true, clipEnabled: true, clipRadius: "100", appearance: DEFAULT_CONTEXT_APPEARANCE }),
   ]) {
     const context = useContextModelStore.getState();
     context.setSettings({ visible: true }); context.setLoaded(file, geometry); context.selectFeature(0);

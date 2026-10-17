@@ -23,19 +23,19 @@
  *   size is `srsDimension` — 3 normally, 2 for a flat footprint.
  * - **Coordinates are already projected**, and `srsName` says into what. It is
  *   usually on the root envelope rather than on each geometry.
- * - **A polygon's `exterior` is the shape; `interior` rings are holes.** Holes
- *   are dropped rather than fanned, for the reason given in `fanTriangles`.
+ * - **A polygon's `exterior` is the shape; `interior` rings are holes.** They
+ *   are triangulated together on the surface's plane, including vertical walls.
  */
 
 import { mapToWgs84, wgs84ToMap } from "./transform";
 import {
-  fanTriangles,
   GeometryBuilder,
   type ContextGeometry,
   type ContextFeature,
 } from "./context-geometry";
 
 import { gmlFeatureElement, readGmlFeature } from "./gml-metadata";
+import { polygonTriangles } from "./polygon-triangulation";
 
 export class CityGmlError extends Error {}
 
@@ -84,6 +84,14 @@ function localChild(element: Element, name: string): Element | null {
   return null;
 }
 
+function coordinateDimension(element: Element, fallback: number): number {
+  for (let node: Element | null = element; node; node = node.parentElement) {
+    const dimension = Number(node.getAttribute("srsDimension"));
+    if (dimension === 2 || dimension === 3) return dimension;
+  }
+  return fallback;
+}
+
 /**
  * The coordinates of one ring.
  *
@@ -96,8 +104,7 @@ function ringPoints(ring: Element, defaultDimension: number): Point[] {
 
   const posList = byLocalName(ring, "posList")[0];
   if (posList) {
-    const dimension =
-      Number(posList.getAttribute("srsDimension")) || defaultDimension;
+    const dimension = coordinateDimension(posList, defaultDimension);
     const numbers = (posList.textContent ?? "")
       .trim()
       .split(/\s+/)
@@ -243,17 +250,21 @@ export function parseCityGml(
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
 
   for (const polygon of polygons) {
-    // `exterior` only. An `interior` ring is a hole, and a fanned hole draws a
-    // solid wedge across the courtyard.
-    const exterior = localChild(polygon, "exterior");
+    const exterior = localChild(polygon, "exterior") ?? localChild(polygon, "outerBoundaryIs");
     const ringElement = exterior
       ? byLocalName(exterior, "LinearRing")[0]
       : byLocalName(polygon, "LinearRing")[0];
     if (!ringElement) continue;
 
-    let points = ringPoints(ringElement, defaultDimension);
+    const interiors = [...polygon.children]
+      .filter((child) => child.localName === "interior" || child.localName === "innerBoundaryIs")
+      .flatMap((child) => byLocalName(child, "LinearRing"));
+    const rings = [ringElement, ...interiors].map((ring) => {
+      const points = ringPoints(ring, defaultDimension);
+      return reproject ? points.map(reproject) : points;
+    });
+    const points = rings[0];
     if (points.length < 3) continue;
-    if (reproject) points = points.map(reproject);
 
     for (const [x, y, z] of points) {
       if (x < minX) minX = x;
@@ -267,7 +278,7 @@ export function parseCityGml(
     const owner = gmlFeatureElement(polygon);
     let feature = metadata.get(owner);
     if (!feature) { feature = readGmlFeature(owner, String(metadata.size + 1)); metadata.set(owner, feature); }
-    ready.push({ name: feature.type, feature, rings: [points] });
+    ready.push({ name: feature.type, feature, rings });
   }
 
   if (ready.length === 0) {
@@ -288,10 +299,8 @@ export function parseCityGml(
   for (const entry of ready) {
     const firstTriangle = builder.triangleCount;
     const colour = COLOURS[entry.name] ?? DEFAULT_COLOUR;
-    for (const ring of entry.rings) {
-      for (const [a, b, c] of fanTriangles(ring)) {
-        builder.triangle(a, b, c, colour, origin);
-      }
+    for (const [a, b, c] of polygonTriangles(entry.rings)) {
+      builder.triangle(a, b, c, colour, origin);
     }
     builder.addFeature(entry.feature, firstTriangle);
     counts.set(entry.name, (counts.get(entry.name) ?? 0) + 1);

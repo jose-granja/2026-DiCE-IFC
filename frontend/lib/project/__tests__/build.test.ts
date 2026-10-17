@@ -1,3 +1,4 @@
+import { DEFAULT_CONTEXT_APPEARANCE } from "@/lib/viewer/context-appearance";
 import { createRequire } from "node:module";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -47,7 +48,7 @@ function session(over: Partial<SessionSnapshot> = {}): SessionSnapshot {
       { id: "m-c", name: "Lost.ifc", file: undefined, colour: "#2f9e6f", visible: true },
     ],
     pointClouds: [{ name: "scan.ply", file: scan, frame: "map", mode: "height", size: 3, visible: true }],
-    context: { file: city, visible: false, clipEnabled: true, clipRadius: "250" },
+    context: { file: city, visible: false, clipEnabled: true, clipRadius: "250", appearance: DEFAULT_CONTEXT_APPEARANCE },
     validationIds: { xml: "<ids/>", title: "Fire safety", source: "file" },
     editorIds: null,
     bcf: new Uint8Array([80, 75, 3, 4]),
@@ -264,7 +265,7 @@ describe("a saved project read back", () => {
     ]);
     expect(await plan.models[1].file.text()).toBe("ISO-10303-21; other wall");
     expect(plan.pointClouds[0].entry).toMatchObject({ frame: "map", mode: "height", size: 3 });
-    expect(plan.context?.entry).toMatchObject({ visible: false, clipRadius: "250" });
+    expect(plan.context?.entry).toMatchObject({ visible: false, clipRadius: "250", appearance: DEFAULT_CONTEXT_APPEARANCE });
     expect(plan.validationIds).toMatchObject({ title: "Fire safety", source: "file" });
     expect(plan.quantities?.name).toBe("quantities.xlsx");
     expect(plan.clash?.name).toBe("clash-matrix.xlsx");
@@ -317,4 +318,13 @@ describe("ref keys", () => {
     expect(parseLiveRefKey("nohash")).toBeNull();
     expect(parseLiveRefKey("m#x")).toBeNull();
   });
+});
+
+it("carries context edges and property colour overrides through a project round trip", async () => {
+  const appearance = { edgesOn: false, edgeWidth: 2.5, colouring: { property: "height", overrides: { "number:12": "#123456" } } };
+  const result = await buildProject(session({ context: { file: city, visible: true, clipEnabled: true, clipRadius: "100", appearance } }));
+  const folder = folderOf(result.files);
+  const manifest = parseProjectManifest(await folder.manifestBlob.text());
+  const plan = await planRestore(manifest, folder);
+  expect(plan.context?.entry.appearance).toEqual(appearance);
 });

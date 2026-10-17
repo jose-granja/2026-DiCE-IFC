@@ -1067,6 +1067,23 @@
       }
     },
     "contextModel": {
+      "appearance": {
+        "edges": "Mostrar arestas do contexto",
+        "edgeWidth": "Espessura das arestas do contexto",
+        "colourBy": "Colorir por propriedade",
+        "original": "Cores originais",
+        "noProperties": "Este contexto não tem propriedades para definir cores.",
+        "values": "{count, number} valores",
+        "reset": "Repor cores",
+        "filterValues": "Filtrar valores…",
+        "valueColour": "Cor para {value}",
+        "missingValue": "Propriedade ausente",
+        "nullValue": "Sem valor (null)",
+        "emptyValue": "Texto vazio",
+        "yes": "Sim",
+        "no": "Não",
+        "noValues": "Nenhum valor corresponde à pesquisa."
+      },
       "progress": {
         "reading": "A ler o ficheiro de contexto…",
         "processing": "A processar o modelo de contexto…",

@@ -24,9 +24,10 @@
  */
 
 import * as THREE from "three";
-import { contextFeatureAt, type ContextGeometry, type ContextFeatureRange } from "@/lib/georef/context-geometry";
+import { contextFeatureAt, type ContextGeometry, type ContextFeature, type ContextFeatureRange } from "@/lib/georef/context-geometry";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { OrbitPivot } from "./orbit-pivot";
+import { DEFAULT_CONTEXT_APPEARANCE, contextColourGroups, contextPropertyValue, contextValueKey, type ContextAppearance } from "./context-appearance";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
@@ -841,6 +842,14 @@ export class ViewerRenderer {
   private snapPreviewMarkers: Record<SnapTargetType, THREE.Points>;
   private contextMesh: THREE.Mesh | null = null;
   private contextFeatureRanges: ContextFeatureRange[] = [];
+  private contextFeatures: ContextFeature[] = [];
+  private contextSourceColours: Float32Array | null = null;
+  private contextAppearance: ContextAppearance = DEFAULT_CONTEXT_APPEARANCE;
+  private contextAppliedColouring: ContextAppearance["colouring"] | undefined;
+  private contextEdgeUniforms: EdgeUniforms = {
+    uEdgeWidth: { value: DEFAULT_EDGE_WIDTH },
+    uEdgeColour: { value: new THREE.Color(DEFAULT_EDGE_COLOUR) },
+  };
   private contextBaseColours: Float32Array | null = null;
   private selectedContextFeature: number | null = null;
   /** Scanned point clouds, by id. Not models — see `addPointCloud`. */
@@ -2356,7 +2365,7 @@ export class ViewerRenderer {
    * model would put someone else's city into the user's IDS results.
    */
   setContextGeometry(
-    data: Pick<ContextGeometry, "positions" | "colours" | "featureRanges"> | null,
+    data: Pick<ContextGeometry, "positions" | "colours" | "featureRanges" | "features" | "edgeMasks"> | null,
     offset: Vec3 = [0, 0, 0],
   ) {
     if (this.contextMesh) {
@@ -2367,6 +2376,9 @@ export class ViewerRenderer {
       this.contextMesh = null;
     }
     this.contextFeatureRanges = data?.featureRanges ?? [];
+    this.contextFeatures = data?.features ?? [];
+    this.contextSourceColours = data?.colours ?? null;
+    this.contextAppliedColouring = undefined;
     this.contextBaseColours = data?.colours ?? null;
     this.selectedContextFeature = null;
     document.querySelector("[data-context-model]")?.remove();
@@ -2376,6 +2388,7 @@ export class ViewerRenderer {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(data.positions, 3));
     geometry.setAttribute("color", new THREE.BufferAttribute(data.colours.slice(), 3));
+    geometry.setAttribute("aEdgeMask", new THREE.BufferAttribute(data.edgeMasks ?? new Uint8Array(data.positions.length / 3), 1));
     geometry.computeVertexNormals();
 
     const mesh = new THREE.Mesh(
@@ -2391,6 +2404,7 @@ export class ViewerRenderer {
           side: THREE.DoubleSide,
           clippingPlanes: this.clipPlanes,
         }),
+        this.contextEdgeUniforms,
       ),
     );
     mesh.position.set(offset[0], offset[1], offset[2]);
@@ -2399,6 +2413,7 @@ export class ViewerRenderer {
 
     this.contextMesh = mesh;
     this.scene.add(mesh);
+    this.setContextAppearance(this.contextAppearance);
 
     const marker = this.canvas.parentElement?.appendChild(
       document.createElement("div"),
@@ -2408,6 +2423,39 @@ export class ViewerRenderer {
       marker.dataset.contextTriangles = String(data.positions.length / 9);
       marker.style.display = "none";
     }
+  }
+
+  /** Recolour in place; selection remains a temporary overlay on this style. */
+  setContextAppearance(appearance: ContextAppearance) {
+    this.contextAppearance = appearance;
+    this.contextEdgeUniforms.uEdgeWidth.value = appearance.edgesOn ? appearance.edgeWidth : 0;
+    if (!this.contextMesh || !this.contextSourceColours) return;
+    // Width/toggle changes need no geometry or colour-buffer rebuild.
+    if (this.contextAppliedColouring === appearance.colouring) return;
+    this.contextAppliedColouring = appearance.colouring;
+    const base = appearance.colouring ? this.contextSourceColours.slice() : this.contextSourceColours;
+    if (appearance.colouring) {
+      const colouring = appearance.colouring;
+      const groups = contextColourGroups(this.contextFeatures, colouring);
+      const colours = new Map(groups.map((group) => [group.key, new THREE.Color(group.colour)]));
+      for (const range of this.contextFeatureRanges) {
+        const feature = this.contextFeatures[range.featureIndex];
+        if (!feature) continue;
+        const colour = colours.get(contextValueKey(contextPropertyValue(feature, colouring.property)));
+        if (!colour) continue;
+        const end = (range.firstTriangle + range.triangleCount) * 9;
+        for (let i = range.firstTriangle * 9; i < end; i += 3) {
+          base[i] = colour.r; base[i + 1] = colour.g; base[i + 2] = colour.b;
+        }
+      }
+    }
+    this.contextBaseColours = base;
+    const attribute = this.contextMesh.geometry.getAttribute("color") as THREE.BufferAttribute;
+    (attribute.array as Float32Array).set(base);
+    attribute.needsUpdate = true;
+    const selected = this.selectedContextFeature;
+    this.selectedContextFeature = null;
+    this.setContextSelection(selected);
   }
 
   /** Highlight all surfaces belonging to the feature without altering source colours. */

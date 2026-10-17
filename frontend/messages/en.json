@@ -1067,6 +1067,23 @@
       }
     },
     "contextModel": {
+      "appearance": {
+        "edges": "Show context edges",
+        "edgeWidth": "Context edge width",
+        "colourBy": "Colour by property",
+        "original": "Original colours",
+        "noProperties": "This context has no properties to colour by.",
+        "values": "{count, number} values",
+        "reset": "Reset colours",
+        "filterValues": "Filter values…",
+        "valueColour": "Colour for {value}",
+        "missingValue": "Missing property",
+        "nullValue": "No value (null)",
+        "emptyValue": "Empty text",
+        "yes": "Yes",
+        "no": "No",
+        "noValues": "No values match your search."
+      },
       "progress": {
         "reading": "Reading context file…",
         "processing": "Processing context model…",

@@ -34,6 +34,8 @@ export function featureEdgeMasks(
   positions: ArrayLike<number>,
   indices: ArrayLike<number>,
   angleDegrees = DEFAULT_EDGE_ANGLE_DEGREES,
+  /** Separate features keep their shared borders, even when coplanar. */
+  triangleGroups?: ArrayLike<number>,
 ): Uint8Array {
   const triangles = Math.floor(indices.length / 3);
   const masks = new Uint8Array(triangles);
@@ -80,9 +82,12 @@ export function featureEdgeMasks(
 
   const limit = Math.cos((angleDegrees * Math.PI) / 180);
   // edge key → `slot + 1` of its first triangle edge, or -1 once two have met.
-  const open = new Map<number, number>();
+  const groups = new Map<number, Map<number, number>>();
 
   for (let t = 0; t < triangles; t += 1) {
+    const group = triangleGroups?.[t] ?? 0;
+    let open = groups.get(group);
+    if (!open) { open = new Map(); groups.set(group, open); }
     for (let e = 0; e < 3; e += 1) {
       const a = weldedId[indices[t * 3 + ((e + 1) % 3)]];
       const b = weldedId[indices[t * 3 + ((e + 2) % 3)]];
@@ -117,7 +122,7 @@ export function featureEdgeMasks(
   }
 
   // Whatever never found a partner is a boundary.
-  for (const slot of open.values()) {
+  for (const open of groups.values()) for (const slot of open.values()) {
     if (slot > 0) masks[Math.floor((slot - 1) / 3)] |= 1 << ((slot - 1) % 3);
   }
   return masks;

@@ -17,6 +17,7 @@
 import { create } from "zustand";
 
 import type { ContextGeometry } from "@/lib/georef/context-geometry";
+import { DEFAULT_CONTEXT_APPEARANCE, type ContextAppearance } from "./context-appearance";
 
 export const DEFAULT_CLIP_RADIUS_METRES = 100;
 
@@ -25,6 +26,7 @@ export type ContextModelSettings = {
   clipEnabled: boolean;
   /** Kept as typed, so a half-edited radius is not rewritten under the cursor. */
   clipRadius: string;
+  appearance: ContextAppearance;
 };
 
 type ContextModelState = ContextModelSettings & {
@@ -50,6 +52,7 @@ export const useContextModelStore = create<ContextModelState>((set) => ({
   visible: true,
   clipEnabled: true,
   clipRadius: String(DEFAULT_CLIP_RADIUS_METRES),
+  appearance: DEFAULT_CONTEXT_APPEARANCE,
   file: null,
   loaded: null,
   selectedFeature: null,
@@ -60,9 +63,11 @@ export const useContextModelStore = create<ContextModelState>((set) => ({
     selectedFeature: state.visible && index !== null && state.loaded?.features?.[index] ? index : null,
   })),
   clearSelection: () => set({ selectedFeature: null }),
-  setLoaded: (file, loaded) => set({ file, loaded, selectedFeature: null }),
+  setLoaded: (file, loaded) => set((state) => ({ file, loaded, selectedFeature: null,
+    appearance: state.pending ? state.appearance : { ...state.appearance, colouring: null },
+  })),
   setSettings: (patch) => set({ ...patch, ...(patch.visible === false ? { selectedFeature: null } : {}) }),
   restore: (file, settings) => set({ ...settings, pending: file, pendingOutcome: null, selectedFeature: null }),
   finishPending: (outcome) => set({ pending: null, pendingOutcome: outcome }),
-  clear: () => set({ file: null, loaded: null, pending: null, pendingOutcome: null, selectedFeature: null }),
+  clear: () => set({ file: null, loaded: null, pending: null, pendingOutcome: null, selectedFeature: null, appearance: DEFAULT_CONTEXT_APPEARANCE }),
 }));
