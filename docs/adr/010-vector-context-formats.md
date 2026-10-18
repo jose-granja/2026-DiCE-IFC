@@ -58,6 +58,20 @@ the wrong place or the wrong shape, which reads as bad data rather than a bug.
   unchanged, the repeated closing point produces a degenerate triangle per ring.
   `openRing` removes it once, centrally.
 
+### Placement in the viewer
+
+Context vertices are map-space metres relative to their projected origin. That
+origin must pass through the inverse IFC map conversion, conversion to render
+metres, subtraction of the RTC shift, and the model group's full transform.
+The vertex deltas use the corresponding net rotation and scale. Applying only
+the group's translation mixes model axes with map axes and shifts the context.
+
+WFS spatial filters return complete intersecting features, so a small requested
+area can produce polygons extending kilometres away. Their geometry origin is
+not the query centre; placement must be independent of that choice of origin.
+`context-placement.ts` owns this transform for all context formats, and updates
+the loaded mesh when the reference placement changes without rebuilding buffers.
+
 ## The new dependency: SQLite as WebAssembly
 
 A GeoPackage is a SQLite database, so reading one needs a SQL engine.
@@ -162,7 +176,7 @@ at a chosen elevation, without inventing feature geometry or attributes.
 
 Downloads use a same-origin `/api/ogc` GET route to support providers without
 CORS. The CSP remains unchanged. This route accepts only GetCapabilities,
-GetFeature and GetMap, bounded response sizes, bounded image dimensions and
+GetFeature, GetMap and GetLegendGraphic, bounded response sizes, bounded image dimensions and
 feature counts. It accepts no files, bodies, cookies or authorization headers.
 Public DNS answers are validated and pinned to the outgoing socket; private
 addresses, nonstandard ports and redirects are refused. It does not store or
@@ -188,3 +202,23 @@ regression test. It introduces no new root, disables no verification, and does
 not enable partial-chain trust: TLS must still reach an existing trusted root
 and validate the hostname and dates. Other providers retain their default CA
 selection. No certificate-discovery requests are made at runtime.
+
+### WMS legends (2026-10-18)
+
+Loading a WMS layer also reads its advertised PNG/JPEG legend, when present.
+The first advertised/inherited style is explicitly applied to GetMap so its
+legend describes the image being shown. If that style has no usable LegendURL,
+an advertised GetLegendGraphic operation can generate one. Reading capabilities
+or changing the layer picker alone does not fetch a legend.
+
+`/api/ogc?legend=1` accepts only GetLegendGraphic or static `.png`, `.jpg` and
+`.jpeg` paths with provider-key parameters. It shares the public DNS pinning,
+TLS verification, no-redirect and no-credentials restrictions of map downloads.
+Legend responses must be PNG/JPEG and at most 2 MiB; the client also caps decoded
+dimensions at 4096 × 16384 and 16 megapixels. SVG, HTML, remote SLDs and arbitrary
+operations are refused. This adds no CSP origin and sends no model data.
+
+The optional legend image and title live inside the existing `.context-map`
+archive; old snapshots remain readable. A collapsible GIS panel displays a local
+blob URL for the loaded map, including after offline project restoration. Failure
+to retrieve a legend does not prevent loading the map.

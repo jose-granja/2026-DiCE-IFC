@@ -57,7 +57,7 @@ else** — permission to send more is not a reason to.
 |---|---|---|
 | bSDD search text and class names (opt-in) | `app/api/bsdd/route.ts`, this app's own server | bSDD sends no CORS headers (ADR 009) |
 | Map tiles, 3D tiles | the configured provider (opt-in) | basemap and 3D context |
-| WFS/WMS service URL, layer and map bounds | user-selected public provider via `/api/ogc` (opt-in) | context features and map images; ADR 010 |
+| WFS/WMS service URL, layer, style and map bounds | user-selected public provider via `/api/ogc` (opt-in) | context features, map images and legends; ADR 010 |
 | SHA-256 of a `SignatureValue` + a nonce (opt-in, when a `TSA_URL` is configured) | `app/api/tsa/route.ts`, this app's own server, then the time-stamp authority | RFC 3161 time-stamps send no CORS headers and the paid ones need credentials (ADR 012) |
 
 There is no account, no project database and no Django API any more. Anything
@@ -778,6 +778,13 @@ a separate 2D map. `/georef` redirects to `/viewer?panel=georef`.
   projected origin, built through `GeometryBuilder` — which owns the one
   conversion nobody should re-derive: projected/Z-up to render/Y-up with −Z
   north. Getting that wrong is silent; the geometry renders, on its side.
+- **Context placement includes the complete IFC group transform.**
+  `context-placement.ts` converts the projected origin to IFC metres, subtracts
+  the render-frame RTC shift, then applies the group's rotation, scale and
+  offset. Map-space vertex deltas need the corresponding net rotation/scale.
+  Applying only the offset misplaces rotated models and large WFS polygons;
+  WFS BBOX filtering returns complete features, whose origin can be far away.
+  Placement changes update the mesh transform without rebuilding its buffers.
 - **GML surfaces need planar polygon triangulation, not fans.** Concave roofs
   otherwise overlap neighbouring buildings. `polygonTriangles` projects onto
   the dominant plane so vertical walls survive, and triangulates the exterior
@@ -787,9 +794,18 @@ a separate 2D map. `/georef` redirects to `/viewer?panel=georef`.
   files only populate the layer picker; they never initiate a request. WFS
   features keep metadata/colouring, WMS images use a projected textured grid.
   Reopening projects must not contact their source service. `/api/ogc` permits
-  only bounded public GetCapabilities/GetFeature/GetMap downloads: no payloads,
+  only bounded public GetCapabilities/GetFeature/GetMap/GetLegendGraphic downloads
+  and PNG/JPEG legend files: no payloads,
   redirects, credentials or private network destinations. Keep the pinned DNS
   lookup, response limits and visible attribution when changing this path.
+- **WMS legends belong to the loaded map snapshot.** Discover them from the
+  selected/inherited style or advertised GetLegendGraphic operation; fetch only
+  on explicit layer load, using the same style as GetMap. Keep the legend blob
+  in `.context-map` for offline restore, and never reuse a previous layer's
+  legend. Optional legend failures must not block map loading. Only PNG/JPEG
+  is accepted, with byte and decoded-size limits; blob URLs are revoked when
+  their image unmounts. Static legend downloads use `legend=1` on `/api/ogc`
+  and allow only raster file paths/provider keys, with the same DNS/TLS checks.
 - **Dispatch on the file's `type` member, not its extension.** CityJSON's
   convention is `.city.json` and half the GeoJSON municipalities publish is
   plain `.json`, so the extension decides nothing.

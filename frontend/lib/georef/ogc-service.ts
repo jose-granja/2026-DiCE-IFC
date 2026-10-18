@@ -86,7 +86,15 @@ export function readCapabilities(text: string, fallbackUrl?: string): OgcService
       for (const legend of styles[0] ? children(styles[0], "LegendURL") : []) {
         const resource = href(descendants(legend, "OnlineResource")[0]);
         if (!resource || !/^image\/(png|jpeg)$/i.test(childText(legend, "Format"))) continue;
-        try { legendUrl = ogcUrl(new URL(resource, url).href).href; break; } catch { /* Ignore unusable legend links. */ }
+        try {
+          const candidate = ogcUrl(new URL(resource, url).href);
+          const params = new Map([...candidate.searchParams].map(([key,value]) => [key.toUpperCase(),value]));
+          if (params.get("REQUEST")?.toUpperCase() === "GETLEGENDGRAPHIC") {
+            if (!params.has("SERVICE")) candidate.searchParams.set("SERVICE","WMS");
+            if (!params.has("FORMAT")) candidate.searchParams.set("FORMAT",childText(legend,"Format"));
+          }
+          legendUrl = candidate.href; break;
+        } catch { /* Ignore unusable legend links. */ }
       }
       if (!legendUrl && name && legendEndpoint && legendFormat) {
         try { legendUrl = requestUrl(new URL(legendEndpoint, url).href, { SERVICE:"WMS", VERSION:version, REQUEST:"GetLegendGraphic", FORMAT:legendFormat, LAYER:name, ...(style ? { STYLE:style } : {}) }); } catch { /* A legend must not prevent loading its map. */ }

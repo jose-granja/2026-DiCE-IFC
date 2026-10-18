@@ -33,7 +33,8 @@ import { findCrs } from "@/config/epsg";
 import { readGeoPackage } from "@/lib/workers/geopackage-client";
 import type { ContextGeometry } from "@/lib/georef/context-geometry";
 import { readContextFile } from "@/lib/georef/read-context-file";
-import { mapToLocal, type Placement, type WgsPoint } from "@/lib/georef/transform";
+import type { Placement, WgsPoint } from "@/lib/georef/transform";
+import { placeContextGeometry, type ContextScenePlacement } from "@/lib/georef/context-placement";
 import { clipCityJson } from "@/lib/workers/cityjson-client";
 import { clipLargeGml } from "@/lib/workers/gml-client";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
@@ -54,7 +55,7 @@ export function ContextModel({
   placement,
   referencePoint,
   originShift,
-  modelOffset,
+  modelPlacement,
   ready,
 }: {
   /**
@@ -67,7 +68,7 @@ export function ContextModel({
   /** Where the model sits on the earth — the centre a clip radius is drawn around. */
   referencePoint: WgsPoint | null;
   originShift: Vec3;
-  modelOffset: Vec3;
+  modelPlacement: ContextScenePlacement;
 }) {
   const t = useTranslations("viewer.contextModel");
   /**
@@ -96,6 +97,14 @@ export function ContextModel({
   const setClipEnabled = (on: boolean) => setSettings({ clipEnabled: on });
   const setClipRadius = (value: string) => setSettings({ clipRadius: value });
 
+  // Keep loaded geometry aligned when the reference placement changes, without
+  // rebuilding its buffers, colours or selection.
+  useEffect(() => {
+    if (!loaded) return;
+    const transform = placeContextGeometry(loaded.origin, placement, originShift, modelPlacement);
+    getActiveRenderer()?.setContextPlacement(transform.offset, transform.rotationY, transform.scale);
+  }, [loaded, placement, originShift, modelPlacement]);
+
   const canClip = Boolean(placement && referencePoint);
   const radiusMetres = Number(clipRadius);
   const radiusValid = Number.isFinite(radiusMetres) && radiusMetres > 0;
@@ -117,31 +126,9 @@ export function ContextModel({
       return;
     }
 
-    // Where the city's local origin sits in the model's own frame. Without the
-    // placement there is nothing to align to, so it goes down at the origin and
-    // the message below says so.
-    let offset: Vec3 = [0, 0, 0];
-    if (placement) {
-      const local = mapToLocal(
-        { easting: result.origin.easting, northing: result.origin.northing },
-        placement,
-      );
-      offset = [
-        local.x - originShift[0] + modelOffset[0],
-        // Heights are both orthogonal in the map frame, so the model's own
-        // datum height is what the city's height is measured against.
-        result.origin.height -
-          placement.conversion.orthogonalHeight -
-          originShift[1] +
-          modelOffset[1],
-        -(local.y - originShift[2]) + modelOffset[2],
-      ];
-    }
-
-    renderer.setContextGeometry(
-      result,
-      offset,
-    );
+    const transform = placeContextGeometry(result.origin, placement, originShift, modelPlacement);
+    renderer.setContextGeometry(result);
+    renderer.setContextPlacement(transform.offset, transform.rotationY, transform.scale);
     renderer.setContextAppearance(useContextModelStore.getState().appearance);
     renderer.setContextSelection(useContextModelStore.getState().selectedFeature);
   };

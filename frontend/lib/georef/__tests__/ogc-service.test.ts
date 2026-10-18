@@ -30,6 +30,36 @@ describe("OGC discovery and requests", () => {
     }
   });
 
+  it("keeps a legend paired with the explicit map style and resolves relative URLs", () => {
+    const service=readCapabilities(wms.replace("<Title>Building map</Title>", `<Title>Building map</Title>
+      <Style><Name>land_use</Name><LegendURL><Format>image/png</Format><OnlineResource xlink:href="?request=GetLegendGraphic&amp;layer=blocks&amp;style=land_use"/></LegendURL></Style>
+      <Style><Name>alternate</Name><LegendURL><Format>image/png</Format><OnlineResource xlink:href="/other.png"/></LegendURL></Style>`))!;
+    const layer=service.layers[0];
+    expect(layer.style).toBe("land_use");
+    expect(new URL(layer.legendUrl!).pathname).toBe("/wms");
+    expect(new URL(layer.legendUrl!).searchParams.get("style")).toBe("land_use");
+    expect(new URL(layer.legendUrl!).searchParams.get("SERVICE")).toBe("WMS");
+    expect(new URL(layer.legendUrl!).searchParams.get("FORMAT")).toBe("image/png");
+    expect(new URL(layerRequest(service,layer,3763,reference,100).url).searchParams.get("STYLES")).toBe("land_use");
+  });
+
+  it("inherits a static legend but lets a child's named style replace it without borrowing siblings", () => {
+    const legend=(name:string,url:string)=>`<Style><Name>${name}</Name><LegendURL><Format>image/png</Format><OnlineResource xlink:href="${url}"/></LegendURL></Style>`;
+    const service=readCapabilities(wms.replace("<CRS>EPSG:4326</CRS>", `<CRS>EPSG:4326</CRS>${legend("shared","/shared.png")}`)
+      .replace("<Title>Building map</Title>", `<Title>Building map</Title>${legend("shared","/blocks.png")}`)
+      .replace("</Layer></Layer>", `</Layer><Layer><Name>parks</Name><Title>Parks</Title></Layer></Layer>`))!;
+    expect(service.layers.map((layer)=>layer.legendUrl)).toEqual(["https://maps.example.org/blocks.png","https://maps.example.org/shared.png"]);
+    expect(service.layers.every((layer)=>layer.style === "shared")).toBe(true);
+  });
+
+  it("uses an advertised legend operation when no style legend is available, and ignores unsafe links", () => {
+    const unsafe=wms.replace("<Title>Building map</Title>", `<Title>Building map</Title><Style><Name>default</Name><LegendURL><Format>image/png</Format><OnlineResource xlink:href="file:///legend.png"/></LegendURL></Style>`);
+    expect(readCapabilities(unsafe)!.layers[0].legendUrl).toBeUndefined();
+    const service=readCapabilities(unsafe.replace("</Request>", `<sld:GetLegendGraphic xmlns:sld="http://www.opengis.net/sld"><Format>image/png</Format><DCPType><HTTP><Get><OnlineResource xlink:href="https://maps.example.org/legend?key=demo"/></Get></HTTP></DCPType></sld:GetLegendGraphic></Request>`))!;
+    const params=new URL(service.layers[0].legendUrl!).searchParams;
+    expect(Object.fromEntries(params)).toEqual({key:"demo",SERVICE:"WMS",VERSION:"1.3.0",REQUEST:"GetLegendGraphic",FORMAT:"image/png",LAYER:"blocks",STYLE:"default"});
+  });
+
   it("reads WFS 2.0 operations, layers and JSON output", () => {
     const service=readCapabilities(`<wfs:WFS_Capabilities xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xlink="http://www.w3.org/1999/xlink" version="2.0.0">
       <ows:ServiceIdentification><ows:Title>Parcels</ows:Title></ows:ServiceIdentification><ows:OperationsMetadata><ows:Operation name="GetFeature"><ows:DCP><ows:HTTP><ows:Get xlink:href="https://maps.example.org/wfs" /></ows:HTTP></ows:DCP><ows:Parameter name="outputFormat"><ows:AllowedValues><ows:Value>application/json</ows:Value></ows:AllowedValues></ows:Parameter></ows:Operation></ows:OperationsMetadata>

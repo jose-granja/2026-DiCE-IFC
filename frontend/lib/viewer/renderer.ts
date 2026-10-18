@@ -2440,6 +2440,19 @@ export class ViewerRenderer {
     }
   }
 
+  /** Apply the complete context transform without rebuilding geometry or style. */
+  setContextPlacement(offset: Vec3, rotationY: number, scale: number) {
+    const mesh = this.contextMesh;
+    if (!mesh) return;
+    if (mesh.position.x === offset[0] && mesh.position.y === offset[1] &&
+        mesh.position.z === offset[2] && mesh.rotation.y === rotationY && mesh.scale.x === scale) return;
+    this.orbitPivot.set(null);
+    mesh.position.set(...offset);
+    mesh.rotation.y = rotationY;
+    mesh.scale.setScalar(scale);
+    mesh.updateMatrixWorld(true);
+  }
+
   /** Filter/recolour in place; selection remains a temporary overlay on this style. */
   setContextAppearance(appearance: ContextAppearance) {
     this.contextAppearance = appearance;

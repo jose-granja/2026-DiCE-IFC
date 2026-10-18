@@ -20,6 +20,7 @@ import GlobeControls from "./GlobeControls";
 import ContextModel from "./ContextModel";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
 import { worldToIfcMetres } from "@/lib/viewer/federation";
+import type { ContextScenePlacement } from "@/lib/georef/context-placement";
 import { useViewerStore } from "@/lib/viewer/store";
 import type { Vec3 } from "@/lib/ifc/types";
 
@@ -35,6 +36,7 @@ import WriteBackPanel from "@/app/(home)/georef/_components/WriteBackPanel";
  */
 /** Shared so the prop identity is stable across renders. */
 const ZERO: Vec3 = [0, 0, 0];
+const IDENTITY: ContextScenePlacement = { offset: ZERO, rotationY: 0, scale: 1 };
 
 export function GeorefPanels() {
   const t = useTranslations("viewer.georefPanel");
@@ -236,8 +238,8 @@ export function GeorefPanels() {
               : null
           }
           referencePoint={modelAnchor?.centre ?? null}
-          originShift={model?.coordinates?.originShift ?? [0, 0, 0]}
-          modelOffset={model ? (placements[model.summary.id]?.offset ?? ZERO) : ZERO}
+          originShift={model?.coordinates?.originShift ?? ZERO}
+          modelPlacement={model ? (placements[model.summary.id] ?? IDENTITY) : IDENTITY}
           ready={Boolean(model?.coordinates && draft)}
         />
       </TabsContent>
