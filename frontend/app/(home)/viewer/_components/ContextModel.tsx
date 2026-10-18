@@ -48,16 +48,22 @@ import { readMapSnapshot } from "@/lib/georef/context-map";
 import { readFeatureSnapshot } from "@/lib/georef/context-features";
 import ContextServiceControls from "./ContextServiceControls";
 import { ContextMapLegend } from "./ContextMapLegend";
+import { GisAreaCheckButton, type GisAreaModel } from "./GisAreaCheckButton";
+import { revealContextFeature } from "@/lib/viewer/context-appearance";
+import { useViewerStore } from "@/lib/viewer/store";
+import { useGisAreaStore } from "@/lib/viewer/gis-area-store";
 
 const LARGE_TEXT_FILE_BYTES = 64 * 1024 * 1024;
 
 export function ContextModel({
+  areaModel,
   placement,
   referencePoint,
   originShift,
   modelPlacement,
   ready,
 }: {
+  areaModel: GisAreaModel | null;
   /**
    * True once the panel has worked out where the model sits — what a context
    * file from a restored project waits for before it is read and placed.
@@ -71,6 +77,11 @@ export function ContextModel({
   modelPlacement: ContextScenePlacement;
 }) {
   const t = useTranslations("viewer.contextModel");
+  const areasT = useTranslations("viewer.gisAreas");
+  const areaBusy = useGisAreaStore((s) => s.busy || !!s.viewRequest);
+  const areaViewRequest = useGisAreaStore((s) => s.viewRequest);
+  const areaReport = useGisAreaStore((s) => s.report);
+  const filename = useContextModelStore((s) => s.file?.name);
   /**
    * GeoJSON needs the model's map conversion. GML and GeoPackage declare
    * their source CRS and can also be previewed locally without an IFC placement.
@@ -304,6 +315,56 @@ export function ContextModel({
     }
   };
 
+  // Report clicks use the exact checked file/geometry, independent of the
+  // currently selected service, load radius, colour visibility or context file.
+  useEffect(() => {
+    if (!areaViewRequest) return;
+    const request = areaViewRequest;
+    const controller = new AbortController();
+    const show = async () => {
+      try {
+        if (!ready) throw new Error(areasT("needsModel"));
+        if (!placement || request.epsg !== placement.epsg) throw new Error(areasT("errors.differentCrs"));
+        if (inFlight.current || serviceBusy || pending) throw new Error(t("alreadyLoading"));
+        const { source, featureIndex } = request;
+        let context = useContextModelStore.getState();
+        const alreadyLoaded = context.file === source.file && !!context.loaded;
+        let mustPlace = !context.visible;
+        if (!alreadyLoaded) {
+          if (source.geometry) { context.setLoaded(source.file, source.geometry); mustPlace = true; }
+          else {
+            const outcome = await onFile(source.file, true, controller.signal);
+            controller.signal.throwIfAborted();
+            if (!outcome.ok) throw new Error(outcome.error);
+            mustPlace = false; // onFile has already built and placed this mesh.
+          }
+        }
+        controller.signal.throwIfAborted();
+        context = useContextModelStore.getState();
+        const feature = context.loaded?.features?.[featureIndex];
+        if (!feature || !context.loaded) throw new Error(t("readFailed"));
+        context.setSettings({ visible: true, appearance: revealContextFeature(
+          alreadyLoaded ? context.appearance : source.appearance ?? context.appearance, feature, source.layer,
+        ) });
+        useViewerStore.getState().clearSelection(true);
+        context.selectFeature(featureIndex, true);
+        if (mustPlace) place(context.loaded, true);
+        const renderer = getActiveRenderer();
+        renderer?.setContextAppearance(useContextModelStore.getState().appearance);
+        renderer?.setContextSelection(featureIndex);
+        renderer?.focusContextFeature(featureIndex);
+        useGisAreaStore.getState().finishView(request);
+      } catch (error) {
+        if (!controller.signal.aborted) useGisAreaStore.getState().finishView(request, error instanceof Error ? error.message : t("readFailed"));
+      }
+    };
+    void show();
+    return () => controller.abort();
+    // Placement and readers are captured when the user requests this view.
+    // Changes to the context during adoption must not restart the request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areaViewRequest, ready, placement?.epsg]);
+
   /*
     A context file from a restored project. Read once the panel knows where the
     model sits: before that the reader would either refuse a GeoJSON for want of
@@ -345,7 +406,7 @@ export function ContextModel({
             <Switch
               id="georef-context"
               checked={visible}
-              disabled={loading || serviceBusy}
+              disabled={loading || serviceBusy || areaBusy}
               onCheckedChange={(on) => {
                 setVisible(on);
                 place(loaded, on);
@@ -356,7 +417,7 @@ export function ContextModel({
               size="icon"
               className="h-6 w-6"
               onClick={clear}
-              disabled={loading || serviceBusy}
+              disabled={loading || serviceBusy || areaBusy}
               aria-label={t("remove")}
             >
               <X className="h-3.5 w-3.5" />
@@ -368,7 +429,7 @@ export function ContextModel({
             variant="ghost"
             className="h-7 text-[11px]"
             onClick={() => input.current?.click()}
-            disabled={loading || serviceBusy}
+            disabled={loading || serviceBusy || areaBusy}
           >
             {t("loadContext")}
           </Button>
@@ -385,7 +446,7 @@ export function ContextModel({
         type="file"
         accept=".json,.city.json,.cityjson,.geojson,.gml,.xml,.citygml,.gpkg,.wfs,.wms,.context-map,.context-features,application/json,application/geo+json,application/gml+xml,text/xml"
         className="hidden"
-        disabled={loading || serviceBusy}
+        disabled={loading || serviceBusy || areaBusy}
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
@@ -393,7 +454,11 @@ export function ContextModel({
         }}
       />
 
-      <ContextServiceControls service={service} setService={setService} placement={placement} reference={referencePoint} onFile={(file, signal) => onFile(file, true, signal)} disabled={loading} onBusyChange={setServiceBusy} />
+      <ContextServiceControls service={service} setService={setService} placement={placement} reference={referencePoint} onFile={(file, signal) => onFile(file, true, signal)} disabled={loading || areaBusy} onBusyChange={setServiceBusy} areaModel={areaModel} />
+      {loaded && !loaded.raster && loaded.featureRanges?.some((range) => range.area !== false) && <div className="flex flex-wrap gap-1">
+        <GisAreaCheckButton geometry={loaded} filename={filename} model={areaModel} placement={placement} disabled={loading || serviceBusy} />
+      </div>}
+      {areaReport && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => useGisAreaStore.getState().show()}>{areasT("showReport")}</Button>}
       {loaded && !loaded.raster && <ContextAppearanceControls geometry={loaded} disabled={loading} />}
       {loaded?.raster && <p className="text-muted-foreground text-[11px]">{t("service.rasterNote")}</p>}
       {visible && loaded?.raster?.legend && <ContextMapLegend legend={loaded.raster.legend} />}

@@ -23,6 +23,10 @@ export function ContextAppearanceControls({ geometry, disabled }: { geometry: Co
   const change = (patch: Partial<typeof appearance>) => setSettings({ appearance: { ...useContextModelStore.getState().appearance, ...patch } });
 
   return <div className="space-y-2 rounded border p-2" data-context-appearance>
+    {appearance.layer && <div className="space-y-1 text-[11px]" data-context-layer-filter>
+      <p className="break-words">{t("showingLayer", { layer: appearance.layer.value })}</p>
+      <Button size="sm" variant="outline" className="h-6 text-[11px]" disabled={disabled} onClick={() => change({ layer: null })}>{t("showAllLayers")}</Button>
+    </div>}
     <div className="flex items-center justify-between gap-2">
       <Label htmlFor="context-edges" className="text-[11px]">{t("edges")}</Label>
       <Switch id="context-edges" disabled={disabled} checked={appearance.edgesOn} onCheckedChange={(edgesOn) => change({ edgesOn })} />

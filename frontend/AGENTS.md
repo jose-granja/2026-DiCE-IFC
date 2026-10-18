@@ -806,6 +806,27 @@ a separate 2D map. `/georef` redirects to `/viewer?panel=georef`.
   is accepted, with byte and decoded-size limits; blob URLs are revoked when
   their image unmounts. Static legend downloads use `legend=1` on `/api/ogc`
   and allow only raster file paths/provider keys, with the same DNS/TLS checks.
+- **GIS area checks are horizontal and independent of display filters.**
+  `area-check.ts` compares the selected Geo model's projected horizontal bounds
+  against source polygon triangles, preserving holes and ignoring elevation.
+  `ContextFeatureRange.area: false` marks ribbons/markers made from lines or
+  points; every reader must preserve that distinction, including mixed geometry.
+  CityJSON triangulates whole surfaces with holes (across Solid/MultiSurface
+  nesting); filling each ring separately would turn courtyards into matches.
+  The worker receives a copy of positions, never detaching the displayed mesh.
+  One explicit WFS action queries all advertised layers around the full model
+  footprint, using existing bounded public requests. Errors/truncated results
+  are reported per layer, never silently treated as non-matches; cancellation
+  leaves pending layers explicit. Local checks cover all loaded layers, including
+  hidden colours, and state their loaded-extent scope. Reports are dated snapshots
+  in Properties, separate from feature selection, exported as UTF-8 CSV with
+  metadata and formula-safe cells. They are not persisted in project files.
+  Clicking a match reuses its checked WFS snapshot or loaded geometry/file,
+  reveals its layer and colour category, selects its original feature index,
+  and frames it from above while keeping the report open. Never refetch on a
+  report click or resolve the feature by a potentially duplicate ID. Layer
+  isolation lives in context appearance (and projects), alongside colour filters;
+  preserve original triangle indices for picking and offer Show all layers.
 - **Dispatch on the file's `type` member, not its extension.** CityJSON's
   convention is `.city.json` and half the GeoJSON municipalities publish is
   plain `.json`, so the extension decides nothing.

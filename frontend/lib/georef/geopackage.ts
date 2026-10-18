@@ -219,7 +219,7 @@ export async function parseGeoPackage(
     // Coplanar map layers share one mesh: draw water first so land stays visible.
     layers.sort((a, b) => Number(kindOf(String(b.name)) === "water") - Number(kindOf(String(a.name)) === "water"));
     const total = layers.reduce((count, layer) => count + Number(rows(db, `SELECT count(*) AS n FROM ${quote(String(layer.name))}`)[0].n), 0);
-    const ready: Array<{ kind: string; triangles: ContextTriangle[]; feature: ContextFeature }> = [];
+    const ready: Array<{ kind: string; triangles: ContextTriangle[]; areaTriangleCount: number; feature: ContextFeature }> = [];
     let skippedObjects = 0, visited = 0, lastProgress = -1;
     let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity;
     options.onProgress?.(0);
@@ -253,9 +253,13 @@ export async function parseGeoPackage(
           if (blob === null) return;
           if (!(blob instanceof Uint8Array)) { skippedObjects++; return; }
           let triangles: ContextTriangle[];
+          let areaTriangleCount: number;
           try {
             const { wkb } = unwrapGeoPackageBlob(blob);
-            triangles = contextTriangles(parseWkb(wkb), project, sourceClip, targetClip);
+            const parsed = parseWkb(wkb);
+            triangles = contextTriangles({ ...parsed, lines: [], points: [] }, project, sourceClip, targetClip);
+            areaTriangleCount = triangles.length;
+            triangles = triangles.concat(contextTriangles({ ...parsed, polygons: [] }, project, sourceClip, targetClip));
           } catch {
             skippedObjects++;
             return;
@@ -270,7 +274,7 @@ export async function parseGeoPackage(
             .filter(([key]) => key !== layer.geom)
             .map(([key, value]) => [key, typeof value === "bigint" ? String(value)
               : value instanceof Uint8Array ? { bytes: value.byteLength } : value]));
-          ready.push({ kind: kindOf(String(layer.name)), triangles,
+          ready.push({ kind: kindOf(String(layer.name)), triangles, areaTriangleCount,
             feature: { id: String(primaryKey ? feature[String(primaryKey)] : rowNumber),
               type: String(layer.geometryType), source: "GeoPackage", layer: String(layer.name),
               name: contextFeatureName(properties), properties } });
@@ -281,15 +285,19 @@ export async function parseGeoPackage(
     const origin = { easting: (minX + maxX) / 2, northing: (minY + maxY) / 2, height: minZ };
     const builder = new GeometryBuilder();
     const counts = new Map<string, number>();
-    for (const { kind, triangles, feature } of ready) {
+    for (const { kind, triangles, areaTriangleCount, feature } of ready) {
       const firstTriangle = builder.triangleCount;
-      for (const [a, b, c] of triangles) builder.triangle(a, b, c, COLOURS[kind] ?? DEFAULT_COLOUR, origin);
+      for (let i = 0; i < areaTriangleCount; i++) builder.triangle(...triangles[i], COLOURS[kind] ?? DEFAULT_COLOUR, origin);
       builder.addFeature(feature, firstTriangle);
+      const nonAreaStart = builder.triangleCount;
+      for (let i = areaTriangleCount; i < triangles.length; i++) builder.triangle(...triangles[i], COLOURS[kind] ?? DEFAULT_COLOUR, origin);
+      builder.addFeature(feature, nonAreaStart, false);
       counts.set(kind, (counts.get(kind) ?? 0) + 1);
     }
     options.onProgress?.(100);
     return {
       ...builder.finish(), origin, epsg: targetEpsg, objectCount: ready.length,
+      layers: layers.map((layer) => String(layer.name)),
       types: [...counts].map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count),
       sizeMetres: Math.max(maxX - minX, maxY - minY), skippedObjects,
     };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ContextFeature } from "@/lib/georef/context-geometry";
-import { contextColourGroups, contextValueKey, contextVisibleIndices, DEFAULT_CONTEXT_APPEARANCE } from "../context-appearance";
+import { contextColourGroups, contextFeatureHidden, revealContextFeature, contextValueKey, contextVisibleIndices, DEFAULT_CONTEXT_APPEARANCE } from "../context-appearance";
 import { contextEdgeMasks } from "../context-edges";
 import { useContextModelStore } from "../context-model-store";
 
@@ -72,4 +72,29 @@ it("preserves restored styling while loading, then clears property colours for a
   expect(useContextModelStore.getState().appearance.colouring).toBeNull();
   store.clear();
   expect(useContextModelStore.getState().appearance).toEqual(DEFAULT_CONTEXT_APPEARANCE);
+});
+
+
+describe("report layer visibility", () => {
+  const sea = { ...feature("Water"), layer: "Sea" };
+  const land = { ...feature("Park"), layer: "Land" };
+  const ranges = [{ firstTriangle: 0, triangleCount: 1, featureIndex: 0 }, { firstTriangle: 1, triangleCount: 1, featureIndex: 1 }];
+  it("isolates a layer while retaining original vertex indices and colour filters", () => {
+    const layer = { field: "layer" as const, value: "Land" };
+    expect([...contextVisibleIndices(6, [sea, land], ranges, null, layer)!]).toEqual([3, 4, 5]);
+    const colouring = { property: "category", overrides: {}, hiddenValues: [contextValueKey("Park")] };
+    expect(contextVisibleIndices(6, [sea, land], ranges, colouring, layer)).toHaveLength(0);
+    expect(contextFeatureHidden(land, null, { field: "type", value: "Polygon" })).toBe(false);
+    expect(contextFeatureHidden(land, null, { field: "type", value: "Building" })).toBe(true);
+  });
+  it("reveals only the selected category and replaces a previous layer filter without losing colours", () => {
+    const appearance = { ...DEFAULT_CONTEXT_APPEARANCE, layer: { field: "layer" as const, value: "Land" },
+      colouring: { property: "category", overrides: { [contextValueKey("Water")]: "#123456" }, hiddenValues: [contextValueKey("Water"), contextValueKey("Park")] } };
+    const next = revealContextFeature(appearance, sea, { field: "layer", value: "Sea" });
+    expect(contextFeatureHidden(sea, next.colouring, next.layer)).toBe(false);
+    expect(next.colouring?.hiddenValues).toEqual([contextValueKey("Park")]);
+    expect(next.colouring?.overrides).toBe(appearance.colouring.overrides);
+    expect(appearance.colouring.hiddenValues).toHaveLength(2);
+    expect(revealContextFeature(next, sea).layer).toBeNull();
+  });
 });

@@ -81,7 +81,7 @@ describe("project.json", () => {
 it("restores old context projects with default appearance and validates new styles", () => {
   const context = { path: "context/map.gpkg", name: "map.gpkg" };
   expect(parse({ ...minimal, context }).context?.appearance).toEqual({ edgesOn: true, edgeWidth: 1, colouring: null });
-  const appearance = { edgesOn: false, edgeWidth: 2, colouring: { property: "NAME", overrides: { 'string:"Portugal"': "#123456" } } };
+  const appearance = { edgesOn: false, edgeWidth: 2, layer: { field: "layer", value: "Land" }, colouring: { property: "NAME", overrides: { 'string:"Portugal"': "#123456" } } };
   expect(parse({ ...minimal, context: { ...context, appearance } }).context?.appearance).toEqual(appearance);
   expect(() => parse({ ...minimal, context: { ...context, appearance: { ...appearance, colouring: { ...appearance.colouring, hiddenValues: [12] } } } })).toThrow(ProjectFormatError);
   expect(() => parse({ ...minimal, context: { ...context, appearance: { ...appearance, edgeWidth: -1 } } })).toThrow(ProjectFormatError);

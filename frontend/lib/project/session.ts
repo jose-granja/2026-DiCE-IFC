@@ -24,6 +24,7 @@ import { serializeIds } from "@/lib/ids/serialize";
 import { useIdsStore } from "@/lib/ids/store";
 import { useValidateStore } from "@/lib/ids/validate-store";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
+import { useGisAreaStore } from "@/lib/viewer/gis-area-store";
 import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import { useGlobeStore } from "@/lib/viewer/globe-store";
 import { parseLensFile } from "@/lib/lens/file";
@@ -256,6 +257,7 @@ function waitFor<T>(
 
 /** Close everything a project restore replaces. */
 async function clearSession() {
+  useGisAreaStore.getState().clear();
   await unloadAllModels();
   for (const cloud of usePointCloudStore.getState().clouds) removePointCloud(cloud.id);
   useContextModelStore.getState().clear();

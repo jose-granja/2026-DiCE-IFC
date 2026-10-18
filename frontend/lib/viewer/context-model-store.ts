@@ -15,6 +15,7 @@
  */
 
 import { create } from "zustand";
+import { useGisAreaStore } from "./gis-area-store";
 
 import type { ContextGeometry } from "@/lib/georef/context-geometry";
 import { DEFAULT_CONTEXT_APPEARANCE, contextFeatureHidden, type ContextAppearance } from "./context-appearance";
@@ -34,7 +35,7 @@ type ContextModelState = ContextModelSettings & {
   file: File | null;
   loaded: ContextGeometry | null;
   selectedFeature: number | null;
-  selectFeature: (index: number | null) => void;
+  selectFeature: (index: number | null, keepReport?: boolean) => void;
   clearSelection: () => void;
   /** A file from a restored project, waiting for the GIS panel to place it. */
   pending: File | null;
@@ -59,22 +60,25 @@ export const useContextModelStore = create<ContextModelState>((set) => ({
   pending: null,
   pendingOutcome: null,
 
-  selectFeature: (index) => set((state) => ({
-    selectedFeature: state.visible && index !== null && state.loaded?.features?.[index]
-      && !contextFeatureHidden(state.loaded.features[index], state.appearance.colouring) ? index : null,
-  })),
+  selectFeature: (index, keepReport = false) => {
+    if (!keepReport) useGisAreaStore.getState().hide();
+    set((state) => ({
+      selectedFeature: state.visible && index !== null && state.loaded?.features?.[index]
+        && !contextFeatureHidden(state.loaded.features[index], state.appearance.colouring, state.appearance.layer) ? index : null,
+    }));
+  },
   clearSelection: () => set({ selectedFeature: null }),
   setLoaded: (file, loaded) => set((state) => {
     if (state.loaded?.raster?.image !== loaded.raster?.image) state.loaded?.raster?.image.close();
     return {
       file, loaded, selectedFeature: null,
-      appearance: state.pending ? state.appearance : { ...state.appearance, colouring: null },
+      appearance: state.pending ? state.appearance : { ...state.appearance, colouring: null, layer: undefined },
     };
   }),
   setSettings: (patch) => set((state) => ({
     ...patch,
     ...(patch.visible === false || (state.selectedFeature !== null
-      && contextFeatureHidden(state.loaded?.features?.[state.selectedFeature], (patch.appearance ?? state.appearance).colouring))
+      && contextFeatureHidden(state.loaded?.features?.[state.selectedFeature], (patch.appearance ?? state.appearance).colouring, (patch.appearance ?? state.appearance).layer))
       ? { selectedFeature: null } : {}),
   })),
   restore: (file, settings) => set({ ...settings, pending: file, pendingOutcome: null, selectedFeature: null }),

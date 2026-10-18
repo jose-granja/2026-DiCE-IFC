@@ -1073,6 +1073,49 @@
         "noOrigin": "This model has no position on the earth, so the 3D world context cannot be shown around it."
       }
     },
+    "gisAreas": {
+      "title": "GIS area report",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "{page} / {pages}",
+      "check": "Check all areas",
+      "checkLoaded": "Check loaded areas",
+      "showReport": "Show area report",
+      "checking": "Checking GIS areas…",
+      "cancel": "Cancel area check",
+      "close": "Close area report",
+      "download": "Download CSV",
+      "loadedData": "Loaded GIS data",
+      "needsModel": "Load and georeference an IFC model before checking areas.",
+      "method": "Checks the selected IFC model’s horizontal bounding footprint against polygon areas, including partial overlaps and boundary touches. Elevation is ignored.",
+      "loadedScope": "Checks all layers and hidden areas in the loaded data. If the data was clipped, only the loaded extent is checked.",
+      "wfsScope": "Queries every WFS layer around the model’s full horizontal bounds. Only map bounds are sent to the provider.",
+      "summary": "{done} / {total} layers checked · {matches, plural, one {# matching area} other {# matching areas}}",
+      "snapshot": "Snapshot: {time}. Run again after changing the model or GIS data.",
+      "cancelled": "Check cancelled. Unchecked layers remain in the report.",
+      "failed": "{count, plural, one {# layer could not be fully checked.} other {# layers could not be fully checked.}}",
+      "showAreas": "Show matching areas",
+      "hideAreas": "Hide matching areas",
+      "featureId": "Feature ID: {id}",
+      "status": {
+        "pending": "Not checked",
+        "matched": "{count, plural, one {# matching area} other {# matching areas}}",
+        "noMatches": "No intersecting areas",
+        "noAreas": "No polygon areas in the returned data",
+        "error": "Could not fully check this layer"
+      },
+      "errors": {
+        "differentCrs": "The loaded data and model use different coordinate systems. Reload the GIS data using the model’s current CRS.",
+        "skippedGeometry": "Some source geometries could not be read. Results may be incomplete.",
+        "invalidFeatureFile": "The layer geometry could not be read or checked.",
+        "invalidRadius": "The model’s horizontal extent exceeds the supported 100 km query radius.",
+        "tooManyFeatures": "The provider returned an incomplete layer or more than 10,000 features. This layer has not been marked as a match or a non-match.",
+        "tooLarge": "The layer response exceeds the download limit and could not be checked."
+      },
+      "showOnMap": "Show {name} on map",
+      "showingArea": "Showing matching area…",
+      "highlighted": "Highlighted"
+    },
     "contextModel": {
       "appearance": {
         "edges": "Show context edges",
@@ -1092,7 +1135,9 @@
         "emptyValue": "Empty text",
         "yes": "Yes",
         "no": "No",
-        "noValues": "No values match your search."
+        "noValues": "No values match your search.",
+        "showingLayer": "Showing layer: {layer}",
+        "showAllLayers": "Show all layers"
       },
       "progress": {
         "reading": "Reading context file…",

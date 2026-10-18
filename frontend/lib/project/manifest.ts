@@ -166,6 +166,7 @@ export const projectManifestSchema = z.object({
       clipEnabled: z.boolean().default(true),
       clipRadius: text.default("100"),
       appearance: z.object({
+        layer: z.object({ field: z.enum(["layer", "type"]), value: text }).nullable().optional(),
         edgesOn: z.boolean().default(true),
         edgeWidth: finite.min(0.5).max(3).default(1),
         colouring: z.object({

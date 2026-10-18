@@ -1073,6 +1073,49 @@
         "noOrigin": "Este modelo não tem posição na Terra, por isso o contexto 3D do mundo não pode ser mostrado à sua volta."
       }
     },
+    "gisAreas": {
+      "title": "Relatório de áreas SIG",
+      "previous": "Anterior",
+      "next": "Seguinte",
+      "page": "{page} / {pages}",
+      "check": "Verificar todas as áreas",
+      "checkLoaded": "Verificar áreas carregadas",
+      "showReport": "Mostrar relatório de áreas",
+      "checking": "A verificar áreas SIG…",
+      "cancel": "Cancelar verificação de áreas",
+      "close": "Fechar relatório de áreas",
+      "download": "Descarregar CSV",
+      "loadedData": "Dados SIG carregados",
+      "needsModel": "Carregue e georreferencie um modelo IFC antes de verificar as áreas.",
+      "method": "Compara a projeção horizontal da caixa envolvente do modelo IFC selecionado com as áreas poligonais, incluindo sobreposições parciais e contacto com os limites. A altitude é ignorada.",
+      "loadedScope": "Verifica todas as camadas e áreas ocultas dos dados carregados. Se os dados foram recortados, apenas a extensão carregada é verificada.",
+      "wfsScope": "Consulta todas as camadas WFS em torno da extensão horizontal completa do modelo. Apenas os limites cartográficos são enviados ao fornecedor.",
+      "summary": "{done} / {total} camadas verificadas · {matches, plural, one {# área correspondente} other {# áreas correspondentes}}",
+      "snapshot": "Resultado de {time}. Repita a verificação após alterar o modelo ou os dados SIG.",
+      "cancelled": "Verificação cancelada. As camadas não verificadas permanecem no relatório.",
+      "failed": "{count, plural, one {Não foi possível verificar completamente # camada.} other {Não foi possível verificar completamente # camadas.}}",
+      "showAreas": "Mostrar áreas correspondentes",
+      "hideAreas": "Ocultar áreas correspondentes",
+      "featureId": "ID do elemento: {id}",
+      "status": {
+        "pending": "Não verificada",
+        "matched": "{count, plural, one {# área correspondente} other {# áreas correspondentes}}",
+        "noMatches": "Sem áreas intersetadas",
+        "noAreas": "Sem áreas poligonais nos dados devolvidos",
+        "error": "Não foi possível verificar completamente esta camada"
+      },
+      "errors": {
+        "differentCrs": "Os dados carregados e o modelo usam sistemas de coordenadas diferentes. Volte a carregar os dados SIG com o SRC atual do modelo.",
+        "skippedGeometry": "Não foi possível ler algumas geometrias. Os resultados podem estar incompletos.",
+        "invalidFeatureFile": "Não foi possível ler ou verificar a geometria da camada.",
+        "invalidRadius": "A extensão horizontal do modelo excede o raio de consulta suportado de 100 km.",
+        "tooManyFeatures": "O fornecedor devolveu uma camada incompleta ou mais de 10 000 elementos. Esta camada não foi classificada como correspondência nem como ausência de correspondência.",
+        "tooLarge": "A resposta da camada excede o limite de transferência e não pôde ser verificada."
+      },
+      "showOnMap": "Mostrar {name} no mapa",
+      "showingArea": "A mostrar a área correspondente…",
+      "highlighted": "Destacada"
+    },
     "contextModel": {
       "appearance": {
         "edges": "Mostrar arestas do contexto",
@@ -1092,7 +1135,9 @@
         "emptyValue": "Texto vazio",
         "yes": "Sim",
         "no": "Não",
-        "noValues": "Nenhum valor corresponde à pesquisa."
+        "noValues": "Nenhum valor corresponde à pesquisa.",
+        "showingLayer": "Camada visível: {layer}",
+        "showAllLayers": "Mostrar todas as camadas"
       },
       "progress": {
         "reading": "A ler o ficheiro de contexto…",

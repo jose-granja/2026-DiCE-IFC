@@ -846,6 +846,7 @@ export class ViewerRenderer {
   private contextFeatures: ContextFeature[] = [];
   private contextSourceColours: Float32Array | null = null;
   private contextAppearance: ContextAppearance = DEFAULT_CONTEXT_APPEARANCE;
+  private contextAppliedLayer: ContextAppearance["layer"];
   private contextAppliedColouring: ContextAppearance["colouring"] | undefined;
   private contextEdgeUniforms: EdgeUniforms = {
     uEdgeWidth: { value: DEFAULT_EDGE_WIDTH },
@@ -2384,6 +2385,7 @@ export class ViewerRenderer {
     this.contextFeatures = data?.features ?? [];
     this.contextSourceColours = data?.colours ?? null;
     this.contextAppliedColouring = undefined;
+    this.contextAppliedLayer = undefined;
     this.contextBaseColours = data?.colours ?? null;
     this.selectedContextFeature = null;
     document.querySelector("[data-context-model]")?.remove();
@@ -2459,13 +2461,15 @@ export class ViewerRenderer {
     this.contextEdgeUniforms.uEdgeWidth.value = appearance.edgesOn ? appearance.edgeWidth : 0;
     if (!this.contextMesh || !this.contextSourceColours) return;
     // Width/toggle changes need no geometry or colour-buffer rebuild.
-    if (this.contextAppliedColouring === appearance.colouring) return;
+    if (this.contextAppliedColouring === appearance.colouring && this.contextAppliedLayer === appearance.layer) return;
+    const previousLayer = this.contextAppliedLayer;
+    this.contextAppliedLayer = appearance.layer;
     const previous = this.contextAppliedColouring;
     this.contextAppliedColouring = appearance.colouring;
-    if (previous?.property !== appearance.colouring?.property || previous?.hiddenValues !== appearance.colouring?.hiddenValues) {
+    if (previousLayer !== appearance.layer || previous?.property !== appearance.colouring?.property || previous?.hiddenValues !== appearance.colouring?.hiddenValues) {
       const geometry = this.contextMesh.geometry;
       const vertexCount = geometry.getAttribute("position").count;
-      const visible = contextVisibleIndices(vertexCount, this.contextFeatures, this.contextFeatureRanges, appearance.colouring);
+      const visible = contextVisibleIndices(vertexCount, this.contextFeatures, this.contextFeatureRanges, appearance.colouring, appearance.layer);
       let index = geometry.getIndex();
       if (visible || index) {
         // Reuse one GPU index buffer, with capacity for every source triangle.
@@ -2479,7 +2483,7 @@ export class ViewerRenderer {
         index.needsUpdate = true;
         geometry.setDrawRange(0, visible?.length ?? vertexCount);
       }
-      if (this.selectedContextFeature !== null && contextFeatureHidden(this.contextFeatures[this.selectedContextFeature], appearance.colouring)) {
+      if (this.selectedContextFeature !== null && contextFeatureHidden(this.contextFeatures[this.selectedContextFeature], appearance.colouring, appearance.layer)) {
         this.setContextSelection(null);
       }
     }
@@ -2512,7 +2516,7 @@ export class ViewerRenderer {
 
   /** Highlight all surfaces belonging to the feature without altering source colours. */
   setContextSelection(featureIndex: number | null) {
-    if (featureIndex !== null && contextFeatureHidden(this.contextFeatures[featureIndex], this.contextAppearance.colouring)) featureIndex = null;
+    if (featureIndex !== null && contextFeatureHidden(this.contextFeatures[featureIndex], this.contextAppearance.colouring, this.contextAppearance.layer)) featureIndex = null;
     if (!this.contextMesh || !this.contextBaseColours || this.selectedContextFeature === featureIndex) return;
     const colours = this.contextMesh.geometry.getAttribute("color") as THREE.BufferAttribute;
     const array = colours.array as Float32Array;
@@ -2529,6 +2533,23 @@ export class ViewerRenderer {
     }
     colours.needsUpdate = true;
     this.selectedContextFeature = featureIndex;
+  }
+
+  /** Frame the selected GIS feature from above, in its actual scene placement. */
+  focusContextFeature(featureIndex: number) {
+    const mesh = this.contextMesh;
+    if (!mesh) return;
+    const positions = mesh.geometry.getAttribute("position");
+    const bounds = new THREE.Box3(), point = new THREE.Vector3();
+    for (const range of this.contextFeatureRanges) {
+      if (range.featureIndex !== featureIndex) continue;
+      const end = (range.firstTriangle + range.triangleCount) * 3;
+      for (let i = range.firstTriangle * 3; i < end; i++) bounds.expandByPoint(point.fromBufferAttribute(positions, i));
+    }
+    if (bounds.isEmpty()) return;
+    mesh.updateMatrixWorld(true);
+    bounds.applyMatrix4(mesh.matrixWorld);
+    this.fitToBounds({ min: bounds.min.toArray() as Vec3, max: bounds.max.toArray() as Vec3 }, [0, 1, 0]);
   }
 
   /**

@@ -8,7 +8,9 @@ export type ContextColouring = {
   /** Typed property-value keys. Omitted in older projects: all values visible. */
   hiddenValues?: string[];
 };
+export type ContextLayerFilter = { field: "layer" | "type"; value: string };
 export type ContextAppearance = {
+  layer?: ContextLayerFilter | null;
   edgesOn: boolean;
   edgeWidth: number;
   colouring: ContextColouring | null;
@@ -29,19 +31,22 @@ export function contextPropertyValue(feature: ContextFeature, property: string):
   return Object.prototype.hasOwnProperty.call(feature.properties, property) ? feature.properties[property] : undefined;
 }
 
-export function contextFeatureHidden(feature: ContextFeature | undefined, colouring: ContextColouring | null): boolean {
-  return !!feature && !!colouring?.hiddenValues?.includes(contextValueKey(contextPropertyValue(feature, colouring.property)));
+export function contextFeatureHidden(feature: ContextFeature | undefined, colouring: ContextColouring | null, layer?: ContextLayerFilter | null): boolean {
+  if (!feature) return false;
+  if (layer && feature[layer.field] !== layer.value) return true;
+  return !!colouring?.hiddenValues?.includes(contextValueKey(contextPropertyValue(feature, colouring.property)));
 }
 
 /** Keep original vertex IDs and triangle order, including surfaces without metadata. */
 export function contextVisibleIndices(
-  vertexCount: number, features: readonly ContextFeature[], ranges: readonly ContextFeatureRange[], colouring: ContextColouring | null,
+  vertexCount: number, features: readonly ContextFeature[], ranges: readonly ContextFeatureRange[], colouring: ContextColouring | null, layer?: ContextLayerFilter | null,
 ): Uint32Array | null {
-  if (!colouring?.hiddenValues?.length) return null;
-  const hidden = new Set(colouring.hiddenValues);
+  if (!colouring?.hiddenValues?.length && !layer) return null;
+  const hidden = new Set(colouring?.hiddenValues);
   const hiddenRanges = ranges.filter((range) => {
     const feature = features[range.featureIndex];
-    return feature && hidden.has(contextValueKey(contextPropertyValue(feature, colouring.property)));
+    return feature && ((layer && feature[layer.field] !== layer.value)
+      || (colouring && hidden.has(contextValueKey(contextPropertyValue(feature, colouring.property)))));
   });
   if (!hiddenRanges.length) return null;
   const indices = new Uint32Array(vertexCount - hiddenRanges.reduce((sum, range) => sum + range.triangleCount * 3, 0));
@@ -71,4 +76,13 @@ export function contextColourGroups(features: readonly ContextFeature[], colouri
     colour: /^#[\da-f]{6}$/i.test(colouring.overrides[group.key] ?? "") ? colouring.overrides[group.key]
       : group.value === undefined || group.value === null ? "#8b93a7" : paletteColour(index),
   }));
+}
+
+/** Reveal the report's layer and selected category without discarding other styling. */
+export function revealContextFeature(appearance: ContextAppearance, feature: ContextFeature, layer?: ContextLayerFilter | null): ContextAppearance {
+  const colouring = appearance.colouring;
+  if (!colouring) return { ...appearance, layer: layer ?? null };
+  const key = contextValueKey(contextPropertyValue(feature, colouring.property));
+  return { ...appearance, layer: layer ?? null, colouring: colouring.hiddenValues?.includes(key)
+    ? { ...colouring, hiddenValues: colouring.hiddenValues.filter((value) => value !== key) } : colouring };
 }

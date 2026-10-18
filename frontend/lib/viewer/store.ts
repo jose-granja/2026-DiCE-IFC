@@ -13,6 +13,7 @@
 
 import { create } from "zustand";
 import { useContextModelStore } from "./context-model-store";
+import { useGisAreaStore } from "./gis-area-store";
 
 import type { SignatureSummary } from "@/lib/signing/summary";
 
@@ -234,7 +235,7 @@ type ViewerState = {
   reorderModels: (ids: string[]) => void;
 
   select: (refs: EntityRef[], mode?: "replace" | "add" | "toggle") => void;
-  clearSelection: () => void;
+  clearSelection: (keepReport?: boolean) => void;
   isSelected: (ref: EntityRef) => boolean;
 
   hide: (refs: EntityRef[]) => void;
@@ -443,6 +444,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   },
 
   select: (refs, mode = "replace") => {
+    useGisAreaStore.getState().hide();
     useContextModelStore.getState().clearSelection();
     set((state) => {
       if (mode === "replace") return { selection: refs };
@@ -457,7 +459,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     });
   },
 
-  clearSelection: () => {
+  clearSelection: (keepReport = false) => {
+    if (!keepReport) useGisAreaStore.getState().hide();
     useContextModelStore.getState().clearSelection();
     set({ selection: [] });
   },

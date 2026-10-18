@@ -42,6 +42,7 @@
 import { mapToWgs84, wgs84ToMap } from "./transform";
 
 import { ContextFeatureIndex, contextFeatureName, type ContextGeometry } from "./context-geometry";
+import { polygonTriangles } from "./polygon-triangulation";
 
 export type CityJsonParseResult = ContextGeometry;
 
@@ -110,21 +111,15 @@ function* rings(node: unknown): Generator<number[]> {
   for (const child of node) yield* rings(child);
 }
 
-/**
- * Fan-triangulate a ring.
- *
- * Correct for convex rings and acceptable for the gently non-convex footprints
- * that dominate city models. It is wrong for a ring with a hole, which is why
- * holes are dropped rather than fanned: a hole fanned into the exterior draws a
- * solid wedge across the courtyard, and a missing courtyard is a smaller lie
- * than an invented wall.
- */
-function triangulate(ring: number[]): Array<[number, number, number]> {
-  const triangles: Array<[number, number, number]> = [];
-  for (let i = 1; i + 1 < ring.length; i += 1) {
-    triangles.push([ring[0], ring[i], ring[i + 1]]);
+/** Preserve each surface's exterior and holes while ignoring shell nesting. */
+function* surfaces(node: unknown): Generator<number[][]> {
+  if (!Array.isArray(node) || node.length === 0) return;
+  if (typeof node[0] === "number") { yield [node as number[]]; return; }
+  if (Array.isArray(node[0]) && typeof node[0][0] === "number") {
+    yield node as number[][];
+    return;
   }
-  return triangles;
+  for (const child of node) yield* surfaces(child);
 }
 
 /**
@@ -173,21 +168,18 @@ function buildGeometry(
     let drewSomething = false;
 
     for (const geometry of object.geometry ?? []) {
-      for (const ring of rings(geometry.boundaries)) {
-        if (ring.length < 3) continue;
-
-        for (const [a, b, c] of triangulate(ring)) {
-          // Out-of-range indices appear in real files and would read past the
-          // vertex arrays.
-          if (a >= vertexCount || b >= vertexCount || c >= vertexCount) continue;
-
+      if (/Point|Line|Curve/.test(geometry.type ?? "")) continue;
+      for (const surface of surfaces(geometry.boundaries)) {
+        if (!surface.every((ring) => Array.isArray(ring) && ring.every((index) => Number.isInteger(index) && index >= 0 && index < vertexCount))) continue;
+        const points = surface.map((ring) => ring.map((index): [number, number, number] => [xs[index], ys[index], zs[index]]));
+        for (const triangle of polygonTriangles(points)) {
           // CityJSON is Z-up in a projected CRS; the renderer is Y-up with -Z
           // as north. Same convention as the rest of the georeferencing code.
-          for (const index of [a, b, c]) {
+          for (const [x, y, z] of triangle) {
             positions.push(
-              xs[index] - origin.easting,
-              zs[index] - origin.height,
-              -(ys[index] - origin.northing),
+              x - origin.easting,
+              z - origin.height,
+              -(y - origin.northing),
             );
             colours.push(colour[0], colour[1], colour[2]);
           }

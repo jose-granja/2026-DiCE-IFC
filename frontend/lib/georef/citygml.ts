@@ -317,7 +317,7 @@ export function parseCityGml(
     for (const [a, b, c] of triangles) {
       builder.triangle(a, b, c, colour, origin);
     }
-    builder.addFeature(entry.feature, firstTriangle);
+    builder.addFeature(entry.feature, firstTriangle, entry.kind === "polygon");
     counts.set(entry.name, (counts.get(entry.name) ?? 0) + 1);
   }
 

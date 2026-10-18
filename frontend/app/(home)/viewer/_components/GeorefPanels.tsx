@@ -232,6 +232,7 @@ export function GeorefPanels() {
           ready={Boolean(model?.coordinates && draft)}
         />
         <ContextModel
+          areaModel={model?.coordinates ? { name: model.summary.name, coordinates: model.coordinates } : null}
           placement={
             draft && model?.coordinates && !isTrivialMapConversion(draft.conversion)
               ? { conversion: draft.conversion, epsg: draft.epsg, lengthUnitScale }

@@ -45,6 +45,8 @@ import { getModelHandle } from "@/lib/viewer/loader";
 import { useViewerStore } from "@/lib/viewer/store";
 import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import { ContextPropertyPanel } from "./ContextPropertyPanel";
+import { GisAreaReport } from "./GisAreaReport";
+import { useGisAreaStore } from "@/lib/viewer/gis-area-store";
 import type {
   ElementInfo,
   MaterialDetailView,
@@ -53,10 +55,12 @@ import type {
 } from "@/lib/ifc/types";
 
 export function PropertyPanel() {
+  const report = useGisAreaStore((s) => s.showing ? s.report : null);
   const loaded = useContextModelStore((s) => s.loaded);
   const selected = useContextModelStore((s) => s.selectedFeature);
   const file = useContextModelStore((s) => s.file);
   const feature = selected === null ? null : loaded?.features?.[selected];
+  if (report) return <GisAreaReport report={report} />;
   return feature ? <ContextPropertyPanel key={selected} feature={feature} filename={file?.name} epsg={loaded!.epsg} /> : <IfcPropertyPanel />;
 }
 

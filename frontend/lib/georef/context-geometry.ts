@@ -24,6 +24,8 @@ export type ContextFeatureRange = {
   firstTriangle: number;
   triangleCount: number;
   featureIndex: number;
+  /** False for display ribbons/markers made from source lines and points. */
+  area?: false;
 };
 
 /** A local copy of the legend for the loaded WMS layer/style. */
@@ -35,7 +37,7 @@ export class ContextFeatureIndex {
   readonly featureRanges: ContextFeatureRange[] = [];
   private readonly indices = new Map<ContextFeature, number>();
 
-  add(feature: ContextFeature, firstTriangle: number, endTriangle: number) {
+  add(feature: ContextFeature, firstTriangle: number, endTriangle: number, area = true) {
     if (endTriangle <= firstTriangle) return;
     let featureIndex = this.indices.get(feature);
     if (featureIndex === undefined) {
@@ -44,10 +46,10 @@ export class ContextFeatureIndex {
       this.features.push(feature);
     }
     const previous = this.featureRanges.at(-1);
-    if (previous?.featureIndex === featureIndex && previous.firstTriangle + previous.triangleCount === firstTriangle) {
+    if (previous?.featureIndex === featureIndex && (previous.area !== false) === area && previous.firstTriangle + previous.triangleCount === firstTriangle) {
       previous.triangleCount += endTriangle - firstTriangle;
     } else {
-      this.featureRanges.push({ firstTriangle, triangleCount: endTriangle - firstTriangle, featureIndex });
+      this.featureRanges.push({ firstTriangle, triangleCount: endTriangle - firstTriangle, featureIndex, ...(!area ? { area: false as const } : {}) });
     }
   }
 }
@@ -85,6 +87,8 @@ export type ContextGeometry = {
   attributionUrl?: string;
   features?: ContextFeature[];
   featureRanges?: ContextFeatureRange[];
+  /** Source layer names, including layers with no geometry in the loaded extent. */
+  layers?: string[];
   /** Projected coordinates of the local origin, in `epsg`. */
   origin: { easting: number; northing: number; height: number };
   epsg: number | null;
@@ -125,8 +129,8 @@ export class GeometryBuilder {
   private readonly colours: number[] = [];
   private readonly featureIndex = new ContextFeatureIndex();
 
-  addFeature(feature: ContextFeature, firstTriangle: number) {
-    this.featureIndex.add(feature, firstTriangle, this.triangleCount);
+  addFeature(feature: ContextFeature, firstTriangle: number, area = true) {
+    this.featureIndex.add(feature, firstTriangle, this.triangleCount, area);
   }
 
   /**

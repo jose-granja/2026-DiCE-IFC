@@ -1,6 +1,7 @@
 import { DEFAULT_CONTEXT_APPEARANCE } from "@/lib/viewer/context-appearance";
 import { beforeEach, expect, it } from "vitest";
 import { useContextModelStore } from "../context-model-store";
+import { useGisAreaStore } from "../gis-area-store";
 import { useViewerStore } from "../store";
 import type { ContextGeometry } from "@/lib/georef/context-geometry";
 
@@ -55,4 +56,18 @@ it("clears inspection only when its colour group is hidden and rejects hidden se
   context.setSettings({ appearance });
   context.selectFeature(0);
   expect(useContextModelStore.getState().selectedFeature).toBe(0);
+});
+
+
+it("keeps the area report open while switching from IFC selection to a matched GIS feature", () => {
+  useViewerStore.getState().select([{ modelId: "ifc", expressId: 42 }]);
+  useGisAreaStore.getState().show();
+  useViewerStore.getState().clearSelection(true);
+  useContextModelStore.getState().selectFeature(0, true);
+  expect(useViewerStore.getState().selection).toEqual([]);
+  expect(useContextModelStore.getState().selectedFeature).toBe(0);
+  expect(useGisAreaStore.getState().showing).toBe(true);
+  // Ordinary viewport selection still replaces the report with feature properties.
+  useContextModelStore.getState().selectFeature(0);
+  expect(useGisAreaStore.getState().showing).toBe(false);
 });

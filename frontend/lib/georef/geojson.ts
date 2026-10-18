@@ -221,9 +221,7 @@ export function parseGeoJson(text: string, epsg: number): ContextGeometry {
     const colour = COLOURS[entry.kind] ?? DEFAULT_COLOUR;
     const before = builder.triangleCount;
 
-    build(entry.geometry, entry.projected, entry.height, colour, builder, origin);
-
-    builder.addFeature(entry.feature, before);
+    build(entry.geometry, entry.projected, entry.height, colour, builder, origin, entry.feature);
     if (builder.triangleCount > before) {
       objectCount += 1;
       counts.set(entry.kind, (counts.get(entry.kind) ?? 0) + 1);
@@ -281,7 +279,13 @@ function build(
   colour: readonly [number, number, number],
   builder: GeometryBuilder,
   origin: { easting: number; northing: number; height: number },
+  feature: ContextFeature,
 ) {
+  if (geometry.type === "GeometryCollection") {
+    for (const child of geometry.geometries ?? []) build(child, projected, height, colour, builder, origin, feature);
+    return;
+  }
+  const firstTriangle = builder.triangleCount;
   const at = (position: Position, z: number): [number, number, number] => {
     const point = projected.get(position)!;
     return [point[0], point[1], (position[2] ?? 0) + z];
@@ -371,12 +375,8 @@ function build(
     case "MultiPoint":
       for (const part of (coordinates as Position[]) ?? []) point(part);
       break;
-    case "GeometryCollection":
-      for (const child of geometry.geometries ?? []) {
-        build(child, projected, height, colour, builder, origin);
-      }
-      break;
     default:
       break;
   }
+  builder.addFeature(feature, firstTriangle, geometry.type === "Polygon" || geometry.type === "MultiPolygon");
 }

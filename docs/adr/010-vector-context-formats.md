@@ -96,10 +96,35 @@ A GeoPackage is a SQLite database, so reading one needs a SQL engine.
 ## Consequences
 
 - Four formats, one code path, one set of traps written down.
-- GeoPackage, GML and GeoJSON use ear-clipping triangulation for concave polygons
-  and holes. CityJSON still uses triangle fans.
+- GeoPackage, GML, GeoJSON and CityJSON preserve concave polygons and holes
+  through polygon triangulation.
 - A GeoPackage's tile pyramids and attribute-only tables are ignored; only
   `data_type = 'features'` is read.
+
+### Horizontal area reports (2026-10-18)
+
+The GIS panel can check every advertised WFS layer, or all layers in loaded GIS
+data, against the selected Geo model's horizontal bounding footprint. The check
+uses projected polygon triangles, including holes, and ignores height; partial
+overlaps and boundary touches count as matches. It uses full model bounds rather
+than the single-layer load radius. Point markers and line ribbons are explicitly
+marked as non-area triangle ranges by the readers, including mixed geometries.
+
+Analysis runs in a worker without changing the displayed context or applying its
+visibility filters. Local checks state that only the loaded extent is available.
+WFS checks make bounded GetFeature requests through the existing proxy, one layer
+at a time, and retain per-layer errors, incomplete responses and unchecked layers
+after cancellation. Only the public service URL, layer and map bounds leave the
+device. The dated report appears in Properties with source attributes and exports
+as a UTF-8 CSV, including unsuccessful layer statuses and formula-safe metadata.
+Reports are transient results; project files keep the original GIS snapshots.
+Clicking a match displays the exact checked layer, highlights the feature, and
+frames it from above without closing the report. WFS response snapshots are
+retained locally only for matching layers, so viewing results does not refetch
+changed data. Loaded files retain their checked geometry and feature indices.
+Layer isolation and colour filters share the renderer's original-index visibility
+path; the selected category is revealed, and Show all layers clears isolation.
+The layer filter travels with context appearance in saved projects.
 
 ### GeoPackage map context (2026-10-15)
 

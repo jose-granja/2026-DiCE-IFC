@@ -12,8 +12,10 @@ import { readMapLegend, saveMapSnapshot } from "@/lib/georef/context-map";
 import type { ContextLegend } from "@/lib/georef/context-geometry";
 import type { Placement, WgsPoint } from "@/lib/georef/transform";
 import LoadingProgress from "./LoadingProgress";
+import { GisAreaCheckButton, type GisAreaModel } from "./GisAreaCheckButton";
 
-export default function ContextServiceControls({ service, setService, placement, reference, onFile, disabled, onBusyChange }: {
+export default function ContextServiceControls({ service, setService, placement, reference, onFile, disabled, onBusyChange, areaModel }: {
+  areaModel: GisAreaModel | null;
   service:OgcService|null; setService:(service:OgcService|null)=>void;
   placement:Placement|null; reference:WgsPoint|null;
   onFile:(file:File, signal:AbortSignal)=>Promise<unknown>; disabled:boolean; onBusyChange:(busy:boolean)=>void;
@@ -77,7 +79,10 @@ export default function ContextServiceControls({ service, setService, placement,
         <Input aria-label={t("url")} placeholder="https://…" value={url} onChange={(e)=>setUrl(e.target.value)} disabled={disabled||busy} className="h-7 min-w-0 text-xs" />
       </div>
       <p className="text-muted-foreground text-[11px]">{t("privacy")}</p>
-      <Button size="sm" variant="outline" className="h-7 text-xs" disabled={!url.trim()||busy||disabled} onClick={connect}>{t("connect")}</Button>
+      <div className="flex flex-wrap gap-1">
+        <Button size="sm" variant="outline" className="h-7 text-xs" disabled={!url.trim()||busy||disabled} onClick={connect}>{t("connect")}</Button>
+        {(service?.kind ?? kind) === "WFS" && <GisAreaCheckButton service={service} model={areaModel} placement={placement} disabled={disabled || busy} />}
+      </div>
       {service && layer && <>
         <p className="truncate text-xs font-medium" title={service.title}>{service.kind} · {service.title}</p>
         <p className="text-muted-foreground truncate text-[11px]">{new URL(service.url).host}</p>
