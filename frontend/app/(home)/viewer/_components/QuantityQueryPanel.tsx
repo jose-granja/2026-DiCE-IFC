@@ -1215,7 +1215,7 @@ export function QuantityQueryPanel() {
                     value={materialCategories}
                     onChange={setMaterialCategories}
                     suggestions={[]}
-                    placeholder="Concrete"
+                    // placeholder="Concrete"
                     hint={t("filters.multipleHint")}
                     disabled={readOnly}
                   />
