@@ -716,6 +716,14 @@
         "class": "Class",
         "value": "Result",
         "previewLimit": "Showing the first 250 of {count, number} rows. The CSV contains all rows."
+      },
+      "template": {
+        "use": "Use default template",
+        "loading": "Loading template…",
+        "hint": "Add common building quantities to your list. Existing queries and edits are kept.",
+        "loaded": "Added {count, plural, one {# quantity} other {# quantities}} from the default template.",
+        "alreadyLoaded": "The default template is already in your list.",
+        "failed": "The default template could not be loaded. Try again."
       }
     },
     "spatialTree": {

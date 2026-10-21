@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQueries } from "@tanstack/react-query";
 import {
   Calculator,
   Copy,
   Download,
+  FileSpreadsheet,
   Filter,
   ListPlus,
   Loader2,
@@ -47,6 +48,7 @@ import {
   createQuantityWorkbook,
   readQuantityWorkbook,
 } from "@/lib/spreadsheets/quantity-workbook";
+import { DEFAULT_QUANTITY_TEMPLATE_URL, readDefaultQuantityTemplate } from "@/lib/spreadsheets/quantity-template";
 import { getModelHandle } from "@/lib/viewer/loader";
 import { useViewerStore, type EntityRef } from "@/lib/viewer/store";
 import { classificationCodesFor } from "@/lib/viewer/use-model-vocabulary";
@@ -164,10 +166,12 @@ function SuggestionInput({
 
 export function QuantityQueryPanel() {
   const t = useTranslations("viewer.quantityQuery");
+  const locale = useLocale();
   const models = useViewerStore((state) => state.models);
   const select = useViewerStore((state) => state.select);
   const isolate = useViewerStore((state) => state.isolate);
   const workbookInput = useRef<HTMLInputElement>(null);
+  const templateRequest = useRef<AbortController | null>(null);
   const ready = useMemo(
     () => models.filter((model) => model.load.status === "ready"),
     [models],
@@ -292,12 +296,15 @@ export function QuantityQueryPanel() {
   const [running, setRunning] = useState(false);
   const [runningList, setRunningList] = useState(false);
   const [importingWorkbook, setImportingWorkbook] = useState(false);
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [exportingWorkbook, setExportingWorkbook] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CombinedResult | null>(null);
   const [editorTab, setEditorTab] = useState<"filters" | "values" | "results">(
     "filters",
   );
+
+  useEffect(() => () => templateRequest.current?.abort(), []);
 
   // Query definitions are small, user-authored data. Keep them local so a
   // list survives switching viewer tabs or reopening the page; model-derived
@@ -323,6 +330,9 @@ export function QuantityQueryPanel() {
     }, 0);
     // A restored project replaces the list while this panel may be open.
     const onReplaced = (event: Event) => {
+      templateRequest.current?.abort();
+      templateRequest.current = null;
+      setLoadingTemplate(false);
       adopt((event as CustomEvent<StoredQueryListItem[]>).detail);
       setEditingItemId(null);
       setResult(null);
@@ -699,6 +709,38 @@ export function QuantityQueryPanel() {
     }
   };
 
+  const loadDefaultTemplate = async () => {
+    if (templateRequest.current || !queryListLoaded || importingWorkbook || exportingWorkbook || running || runningList) return;
+    const request = new AbortController();
+    templateRequest.current = request;
+    setLoadingTemplate(true);
+    setError(null);
+    try {
+      // A bundled public asset; no model or user data is sent with this request.
+      const response = await fetch(DEFAULT_QUANTITY_TEMPLATE_URL, { signal: request.signal });
+      if (!response.ok) throw new Error("Template unavailable.");
+      const definitions = readDefaultQuantityTemplate(new Uint8Array(await response.arrayBuffer()), locale);
+      request.signal.throwIfAborted();
+      const existingIds = new Set(queryItems.map((item) => item.id));
+      const imported: QueryListItem[] = definitions.filter((item) => !existingIds.has(item.id)).map((item) => ({ ...item, result: null }));
+      if (!imported.length) {
+        toast.info(t("template.alreadyLoaded"));
+        return;
+      }
+      setQueryItems((current) => {
+        const ids = new Set(current.map((item) => item.id));
+        return [...current, ...imported.filter((item) => !ids.has(item.id))];
+      });
+      loadItem(imported[0], "view");
+      toast.success(t("template.loaded", { count: imported.length }));
+    } catch {
+      if (!request.signal.aborted) setError(t("template.failed"));
+    } finally {
+      if (templateRequest.current === request) templateRequest.current = null;
+      if (!request.signal.aborted) setLoadingTemplate(false);
+    }
+  };
+
   const downloadWorkbook = async () => {
     if (queryItems.length === 0 || exportingWorkbook) return;
     setError(null);
@@ -805,6 +847,7 @@ export function QuantityQueryPanel() {
                 size="sm"
                 className="h-7 px-2 text-[11px]"
                 aria-label={t("list.new")}
+                disabled={loadingTemplate}
                 onClick={resetEditor}
               >
                 <Plus className="h-3 w-3" />
@@ -822,7 +865,7 @@ export function QuantityQueryPanel() {
                 size="sm"
                 className="h-7 px-2 text-[11px]"
                 aria-label={t("list.runAll")}
-                disabled={queryItems.length === 0 || runningList}
+                disabled={queryItems.length === 0 || runningList || loadingTemplate}
                 onClick={runAll}
               >
                 {runningList ? (
@@ -844,7 +887,7 @@ export function QuantityQueryPanel() {
                 size="sm"
                 className="h-7 px-2 text-[11px]"
                 aria-label={t("workbook.import")}
-                disabled={importingWorkbook}
+                disabled={importingWorkbook || loadingTemplate}
                 onClick={() => workbookInput.current?.click()}
               >
                 {importingWorkbook ? (
@@ -866,7 +909,7 @@ export function QuantityQueryPanel() {
                 size="sm"
                 className="h-7 px-2 text-[11px]"
                 aria-label={t("workbook.download")}
-                disabled={queryItems.length === 0 || exportingWorkbook}
+                disabled={queryItems.length === 0 || exportingWorkbook || loadingTemplate}
                 onClick={() => void downloadWorkbook()}
               >
                 {exportingWorkbook ? (
@@ -889,6 +932,7 @@ export function QuantityQueryPanel() {
           type="file"
           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="hidden"
+          disabled={loadingTemplate}
           data-quantity-workbook-input
           onChange={(event) => {
             const file = event.target.files?.[0];
@@ -899,11 +943,18 @@ export function QuantityQueryPanel() {
           className="shrink-0 space-y-2 rounded-lg border p-2"
           data-query-list
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="flex items-center gap-1.5 text-xs font-semibold">
               <ListPlus className="h-3.5 w-3.5" />
               {t("list.title")}
             </h3>
+            <Button type="button" size="sm" variant="outline" className="h-7 text-[11px]"
+              title={t("template.hint")} aria-label={t("template.use")}
+              disabled={!queryListLoaded || loadingTemplate || importingWorkbook || exportingWorkbook || running || runningList}
+              onClick={() => void loadDefaultTemplate()} data-quantity-template-use>
+              {loadingTemplate ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <FileSpreadsheet className="h-3 w-3" aria-hidden />}
+              {t(loadingTemplate ? "template.loading" : "template.use")}
+            </Button>
           </div>
 
           {queryItems.length === 0 ? (
@@ -1659,7 +1710,7 @@ export function QuantityQueryPanel() {
             <Button
               className="w-full shrink-0"
               size="sm"
-              disabled={running || runningList}
+              disabled={running || runningList || loadingTemplate}
               onClick={runQuery}
             >
               {running ? (

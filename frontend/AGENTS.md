@@ -988,6 +988,15 @@ empty one. The first workspace format (`workspaces/current` + handles keyed
   formula's alias is written whenever it could not be re-derived, and clash
   filters are matched to groups by position. The round-trip tests in
   `quantity-workbook.test.ts` and `clash/__tests__/workbook.test.ts` pin this.
+- **The MQT default template is a real Excel asset**,
+  `public/templates/mqt-default.xlsx`. Its `Quantities` sheet owns the starter
+  queries, with `Description` and `Description (PT)` for both languages. Keep
+  its codes unique and stable: the explicit Use default template action uses
+  them as persistent IDs, appends missing entries and preserves existing edits.
+  Load it through the ordinary workbook parser; never duplicate its query
+  definitions in application code. Base quantities must exist in the IFC and
+  unit labels do not convert values. Tests import the shipped file and run a
+  template query against a real IFC fixture.
 - **The `.zip` is written and read by `lib/project/zip.ts`, not fflate's streaming
   `Zip`/`Unzip`.** A streaming writer cannot put an entry's size first, and for a
   stored entry a streaming reader then finds its end by looking for the next

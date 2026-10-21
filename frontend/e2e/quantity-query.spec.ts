@@ -5,6 +5,59 @@ import { createQuantityWorkbook } from "../lib/spreadsheets/quantity-workbook";
 
 const FIXTURE = path.resolve(__dirname, "../fixtures/ifc/facets-ifc4.ifc");
 
+test("loads the bundled MQT template, preserves existing queries and runs real quantities", async ({ page }, testInfo) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/viewer?panel=quantities");
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  await page.locator("[data-quantity-workbook-input]").setInputFiles({
+    name: "custom.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(createQuantityWorkbook([{
+      code: "MY.01", description: "My existing query", result: null,
+      query: { filters: { classes: ["IfcSlab"], predefinedTypes: [], objectTypes: [], materials: [], properties: [] }, sources: [{ id: "count", alias: "count", kind: "count" }], unit: "un" },
+    }])),
+  });
+  const items = page.locator('[data-query-list] [role="listitem"]');
+  await expect(items).toHaveCount(1);
+  await page.getByRole("button", { name: "Use default template", exact: true }).click();
+  await expect(items).toHaveCount(13);
+  await expect(items.first()).toContainText("My existing query");
+  await expect(items.filter({ hasText: "Walls: net side area" })).toContainText("MQT.01");
+  await page.getByRole("button", { name: "Run query", exact: true }).click();
+  await expect(page.getByText("25 m²", { exact: true }).last()).toBeVisible();
+  await page.getByRole("button", { name: "Use default template", exact: true }).click();
+  await expect(page.getByText("The default template is already in your list.")).toBeVisible();
+  await expect(items).toHaveCount(13);
+  await page.getByRole("button", { name: "Edit Walls: net side area", exact: true }).click();
+  await page.getByLabel("Description", { exact: true }).fill("My wall measurement");
+  await page.getByRole("button", { name: "Update", exact: true }).click();
+  await page.locator('[role="tab"][id$="-trigger-classes"]').click();
+  await page.locator('[role="tab"][id$="-trigger-quantities"]').click();
+  await page.getByRole("button", { name: "Use default template", exact: true }).click();
+  await expect(items).toHaveCount(13);
+  await expect(items.filter({ hasText: "MQT.01" })).toContainText("My wall measurement");
+  await page.screenshot({ path: testInfo.outputPath("mqt-default-template.png") });
+  expect(errors).toEqual([]);
+});
+
+test("recovers from an unavailable template and loads its Portuguese descriptions", async ({ page, baseURL }) => {
+  await page.context().addCookies([{ name: "dice-locale", value: "pt", url: baseURL! }]);
+  await page.goto("/viewer?panel=quantities");
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  await page.route("**/templates/mqt-default.xlsx", (route) => route.fulfill({ status: 503, body: "Unavailable" }));
+  const useTemplate = page.getByRole("button", { name: "Usar template padrão", exact: true });
+  await useTemplate.click();
+  await expect(page.getByText("Não foi possível carregar o template padrão. Tente novamente.")).toBeVisible();
+  await expect(page.locator('[data-query-list] [role="listitem"]')).toHaveCount(0);
+  await expect(useTemplate).toBeEnabled();
+  await page.unroute("**/templates/mqt-default.xlsx");
+  await useTemplate.click();
+  await expect(page.locator('[data-query-list] [role="listitem"]')).toHaveCount(12);
+  await expect(page.locator('[data-query-list] [role="listitem"]').first()).toContainText("Paredes: área lateral líquida");
+});
+
 test("builds a table-style quantity query and applies its results to the viewer", async ({
   page,
 }) => {

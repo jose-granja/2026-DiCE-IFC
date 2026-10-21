@@ -716,6 +716,14 @@
         "class": "Classe",
         "value": "Resultado",
         "previewLimit": "A mostrar as primeiras 250 de {count, number} linhas. O CSV contém todas as linhas."
+      },
+      "template": {
+        "use": "Usar template padrão",
+        "loading": "A carregar template…",
+        "hint": "Adicionar quantidades comuns de edifícios à lista. As consultas e alterações existentes são mantidas.",
+        "loaded": "{count, plural, one {# quantidade adicionada} other {# quantidades adicionadas}} do template padrão.",
+        "alreadyLoaded": "O template padrão já está na lista.",
+        "failed": "Não foi possível carregar o template padrão. Tente novamente."
       }
     },
     "spatialTree": {
