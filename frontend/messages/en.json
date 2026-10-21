@@ -740,6 +740,20 @@
       "unknownClass": "Unspecified class"
     },
     "propertyPanel": {
+      "ids": {
+        "tab": "IDS",
+        "title": "IDS requirements",
+        "noFile": "Load an IDS file in the IDS panel to see the required properties for this element.",
+        "loading": "Reading IDS requirements…",
+        "error": "The IDS requirements could not be read. Check the loaded IDS file and try again.",
+        "retry": "Try again",
+        "hint": "Required properties and attributes from applicable specifications. Measure values use IDS units (SI).",
+        "noRequirements": "The loaded IDS has no required properties or attributes applicable to this element.",
+        "missing": "Missing",
+        "emptyValue": "No value",
+        "property": "Property",
+        "value": "Current value"
+      },
       "contextFeature": "Context feature",
       "contextSource": "Format",
       "contextId": "Feature ID",

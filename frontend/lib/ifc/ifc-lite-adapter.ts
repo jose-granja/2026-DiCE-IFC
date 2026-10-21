@@ -41,7 +41,7 @@ import { GeometryProcessor } from "@ifc-lite/geometry";
 import type { AABB as IfcLiteAabb, Vec3 as IfcLiteVec3 } from "@ifc-lite/geometry";
 import { MutablePropertyView, StoreEditor } from "@ifc-lite/mutations";
 import { StepExporter } from "@ifc-lite/export";
-import { createTranslationService, validateIDS, type IDSDocument } from "@ifc-lite/ids";
+import { checkFacet, matchConstraint, formatConstraint, createTranslationService, validateIDS, type IDSConstraint, type IDSDocument } from "@ifc-lite/ids";
 import { createDataAccessor } from "@ifc-lite/ids/bridge";
 
 import type { EngineIdsDocument } from "./ids-document";
@@ -71,6 +71,7 @@ import {
   type ElementGroupSource,
   type ModelVocabulary,
   type IdsModelReport,
+  type IdsPropertyView,
   type IdsSpecificationResultView,
   type IdsValidationOptions,
   type ModelSummary,
@@ -1513,16 +1514,85 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
   },
 
   /**
+   * Project required fields for a single element, using the validator's
+   * applicability semantics and effective values (occurrence overrides type).
+   */
+  async getIdsProperties(modelId, expressId, document): Promise<IdsPropertyView[]> {
+    const model = must(modelId);
+    const accessor = createDataAccessor(model.store);
+    if (!accessor.getEntityType(expressId)) return [];
+    const rows = new Map<string, IdsPropertyView>();
+    // Same effective values and applicability checks as the validator, but
+    // only for the selected element. Never scan/validate the whole model here.
+    const sets = accessor.getPropertySets(expressId);
+    const label = (constraint: IDSConstraint) => constraint.type === "simpleValue"
+      ? String(constraint.value) : formatConstraint(constraint);
+    const schemaFamily = (schema: string) => schema.toUpperCase().replace(/^IFC4X3(?:_.*)?$/, "IFC4X3");
+    const schema = schemaFamily(model.summary.schemaToken ?? model.summary.schema);
+    const add = (id: string, kind: IdsPropertyView["kind"], name: string,
+      values: PropertyValue[], specification: string, propertySet?: string) => {
+      const previous = rows.get(id);
+      if (previous) {
+        if (!previous.specifications.includes(specification)) previous.specifications.push(specification);
+        return;
+      }
+      rows.set(id, {
+        id, kind, name, propertySet, values,
+        state: values.length === 0 ? "missing" : values.every((v) => v === null || v === "") ? "empty" : "present",
+        specifications: [specification],
+      });
+    };
+    for (const spec of (document as unknown as IDSDocument).specifications) {
+      if (spec.maxOccurs === 0 || !spec.ifcVersions.some((version) => schemaFamily(version) === schema)) continue;
+      if (!spec.applicability.facets.every((facet) => checkFacet(facet, expressId, accessor).passed)) continue;
+      for (const requirement of spec.requirements) {
+        if (requirement.optionality !== "required") continue;
+        const facet = requirement.facet;
+        if (facet.type === "property") {
+          const matchingSets = sets.map((set, index) => ({ set, index }))
+            .filter(({ set }) => matchConstraint(facet.propertySet, set.name));
+          if (!matchingSets.length) {
+            const setName = label(facet.propertySet);
+            const name = label(facet.baseName);
+            add(JSON.stringify(["missing", setName, name]), "property", name, [], spec.name, setName);
+          }
+          for (const { set, index } of matchingSets) {
+            const properties = set.properties.map((property, p) => ({ property, p }))
+              .filter(({ property }) => matchConstraint(facet.baseName, property.name));
+            if (!properties.length) {
+              const name = label(facet.baseName);
+              add(JSON.stringify(["missing", index, name]), "property", name, [], spec.name, set.name);
+            }
+            for (const { property, p } of properties) {
+              // Match names only: a wrong value/type must remain visible.
+              add(JSON.stringify(["property", index, p]), "property", property.name,
+                property.values?.length ? property.values : [property.value], spec.name, set.name);
+            }
+          }
+        } else if (facet.type === "attribute") {
+          const names = facet.name.type === "simpleValue"
+            ? [String(facet.name.value)]
+            : (accessor.getAttributeNames?.(expressId) ?? []).filter((name) => matchConstraint(facet.name, name));
+          if (!names.length) {
+            const name = label(facet.name);
+            add(JSON.stringify(["attribute", name]), "attribute", name, [], spec.name);
+          }
+          for (const name of names) {
+            const value = accessor.getAttribute(expressId, name);
+            add(JSON.stringify(["attribute", name]), "attribute", name,
+              value === undefined ? [] : [value], spec.name);
+          }
+        }
+      }
+    }
+    return [...rows.values()];
+  },
+
+  /**
    * Validate against an IDS document parsed by `lib/ifc/ids-document.ts`.
-   *
-   * The engine's `createDataAccessor` bridge does the real work — it is the
-   * same projection their buildingSMART corpus harness runs against, which is a
-   * much stronger guarantee than anything we would write here. This method is a
-   * translation layer: engine report in, our vendor-neutral report out, with
-   * none of the engine's types escaping.
-   *
-   * The document arrives already parsed because this runs in a Worker, which
-   * has no `DOMParser`. See `ids-document.ts`.
+   * The engine's data accessor projects the IFC; this method translates its
+   * report into our vendor-neutral views. Parsing stays on the main thread
+   * because workers have no DOMParser.
    */
   async validateIds(
     modelId: ModelId,

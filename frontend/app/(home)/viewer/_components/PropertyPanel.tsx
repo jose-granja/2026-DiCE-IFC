@@ -28,7 +28,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Component, Copy, Info, Layers, ListChecks, Search, Sigma, Tag } from "lucide-react";
+import { Check, Component, Copy, FileCheck2, Info, Layers, ListChecks, Search, Sigma, Tag } from "lucide-react";
 
 import {
   Accordion,
@@ -45,6 +45,7 @@ import { getModelHandle } from "@/lib/viewer/loader";
 import { useViewerStore } from "@/lib/viewer/store";
 import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import { ContextPropertyPanel } from "./ContextPropertyPanel";
+import { IdsProperties } from "./IdsProperties";
 import { GisAreaReport } from "./GisAreaReport";
 import { useGisAreaStore } from "@/lib/viewer/gis-area-store";
 import type {
@@ -71,6 +72,7 @@ function IfcPropertyPanel() {
   const ref = selection[selection.length - 1] ?? null;
 
   const [filter, setFilter] = useState("");
+  const [activeTab, setActiveTab] = useState("attributes");
   // Express ids (as strings — Accordion's own value type) of materials
   // currently expanded in the Materials tab. Several can be open at once, so
   // this is a list rather than one "the" open material.
@@ -174,7 +176,8 @@ function IfcPropertyPanel() {
           </div>
         ) : (
           <Tabs
-            defaultValue="attributes"
+            value={activeTab}
+            onValueChange={setActiveTab}
             className="panel-tabs flex min-h-0 flex-1 flex-col gap-0"
           >
             {/*
@@ -184,7 +187,7 @@ function IfcPropertyPanel() {
               the DOM when hidden, so the tab's accessible name is always the
               word, whichever is showing.
             */}
-            <TabsList className="m-2 grid grid-cols-6 bg-transparent p-0">
+            <TabsList className="m-2 grid grid-cols-7 bg-transparent p-0">
               <TabsTrigger value="attributes" className="text-xs">
                 <Info className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
                 <span className="panel-tab-text">{t("attributes")}</span>
@@ -209,7 +212,15 @@ function IfcPropertyPanel() {
                 <Layers className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
                 <span className="panel-tab-text">{t("materials")}</span>
               </TabsTrigger>
+              <TabsTrigger value="ids" className="text-xs" title={t("ids.title")} aria-label={t("ids.title")}>
+                <FileCheck2 className="panel-tab-icon h-3.5 w-3.5" aria-hidden />
+                <span className="panel-tab-text">{t("ids.tab")}</span>
+              </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="ids" className="min-h-0 flex-1 overflow-auto p-3">
+              <IdsProperties entity={ref} filter={filter} />
+            </TabsContent>
 
             <TabsContent
               value="attributes"

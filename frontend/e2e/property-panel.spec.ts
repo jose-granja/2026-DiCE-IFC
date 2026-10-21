@@ -12,7 +12,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 const FIXTURE = path.resolve(__dirname, "../fixtures/ifc/facets-ifc4.ifc");
 
-async function selectWall(page: Page) {
+async function selectWall(page: Page, locale: "en" | "pt" = "en") {
+  await page.context().addCookies([{ name: "dice-locale", value: locale, url: "http://127.0.0.1" }]);
   await page.goto("/viewer");
   await page.setInputFiles('input[type="file"]', [FIXTURE]);
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({
@@ -25,9 +26,9 @@ async function selectWall(page: Page) {
   // The storey has to be expanded first — its elements are listed lazily, and
   // the disclosure is a separate control from the row itself, so clicking the
   // row selects the storey rather than opening it.
-  await page.getByRole("tab", { name: "Structure" }).click();
+  await page.getByRole("tab", { name: /Structure|Estrutura/ }).click();
   const storey = page.getByRole("treeitem", { name: /Level 0/ }).first();
-  await storey.getByRole("button", { name: "Expand" }).first().click();
+  await storey.getByRole("button", { name: /Expand|Expandir/ }).first().click();
 
   // Grouped by class, then labelled by name once it has loaded (briefly
   // "#100" — its express id — before that resolves). "Wall A" is this
@@ -146,4 +147,61 @@ test("says nothing is selected rather than showing an empty shell", async ({
     timeout: 90_000,
   });
   await expect(page.getByText(/Select an element/)).toBeVisible();
+});
+
+test("lists required IDS fields without running validation, and refreshes on selection and IDS changes", async ({ page }, testInfo) => {
+  await selectWall(page);
+  await page.getByRole("tab", { name: "IDS requirements", exact: true }).click();
+  await expect(page.getByText("Load an IDS file in the IDS panel", { exact: false })).toBeVisible();
+  await page.getByRole("tab", { name: "IDS", exact: true }).click();
+  await page.locator('input[accept*=".ids"]').setInputFiles(path.resolve(__dirname, "../fixtures/ids/property-inspector.ids"));
+  const list = page.locator("[data-ids-properties]");
+  await expect(list.locator("[data-ids-property]")).toHaveCount(6);
+  await expect(list.locator('[data-ids-property="FireRating"]')).toContainText("REI 60");
+  await expect(list.locator('[data-ids-property="FireRating"]')).toContainText("Fire safety");
+  await expect(list.locator('[data-ids-property="ThermalTransmittance"]')).toContainText("0.18");
+  await expect(list.locator('[data-ids-property="IsExternal"]')).toContainText("Missing");
+  await expect(list.locator('[data-ids-property="LoadBearing"]')).toContainText("Yes");
+  await expect(list.locator('[data-ids-property="NetSideArea"]')).toContainText("12.5");
+  await page.locator("[data-property-panel]").screenshot({ path: testInfo.outputPath("ids-properties.png") });
+
+  await page.getByLabel("Filter properties").fill("missing");
+  await expect(list.locator("[data-ids-property]")).toHaveCount(1);
+  await page.getByLabel("Filter properties").fill("no such property");
+  await expect(list.getByText("No properties match your search.")).toBeVisible();
+  await page.getByLabel("Filter properties").fill("");
+
+  await page.getByRole("tab", { name: "Structure", exact: true }).click();
+  const storey = page.getByRole("treeitem", { name: /Level 0/ }).first();
+  // The tree is remounted when changing the left-hand tab.
+  const expand = storey.getByRole("button", { name: "Expand", exact: true }).first();
+  if (await expand.count()) await expand.click();
+  await page.getByRole("treeitem", { name: "Wall B" }).first().click();
+  await expect(list.locator('[data-ids-property="Name"]')).toContainText("Wall B");
+  await storey.click();
+  await expect(list.getByText("The loaded IDS has no required properties or attributes applicable to this element.")).toBeVisible();
+  await page.getByRole("treeitem", { name: "Wall A" }).first().click();
+  await expect(list.locator("[data-ids-property]")).toHaveCount(6);
+
+  await page.getByRole("tab", { name: "IDS", exact: true }).click();
+  await page.locator('input[accept*=".ids"]').setInputFiles(path.resolve(__dirname, "../fixtures/ids/wall-fire-rating.ids"));
+  await expect(list.locator("[data-ids-property]")).toHaveCount(1);
+  await expect(list.locator('[data-ids-property="FireRating"]')).toContainText("REI 60");
+  await page.locator('input[accept*=".ids"]').setInputFiles({ name: "bad.ids", mimeType: "application/xml", buffer: Buffer.from("<ids>truncated") });
+  await expect(page.locator("[data-property-panel]").getByRole("alert")).toContainText("could not be read");
+  await expect(list).toHaveCount(0);
+  await page.locator('input[accept*=".ids"]').setInputFiles(path.resolve(__dirname, "../fixtures/ids/property-inspector.ids"));
+  await expect(list.locator("[data-ids-property]")).toHaveCount(6);
+});
+
+test("shows IDS requirements and missing values in Portuguese", async ({ page }) => {
+  await selectWall(page, "pt");
+  await page.getByRole("tab", { name: "Requisitos IDS", exact: true }).click();
+  await expect(page.getByText("Carregue um ficheiro IDS", { exact: false })).toBeVisible();
+  await page.getByRole("tab", { name: "IDS", exact: true }).click();
+  await page.locator('input[accept*=".ids"]').setInputFiles(path.resolve(__dirname, "../fixtures/ids/property-inspector.ids"));
+  const list = page.locator("[data-ids-properties]");
+  await expect(list.getByRole("columnheader", { name: "Valor atual" })).toBeVisible();
+  await expect(list.locator('[data-ids-property="IsExternal"]')).toContainText("Em falta");
+  await expect(list.locator('[data-ids-property="LoadBearing"]')).toContainText("Sim");
 });

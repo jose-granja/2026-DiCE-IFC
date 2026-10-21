@@ -740,6 +740,20 @@
       "unknownClass": "Classe não especificada"
     },
     "propertyPanel": {
+      "ids": {
+        "tab": "IDS",
+        "title": "Requisitos IDS",
+        "noFile": "Carregue um ficheiro IDS no painel IDS para ver as propriedades obrigatórias deste elemento.",
+        "loading": "A ler os requisitos IDS…",
+        "error": "Não foi possível ler os requisitos IDS. Verifique o ficheiro IDS carregado e tente novamente.",
+        "retry": "Tentar novamente",
+        "hint": "Propriedades e atributos obrigatórios das especificações aplicáveis. Os valores de medidas usam as unidades IDS (SI).",
+        "noRequirements": "O IDS carregado não tem propriedades ou atributos obrigatórios aplicáveis a este elemento.",
+        "missing": "Em falta",
+        "emptyValue": "Sem valor",
+        "property": "Propriedade",
+        "value": "Valor atual"
+      },
       "contextFeature": "Elemento de contexto",
       "contextSource": "Formato",
       "contextId": "ID do elemento",

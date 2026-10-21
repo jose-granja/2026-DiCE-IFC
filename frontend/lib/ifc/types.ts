@@ -604,6 +604,18 @@ export type GeoreferencePatch = {
  */
 export type IdsRequirementStatus = "pass" | "fail" | "not_applicable";
 
+/** Required fields for one selected element, independent of a validation run. */
+export type IdsPropertyView = {
+  id: string;
+  kind: "property" | "attribute";
+  propertySet?: string;
+  name: string;
+  /** The IDS accessor normalises measure values to SI. */
+  values: PropertyValue[];
+  state: "present" | "empty" | "missing";
+  specifications: string[];
+};
+
 export type IdsRequirementResultView = {
   /** Which of the specification's requirements this is — `IdsSpecificationResultView.requirements[].id`. */
   requirementId?: string;
@@ -770,6 +782,11 @@ export interface IfcEngineAdapter {
 
   /** Everything the information panel shows for one element, in one read. */
   getElementInfo(modelId: ModelId, expressId: ExpressId): Promise<ElementInfo>;
+  getIdsProperties(
+    modelId: ModelId,
+    expressId: ExpressId,
+    document: EngineIdsDocument,
+  ): Promise<IdsPropertyView[]>;
 
   /**
    * Everything the information panel shows for one material — opened from a

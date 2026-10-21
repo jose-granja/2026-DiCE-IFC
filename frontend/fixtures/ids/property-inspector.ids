@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ids:ids xmlns:ids="http://standards.buildingsmart.org/IDS">
+  <ids:info><ids:title>Wall information</ids:title></ids:info>
+  <ids:specifications>
+    <ids:specification name="Wall information" ifcVersion="IFC4">
+      <ids:applicability minOccurs="1" maxOccurs="unbounded">
+        <ids:entity><ids:name><ids:simpleValue>IFCWALL</ids:simpleValue></ids:name></ids:entity>
+      </ids:applicability>
+      <ids:requirements>
+        <ids:attribute cardinality="required"><ids:name><ids:simpleValue>Name</ids:simpleValue></ids:name></ids:attribute>
+        <ids:property cardinality="required" dataType="IFCLABEL">
+          <ids:propertySet><ids:simpleValue>Pset_WallCommon</ids:simpleValue></ids:propertySet>
+          <ids:baseName><ids:simpleValue>FireRating</ids:simpleValue></ids:baseName>
+          <ids:value><ids:simpleValue>REI 90</ids:simpleValue></ids:value>
+        </ids:property>
+        <ids:property cardinality="required">
+          <ids:propertySet><ids:simpleValue>Pset_WallCommon</ids:simpleValue></ids:propertySet>
+          <ids:baseName><ids:simpleValue>LoadBearing</ids:simpleValue></ids:baseName>
+        </ids:property>
+        <ids:property cardinality="required">
+          <ids:propertySet><ids:simpleValue>Pset_WallCommon</ids:simpleValue></ids:propertySet>
+          <ids:baseName><ids:simpleValue>ThermalTransmittance</ids:simpleValue></ids:baseName>
+        </ids:property>
+        <ids:property cardinality="required">
+          <ids:propertySet><ids:simpleValue>Pset_WallCommon</ids:simpleValue></ids:propertySet>
+          <ids:baseName><ids:simpleValue>IsExternal</ids:simpleValue></ids:baseName>
+        </ids:property>
+        <ids:property cardinality="required">
+          <ids:propertySet><ids:simpleValue>Qto_WallBaseQuantities</ids:simpleValue></ids:propertySet>
+          <ids:baseName><ids:simpleValue>NetSideArea</ids:simpleValue></ids:baseName>
+        </ids:property>
+      </ids:requirements>
+    </ids:specification>
+    <ids:specification name="Fire safety" ifcVersion="IFC4">
+      <ids:applicability minOccurs="1" maxOccurs="unbounded">
+        <ids:entity><ids:name><ids:simpleValue>IFCWALL</ids:simpleValue></ids:name></ids:entity>
+      </ids:applicability>
+      <ids:requirements>
+        <ids:property cardinality="required">
+          <ids:propertySet><ids:simpleValue>Pset_WallCommon</ids:simpleValue></ids:propertySet>
+          <ids:baseName><ids:simpleValue>FireRating</ids:simpleValue></ids:baseName>
+        </ids:property>
+      </ids:requirements>
+    </ids:specification>
+  </ids:specifications>
+</ids:ids>

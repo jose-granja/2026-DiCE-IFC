@@ -99,6 +99,10 @@ const api = {
     return adapter.getMaterialInfo(modelId, materialExpressId);
   },
 
+  getIdsProperties(modelId: ModelId, expressId: ExpressId, document: EngineIdsDocument) {
+    return adapter.getIdsProperties(modelId, expressId, document);
+  },
+
   selectElements(modelId: ModelId, filter: ElementFilter) {
     return adapter.selectElements(modelId, filter);
   },

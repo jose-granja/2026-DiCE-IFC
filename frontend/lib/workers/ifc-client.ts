@@ -39,6 +39,7 @@ import type {
   StepExportOptions,
   StepExportResult,
   IdsModelReport,
+  IdsPropertyView,
   IdsValidationOptions,
 } from "@/lib/ifc/types";
 
@@ -62,6 +63,7 @@ export type ModelHandle = {
   groupElementsByValue(source: ElementGroupSource): Promise<FilterFacetValue[]>;
   /** Everything the information panel shows for one element, in one read. */
   getElementInfo(expressId: ExpressId): Promise<ElementInfo>;
+  getIdsProperties(expressId: ExpressId, idsXml: string): Promise<IdsPropertyView[]>;
   /** Everything the information panel shows for one material, opened from `ElementInfo.materials`. */
   getMaterialInfo(materialExpressId: ExpressId): Promise<MaterialDetailView>;
   /** The elements an `ElementFilter` selects, evaluated in the model worker. */
@@ -142,6 +144,8 @@ export async function openModel(
     getFilterFacets: () => api.getFilterFacets(summary.id),
     groupElementsByValue: (source) => api.groupElementsByValue(summary.id, source),
     getElementInfo: (expressId) => api.getElementInfo(summary.id, expressId),
+    getIdsProperties: (expressId, idsXml) =>
+      api.getIdsProperties(summary.id, expressId, parseIdsForEngine(idsXml)),
     getMaterialInfo: (materialExpressId) =>
       api.getMaterialInfo(summary.id, materialExpressId),
     selectElements: (filter) => api.selectElements(summary.id, filter),

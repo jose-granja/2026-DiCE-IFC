@@ -1139,6 +1139,14 @@ set are worse than none.
 - **Passing entities are dropped by default** (`includePassingEntities`). A
   large model against a large IDS produces millions of rows nothing renders,
   and holding them is what makes a run run out of memory.
+- **The properties panel's IDS tab reads the loaded IDS, not a validation run.**
+  `getIdsProperties` checks applicability for only the selected element in its
+  worker, then lists required property and attribute facets together. Use the
+  IDS accessor's effective values (occurrence overrides type, quantities
+  included, measures in SI). Match property names without filtering by the
+  required value or datatype: a wrong value must remain visible. Missing and
+  empty fields are rows too; repeated requirements share one row. The query
+  keys include model, element and IDS, so changing any of them drops old rows.
 - **Results are cards, collapsed until opened**, as on ifclite.com
   (`IdsSpecificationCard.tsx`): a specification opens onto its requirements, each
   with its own pass/fail count, and a requirement onto the elements that failed
