@@ -25,7 +25,7 @@ async function selectWall(page: Page, locale: "en" | "pt" = "en") {
   //
   // The storey has to be expanded first — its elements are listed lazily, and
   // the disclosure is a separate control from the row itself, so clicking the
-  // row selects the storey rather than opening it.
+  // row selects its subtree rather than opening it.
   await page.getByRole("tab", { name: /Structure|Estrutura/ }).click();
   const storey = page.getByRole("treeitem", { name: /Level 0/ }).first();
   await storey.getByRole("button", { name: /Expand|Expandir/ }).first().click();
@@ -152,6 +152,7 @@ test("says nothing is selected rather than showing an empty shell", async ({
 test("lists required IDS fields without running validation, and refreshes on selection and IDS changes", async ({ page }, testInfo) => {
   await selectWall(page);
   await page.getByRole("tab", { name: "IDS requirements", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "IDS requirements", exact: true })).toHaveText("IDS");
   await expect(page.getByText("Load an IDS file in the IDS panel", { exact: false })).toBeVisible();
   await page.getByRole("tab", { name: "IDS", exact: true }).click();
   await page.locator('input[accept*=".ids"]').setInputFiles(path.resolve(__dirname, "../fixtures/ids/property-inspector.ids"));
@@ -178,8 +179,14 @@ test("lists required IDS fields without running validation, and refreshes on sel
   if (await expand.count()) await expand.click();
   await page.getByRole("treeitem", { name: "Wall B" }).first().click();
   await expect(list.locator('[data-ids-property="Name"]')).toContainText("Wall B");
-  await storey.click();
+  // Spatial rows select their entire subtree; use a different leaf class to
+  // verify that the wall requirements disappear when they do not apply.
+  await page.getByRole("treeitem", { name: /Level 1/ }).first()
+    .getByRole("button", { name: "Expand", exact: true }).first().click();
+  await page.getByRole("treeitem", { name: "Slab A", exact: true }).click();
+  await expect(page.locator("[data-property-panel]").getByRole("heading", { name: "Slab A" })).toBeVisible();
   await expect(list.getByText("The loaded IDS has no required properties or attributes applicable to this element.")).toBeVisible();
+  if (await expand.count()) await expand.click();
   await page.getByRole("treeitem", { name: "Wall A" }).first().click();
   await expect(list.locator("[data-ids-property]")).toHaveCount(6);
 
@@ -197,6 +204,7 @@ test("lists required IDS fields without running validation, and refreshes on sel
 test("shows IDS requirements and missing values in Portuguese", async ({ page }) => {
   await selectWall(page, "pt");
   await page.getByRole("tab", { name: "Requisitos IDS", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Requisitos IDS", exact: true })).toHaveText("IDS");
   await expect(page.getByText("Carregue um ficheiro IDS", { exact: false })).toBeVisible();
   await page.getByRole("tab", { name: "IDS", exact: true }).click();
   await page.locator('input[accept*=".ids"]').setInputFiles(path.resolve(__dirname, "../fixtures/ids/property-inspector.ids"));
