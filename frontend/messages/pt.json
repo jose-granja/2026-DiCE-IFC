@@ -616,7 +616,7 @@
       "removeCondition": "Remover condição de propriedade",
       "removeSource": "Remover origem do resultado",
       "formula": "Fórmula",
-      "formulaHint": "Use os nomes curtos com +, -, *, /, ^ e parênteses. Deixe vazio quando existir uma só origem.",
+      "formulaHint": "Use os nomes curtos com +, -, *, /, ^ e parênteses. Os valores em falta ou vazios contam como 0 nas fórmulas. Deixe vazio quando existir uma só origem.",
       "unit": "Unidade do resultado",
       "unitHint": "Etiqueta para apresentação e exportação; os valores não são convertidos automaticamente.",
       "run": "Executar consulta",

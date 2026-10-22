@@ -1370,7 +1370,13 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
         const variables: Record<string, number> = {};
         let complete = true;
         for (const source of query.sources) {
-          const numeric = asFiniteNumber(inputs[source.alias]);
+          const input = inputs[source.alias];
+          // An absent/empty source contributes zero to arithmetic. Keep the
+          // raw input for inspection/export; actual nonnumeric values still
+          // make the calculation invalid rather than silently becoming zero.
+          const numeric = input === null || (typeof input === "string" && !input.trim())
+            ? 0
+            : asFiniteNumber(input);
           if (numeric === null) {
             complete = false;
             break;

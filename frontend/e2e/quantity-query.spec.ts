@@ -5,6 +5,43 @@ import { createQuantityWorkbook } from "../lib/spreadsheets/quantity-workbook";
 
 const FIXTURE = path.resolve(__dirname, "../fixtures/ifc/facets-ifc4.ifc");
 
+test("adds missing extracted values as zero in quantity formulas", async ({ page }) => {
+  await page.goto("/viewer?panel=quantities");
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  await page.locator("[data-quantity-workbook-input]").setInputFiles({
+    name: "missing-values.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(createQuantityWorkbook([{
+      code: "ZERO.01", description: "Missing-value addition", result: null,
+      query: {
+        filters: { classes: ["IfcWall"], predefinedTypes: [], objectTypes: [], materials: [], properties: [] },
+        sources: [
+          { id: "area", alias: "area", kind: "quantity", setName: "Qto_WallBaseQuantities", valueName: "NetSideArea" },
+          { id: "extra", alias: "extra", kind: "property", setName: "Pset_WallCommon", valueName: "MissingProperty" },
+          { id: "extra_area", alias: "extra_area", kind: "quantity", setName: "MissingQuantitySet", valueName: "Area" },
+        ],
+        formula: "area + extra + extra_area", unit: "m²",
+      },
+    }])),
+  });
+  await expect(page.locator('[data-query-list] [role="listitem"]')).toContainText("Missing-value addition");
+  await page.getByRole("button", { name: "Run query", exact: true }).click();
+  const results = page.locator("[data-query-results]");
+  await expect(results).toContainText("2 matched · 2 values · 0 missing");
+  await expect(results.getByText("25 m²", { exact: true })).toBeVisible();
+  await expect(results.getByRole("cell", { name: "12.5 m²", exact: true })).toHaveCount(2);
+
+  await page.getByRole("button", { name: "Edit Missing-value addition", exact: true }).click();
+  await page.getByRole("tab", { name: "Values", exact: true }).click();
+  await expect(page.getByText(/Missing or empty values count as 0 in formulas/)).toBeVisible();
+  await page.getByLabel("Formula", { exact: true }).fill("extra + extra_area");
+  await page.getByRole("button", { name: "Update", exact: true }).click();
+  await page.getByRole("button", { name: "Run query", exact: true }).click();
+  await expect(results).toContainText("2 matched · 2 values · 0 missing");
+  await expect(results.getByText("0 m²", { exact: true }).first()).toBeVisible();
+  await expect(results.getByRole("cell", { name: "0 m²", exact: true })).toHaveCount(2);
+});
+
 test("loads the bundled MQT template, preserves existing queries and runs real quantities", async ({ page }, testInfo) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));

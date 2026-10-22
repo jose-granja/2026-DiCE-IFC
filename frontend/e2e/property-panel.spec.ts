@@ -183,7 +183,7 @@ test("lists required IDS fields without running validation, and refreshes on sel
   // verify that the wall requirements disappear when they do not apply.
   await page.getByRole("treeitem", { name: /Level 1/ }).first()
     .getByRole("button", { name: "Expand", exact: true }).first().click();
-  await page.getByRole("treeitem", { name: "Slab A", exact: true }).click();
+  await page.getByRole("button", { name: "Slab A IfcSlab", exact: true }).click();
   await expect(page.locator("[data-property-panel]").getByRole("heading", { name: "Slab A" })).toBeVisible();
   await expect(list.getByText("The loaded IDS has no required properties or attributes applicable to this element.")).toBeVisible();
   if (await expand.count()) await expand.click();

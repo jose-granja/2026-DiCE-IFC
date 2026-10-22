@@ -616,7 +616,7 @@
       "removeCondition": "Remove property condition",
       "removeSource": "Remove result source",
       "formula": "Formula",
-      "formulaHint": "Use source aliases with +, -, *, /, ^ and parentheses. Leave empty when there is one source.",
+      "formulaHint": "Use source aliases with +, -, *, /, ^ and parentheses. Missing or empty values count as 0 in formulas. Leave empty when there is one source.",
       "unit": "Result unit",
       "unitHint": "A label for display and export; values are not converted automatically.",
       "run": "Run query",

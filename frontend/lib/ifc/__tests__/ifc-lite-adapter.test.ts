@@ -8,7 +8,7 @@ import {
   resolveRenderOriginShift,
 } from "../ifc-lite-adapter";
 import { runAdapterConformance, type ConformanceFixtures } from "../conformance";
-import type { QuantityQueryFilters } from "../types";
+import type { QuantityQuery, QuantityQueryFilters } from "../types";
 
 const FIXTURES = path.resolve(__dirname, "../../../fixtures/ifc");
 
@@ -218,6 +218,80 @@ describe("materials", () => {
 });
 
 describe("quantity queries", () => {
+  const missingSourcesQuery: QuantityQuery = {
+    filters: { classes: ["IfcWall"], predefinedTypes: [], objectTypes: [], materials: [], properties: [] },
+    sources: [
+      { id: "area", alias: "area", kind: "quantity", setName: "Qto_WallBaseQuantities", valueName: "NetSideArea" },
+      { id: "extra", alias: "extra", kind: "property", setName: "Pset_WallCommon", valueName: "MissingProperty" },
+      { id: "extra_area", alias: "extra_area", kind: "quantity", setName: "MissingQuantitySet", valueName: "Area" },
+    ],
+    formula: "area + extra + extra_area",
+  };
+
+  it("adds missing properties and quantities as zero, including rows whose formula inputs are all missing", async () => {
+    const summary = await ifcLiteAdapter.loadModel(await load("facets-ifc4.ifc"));
+    try {
+      const result = await ifcLiteAdapter.evaluateQuantityQuery(summary.id, missingSourcesQuery);
+      expect(result.rows.map((row) => row.value)).toEqual([12.5, 12.5]);
+      expect(result.total).toBe(25);
+      expect(result.valueCount).toBe(2);
+      expect(result.missingValueCount).toBe(0);
+      expect(result.rows[0].inputs).toEqual({ area: 12.5, extra: null, extra_area: null });
+
+      const allMissing = await ifcLiteAdapter.evaluateQuantityQuery(summary.id, {
+        ...missingSourcesQuery, sources: missingSourcesQuery.sources.slice(1), formula: "extra + extra_area",
+      });
+      expect(allMissing.rows.map((row) => row.value)).toEqual([0, 0]);
+      expect(allMissing.total).toBe(0);
+      expect(allMissing.missingValueCount).toBe(0);
+
+      const withoutFormula = await ifcLiteAdapter.evaluateQuantityQuery(summary.id, {
+        ...missingSourcesQuery, sources: [missingSourcesQuery.sources[1]], formula: undefined,
+      });
+      expect(withoutFormula.rows.map((row) => row.value)).toEqual([null, null]);
+      expect(withoutFormula.total).toBeNull();
+    } finally {
+      await ifcLiteAdapter.unloadModel(summary.id);
+    }
+  });
+
+  it.each(["$", "IFCLABEL('')", "IFCLABEL('   ')"])("uses zero for an empty IFC value (%s)", async (emptyValue) => {
+    const input = await load("facets-ifc4.ifc");
+    const text = new TextDecoder().decode(input.bytes).replace("IFCLABEL('REI 60')", emptyValue);
+    const summary = await ifcLiteAdapter.loadModel({ ...input, bytes: new TextEncoder().encode(text).buffer });
+    try {
+      const result = await ifcLiteAdapter.evaluateQuantityQuery(summary.id, {
+        ...missingSourcesQuery,
+        sources: missingSourcesQuery.sources.map((source) => source.alias === "extra" ? { ...source, valueName: "FireRating" } : source),
+      });
+      expect(result.rows.map((row) => row.value)).toEqual([12.5, 12.5]);
+      expect(result.total).toBe(25);
+    } finally {
+      await ifcLiteAdapter.unloadModel(summary.id);
+    }
+  });
+
+  it("still rejects unknown aliases, nonnumeric values and division by a missing denominator", async () => {
+    const summary = await ifcLiteAdapter.loadModel(await load("facets-ifc4.ifc"));
+    try {
+      await expect(ifcLiteAdapter.evaluateQuantityQuery(summary.id, {
+        ...missingSourcesQuery, formula: "area + typo",
+      })).rejects.toThrow(/unknown source/);
+      const text = await ifcLiteAdapter.evaluateQuantityQuery(summary.id, {
+        ...missingSourcesQuery,
+        sources: missingSourcesQuery.sources.map((source) => source.alias === "extra" ? { ...source, valueName: "FireRating" } : source),
+      });
+      expect(text.rows.map((row) => row.value)).toEqual([null, null]);
+      const division = await ifcLiteAdapter.evaluateQuantityQuery(summary.id, {
+        ...missingSourcesQuery, formula: "area / extra",
+      });
+      expect(division.total).toBeNull();
+      expect(division.missingValueCount).toBe(2);
+    } finally {
+      await ifcLiteAdapter.unloadModel(summary.id);
+    }
+  });
+
   it("filters occurrences and combines occurrence quantities with type properties", async () => {
     const summary = await ifcLiteAdapter.loadModel(await load("facets-ifc4.ifc"));
     try {

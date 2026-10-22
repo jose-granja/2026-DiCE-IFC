@@ -389,7 +389,7 @@ export type QuantityQuerySource = {
 export type QuantityQuery = {
   filters: QuantityQueryFilters;
   sources: QuantityQuerySource[];
-  /** Optional when there is exactly one source. Supports +, -, *, /, ^ and parentheses. */
+  /** Optional with one source. Supports +, -, *, /, ^ and parentheses; missing/empty sources contribute zero. */
   formula?: string;
   /** Display/export label. Values are not converted automatically. */
   unit?: string;
