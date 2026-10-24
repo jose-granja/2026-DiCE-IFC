@@ -101,6 +101,12 @@ type BcfState = {
 
   addViewpoint: (guid: Guid, viewpoint: BcfViewpoint) => void;
   removeViewpoint: (guid: Guid, viewpointGuid: Guid) => void;
+  /**
+   * Change a viewpoint in place — a new camera from "Update", a snapshot with
+   * annotations. Its guid and file name stay, so comments that point at it
+   * still do.
+   */
+  updateViewpoint: (guid: Guid, viewpointGuid: Guid, patch: Partial<Omit<BcfViewpoint, "guid">>) => void;
 
   select: (guid: Guid | null) => void;
   toggleChecked: (guid: Guid) => void;
@@ -332,6 +338,24 @@ export const useBcfStore = create<BcfState>((set, get) => ({
           topic.guid === guid
             ? { ...topic, viewpoints: [...topic.viewpoints, viewpoint] }
             : topic,
+        ),
+      },
+      dirty: true,
+    })),
+
+  updateViewpoint: (guid, viewpointGuid, patch) =>
+    set((state) => ({
+      file: {
+        ...state.file,
+        topics: state.file.topics.map((topic) =>
+          topic.guid !== guid
+            ? topic
+            : {
+                ...topic,
+                viewpoints: topic.viewpoints.map((viewpoint) =>
+                  viewpoint.guid === viewpointGuid ? { ...viewpoint, ...patch, guid: viewpoint.guid } : viewpoint,
+                ),
+              },
         ),
       },
       dirty: true,

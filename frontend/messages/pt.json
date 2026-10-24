@@ -2215,7 +2215,10 @@
       "addCommentPlaceholder": "Adicionar um comentário…",
       "newComment": "Novo comentário",
       "addComment": "Adicionar comentário",
-      "unknownDate": "desconhecida"
+      "unknownDate": "desconhecida",
+      "annotateNow": "Anotar",
+      "annotationsSaved": "{count, plural, =0 {Anotações removidas da imagem.} one {# anotação guardada na imagem.} other {# anotações guardadas na imagem.}}",
+      "annotationsFailed": "Não foi possível guardar as anotações: {message}"
     },
     "viewpointCard": {
       "loadModelFirst": "Carregue o modelo no visualizador primeiro — não há nada para onde restaurar.",
@@ -2227,7 +2230,14 @@
       "snapshotFor": "Imagem de {title}",
       "noSnapshot": "Sem imagem",
       "openViewpoint": "Abrir ponto de vista",
-      "deleteViewpoint": "Eliminar ponto de vista"
+      "deleteViewpoint": "Eliminar ponto de vista",
+      "update": "Atualizar com a vista atual",
+      "updated": "Ponto de vista atualizado com a vista atual.",
+      "updatedWithAnnotations": "Ponto de vista atualizado com a vista atual. {count, plural, one {A sua anotação foi mantida} other {As suas # anotações foram mantidas}} — confirme que {count, plural, one {continua} other {continuam}} a apontar para o sítio certo.",
+      "updateFailed": "Não foi possível atualizar o ponto de vista: {message}",
+      "undo": "Anular",
+      "annotate": "Anotar a imagem",
+      "annotateNoSnapshot": "Este ponto de vista não tem imagem para anotar"
     },
     "filterBar": {
       "status": "Estado",
@@ -2264,6 +2274,42 @@
       "dueDate": "Data limite",
       "applyTo": "Aplicar a {count}",
       "clearSelection": "Limpar seleção"
+    },
+    "annotations": {
+      "title": "Anotar imagem",
+      "hint": "Desenhe sobre a imagem do ponto de vista. As anotações ficam gravadas na imagem, por isso qualquer ferramenta BCF as mostra, e continuam editáveis aqui.",
+      "toolbar": "Ferramentas de anotação",
+      "tools": {
+        "select": "Selecionar e mover",
+        "arrow": "Seta",
+        "line": "Linha",
+        "rect": "Retângulo",
+        "ellipse": "Elipse",
+        "cloud": "Nuvem de revisão",
+        "pen": "Mão livre",
+        "text": "Texto"
+      },
+      "colour": "Cor {colour}",
+      "strokes": {
+        "0": "Linha fina",
+        "1": "Linha média",
+        "2": "Linha grossa"
+      },
+      "textSizes": {
+        "0": "P",
+        "1": "M",
+        "2": "G"
+      },
+      "undo": "Anular",
+      "redo": "Refazer",
+      "deleteSelected": "Apagar a seleção",
+      "clear": "Remover todas as anotações",
+      "canvas": "Imagem a anotar",
+      "textInput": "Texto da anotação",
+      "textPlaceholder": "Escreva e prima Enter",
+      "shortcuts": "Duplo clique num texto para o editar · Delete apaga a seleção · Ctrl+Z anula",
+      "cancel": "Cancelar",
+      "save": "Guardar anotações"
     }
   },
   "signatureBadge": {

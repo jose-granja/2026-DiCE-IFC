@@ -12,8 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { captureViewpoint } from "@/lib/bcf/actions";
+import { annotationsOf, composeAnnotatedSnapshot, type Annotation } from "@/lib/bcf/annotations";
 import { useBcfStore } from "@/lib/bcf/store";
-import type { BcfTopic } from "@/lib/bcf/types";
+import type { BcfTopic, BcfViewpoint } from "@/lib/bcf/types";
+import { AnnotationEditor } from "./AnnotationEditor";
 import { ViewpointCard } from "./ViewpointCard";
 import { VocabularyInput } from "./VocabularyInput";
 
@@ -34,7 +36,31 @@ export function TopicDetail({ topic }: { topic: BcfTopic }) {
   const topics = useBcfStore((s) => s.file.topics);
   const select = useBcfStore((s) => s.select);
 
+  const updateViewpoint = useBcfStore((s) => s.updateViewpoint);
+
   const [capturing, setCapturing] = useState(false);
+  // The viewpoint whose snapshot is being drawn on: its clean image and shapes.
+  const [annotating, setAnnotating] = useState<
+    { viewpointGuid: string; fileName: string; base: Uint8Array; shapes: Annotation[] } | null
+  >(null);
+
+  const annotate = (viewpoint: BcfViewpoint) => {
+    if (!viewpoint.snapshot) return;
+    const { base, shapes } = annotationsOf(viewpoint.snapshot.bytes);
+    setAnnotating({ viewpointGuid: viewpoint.guid, fileName: viewpoint.snapshot.fileName, base, shapes });
+  };
+
+  const saveAnnotations = async (shapes: Annotation[]) => {
+    if (!annotating) return;
+    try {
+      const bytes = await composeAnnotatedSnapshot(annotating.base, shapes);
+      updateViewpoint(topic.guid, annotating.viewpointGuid, { snapshot: { fileName: annotating.fileName, bytes } });
+      setAnnotating(null);
+      toast.success(t("annotationsSaved", { count: shapes.length }));
+    } catch (error) {
+      toast.error(t("annotationsFailed", { message: error instanceof Error ? error.message : String(error) }));
+    }
+  };
 
   const onCapture = async () => {
     setCapturing(true);
@@ -45,7 +71,9 @@ export function TopicDetail({ topic }: { topic: BcfTopic }) {
         return;
       }
       addViewpoint(topic.guid, viewpoint);
-      toast.success(t("viewpointCaptured"));
+      toast.success(t("viewpointCaptured"), {
+        action: viewpoint.snapshot ? { label: t("annotateNow"), onClick: () => annotate(viewpoint) } : undefined,
+      });
     } finally {
       setCapturing(false);
     }
@@ -176,11 +204,22 @@ export function TopicDetail({ topic }: { topic: BcfTopic }) {
                 key={viewpoint.guid}
                 topic={topic}
                 viewpoint={viewpoint}
+                onAnnotate={annotate}
               />
             ))}
           </div>
         )}
       </section>
+
+      <AnnotationEditor
+        open={annotating !== null}
+        onOpenChange={(open) => {
+          if (!open) setAnnotating(null);
+        }}
+        base={annotating?.base ?? null}
+        initial={annotating?.shapes ?? []}
+        onSave={saveAnnotations}
+      />
 
       <Separator />
 

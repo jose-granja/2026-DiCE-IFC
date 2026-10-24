@@ -2215,7 +2215,10 @@
       "addCommentPlaceholder": "Add a comment…",
       "newComment": "New comment",
       "addComment": "Add comment",
-      "unknownDate": "unknown"
+      "unknownDate": "unknown",
+      "annotateNow": "Annotate",
+      "annotationsSaved": "{count, plural, =0 {Annotations removed from the snapshot.} one {# annotation saved in the snapshot.} other {# annotations saved in the snapshot.}}",
+      "annotationsFailed": "The annotations could not be saved: {message}"
     },
     "viewpointCard": {
       "loadModelFirst": "Load the model in the viewer first — there is nothing to restore into.",
@@ -2227,7 +2230,14 @@
       "snapshotFor": "Snapshot for {title}",
       "noSnapshot": "No snapshot",
       "openViewpoint": "Open viewpoint",
-      "deleteViewpoint": "Delete viewpoint"
+      "deleteViewpoint": "Delete viewpoint",
+      "update": "Update with the current view",
+      "updated": "Viewpoint updated with the current view.",
+      "updatedWithAnnotations": "Viewpoint updated with the current view. {count, plural, one {Its annotation was} other {Its # annotations were}} kept — check {count, plural, one {it still points} other {they still point}} at the right place.",
+      "updateFailed": "The viewpoint could not be updated: {message}",
+      "undo": "Undo",
+      "annotate": "Annotate the snapshot",
+      "annotateNoSnapshot": "This viewpoint has no snapshot to annotate"
     },
     "filterBar": {
       "status": "Status",
@@ -2264,6 +2274,42 @@
       "dueDate": "Due date",
       "applyTo": "Apply to {count}",
       "clearSelection": "Clear selection"
+    },
+    "annotations": {
+      "title": "Annotate snapshot",
+      "hint": "Draw on the viewpoint's image. The annotations are saved into the snapshot, so every BCF tool shows them, and stay editable here.",
+      "toolbar": "Annotation tools",
+      "tools": {
+        "select": "Select and move",
+        "arrow": "Arrow",
+        "line": "Line",
+        "rect": "Rectangle",
+        "ellipse": "Ellipse",
+        "cloud": "Revision cloud",
+        "pen": "Freehand",
+        "text": "Text"
+      },
+      "colour": "Colour {colour}",
+      "strokes": {
+        "0": "Thin line",
+        "1": "Medium line",
+        "2": "Thick line"
+      },
+      "textSizes": {
+        "0": "S",
+        "1": "M",
+        "2": "L"
+      },
+      "undo": "Undo",
+      "redo": "Redo",
+      "deleteSelected": "Delete selected",
+      "clear": "Remove all annotations",
+      "canvas": "Snapshot to annotate",
+      "textInput": "Annotation text",
+      "textPlaceholder": "Type, then Enter",
+      "shortcuts": "Double-click a text to edit it · Delete removes the selection · Ctrl+Z undoes",
+      "cancel": "Cancel",
+      "save": "Save annotations"
     }
   },
   "signatureBadge": {

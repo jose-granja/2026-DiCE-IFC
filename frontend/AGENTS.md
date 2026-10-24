@@ -545,6 +545,18 @@ current view — both need the viewport. `/bcf` redirects to `/viewer?panel=bcf`
   parses unchanged and the signature is checked on import via
   `lib/signing/summary.ts` — the same summary the model list uses, rendered by
   the same `components/SignatureBadge.tsx`.
+- **"Update" replaces a viewpoint in place** (`updateViewpoint`): a new camera,
+  visibility, planes and snapshot under the same guid and file name, so a
+  comment linked to it still is. The toast offers Undo.
+- **Snapshot annotations are baked into the PNG and kept inside it**
+  (`lib/bcf/annotations.ts`, `AnnotationEditor.tsx`). BCF has no vector markup
+  for a snapshot, so the annotated image *is* the snapshot every other tool
+  shows; the clean image and the shapes ride along in a private ancillary chunk
+  (`dcAn`), which PNG readers skip. The archive keeps exactly its usual files,
+  and the drawing survives the draft, project folders and an export read back.
+  The chunk is untrusted (schema-checked). Shapes are fractions of the image,
+  widths per 1000 px of height, so "Update" redraws them on a new capture of
+  any size. Preview and saved image use the same `drawAnnotations`.
 - **Anything laid out for a wide page needs a height cap here.** `BulkEditBar`
   stacks its five fields at 19rem and squeezed the topic list to zero height —
   checking a topic made the list vanish.

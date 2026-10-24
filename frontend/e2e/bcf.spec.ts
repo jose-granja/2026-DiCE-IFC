@@ -1,5 +1,9 @@
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { unzipSync } from "fflate";
+
+import { readAnnotatedSnapshot } from "../lib/bcf/annotations";
 
 /**
  * The BCF module, end to end.
@@ -327,4 +331,138 @@ test("renders with no console errors", async ({ page }) => {
   await page.waitForTimeout(1200);
 
   expect(errors).toEqual([]);
+});
+
+/** Pixels of the viewpoint card's snapshot close to `rgb`, read from the image itself. */
+async function snapshotPixels(page: Page, rgb: [number, number, number]) {
+  return page.locator("[data-viewpoint] img").first().evaluate(async (element, [r, g, b]) => {
+    const img = element as HTMLImageElement;
+    await img.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const context = canvas.getContext("2d")!;
+    context.drawImage(img, 0, 0);
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let count = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (Math.abs(data[i] - r) < 24 && Math.abs(data[i + 1] - g) < 24 && Math.abs(data[i + 2] - b) < 24) count += 1;
+    }
+    return count;
+  }, rgb);
+}
+
+test("annotates a viewpoint's snapshot, keeps the drawing editable, and updates the view under it", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  await page.goto("/viewer");
+  await page.setInputFiles('input[type="file"]', [IFC4]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+
+  await page.getByRole("tab", { name: "BCF", exact: true }).click();
+  await page.getByRole("button", { name: "New topic" }).click();
+  await page.getByLabel("Topic title").fill("Marked up");
+  await page.getByRole("button", { name: "Capture current view" }).click();
+  const red: [number, number, number] = [0xe5, 0x48, 0x4d];
+  await expect(page.locator("[data-viewpoint] img")).toBeVisible();
+  const redBefore = await snapshotPixels(page, red);
+
+  // Straight from the capture's own toast.
+  await page.getByRole("button", { name: "Annotate", exact: true }).click();
+  const editor = page.locator("[data-annotation-editor]");
+  const canvas = editor.locator("[data-annotation-canvas]");
+  await expect(canvas).toBeVisible();
+  const box = (await canvas.boundingBox())!;
+  const at = (x: number, y: number) => [box.x + box.width * x, box.y + box.height * y] as const;
+  const dragOn = async (from: readonly [number, number], to: readonly [number, number]) => {
+    await page.mouse.move(...from);
+    await page.mouse.down();
+    await page.mouse.move(...to, { steps: 6 });
+    await page.mouse.up();
+  };
+
+  // An arrow (the default tool), a revision cloud and a text.
+  await dragOn(at(0.15, 0.2), at(0.55, 0.6));
+  await editor.getByRole("button", { name: "Revision cloud" }).click();
+  await dragOn(at(0.6, 0.55), at(0.85, 0.85));
+  await editor.getByRole("button", { name: "Text", exact: true }).click();
+  await page.mouse.click(...at(0.1, 0.08));
+  await editor.getByLabel("Annotation text").fill("Falta revestimento");
+  await editor.getByLabel("Annotation text").press("Enter");
+  await expect(canvas).toHaveAttribute("data-annotation-count", "3");
+
+  // Undo and redo, by button and by keyboard.
+  await editor.getByRole("button", { name: "Undo" }).click();
+  await expect(canvas).toHaveAttribute("data-annotation-count", "2");
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(canvas).toHaveAttribute("data-annotation-count", "3");
+
+  // Moving a shape with the select tool is a step of its own.
+  await editor.getByRole("button", { name: "Select and move" }).click();
+  await dragOn(at(0.35, 0.4), at(0.4, 0.45));
+  await editor.getByRole("button", { name: "Undo" }).click();
+  await expect(canvas).toHaveAttribute("data-annotation-count", "3");
+
+  await editor.screenshot({ path: testInfo.outputPath("annotation-editor.png") });
+  await editor.getByRole("button", { name: "Save annotations" }).click();
+  await expect(page.getByText("3 annotations saved in the snapshot.")).toBeVisible();
+  await expect(editor).toHaveCount(0);
+
+  // Drawn into the image itself, which is what any other BCF tool shows.
+  await expect.poll(() => snapshotPixels(page, red)).toBeGreaterThan(redBefore + 200);
+
+  // And still editable: the editor opens on the same three shapes.
+  await page.getByRole("button", { name: "Annotate the snapshot" }).click();
+  await expect(canvas).toHaveAttribute("data-annotation-count", "3");
+  await editor.getByRole("button", { name: "Cancel" }).click();
+
+  // Update puts the current view under the drawing, keeping it.
+  await page.getByRole("button", { name: "Update with the current view" }).click();
+  await expect(page.getByText(/Its 3 annotations were kept/)).toBeVisible();
+  await expect(page.locator("[data-viewpoint]")).toHaveCount(1);
+  await page.getByRole("button", { name: "Annotate the snapshot" }).click();
+  await expect(canvas).toHaveAttribute("data-annotation-count", "3");
+  await editor.getByRole("button", { name: "Remove all annotations" }).click();
+  await editor.getByRole("button", { name: "Save annotations" }).click();
+  await expect(page.getByText("Annotations removed from the snapshot.")).toBeVisible();
+  await expect.poll(() => snapshotPixels(page, red)).toBeLessThan(redBefore + 50);
+});
+
+test("an exported topic carries its annotated snapshot, still editable when read back", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await page.goto("/viewer");
+  await page.setInputFiles('input[type="file"]', [IFC4]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  await page.getByRole("tab", { name: "BCF", exact: true }).click();
+  await page.getByRole("button", { name: "New topic" }).click();
+  await page.getByLabel("Topic title").fill("Exported markup");
+  await page.getByRole("button", { name: "Capture current view" }).click();
+  await page.getByRole("button", { name: "Annotate the snapshot" }).click();
+  const canvas = page.locator("[data-annotation-canvas]");
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.7, { steps: 5 });
+  await page.mouse.up();
+  await page.getByRole("button", { name: "Save annotations" }).click();
+  await expect(page.getByText("1 annotation saved in the snapshot.")).toBeVisible();
+
+  const download = page.waitForEvent("download", { timeout: 60_000 });
+  await page.getByRole("button", { name: /Export \.bcf/ }).click();
+  const exported = testInfo.outputPath("annotated.bcf");
+  await (await download).saveAs(exported);
+
+  // In the archive, the snapshot is a PNG with the drawing in its private chunk.
+  const entries = unzipSync(new Uint8Array(await readFile(exported)));
+  const snapshots = Object.entries(entries).filter(([name]) => name.endsWith(".png"));
+  expect(snapshots).toHaveLength(1);
+  expect(readAnnotatedSnapshot(snapshots[0][1])?.shapes).toEqual([expect.objectContaining({ kind: "arrow" })]);
+
+  // Read back into a fresh session, the arrow is there to edit.
+  await openBcf(page);
+  await importFiles(page, [exported]);
+  await openFirstTopic(page);
+  await page.getByRole("button", { name: "Annotate the snapshot" }).click();
+  await expect(canvas).toHaveAttribute("data-annotation-count", "1");
 });
