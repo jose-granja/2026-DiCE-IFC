@@ -42,7 +42,7 @@ describe("IDS property inspector", () => {
     expect(rows.find((r) => r.name === "FireRating")).toMatchObject({ values: ["REI 60"], specifications: ["Wall information", "Fire safety"] });
     expect(rows.find((r) => r.name === "LoadBearing")).toMatchObject({ values: [true], state: "present" });
     expect(rows.find((r) => r.name === "ThermalTransmittance")).toMatchObject({ values: [0.18] });
-    expect(rows.find((r) => r.name === "NetSideArea")).toMatchObject({ values: [12.5] });
+    expect(rows.find((r) => r.name === "NetSideArea")).toMatchObject({ values: [12.5], unit: "m²" });
     expect(rows.find((r) => r.name === "IsExternal")).toMatchObject({ values: [], state: "missing" });
     expect(rows.find((r) => r.name === "Name")).toMatchObject({ kind: "attribute", values: ["Wall A"] });
     expect(await adapter.getIdsProperties(model.id, 102, parseIdsForEngine(xml))).toEqual([]);
@@ -56,6 +56,59 @@ describe("IDS property inspector", () => {
     ]);
     expect(await adapter.getIdsProperties(model.id, 100, document)).toHaveLength(1);
     expect(await adapter.getIdsProperties(model.id, 101, document)).toEqual([]);
+  });
+
+  it("labels converted measures in SI, including inherited properties and explicit unit overrides", async () => {
+    const changed = await load(source
+      .replace(".LENGTHUNIT.,$,.METRE.", ".LENGTHUNIT.,.MILLI.,.METRE.")
+      .replace("IFCREAL(0.18)", "IFCTHERMALTRANSMITTANCEMEASURE(0.18)")
+      .replace("(#150,#151)", "(#150,#151,#180,#181,#182)")
+      .replace("ENDSEC;\nEND-ISO", `
+#180= IFCPROPERTYSINGLEVALUE('Width',$,IFCPOSITIVELENGTHMEASURE(200.),$);
+#181= IFCPROPERTYSINGLEVALUE('OwnUnitWidth',$,IFCLENGTHMEASURE(20.),#183);
+#182= IFCPROPERTYLISTVALUE('Lengths',$,(IFCLENGTHMEASURE(100.),IFCLENGTHMEASURE(250.)),$);
+#183= IFCSIUNIT(*,.LENGTHUNIT.,.CENTI.,.METRE.);
+ENDSEC;\nEND-ISO`));
+    const rows = await adapter.getIdsProperties(changed.id, 100, custom([
+      property("Width"), property("OwnUnitWidth"), property("Lengths"), property("ThermalTransmittance"),
+      property("NetSideArea", "Qto_WallBaseQuantities"),
+    ]));
+    expect(rows.find((r) => r.name === "Width")).toMatchObject({ values: [0.2], unit: "m" });
+    expect(rows.find((r) => r.name === "OwnUnitWidth")).toMatchObject({ values: [0.2], unit: "m" });
+    expect(rows.find((r) => r.name === "Lengths")).toMatchObject({ values: ["0.1", "0.25"], unit: "m" });
+    expect(rows.find((r) => r.name === "ThermalTransmittance")).toMatchObject({ values: [0.18], unit: "W/(m²·K)" });
+    expect(rows.find((r) => r.name === "NetSideArea")).toMatchObject({ values: [12.5], unit: "m²" });
+    // The ordinary properties tab still shows author units; only IDS uses SI.
+    const raw = await adapter.getElementInfo(changed.id, 100);
+    expect(raw.propertySets.flatMap((set) => set.properties).find((p) => p.name === "Width"))
+      .toMatchObject({ value: 200, unit: "mm" });
+  });
+
+  it("does not invent units for unitless, mixed, missing or mistyped values", async () => {
+    const changed = await load(source.replace("(#150,#151)", "(#150,#151,#180,#181)")
+      .replace("ENDSEC;\nEND-ISO", `
+#180= IFCPROPERTYSINGLEVALUE('Count',$,IFCCOUNTMEASURE(3.),$);
+#181= IFCPROPERTYLISTVALUE('Mixed',$,(IFCLENGTHMEASURE(2.),IFCAREAMEASURE(5.)),$);
+ENDSEC;\nEND-ISO`));
+    const rows = await adapter.getIdsProperties(changed.id, 100, custom([
+      // The IDS expects a length, but the actual property is a label.
+      { ...property("FireRating"), dataType: "IFCLENGTHMEASURE" } as Facet,
+      property("LoadBearing"), property("ThermalTransmittance"), property("Count"), property("Mixed"), property("Missing"),
+    ]));
+    expect(rows).toHaveLength(6);
+    for (const row of rows) expect(row.unit, row.name).toBeUndefined();
+  });
+
+  it("also labels measure-typed attributes using the entity schema", async () => {
+    const changed = await load(source
+      .replace(".LENGTHUNIT.,$,.METRE.", ".LENGTHUNIT.,.MILLI.,.METRE.")
+      .replace(/#100= IFCWALL\([^\n]+/, "#100= IFCDOOR('2FacetWall00000000001',#5,'Door',$,$,#70,#65,$,2100.,900.,.DOOR.,.SINGLE_SWING_LEFT.,$);"));
+    const rows = await adapter.getIdsProperties(changed.id, 100, custom([
+      { kind: "attribute", name: simple("OverallHeight") },
+      { kind: "attribute", name: simple("overallwidth") },
+    ], [{ kind: "entity", name: simple("IFCDOOR") }]));
+    expect(rows[0]).toMatchObject({ values: [2.1], unit: "m" });
+    expect(rows[1]).toMatchObject({ values: [0.9], unit: "m" });
   });
 
   it("expands name patterns, and keeps missing fields in every matching set", async () => {

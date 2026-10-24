@@ -582,7 +582,10 @@
       "brightnessLabel": "Exposição",
       "edgesHeading": "Arestas",
       "edgesToggle": "Mostrar arestas",
-      "edgeWidthLabel": "Largura das arestas"
+      "edgeWidthLabel": "Largura das arestas",
+      "propertiesHeading": "Propriedades",
+      "decimalPlacesLabel": "Casas decimais",
+      "decimalPlacesHint": "Arredondar os valores de propriedades e quantidades com unidades para este número de casas decimais."
     },
     "filterPanel": {
       "dimensions": {
@@ -749,10 +752,7 @@
         "retry": "Tentar novamente",
         "hint": "Propriedades e atributos obrigatórios das especificações aplicáveis. Os valores de medidas usam as unidades IDS (SI).",
         "noRequirements": "O IDS carregado não tem propriedades ou atributos obrigatórios aplicáveis a este elemento.",
-        "missing": "Em falta",
-        "emptyValue": "Sem valor",
-        "property": "Propriedade",
-        "value": "Valor atual"
+        "missing": "Em falta"
       },
       "contextFeature": "Elemento de contexto",
       "contextSource": "Formato",
@@ -778,7 +778,12 @@
       "noClassification": "Este elemento não tem classificação.",
       "copyExpressId": "Copiar id express {id}",
       "yes": "Sim",
-      "no": "Não"
+      "no": "Não",
+      "emptyValue": "Sem valor",
+      "property": "Propriedade",
+      "value": "Valor atual",
+      "category": "Categoria",
+      "description": "Descrição"
     },
     "relatedTopics": {
       "none": "Nenhum tópico se refere ao elemento selecionado.",

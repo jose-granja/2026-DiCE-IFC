@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { ContextFeature } from "@/lib/georef/context-geometry";
+import { PropertyTable } from "./PropertyTable";
 
 export function ContextPropertyPanel({ feature, filename, epsg }: {
   feature: ContextFeature;
@@ -42,26 +43,18 @@ export function ContextPropertyPanel({ feature, filename, epsg }: {
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-3 text-xs">
-        <dl className="mb-4 divide-y rounded border px-2">
-          {details.map(([key, value]) => <PropertyRow key={key} label={key} value={value} />)}
-        </dl>
+        <div className="mb-4">
+          <PropertyTable rows={details.map(([key, value]) => ({ id: key, name: key, value }))} />
+        </div>
         <div className="relative mb-3">
           <Search aria-hidden className="text-muted-foreground absolute top-2.5 left-2 h-3.5 w-3.5" />
           <Input className="h-8 pl-7 text-xs" aria-label={t("filterProperties")} placeholder={t("filterProperties")}
             value={filter} onChange={(event) => setFilter(event.target.value)} />
         </div>
         <h4 className="mb-2 font-medium">{t("attributes")}</h4>
-        {rows.length ? <dl className="divide-y">
-          {rows.map(([key, value]) => <PropertyRow key={key} label={key} value={value} />)}
-        </dl> : <p className="text-muted-foreground">{t(term ? "contextNoMatches" : "contextNoMetadata")}</p>}
+        <PropertyTable rows={rows.map(([key, value]) => ({ id: key, name: key, value: value || "—" }))}
+          empty={t(term ? "contextNoMatches" : "contextNoMetadata")} />
       </div>
     </div>
   );
-}
-
-function PropertyRow({ label, value }: { label: string; value: string }) {
-  return <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 py-2">
-    <dt className="text-muted-foreground break-words">{label}</dt>
-    <dd className="whitespace-pre-wrap break-words">{value || "—"}</dd>
-  </div>;
 }

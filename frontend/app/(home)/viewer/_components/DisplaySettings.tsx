@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Sun, SlidersHorizontal, SquareDashed } from "lucide-react";
+import { Sun, SlidersHorizontal, SquareDashed, ListChecks } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { MAX_PROPERTY_DECIMALS } from "@/lib/viewer/property-format";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
 import {
   DEFAULT_DISPLAY_SETTINGS,
@@ -32,6 +33,7 @@ export function DisplaySettings() {
   const exposure = useDisplaySettingsStore((s) => s.exposure);
   const edgeWidth = useDisplaySettingsStore((s) => s.edgeWidth);
   const edgesOn = useDisplaySettingsStore((s) => s.edgesOn);
+  const propertyDecimalPlaces = useDisplaySettingsStore((s) => s.propertyDecimalPlaces);
 
   const change = (patch: Partial<DisplaySettingsValues>) => {
     const store = useDisplaySettingsStore.getState();
@@ -137,6 +139,24 @@ export function DisplaySettings() {
                 onValueChange={([value]) => applyEdges(true, value)}
               />
             </div>
+          </div>
+
+          <div className="space-y-3 border-t pt-4">
+            <h3 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide">
+              <ListChecks className="h-3.5 w-3.5" aria-hidden />
+              {t("propertiesHeading")}
+            </h3>
+            <label className="flex items-center justify-between gap-3 text-sm">
+              {t("decimalPlacesLabel")}
+              <select
+                className="border-input bg-background h-8 rounded-md border px-2 text-sm"
+                value={propertyDecimalPlaces}
+                onChange={(event) => change({ propertyDecimalPlaces: Number(event.target.value) })}
+              >
+                {Array.from({ length: MAX_PROPERTY_DECIMALS + 1 }, (_, digits) => <option key={digits} value={digits}>{digits}</option>)}
+              </select>
+            </label>
+            <p className="text-muted-foreground text-xs">{t("decimalPlacesHint")}</p>
           </div>
         </div>
       </PopoverContent>

@@ -612,6 +612,8 @@ export type IdsPropertyView = {
   name: string;
   /** The IDS accessor normalises measure values to SI. */
   values: PropertyValue[];
+  /** Unit of the projected values, derived from the actual IFC measure type. */
+  unit?: string;
   state: "present" | "empty" | "missing";
   specifications: string[];
 };

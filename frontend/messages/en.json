@@ -582,7 +582,10 @@
       "brightnessLabel": "Exposure",
       "edgesHeading": "Edges",
       "edgesToggle": "Show edges",
-      "edgeWidthLabel": "Edge width"
+      "edgeWidthLabel": "Edge width",
+      "propertiesHeading": "Properties",
+      "decimalPlacesLabel": "Decimal places",
+      "decimalPlacesHint": "Round property and quantity values with units to this many decimal places."
     },
     "filterPanel": {
       "dimensions": {
@@ -749,10 +752,7 @@
         "retry": "Try again",
         "hint": "Required properties and attributes from applicable specifications. Measure values use IDS units (SI).",
         "noRequirements": "The loaded IDS has no required properties or attributes applicable to this element.",
-        "missing": "Missing",
-        "emptyValue": "No value",
-        "property": "Property",
-        "value": "Current value"
+        "missing": "Missing"
       },
       "contextFeature": "Context feature",
       "contextSource": "Format",
@@ -778,7 +778,12 @@
       "noClassification": "This element has no classification.",
       "copyExpressId": "Copy express id {id}",
       "yes": "Yes",
-      "no": "No"
+      "no": "No",
+      "emptyValue": "No value",
+      "property": "Property",
+      "value": "Current value",
+      "category": "Category",
+      "description": "Description"
     },
     "relatedTopics": {
       "none": "No topic refers to the selected element.",

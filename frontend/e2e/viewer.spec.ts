@@ -82,7 +82,7 @@ test("selecting an element shows its properties", async ({ page }) => {
 
   // Property sets are their own tab in the information panel.
   await page.getByRole("tab", { name: "Properties", exact: true }).click();
-  await expect(page.getByText("Pset_WallCommon")).toBeVisible();
+  await expect(page.getByText("Pset_WallCommon").first()).toBeVisible();
   await expect(page.getByText("FireRating")).toBeVisible();
   await expect(page.getByText("REI 60")).toBeVisible();
   // An IFC boolean must read as a boolean, not as "true" or "1".

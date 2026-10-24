@@ -29,6 +29,7 @@ import { HATCH_PATTERNS } from "@/lib/viewer/section-cap";
 import { lensListSchema } from "@/lib/lens/schema";
 import { TYPE_VISIBILITY_CATEGORIES } from "@/lib/viewer/type-visibility";
 import { GLOBE_LAYERS } from "@/lib/viewer/globe-layers";
+import { DEFAULT_PROPERTY_DECIMALS, MAX_PROPERTY_DECIMALS } from "@/lib/viewer/property-format";
 
 export const PROJECT_FORMAT = "dice-ifc-project";
 export const PROJECT_VERSION = 1;
@@ -216,6 +217,7 @@ export const projectManifestSchema = z.object({
           exposure: finite,
           edgesOn: z.boolean(),
           edgeWidth: finite,
+          propertyDecimalPlaces: finite.int().min(0).max(MAX_PROPERTY_DECIMALS).default(DEFAULT_PROPERTY_DECIMALS),
         })
         .optional(),
       typeVisibility: typeVisibility.optional(),

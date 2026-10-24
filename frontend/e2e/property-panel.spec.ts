@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 /**
@@ -12,10 +13,12 @@ import { expect, test, type Page } from "@playwright/test";
 
 const FIXTURE = path.resolve(__dirname, "../fixtures/ifc/facets-ifc4.ifc");
 
-async function selectWall(page: Page, locale: "en" | "pt" = "en") {
+async function selectWall(page: Page, locale: "en" | "pt" = "en", source?: string) {
   await page.context().addCookies([{ name: "dice-locale", value: locale, url: "http://127.0.0.1" }]);
   await page.goto("/viewer");
-  await page.setInputFiles('input[type="file"]', [FIXTURE]);
+  await page.setInputFiles('input[type="file"]', source
+    ? { name: "measures.ifc", mimeType: "application/octet-stream", buffer: Buffer.from(source) }
+    : [FIXTURE]);
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({
     timeout: 90_000,
   });
@@ -40,7 +43,7 @@ async function selectWall(page: Page, locale: "en" | "pt" = "en") {
 
 test("shows attributes, materials and property sets on their own tabs", async ({
   page,
-}) => {
+}, testInfo) => {
   await selectWall(page);
 
   // Attributes is the default tab. "Wall A" is this fixture's IFC `Name`,
@@ -48,6 +51,7 @@ test("shows attributes, materials and property sets on their own tabs", async ({
   const attributes = page.locator('[data-section="Attributes"]');
   await expect(attributes).toBeVisible();
   await expect(attributes.getByText("Wall A", { exact: true })).toBeVisible();
+  await expect(attributes.getByRole("columnheader", { name: "Current value" })).toBeVisible();
 
   await page.getByRole("tab", { name: "Materials" }).click();
   await expect(page.getByText("Concrete C30/37")).toBeVisible();
@@ -59,7 +63,12 @@ test("shows attributes, materials and property sets on their own tabs", async ({
   await expect(page.getByText("REI 60")).toBeVisible();
   await expect(
     page.locator('[data-section="Properties"]').getByText("Pset_WallCommon"),
-  ).toBeVisible();
+  ).toHaveCount(1);
+  await expect(page.locator('[data-section="Properties"]').getByRole("columnheader", { name: "Current value" })).toBeVisible();
+  await page.locator("[data-property-panel]").screenshot({ path: testInfo.outputPath("properties-table.png") });
+
+  await page.getByRole("tab", { name: "Quantities", exact: true }).click();
+  await expect(page.locator('[data-section="Quantities"]').getByRole("cell", { name: "12.5 m²", exact: true })).toBeVisible();
 });
 
 test("separates what the type defines from what the occurrence does", async ({
@@ -72,6 +81,7 @@ test("separates what the type defines from what the occurrence does", async ({
   await page.getByRole("tab", { name: "Type", exact: true }).click();
   await expect(page.locator('[data-section="Type"]')).toBeVisible();
   await expect(page.getByText(/shared by every occurrence/i)).toBeVisible();
+  await expect(page.locator('[data-section="Type"]').getByRole("columnheader", { name: "Current value" })).toBeVisible();
 
   // The occurrence's own property sets are a different tab, hidden while
   // this one is active — the two must never bleed into each other.
@@ -96,6 +106,10 @@ test("filters properties within the active tab", async ({ page }) => {
   await expect(page.getByText("REI 60")).toBeVisible();
   await expect(page.getByText("LoadBearing")).toHaveCount(0);
 
+  await page.getByLabel("Filter properties").fill("Pset_WallCommon");
+  await expect(page.getByText("LoadBearing")).toBeVisible();
+  await expect(page.getByText("REI 60")).toBeVisible();
+
   await page.getByLabel("Filter properties").fill("");
   await expect(page.getByText("LoadBearing")).toBeVisible();
 });
@@ -115,6 +129,7 @@ test("expands a material's own properties as an accordion in the Materials tab",
   // The material's own class, not the wall's — this fixture's material
   // carries no Pset, so this also proves the empty state, not just the open.
   await expect(page.getByText("IfcMaterial", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-section="Materials"]').getByRole("columnheader", { name: "Current value" })).toBeVisible();
   await expect(page.getByText(/no property sets/i)).toBeVisible();
 
   // Collapsing hides its content again rather than leaving it stuck open.
@@ -134,7 +149,7 @@ test("only one tab's content shows at a time", async ({ page }) => {
 
   await page.getByRole("tab", { name: "Properties", exact: true }).click();
   await expect(page.locator('[data-section="Properties"]')).toBeVisible();
-  await expect(page.getByText("Pset_WallCommon")).toBeVisible();
+  await expect(page.getByText("Pset_WallCommon")).toHaveCount(1);
   await expect(page.locator('[data-section="Attributes"]')).not.toBeVisible();
 });
 
@@ -163,8 +178,11 @@ test("lists required IDS fields without running validation, and refreshes on sel
   await expect(list.locator('[data-ids-property="ThermalTransmittance"]')).toContainText("0.18");
   await expect(list.locator('[data-ids-property="IsExternal"]')).toContainText("Missing");
   await expect(list.locator('[data-ids-property="LoadBearing"]')).toContainText("Yes");
-  await expect(list.locator('[data-ids-property="NetSideArea"]')).toContainText("12.5");
+  await expect(list.locator('[data-ids-property="NetSideArea"]').getByRole("cell")).toHaveText("12.5 m²");
   await page.locator("[data-property-panel]").screenshot({ path: testInfo.outputPath("ids-properties.png") });
+
+  await page.getByLabel("Filter properties").fill("m²");
+  await expect(list.locator("[data-ids-property]")).toHaveCount(1);
 
   await page.getByLabel("Filter properties").fill("missing");
   await expect(list.locator("[data-ids-property]")).toHaveCount(1);
@@ -212,4 +230,109 @@ test("shows IDS requirements and missing values in Portuguese", async ({ page })
   await expect(list.getByRole("columnheader", { name: "Valor atual" })).toBeVisible();
   await expect(list.locator('[data-ids-property="IsExternal"]')).toContainText("Em falta");
   await expect(list.locator('[data-ids-property="LoadBearing"]')).toContainText("Sim");
+  await expect(list.locator('[data-ids-property="NetSideArea"]').getByRole("cell")).toHaveText("12.5 m²");
+  await page.getByRole("button", { name: "Abrir definições de visualização" }).click();
+  await expect(page.getByRole("combobox", { name: "Casas decimais" })).toHaveValue("3");
+});
+
+test("groups Psets and Qtos and rounds only values with units throughout the property tabs", async ({ page }, testInfo) => {
+  const source = readFileSync(FIXTURE, "utf8")
+    .replace("IFCREAL(0.18)", "IFCTHERMALTRANSMITTANCEMEASURE(0.187654321)")
+    .replace("(#150,#151)", "(#150,#151,#180,#181,#182)")
+    .replace("ENDSEC;\nEND-ISO", `
+#180= IFCPROPERTYSINGLEVALUE('Width',$,IFCLENGTHMEASURE(1.23456789),$);
+#181= IFCPROPERTYLISTVALUE('Lengths',$,(IFCLENGTHMEASURE(1.234567),IFCLENGTHMEASURE(9.876543)),$);
+#182= IFCPROPERTYSINGLEVALUE('Ratio',$,IFCREAL(0.123456789),$);
+#183= IFCPROPERTYSINGLEVALUE('Serial',$,IFCLABEL('001.234567'),$);
+#184= IFCPROPERTYSET('2FacetPsetExtra000001',#5,'Pset_Custom',$,(#183));
+#185= IFCRELDEFINESBYPROPERTIES('2FacetRelExtra0000001',#5,$,$,(#100),#184);
+#186= IFCQUANTITYVOLUME('GrossVolume',$,$,2.3456789);
+#187= IFCELEMENTQUANTITY('2FacetQuantityExtra01',#5,'Qto_Additional',$,$,(#186));
+#188= IFCRELDEFINESBYPROPERTIES('2FacetRelQtoExtra0001',#5,$,$,(#100),#187);
+#190= IFCPROPERTYSINGLEVALUE('MassDensity',$,IFCMASSDENSITYMEASURE(1999.123456),$);
+#191= IFCMATERIALPROPERTIES('Pset_MaterialCommon',$,(#190),#110);
+ENDSEC;\nEND-ISO`);
+  await selectWall(page, "en", source);
+  const panel = page.locator("[data-property-panel]");
+  const value = (name: string) => panel.getByRole("rowheader", { name, exact: true }).locator("..").getByRole("cell");
+  await page.getByRole("tab", { name: "Properties", exact: true }).click();
+  await expect(panel.locator("[data-property-group]")).toHaveCount(2);
+  await expect(panel.locator('[data-property-group="Pset_WallCommon"]')).toContainText("Width");
+  await expect(panel.locator('[data-property-group="Pset_Custom"]')).toContainText("Serial");
+  await expect(value("Width")).toHaveText("1.235 m");
+  await expect(value("Lengths")).toHaveText("1.235 m; 9.877 m");
+  await expect(value("Ratio")).toHaveText("0.123456789");
+  await expect(value("Serial")).toHaveText("001.234567");
+  await panel.screenshot({ path: testInfo.outputPath("grouped-properties.png") });
+
+  await page.getByRole("button", { name: "Open display settings" }).click();
+  await expect(page.getByRole("combobox", { name: "Decimal places" })).toHaveValue("3");
+  await page.getByRole("combobox", { name: "Decimal places" }).selectOption("2");
+  await page.getByRole("dialog").screenshot({ path: testInfo.outputPath("decimal-settings.png") });
+  await page.keyboard.press("Escape");
+  await expect(value("Width")).toHaveText("1.23 m");
+  await expect(value("Lengths")).toHaveText("1.23 m; 9.88 m");
+  await expect(value("Ratio")).toHaveText("0.123456789");
+  await expect(value("Serial")).toHaveText("001.234567");
+
+  await page.getByRole("tab", { name: "Quantities", exact: true }).click();
+  await expect(panel.locator("[data-property-group]")).toHaveCount(2);
+  await expect(panel.locator('[data-property-group="Qto_Additional"]')).toContainText("GrossVolume");
+  await expect(value("GrossVolume")).toHaveText("2.35 m³");
+  await page.getByRole("tab", { name: "Type", exact: true }).click();
+  await expect(value("ThermalTransmittance")).toHaveText("0.19 W/(m²·K)");
+  await page.getByRole("tab", { name: "Materials", exact: true }).click();
+  await page.getByRole("button", { name: "Concrete C30/37", exact: true }).click();
+  await expect(value("MassDensity")).toHaveText("1999.12 kg/m³");
+
+  await page.getByRole("tab", { name: "IDS requirements", exact: true }).click();
+  await page.getByRole("tab", { name: "IDS", exact: true }).click();
+  const ids = readFileSync(path.resolve(__dirname, "../fixtures/ids/property-inspector.ids"), "utf8")
+    .replaceAll("FireRating", "Width").replace("LoadBearing", "Lengths").replace("ThermalTransmittance", "Ratio");
+  await page.locator('input[accept*=".ids"]').setInputFiles({ name: "precision.ids", mimeType: "application/xml", buffer: Buffer.from(ids) });
+  const idsValue = (name: string) => panel.locator(`[data-ids-property="${name}"]`).getByRole("cell");
+  await expect(idsValue("Width")).toHaveText("1.23 m");
+  await expect(idsValue("Lengths")).toHaveText("1.23 m; 9.88 m");
+  await expect(idsValue("Ratio")).toHaveText("0.123456789");
+  await page.getByRole("button", { name: "Open display settings" }).click();
+  await page.getByRole("combobox", { name: "Decimal places" }).selectOption("0");
+  await page.keyboard.press("Escape");
+  await expect(idsValue("Width")).toHaveText("1 m");
+  await page.getByRole("button", { name: "Open display settings" }).click();
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Decimal places" })).toHaveValue("3");
+  await page.keyboard.press("Escape");
+  await expect(idsValue("Width")).toHaveText("1.235 m");
+});
+
+test("shows SI units for IDS scalars and lists, with consistent classification and property tables", async ({ page }, testInfo) => {
+  const source = readFileSync(FIXTURE, "utf8")
+    .replace(".LENGTHUNIT.,$,.METRE.", ".LENGTHUNIT.,.MILLI.,.METRE.")
+    .replace("IFCREAL(0.18)", "IFCTHERMALTRANSMITTANCEMEASURE(0.18)")
+    .replace("(#150,#151)", "(#150,#151,#180,#181)")
+    .replace("ENDSEC;\nEND-ISO", `
+#180= IFCPROPERTYSINGLEVALUE('Width',$,IFCLENGTHMEASURE(200.),$);
+#181= IFCPROPERTYLISTVALUE('Lengths',$,(IFCLENGTHMEASURE(100.),IFCLENGTHMEASURE(250.)),$);
+#200= IFCCLASSIFICATION('NBS','2015','2015-01-01','Uniclass 2015',$,$,$);
+#210= IFCCLASSIFICATIONREFERENCE($,'Ss_25_10_30','Framed wall systems',#200,$,$);
+#220= IFCRELASSOCIATESCLASSIFICATION('1KvctVUKr0kugbFTf53O9L',#5,$,$,(#100),#210);
+ENDSEC;\nEND-ISO`);
+  await selectWall(page, "en", source);
+  await page.getByRole("tab", { name: "Classification", exact: true }).click();
+  const classifications = page.locator('[data-section="Classification"]');
+  await expect(classifications.getByRole("columnheader", { name: "Current value" })).toBeVisible();
+  await expect(classifications.getByRole("row", { name: /Uniclass 2015/ })).toContainText("Ss_25_10_30 — Framed wall systems");
+  await page.getByRole("tab", { name: "Properties", exact: true }).click();
+  await expect(page.locator('[data-section="Properties"]').getByRole("cell", { name: "200 mm", exact: true })).toBeVisible();
+
+  await page.getByRole("tab", { name: "IDS requirements", exact: true }).click();
+  await page.getByRole("tab", { name: "IDS", exact: true }).click();
+  const ids = readFileSync(path.resolve(__dirname, "../fixtures/ids/property-inspector.ids"), "utf8")
+    .replaceAll("FireRating", "Width").replace("LoadBearing", "Lengths");
+  await page.locator('input[accept*=".ids"]').setInputFiles({ name: "measures.ids", mimeType: "application/xml", buffer: Buffer.from(ids) });
+  const list = page.locator("[data-ids-properties]");
+  await expect(list.locator('[data-ids-property="Width"]').getByRole("cell")).toHaveText("0.2 m");
+  await expect(list.locator('[data-ids-property="Lengths"]').getByRole("cell")).toHaveText("0.1 m; 0.25 m");
+  await expect(list.locator('[data-ids-property="ThermalTransmittance"]').getByRole("cell")).toHaveText("0.18 W/(m²·K)");
+  await page.locator("[data-property-panel]").screenshot({ path: testInfo.outputPath("ids-measure-units.png") });
 });

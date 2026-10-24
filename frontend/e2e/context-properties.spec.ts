@@ -35,14 +35,14 @@ test("inspects and highlights context, filters metadata, and switches back to IF
   await clickAt(page);
   await expect(panel(page).getByRole("heading", { name: "School plot" })).toBeVisible();
   await expect(panel(page)).toContainText("parcel-A");
-  await expect(panel(page).locator("dt", { hasText: /^area$/ }).locator("..")).toContainText("0");
+  await expect(panel(page).getByRole("rowheader", { name: "area", exact: true }).locator("..")).toContainText("0");
   await expect(panel(page).getByText("No", { exact: true })).toBeVisible();
   await expect(panel(page).getByText("<script>text only</script>", { exact: true })).toBeVisible();
   const after = await canvas.screenshot({ path: testInfo.outputPath("context-highlight.png") });
   expect(after.equals(before)).toBe(false);
   await panel(page).getByRole("textbox").fill("occupied");
   await expect(panel(page).getByText("No", { exact: true })).toBeVisible();
-  await expect(panel(page).locator("dt", { hasText: /^area$/ })).toHaveCount(0);
+  await expect(panel(page).getByRole("rowheader", { name: "area", exact: true })).toHaveCount(0);
   await panel(page).getByRole("textbox").fill("missing field");
   await expect(panel(page)).toContainText("No properties match your search.");
 
@@ -74,7 +74,7 @@ test("picks the visible GeoPackage land layer over a coplanar sea layer", async 
   await clickAt(page);
   await expect(panel(page)).toContainText("GeoPackage");
   await expect(panel(page).getByText("Land", { exact: true })).toBeVisible();
-  await expect(panel(page).locator("dt", { hasText: /^fid$/ })).toBeVisible();
+  await expect(panel(page).getByRole("rowheader", { name: "fid", exact: true })).toBeVisible();
 });
 
 test("shows the actual Portugal GeoPackage attributes without sending file data", async ({ page, baseURL }) => {

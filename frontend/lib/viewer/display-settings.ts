@@ -11,6 +11,7 @@
 import { create } from "zustand";
 
 import { DEFAULT_EDGE_WIDTH } from "./edges";
+import { DEFAULT_PROPERTY_DECIMALS } from "./property-format";
 
 export const DEFAULT_LIGHT_INTENSITY = 1;
 export const DEFAULT_EXPOSURE = 0.75;
@@ -20,6 +21,7 @@ export type DisplaySettingsValues = {
   exposure: number;
   edgesOn: boolean;
   edgeWidth: number;
+  propertyDecimalPlaces: number;
 };
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettingsValues = {
@@ -27,6 +29,7 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettingsValues = {
   exposure: DEFAULT_EXPOSURE,
   edgesOn: true,
   edgeWidth: DEFAULT_EDGE_WIDTH,
+  propertyDecimalPlaces: DEFAULT_PROPERTY_DECIMALS,
 };
 
 /** The part of the renderer these settings drive. */
@@ -63,5 +66,6 @@ export function displaySettingsValues(state: DisplaySettingsValues): DisplaySett
     exposure: state.exposure,
     edgesOn: state.edgesOn,
     edgeWidth: state.edgeWidth,
+    propertyDecimalPlaces: state.propertyDecimalPlaces,
   };
 }

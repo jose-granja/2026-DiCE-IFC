@@ -7,10 +7,14 @@ import { Button } from "@/components/ui/button";
 import { useValidateStore } from "@/lib/ids/validate-store";
 import { getModelHandle } from "@/lib/viewer/loader";
 import type { EntityRef } from "@/lib/viewer/store";
+import { PropertyTable } from "./PropertyTable";
+import { formatPropertyValue } from "@/lib/viewer/property-format";
+import { useDisplaySettingsStore } from "@/lib/viewer/display-settings";
 
 /** Mounted only when its tab is open. No validation run is needed. */
 export function IdsProperties({ entity, filter }: { entity: EntityRef; filter: string }) {
   const t = useTranslations("viewer.propertyPanel");
+  const decimalPlaces = useDisplaySettingsStore((s) => s.propertyDecimalPlaces);
   const xml = useValidateStore((s) => s.idsXml);
   const title = useValidateStore((s) => s.idsTitle);
   const { data, isPending, isError, refetch } = useQuery({
@@ -39,8 +43,8 @@ export function IdsProperties({ entity, filter }: { entity: EntityRef; filter: s
   const term = filter.trim().toLowerCase();
   const rows = (data ?? []).map((row) => ({
     ...row,
-    value: row.state === "missing" ? t("ids.missing") : row.state === "empty" ? t("ids.emptyValue")
-      : row.values.map((value) => typeof value === "boolean" ? t(value ? "yes" : "no") : String(value ?? "")).join("; "),
+    value: row.state === "missing" ? t("ids.missing") : row.state === "empty" ? t("emptyValue")
+      : row.values.map((value) => formatPropertyValue(value, t("yes"), t("no"), row.unit, decimalPlaces)).join("; "),
   })).filter((row) => !term || [row.name, row.propertySet ?? t("attributes"), row.value, ...row.specifications]
     .some((value) => value.toLowerCase().includes(term)));
 
@@ -52,22 +56,12 @@ export function IdsProperties({ entity, filter }: { entity: EntityRef; filter: s
       </div>
       {!data?.length ? <p className="text-muted-foreground">{t("ids.noRequirements")}</p>
         : !rows.length ? <p className="text-muted-foreground">{t("contextNoMatches")}</p>
-        : <table className="w-full table-fixed text-left">
-          <thead><tr className="border-b text-muted-foreground">
-            <th scope="col" className="w-3/5 pb-2 pr-2 font-medium">{t("ids.property")}</th>
-            <th scope="col" className="pb-2 font-medium">{t("ids.value")}</th>
-          </tr></thead>
-          <tbody>{rows.map((row) => (
-            <tr key={row.id} className="border-b align-top" data-ids-property={row.name}>
-              <th scope="row" className="break-words py-2 pr-2 font-normal">
-                <span className="font-medium">{row.name}</span>
-                <span className="text-muted-foreground block text-[10px]">{row.propertySet ?? t("attributes")}</span>
-                <span className="text-muted-foreground block text-[10px]">{row.specifications.join(" · ")}</span>
-              </th>
-              <td className={`break-words py-2 ${row.state === "present" ? "" : "text-destructive"}`}>{row.value}</td>
-            </tr>
-          ))}</tbody>
-        </table>}
+        : <PropertyTable rows={rows.map((row) => ({
+          ...row,
+          idsProperty: row.name,
+          details: [row.propertySet ?? t("attributes"), row.specifications.join(" · ")],
+          unavailable: row.state !== "present",
+        }))} />}
     </div>
   );
 }

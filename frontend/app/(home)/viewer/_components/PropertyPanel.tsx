@@ -46,12 +46,16 @@ import { useViewerStore } from "@/lib/viewer/store";
 import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import { ContextPropertyPanel } from "./ContextPropertyPanel";
 import { IdsProperties } from "./IdsProperties";
+import { PropertyTable, type PropertyTableGroup } from "./PropertyTable";
+import { formatPropertyValue } from "@/lib/viewer/property-format";
+import { useDisplaySettingsStore } from "@/lib/viewer/display-settings";
 import { GisAreaReport } from "./GisAreaReport";
 import { useGisAreaStore } from "@/lib/viewer/gis-area-store";
 import type {
   ElementInfo,
   MaterialDetailView,
   MaterialRef,
+  PropertyView,
   PropertySetView,
 } from "@/lib/ifc/types";
 
@@ -67,6 +71,7 @@ export function PropertyPanel() {
 
 function IfcPropertyPanel() {
   const t = useTranslations("viewer.propertyPanel");
+  const decimalPlaces = useDisplaySettingsStore((s) => s.propertyDecimalPlaces);
   const selection = useViewerStore((s) => s.selection);
   const models = useViewerStore((s) => s.models);
   const ref = selection[selection.length - 1] ?? null;
@@ -111,13 +116,13 @@ function IfcPropertyPanel() {
       .map((set) => ({
         ...set,
         properties: set.properties.filter((property) =>
-          matches(
+          matches(set.name, "") || matches(
             property.name,
-            formatValue(property.value, t("yes"), t("no"), property.unit),
+            formatProperty(property, t("yes"), t("no"), decimalPlaces),
           ),
         ),
       }))
-      .filter((set) => set.properties.length > 0 || matches(set.name, ""));
+      .filter((set) => set.properties.length > 0);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-property-panel>
@@ -227,8 +232,7 @@ function IfcPropertyPanel() {
               className="min-h-0 flex-1 overflow-auto p-3"
               data-section={t("attributes")}
             >
-              <dl className="space-y-0.5 text-xs">
-                {[
+              <PropertyTable rows={[
                   ["Name", info.attributes?.name, false],
                   ["GlobalId", info.attributes?.globalId, true],
                   ["Description", info.attributes?.description, false],
@@ -236,17 +240,11 @@ function IfcPropertyPanel() {
                   ["Tag", info.attributes?.tag, false],
                 ]
                   .filter(([label, value]) =>
-                    matches(String(label), String(value ?? "")),
+                    Boolean(value) && matches(String(label), String(value ?? "")),
                   )
-                  .map(([label, value, mono]) => (
-                    <Row
-                      key={String(label)}
-                      label={String(label)}
-                      value={value as string | undefined}
-                      mono={Boolean(mono)}
-                    />
-                  ))}
-              </dl>
+                  .map(([label, value, mono]) => ({
+                    id: String(label), name: String(label), value: String(value), mono: Boolean(mono),
+                  }))} />
             </TabsContent>
 
             <TabsContent
@@ -283,7 +281,7 @@ function IfcPropertyPanel() {
             >
               <PropertySetList
                 sets={visibleSets(info.propertySets)}
-                empty={t("noPropertySets")}
+                empty={t(term ? "contextNoMatches" : "noPropertySets")}
               />
             </TabsContent>
 
@@ -294,7 +292,7 @@ function IfcPropertyPanel() {
             >
               <PropertySetList
                 sets={visibleSets(info.quantities)}
-                empty={t("noQuantities")}
+                empty={t(term ? "contextNoMatches" : "noQuantities")}
               />
             </TabsContent>
 
@@ -305,12 +303,12 @@ function IfcPropertyPanel() {
             >
               {/* Worth its own tab: these are shared by every occurrence of
                   the type, so editing one is not a local change. */}
-              <p className="text-muted-foreground mb-1.5 text-[11px]">
+              <p className="text-muted-foreground mb-3 text-xs">
                 {t("fromItsTypeHint")}
               </p>
               <PropertySetList
                 sets={visibleSets(info.typeProperties)}
-                empty={t("noTypeProperties")}
+                empty={t(term ? "contextNoMatches" : "noTypeProperties")}
               />
             </TabsContent>
 
@@ -322,17 +320,13 @@ function IfcPropertyPanel() {
               {info.classifications.length === 0 ? (
                 <p className="text-muted-foreground text-xs">{t("noClassification")}</p>
               ) : (
-                <dl className="space-y-0.5 text-xs">
-                  {info.classifications
+                <PropertyTable rows={info.classifications
                     .filter((entry) => matches(entry.system, `${entry.code} ${entry.name}`))
-                    .map((entry) => (
-                      <Row
-                        key={`${entry.system}-${entry.code}`}
-                        label={entry.system || t("classification")}
-                        value={[entry.code, entry.name].filter(Boolean).join(" — ")}
-                      />
-                    ))}
-                </dl>
+                    .map((entry, index) => ({
+                      id: `${entry.system}-${entry.code}:${index}`,
+                      name: entry.system || t("classification"),
+                      value: [entry.code, entry.name].filter(Boolean).join(" — "),
+                    }))} />
               )}
             </TabsContent>
           </Tabs>
@@ -359,6 +353,7 @@ function MaterialAccordionItem({
   open: boolean;
 }) {
   const t = useTranslations("viewer.propertyPanel");
+  const decimalPlaces = useDisplaySettingsStore((s) => s.propertyDecimalPlaces);
 
   const { data: info, isPending } = useQuery({
     queryKey: ["material-info", modelId, material.expressId],
@@ -372,7 +367,7 @@ function MaterialAccordionItem({
 
   return (
     <AccordionItem value={String(material.expressId)}>
-      <AccordionTrigger className="py-1.5 text-xs hover:no-underline">
+      <AccordionTrigger className="py-2 text-xs font-medium hover:no-underline">
         {material.name}
       </AccordionTrigger>
       <AccordionContent className="pt-0 pb-2">
@@ -383,19 +378,15 @@ function MaterialAccordionItem({
           </div>
         ) : (
           <>
-            <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-              <Badge variant="secondary">{info.type}</Badge>
-              {info.category && <Badge variant="outline">{info.category}</Badge>}
-            </div>
-            {info.description && (
-              <p className="text-muted-foreground mb-1.5 text-[11px]">
-                {info.description}
-              </p>
-            )}
-            <PropertySetList
-              sets={info.propertySets}
-              empty={t("noMaterialProperties")}
-            />
+            <PropertyTable groups={[
+              { id: "metadata", rows: [
+                { id: "type", name: t("fromItsType"), value: info.type },
+                ...(info.category ? [{ id: "category", name: t("category"), value: info.category }] : []),
+                ...(info.description ? [{ id: "description", name: t("description"), value: info.description }] : []),
+              ] },
+              ...propertySetGroups(info.propertySets, t("yes"), t("no"), decimalPlaces),
+            ]} />
+            {info.propertySets.length === 0 && <p className="text-muted-foreground mt-3 text-xs">{t("noMaterialProperties")}</p>}
           </>
         )}
       </AccordionContent>
@@ -406,29 +397,25 @@ function MaterialAccordionItem({
 /** A tab's worth of named property sets — Property sets, Quantities, From its type. */
 function PropertySetList({ sets, empty }: { sets: PropertySetView[]; empty: string }) {
   const t = useTranslations("viewer.propertyPanel");
+  const decimalPlaces = useDisplaySettingsStore((s) => s.propertyDecimalPlaces);
+  return <PropertyTable groups={propertySetGroups(sets, t("yes"), t("no"), decimalPlaces)} empty={empty} />;
+}
 
-  if (sets.length === 0) {
-    return <p className="text-muted-foreground text-xs">{empty}</p>;
-  }
+function propertySetGroups(sets: PropertySetView[], yes: string, no: string, decimalPlaces: number): PropertyTableGroup[] {
+  return sets.map((set, setIndex) => ({
+    id: `set:${setIndex}`,
+    name: set.name,
+    rows: set.properties.map((property, propertyIndex) => ({
+      id: `property:${propertyIndex}`,
+      name: property.name,
+      value: formatProperty(property, yes, no, decimalPlaces),
+    })),
+  }));
+}
 
-  return (
-    <div className="space-y-2.5">
-      {sets.map((set, setIndex) => (
-        <div key={`${set.globalId ?? set.name}:${setIndex}`}>
-          <p className="text-xs font-medium">{set.name}</p>
-          <dl className="mt-1 space-y-0.5 text-xs">
-            {set.properties.map((property, propertyIndex) => (
-              <Row
-                key={`${property.name}:${propertyIndex}`}
-                label={property.name}
-                value={formatValue(property.value, t("yes"), t("no"), property.unit)}
-              />
-            ))}
-          </dl>
-        </div>
-      ))}
-    </div>
-  );
+function formatProperty(property: PropertyView, yes: string, no: string, decimalPlaces: number): string {
+  const values = property.unit && property.values?.length ? property.values : [property.value];
+  return values.map((value) => formatPropertyValue(value, yes, no, property.unit, decimalPlaces)).join("; ");
 }
 
 /** The express id, with a copy button — it is what people paste into scripts. */
@@ -452,39 +439,6 @@ function CopyableId({ expressId }: { expressId: number }) {
       {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
     </Button>
   );
-}
-
-function Row({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value?: string | null;
-  mono?: boolean;
-}) {
-  if (!value) return null;
-  return (
-    <div className="grid grid-cols-[minmax(0,7rem)_1fr] gap-2">
-      <dt className="text-muted-foreground truncate" title={label}>
-        {label}
-      </dt>
-      <dd className={mono ? "font-mono break-all" : "break-words"}>{value}</dd>
-    </div>
-  );
-}
-
-function formatValue(
-  value: string | number | boolean | null,
-  yes: string,
-  no: string,
-  unit?: string,
-): string {
-  if (value === null) return "";
-  // IFC booleans must read as booleans, not as "true"/"1" ambiguity — and
-  // never take a unit, even if `dataType` were somehow set on one.
-  if (typeof value === "boolean") return value ? yes : no;
-  return unit ? `${value} ${unit}` : String(value);
 }
 
 export default PropertyPanel;

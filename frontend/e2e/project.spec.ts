@@ -89,6 +89,10 @@ test("saves the session and brings all of it back in a fresh browser, from the .
   );
   await openWithFiles(page);
 
+  await page.getByRole("button", { name: "Open display settings" }).click();
+  await page.getByRole("combobox", { name: "Decimal places" }).selectOption("5");
+  await page.keyboard.press("Escape");
+
   // A hidden model and a bigger point size.
   await page.getByRole("button", { name: "Hide facets-ifc4.ifc" }).click();
   await expect(page.getByRole("button", { name: "Show facets-ifc4.ifc" })).toBeVisible();
@@ -150,7 +154,7 @@ test("saves the session and brings all of it back in a fresh browser, from the .
     format: "dice-ifc-project",
     models: [{ name: "facets-ifc4.ifc", path: "models/facets-ifc4.ifc", visible: false }],
     pointClouds: [{ name: "patch.ply", size: Number(savedPointSize) }],
-    viewer: { panel: "section" },
+    viewer: { panel: "section", display: { propertyDecimalPlaces: 5 } },
     bcf: { path: "bcf/topics.bcf", markersVisible: true },
   });
   expect(manifest.sectionPlanes).toHaveLength(1);
@@ -178,6 +182,9 @@ test("saves the session and brings all of it back in a fresh browser, from the .
   await expect(fresh.getByText(/^Loaded .*: 1 model, 1 point cloud\.$/)).toBeVisible({ timeout: 60_000 });
 
   const expectRestored = async (target: Page) => {
+    await target.getByRole("button", { name: "Open display settings" }).click();
+    await expect(target.getByRole("combobox", { name: "Decimal places" })).toHaveValue("5");
+    await target.keyboard.press("Escape");
     // The tab that was open, with the plane where it was left.
     await expect(tab(target, "section")).toHaveAttribute("data-state", "active");
     await expect(target.getByRole("slider", { name: "Plan position" })).toHaveAttribute(
@@ -375,6 +382,7 @@ test("restores the context model, measurements, filter ticks and display setting
   await page.getByRole("button", { name: "Open display settings" }).click();
   await expect(page.getByRole("slider", { name: "Light intensity" })).toHaveAttribute("aria-valuenow", "1.5");
   await expect(page.getByRole("switch", { name: "Show edges" })).not.toBeChecked();
+  await expect(page.getByRole("combobox", { name: "Decimal places" })).toHaveValue("3");
 });
 
 

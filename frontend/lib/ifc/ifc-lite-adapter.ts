@@ -22,12 +22,14 @@ import {
   extractTypePropertiesOnDemand,
   extractGroupMembersOnDemand,
   extractProjectUnits,
+  measureUnit,
   resolveAllMaterialDefIds,
   collectMaterialLeaves,
   getMaterialDisplay,
   extractMaterialPropertiesForMaterialId,
   computeAngleToGridNorth,
   getAttributeNamesAcrossSchemas,
+  getAttributeTypeForSchema,
   normalizeIfcTypeName,
   type IfcDataStore,
   type ProjectUnits,
@@ -42,7 +44,7 @@ import type { AABB as IfcLiteAabb, Vec3 as IfcLiteVec3 } from "@ifc-lite/geometr
 import { MutablePropertyView, StoreEditor } from "@ifc-lite/mutations";
 import { StepExporter } from "@ifc-lite/export";
 import { checkFacet, matchConstraint, formatConstraint, createTranslationService, validateIDS, type IDSConstraint, type IDSDocument } from "@ifc-lite/ids";
-import { createDataAccessor } from "@ifc-lite/ids/bridge";
+import { createDataAccessor, resolveEntityMeasureScales } from "@ifc-lite/ids/bridge";
 
 import type { EngineIdsDocument } from "./ids-document";
 import {
@@ -747,6 +749,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
         properties: Array<{
           name: string;
           value: unknown;
+          values?: string[];
           dataType?: string;
           unit?: string;
         }>;
@@ -757,6 +760,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
         properties: set.properties.map((property) => ({
           name: property.name,
           value: (property.value ?? null) as PropertyValue,
+          ...(property.values?.length ? { values: property.values } : {}),
           dataType: property.dataType,
           unit: property.unit,
         })),
@@ -784,6 +788,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
         properties: set.properties.map((property) => ({
           name: property.name,
           value: property.value as PropertyValue,
+          ...(property.values?.length ? { values: property.values } : {}),
           dataType: property.dataType,
           unit: unitFor(units, property.dataType),
         })),
@@ -811,6 +816,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
               properties: set.properties.map((property) => ({
                 name: property.name,
                 value: property.value,
+                values: property.values,
                 dataType: property.dataType,
                 unit: unitFor(units, property.dataType),
               })),
@@ -865,6 +871,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
         properties: pset.properties.map((property) => ({
           name: property.name,
           value: property.value as PropertyValue,
+          ...(property.values?.length ? { values: property.values } : {}),
           dataType: property.dataType,
           unit: unitFor(units, property.dataType),
         })),
@@ -1526,24 +1533,35 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
   async getIdsProperties(modelId, expressId, document): Promise<IdsPropertyView[]> {
     const model = must(modelId);
     const accessor = createDataAccessor(model.store);
-    if (!accessor.getEntityType(expressId)) return [];
+    const entityType = accessor.getEntityType(expressId);
+    if (!entityType) return [];
     const rows = new Map<string, IdsPropertyView>();
     // Same effective values and applicability checks as the validator, but
     // only for the selected element. Never scan/validate the whole model here.
     const sets = accessor.getPropertySets(expressId);
+    const scales = resolveEntityMeasureScales(model.store, expressId);
+    const displayUnit = (dataType?: string, mixed?: boolean): string | undefined => {
+      if (!dataType || mixed) return undefined;
+      const measure = measureUnit(dataType);
+      // The accessor already converted measures to SI, including explicit
+      // per-property units. A project symbol (e.g. mm) would mislabel metres.
+      if (measure?.kind === "typed") return measure.defaultSymbol;
+      if (measure?.kind === "monetary") return (scales.units?.monetary() ?? scales.fallbackUnits?.monetary())?.symbol;
+      return undefined;
+    };
     const label = (constraint: IDSConstraint) => constraint.type === "simpleValue"
       ? String(constraint.value) : formatConstraint(constraint);
     const schemaFamily = (schema: string) => schema.toUpperCase().replace(/^IFC4X3(?:_.*)?$/, "IFC4X3");
     const schema = schemaFamily(model.summary.schemaToken ?? model.summary.schema);
     const add = (id: string, kind: IdsPropertyView["kind"], name: string,
-      values: PropertyValue[], specification: string, propertySet?: string) => {
+      values: PropertyValue[], specification: string, propertySet?: string, unit?: string) => {
       const previous = rows.get(id);
       if (previous) {
         if (!previous.specifications.includes(specification)) previous.specifications.push(specification);
         return;
       }
       rows.set(id, {
-        id, kind, name, propertySet, values,
+        id, kind, name, propertySet, values, unit,
         state: values.length === 0 ? "missing" : values.every((v) => v === null || v === "") ? "empty" : "present",
         specifications: [specification],
       });
@@ -1572,7 +1590,8 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
             for (const { property, p } of properties) {
               // Match names only: a wrong value/type must remain visible.
               add(JSON.stringify(["property", index, p]), "property", property.name,
-                property.values?.length ? property.values : [property.value], spec.name, set.name);
+                property.values?.length ? property.values : [property.value], spec.name, set.name,
+                displayUnit(property.dataType, property.dataTypeMixed));
             }
           }
         } else if (facet.type === "attribute") {
@@ -1585,8 +1604,10 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
           }
           for (const name of names) {
             const value = accessor.getAttribute(expressId, name);
+            const canonicalName = accessor.getAttributeNames?.(expressId).find((attribute) => attribute.toLowerCase() === name.toLowerCase()) ?? name;
             add(JSON.stringify(["attribute", name]), "attribute", name,
-              value === undefined ? [] : [value], spec.name);
+              value === undefined ? [] : [value], spec.name, undefined,
+              displayUnit(getAttributeTypeForSchema(entityType, canonicalName, model.store.schemaVersion)));
           }
         }
       }

@@ -76,6 +76,17 @@ describe("project.json", () => {
     expect("surprise" in manifest.viewer).toBe(false);
     expect(manifest.viewer.panel).toBe("ids");
   });
+
+  it("defaults old projects to three property decimal places and validates saved precision", () => {
+    const display = { lightIntensity: 1, exposure: 0.75, edgesOn: true, edgeWidth: 1 };
+    expect(parse({ ...minimal, viewer: { display } }).viewer.display?.propertyDecimalPlaces).toBe(3);
+    for (const digits of [0, 5, 15]) {
+      expect(parse({ ...minimal, viewer: { display: { ...display, propertyDecimalPlaces: digits } } }).viewer.display?.propertyDecimalPlaces).toBe(digits);
+    }
+    for (const digits of [-1, 1.5, 16]) {
+      expect(() => parse({ ...minimal, viewer: { display: { ...display, propertyDecimalPlaces: digits } } })).toThrow(ProjectFormatError);
+    }
+  });
 });
 
 it("restores old context projects with default appearance and validates new styles", () => {
