@@ -10,7 +10,7 @@ import { setActiveRenderer } from "@/lib/viewer/active-renderer";
 import { usePointClouds } from "./usePointClouds";
 import { usePointCloudStore } from "@/lib/viewer/pointcloud-store";
 import { getModelHandle } from "@/lib/viewer/loader";
-import { useViewerStore } from "@/lib/viewer/store";
+import { isolationGhostKeys, useViewerStore } from "@/lib/viewer/store";
 import { hasAnySnapTarget } from "@/lib/viewer/tools";
 import MeasurementLabels from "./MeasurementLabels";
 import BcfMarkers from "./BcfMarkers";
@@ -68,6 +68,8 @@ export function ViewerCanvas() {
   const viewCubeRef = useRef<ViewCubeRef | null>(null);
   // Where the current gesture started, so `onPointerUp` can tell a click from
   // a drag; see `onPointerDown`.
+  const activeTouchesRef = useRef(new Set<number>());
+  const multiTouchRef = useRef(false);
   const pointerDownPositionRef = useRef<{ x: number; y: number } | null>(null);
   const orbitStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const sectionGizmoDraggingRef = useRef(false);
@@ -89,6 +91,7 @@ export function ViewerCanvas() {
   const selection = useViewerStore((s) => s.selection);
   const hidden = useViewerStore((s) => s.hidden);
   const isolated = useViewerStore((s) => s.isolated);
+  const isolationGhosts = useViewerStore((s) => s.isolationGhosts);
   const entityTypeByRef = useViewerStore((s) => s.entityTypeByRef);
   const typeVisibility = useViewerStore((s) => s.typeVisibility);
   const typeFilter = useViewerStore((s) => s.typeFilter);
@@ -334,6 +337,7 @@ export function ViewerCanvas() {
     if (!renderer) return;
 
     const translucent = lensView?.translucent;
+    const ghosts = isolationGhostKeys(useViewerStore.getState());
     for (const model of models) {
       const modelId = model.summary.id;
       renderer.setEntityVisibility(modelId, (expressId) =>
@@ -351,12 +355,14 @@ export function ViewerCanvas() {
           expressId,
         }),
         // A lens's ghosts are shown, see-through; an isolation shows its
-        // elements solid, whatever the lens says.
-        translucent && translucent.size > 0
+        // elements solid, whatever the lens says — except those the isolation
+        // itself asked to show see-through, around the one in focus.
+        (translucent && translucent.size > 0) || ghosts
           ? (expressId) => {
               const key = `${modelId}#${expressId}`;
+              if (ghosts?.has(key)) return true;
               const isolated = useViewerStore.getState().isolated;
-              return translucent.has(key) && !isolated?.has(key);
+              return !!translucent?.has(key) && !isolated?.has(key);
             }
           : undefined,
       );
@@ -372,6 +378,7 @@ export function ViewerCanvas() {
     typeFilter,
     facetVisible,
     lensView,
+    isolationGhosts,
   ]);
 
   // ---- section planes
@@ -479,6 +486,20 @@ export function ViewerCanvas() {
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     endOrbitGesture();
     const renderer = rendererRef.current;
+    if (event.pointerType === "touch") {
+      if (activeTouchesRef.current.size === 0) multiTouchRef.current = false;
+      activeTouchesRef.current.add(event.pointerId);
+      if (activeTouchesRef.current.size > 1) multiTouchRef.current = true;
+      if (multiTouchRef.current) {
+        pointerDownPositionRef.current = null;
+        renderer?.setSnapPreview(null, null);
+        if (sectionGizmoDraggingRef.current) {
+          sectionGizmoDraggingRef.current = false;
+          renderer?.endSectionGizmoDrag();
+        }
+        return;
+      }
+    }
     if (event.button === 2) {
       secondaryDownRef.current = { x: event.clientX, y: event.clientY };
       pointerDownPositionRef.current = null;
@@ -541,6 +562,13 @@ export function ViewerCanvas() {
 
   const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
     endOrbitGesture();
+    if (event.pointerType === "touch") {
+      activeTouchesRef.current.delete(event.pointerId);
+      if (multiTouchRef.current) {
+        pointerDownPositionRef.current = null;
+        return;
+      }
+    }
     const renderer = rendererRef.current;
     if (sectionGizmoDraggingRef.current) {
       sectionGizmoDraggingRef.current = false;
@@ -655,6 +683,7 @@ export function ViewerCanvas() {
    * "this is where you'll land" about a point snapping never touches.
    */
   const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (event.pointerType === "touch" && multiTouchRef.current) return;
     const renderer = rendererRef.current;
     if (!renderer) return;
 
@@ -706,6 +735,9 @@ export function ViewerCanvas() {
 
   const onPointerCancel = (event: React.PointerEvent<HTMLCanvasElement>) => {
     endOrbitGesture();
+    pointerDownPositionRef.current = null;
+    secondaryDownRef.current = null;
+    activeTouchesRef.current.delete(event.pointerId);
     if (!sectionGizmoDraggingRef.current) return;
     sectionGizmoDraggingRef.current = false;
     rendererRef.current?.endSectionGizmoDrag();
@@ -781,7 +813,7 @@ export function ViewerCanvas() {
       <ViewerContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
 
       {models.length === 0 && cloudCount === 0 && (
-        <div className="text-muted-foreground pointer-events-none absolute inset-0 flex items-center justify-center text-sm">
+        <div className="text-muted-foreground pointer-events-none absolute inset-0 flex items-center justify-center p-6 text-center text-sm">
           {t("dropHint")}
         </div>
       )}
@@ -796,13 +828,8 @@ export function ViewerCanvas() {
         onDrag={(deltaX, deltaY) => rendererRef.current?.orbit(deltaX, deltaY)}
       />
 
-      {/*
-        Bottom-centre of this element, which since the side panels became
-        docked (`page.tsx`) is exactly the visible canvas area — no longer a
-        "clear channel" chosen to dodge a floating panel, just the natural
-        centre of the space this canvas actually has.
-      */}
-      <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-2">
+      {/* Controls follow the canvas when panels dock or float. */}
+      <div className="viewer-canvas-actions absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

@@ -127,6 +127,14 @@ type ViewerState = {
   isolated: Set<string> | null;
   /** Whether an isolation replaces the facet filter or is refined by it. */
   isolationFilterMode: "replace" | "intersect" | null;
+  /**
+   * Isolated elements drawn see-through, as context for the one in focus — the
+   * quantity results' "this element among the others". Tied to the isolation
+   * it was made with: read through `isolationGhostKeys`, which ignores it once
+   * anything else (BCF, IDS, a filter, a restore) has replaced `isolated`, so
+   * no writer of `isolated` has to remember to clear it.
+   */
+  isolationGhosts: { isolated: Set<string>; keys: Set<string> } | null;
   /** Overrides applied by the IDS validator and BCF viewpoints. */
   colouring: Map<string, string>;
   /** IFC type for each rendered entity, used by semantic visibility settings. */
@@ -243,6 +251,8 @@ type ViewerState = {
   isolate: (
     refs: EntityRef[],
     filterMode?: "replace" | "intersect",
+    /** Of `refs`, those to draw see-through. */
+    ghosts?: EntityRef[],
   ) => void;
   /** Null clears the filter; a set narrows visibility to exactly those refs. */
   setFacetVisible: (keys: Set<string> | null) => void;
@@ -347,6 +357,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   hidden: new Set(),
   isolated: null,
   isolationFilterMode: null,
+  isolationGhosts: null,
   colouring: new Map(),
   entityTypeByRef: new Map(),
   typeVisibility: defaultTypeVisibility(),
@@ -487,12 +498,17 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   // Result-driven isolation defaults to "show exactly this" and clears a stale
   // facet filter. Spatial-tree isolation opts into `intersect`, treating the
   // chosen subtree as a scope that the filter panel can refine.
-  isolate: (refs, filterMode = "replace") =>
-    set((state) => ({
-      isolated: new Set(refs.map(refKey)),
-      isolationFilterMode: filterMode,
-      facetVisible: filterMode === "replace" ? null : state.facetVisible,
-    })),
+  isolate: (refs, filterMode = "replace", ghosts) =>
+    set((state) => {
+      const isolated = new Set(refs.map(refKey));
+      return {
+        isolated,
+        isolationFilterMode: filterMode,
+        isolationGhosts:
+          ghosts && ghosts.length > 0 ? { isolated, keys: new Set(ghosts.map(refKey)) } : null,
+        facetVisible: filterMode === "replace" ? null : state.facetVisible,
+      };
+    }),
   clearIsolation: () =>
     set({ isolated: null, isolationFilterMode: null }),
   resetVisibility: () =>
@@ -826,3 +842,11 @@ export function useSelectedEntity(): EntityRef | null {
 
 export { MODEL_COLOURS };
 export type { EntitySummary };
+
+/** The isolated elements to draw see-through, or null — only while the isolation they came with is the current one. */
+export function isolationGhostKeys(
+  state: Pick<ViewerState, "isolated" | "isolationGhosts">,
+): Set<string> | null {
+  const ghosts = state.isolationGhosts;
+  return ghosts && state.isolated !== null && ghosts.isolated === state.isolated ? ghosts.keys : null;
+}

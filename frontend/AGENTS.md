@@ -1164,6 +1164,12 @@ set are worse than none.
   it on "Show", and BCF sets it on "Open viewpoint". Any component that clears
   it must only clear an isolation *it* set — see the `ownsIsolation` ref in
   `viewer/_components/ClassFilter.tsx`.
+- **An isolation can show some of its own elements see-through**
+  (`isolate(refs, mode, ghosts)`): the quantity results' row click isolates
+  the whole result, selects and frames that row's element, and ghosts the rest.
+  The ghosts are tied to the `isolated` set they were made with and read through
+  `isolationGhostKeys`, so whoever replaces the isolation — BCF, IDS, a filter,
+  a restore writing `isolated` directly — never has to clear them.
 - The BCF export builds a `BcfFile` and hands it to `lib/bcf/serialize.ts`; it
   never writes XML itself, so it inherits §8's schema guarantees.
 

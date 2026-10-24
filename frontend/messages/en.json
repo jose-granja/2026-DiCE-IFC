@@ -84,6 +84,9 @@
     ]
   },
   "nav": {
+    "menu": "Open navigation",
+    "closeMenu": "Close navigation",
+    "navigation": "Navigation",
     "language": "Language",
     "whatLeaves": "What leaves my device?",
     "theme": "Theme",
@@ -192,6 +195,13 @@
     "webgpuMissing": "This browser has no WebGPU; the slower WebGL path will be used, which struggles with large models."
   },
   "viewer": {
+    "mobile": {
+      "tools": "Tools",
+      "properties": "Properties",
+      "close": "Close panel",
+      "closeTools": "Close tools panel",
+      "closeProperties": "Close properties panel"
+    },
     "header": {
       "title": "Viewer",
       "description": "Load several IFC models and coordinate them in one view. Selection, visibility and colouring are shared with the IDS validator and the BCF manager."
@@ -585,7 +595,7 @@
       "edgeWidthLabel": "Edge width",
       "propertiesHeading": "Properties",
       "decimalPlacesLabel": "Decimal places",
-      "decimalPlacesHint": "Round property and quantity values with units to this many decimal places."
+      "decimalPlacesHint": "Round property and quantity values with units, and the QTO results, to this many decimal places."
     },
     "filterPanel": {
       "dimensions": {
@@ -713,6 +723,7 @@
         "select": "Select",
         "isolate": "Isolate",
         "downloadCsv": "Download this query's rows as CSV",
+        "focus": "Isolate this element among the results, the others see-through. Click again to show everything.",
         "runHint": "Run the query to see its quantity values.",
         "none": "No elements match this query.",
         "element": "Element",

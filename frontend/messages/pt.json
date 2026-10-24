@@ -84,6 +84,9 @@
     ]
   },
   "nav": {
+    "menu": "Abrir navegação",
+    "closeMenu": "Fechar navegação",
+    "navigation": "Navegação",
     "language": "Idioma",
     "whatLeaves": "O que sai do meu dispositivo?",
     "theme": "Tema",
@@ -192,6 +195,13 @@
     "webgpuMissing": "Este navegador não suporta WebGPU; será usado o modo WebGL, mais lento em modelos grandes."
   },
   "viewer": {
+    "mobile": {
+      "tools": "Ferramentas",
+      "properties": "Propriedades",
+      "close": "Fechar painel",
+      "closeTools": "Fechar painel de ferramentas",
+      "closeProperties": "Fechar painel de propriedades"
+    },
     "header": {
       "title": "Visualizador",
       "description": "Carregue vários modelos IFC e coordene-os numa só vista. A seleção, visibilidade e cor são partilhadas com o validador IDS e o gestor BCF."
@@ -585,7 +595,7 @@
       "edgeWidthLabel": "Largura das arestas",
       "propertiesHeading": "Propriedades",
       "decimalPlacesLabel": "Casas decimais",
-      "decimalPlacesHint": "Arredondar os valores de propriedades e quantidades com unidades para este número de casas decimais."
+      "decimalPlacesHint": "Arredondar os valores de propriedades e quantidades com unidades, e os resultados do QTO, para este número de casas decimais."
     },
     "filterPanel": {
       "dimensions": {
@@ -713,6 +723,7 @@
         "select": "Selecionar",
         "isolate": "Isolar",
         "downloadCsv": "Descarregar as linhas desta consulta em CSV",
+        "focus": "Isolar este elemento entre os resultados, com os restantes transparentes. Clique de novo para mostrar tudo.",
         "runHint": "Execute a consulta para ver os valores das quantidades.",
         "none": "Nenhum elemento corresponde a esta consulta.",
         "element": "Elemento",

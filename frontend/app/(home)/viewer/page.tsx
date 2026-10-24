@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -16,6 +16,9 @@ import {
   Ruler,
   Scissors,
   Sigma,
+  PanelLeft,
+  ListFilter,
+  X,
 } from "lucide-react";
 
 /** Tabs `?panel=` may open. */
@@ -34,6 +37,8 @@ const PANELS = [
   "bcf",
 ];
 
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import ModuleHeader from "@/components/ModuleHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useViewerPanelStore } from "@/lib/viewer/panel-store";
@@ -118,6 +123,31 @@ export default function ViewerPage() {
   */
   const [tab, setTab] = useState(fromUrl ?? "structure");
   const [seenUrl, setSeenUrl] = useState(fromUrl);
+  const [mobilePanel, setMobilePanel] = useState<"tools" | "properties" | null>(fromUrl ? "tools" : null);
+  const toolsToggle = useRef<HTMLButtonElement>(null);
+  const propertiesToggle = useRef<HTMLButtonElement>(null);
+  const toolsClose = useRef<HTMLButtonElement>(null);
+  const propertiesClose = useRef<HTMLButtonElement>(null);
+
+  const closeMobilePanel = () => {
+    (mobilePanel === "tools" ? toolsToggle : propertiesToggle).current?.focus();
+    setMobilePanel(null);
+  };
+
+  useEffect(() => {
+    if (!mobilePanel) return;
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      (mobilePanel === "tools" ? toolsClose : propertiesClose).current?.focus();
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      // A nested dialog/popover gets first chance to consume Escape.
+      if (event.key !== "Escape" || event.defaultPrevented || !window.matchMedia("(max-width: 1023px)").matches) return;
+      (mobilePanel === "tools" ? toolsToggle : propertiesToggle).current?.focus();
+      setMobilePanel(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobilePanel]);
 
   const [leftWidth, setLeftWidth] = useResizableWidth("left", 304, 240, 560);
   const [rightWidth, setRightWidth] = useResizableWidth("right", 320, 240, 560);
@@ -125,9 +155,12 @@ export default function ViewerPage() {
   // Adjusted during render, not in an effect. React supports this for state
   // that has to follow a prop, and it avoids the extra commit an effect would
   // cost — the tab would visibly flip after paint.
-  if (fromUrl && fromUrl !== seenUrl) {
+  if (fromUrl !== seenUrl) {
     setSeenUrl(fromUrl);
-    setTab(fromUrl);
+    if (fromUrl) {
+      setTab(fromUrl);
+      setMobilePanel("tools");
+    }
   }
 
   // The same, for a tab asked for from elsewhere on the page (a project restore).
@@ -135,7 +168,10 @@ export default function ViewerPage() {
   const [seenRequest, setSeenRequest] = useState(request);
   if (request && request !== seenRequest) {
     setSeenRequest(request);
-    if (PANELS.includes(request.panel)) setTab(request.panel);
+    if (PANELS.includes(request.panel)) {
+      setTab(request.panel);
+      setMobilePanel("tools");
+    }
   }
   useEffect(() => {
     useViewerPanelStore.getState().report(tab);
@@ -157,17 +193,18 @@ export default function ViewerPage() {
   // is an explicit action; `unloadAllModels` is wired to it, not to unmount.
 
   return (
-    <div className="flex h-[calc(100vh-3.25rem)] flex-col">
+    <div className="viewer-page flex min-h-0 min-w-0 flex-col">
       <ModuleHeader
         title={t("header.title")}
-        // description={t("header.description")}
+        className="viewer-header"
+        actionsClassName="viewer-actions"
         actions={
           <>
+            <AddModelsButton />
             <DisplaySettings />
             <TypeVisibilitySettings />
             <VisibilityActions />
             <WorkspaceActions />
-            <AddModelsButton />
             {/* After "Add models", not before: its hidden folder and .zip
                 inputs must not become the page's first file input, which is
                 the model picker and what the e2e suite targets. */}
@@ -177,22 +214,29 @@ export default function ViewerPage() {
       />
 
       <ModelDropZone>
-        {/*
-          Docked, not floating: each side panel takes real layout width, drags
-          to resize (`ResizeHandle`), and the canvas gets whatever is left
-          (`flex-1 min-w-0`). This replaced an absolutely-positioned overlay
-          over a full-bleed canvas — the ifclite look — which cost a "clear
-          channel" nothing could be placed in, because a floating panel simply
-          intercepted any click underneath it. Docked panels have no such
-          channel to protect: nothing overlaps the canvas at all, so every
-          point inside it is a real click target.
-        */}
-        <div className="flex min-h-0 flex-1 gap-2 p-2">
+        {/* Both panels stay mounted when hidden: closing a mobile panel must
+            preserve drafts and in-progress local processing. */}
+        <div className="viewer-workspace relative isolate flex min-h-0 min-w-0 flex-1 gap-2 p-2">
+          <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 lg:hidden">
+            <Button ref={toolsToggle} variant="outline" className="glass bg-card h-11 justify-start shadow-sm" aria-controls="viewer-tools" aria-expanded={mobilePanel === "tools"} onClick={() => setMobilePanel(mobilePanel === "tools" ? null : "tools")}>
+              <PanelLeft aria-hidden />{t("mobile.tools")}
+            </Button>
+            <Button ref={propertiesToggle} variant="outline" className="glass bg-card h-11 justify-start shadow-sm" aria-controls="viewer-properties" aria-expanded={mobilePanel === "properties"} onClick={() => setMobilePanel(mobilePanel === "properties" ? null : "properties")}>
+              <ListFilter aria-hidden />{t("mobile.properties")}
+            </Button>
+          </div>
+          {mobilePanel && <button type="button" tabIndex={-1} className="absolute inset-0 z-30 bg-background/20 lg:hidden" aria-label={t("mobile.close")} onClick={closeMobilePanel} />}
           {/* Left: models and structure */}
           <aside
-            style={{ width: leftWidth }}
-            className="glass glass-edge bg-card flex min-h-0 shrink-0 flex-col overflow-hidden rounded-xl"
+            id="viewer-tools"
+            aria-label={t("mobile.tools")}
+            style={{ width: `min(${leftWidth}px, calc((100% - 24rem) / 2))` }}
+            className={cn("viewer-side-panel viewer-tools glass glass-edge bg-card min-h-0 shrink-0 flex-col overflow-hidden rounded-xl lg:flex", mobilePanel === "tools" ? "flex" : "hidden")}
           >
+            <div className="flex shrink-0 items-center justify-between border-b pl-3 lg:hidden">
+              <h2 className="text-sm font-semibold">{t(`tabs.${tab === "classes" ? "filters" : tab === "georef" ? "geo" : tab}`)}</h2>
+              <Button ref={toolsClose} size="icon" variant="ghost" className="size-11" aria-label={t("mobile.closeTools")} onClick={closeMobilePanel}><X aria-hidden /></Button>
+            </div>
             <Tabs
               value={tab}
               onValueChange={setTab}
@@ -205,7 +249,7 @@ export default function ViewerPage() {
                 each child also keeps TooltipTrigger from replacing the tab state
                 with its own open/closed state (which removes active styling).
               */}
-              <TabsList className="m-2 grid w-auto shrink-0 grid-cols-12 bg-transparent p-0 [&>[role=tab]]:min-w-0 [&>[role=tab]]:px-0">
+              <TabsList className="viewer-tool-tabs m-2 grid h-auto w-auto shrink-0 grid-cols-6 bg-transparent p-0 lg:grid-cols-12 [&>[role=tab]]:min-w-0 [&>[role=tab]]:px-0">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <TabsTrigger value="models" data-state={tab === "models" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.models")}>
@@ -401,28 +445,32 @@ export default function ViewerPage() {
             </Tabs>
           </aside>
 
-          <ResizeHandle
-            label={t("resize.sidePanel")}
-            onDrag={(deltaX) => setLeftWidth((width) => width + deltaX)}
-          />
+          <div className="hidden lg:flex">
+            <ResizeHandle label={t("resize.sidePanel")} onDrag={(deltaX) => setLeftWidth((width) => width + deltaX)} />
+          </div>
 
-          <div className="relative min-h-0 flex-1">
+          <div className="relative min-h-0 min-w-0 flex-1">
             <ViewerCanvas />
             <FacetFilterSync />
             <LensSync />
           </div>
 
-          <ResizeHandle
-            label={t("resize.propertiesPanel")}
-            onDrag={(deltaX) => setRightWidth((width) => width - deltaX)}
-          />
+          <div className="hidden lg:flex">
+            <ResizeHandle label={t("resize.propertiesPanel")} onDrag={(deltaX) => setRightWidth((width) => width - deltaX)} />
+          </div>
 
           {/* Right: the selected element */}
           <aside
-            style={{ width: rightWidth }}
-            className="glass glass-edge bg-card min-h-0 shrink-0 overflow-auto rounded-xl"
+            id="viewer-properties"
+            aria-label={t("mobile.properties")}
+            style={{ width: `min(${rightWidth}px, calc((100% - 24rem) / 2))` }}
+            className={cn("viewer-side-panel viewer-properties glass glass-edge bg-card min-h-0 shrink-0 flex-col overflow-hidden rounded-xl lg:flex", mobilePanel === "properties" ? "flex" : "hidden")}
           >
-            <PropertyPanel />
+            <div className="flex shrink-0 items-center justify-between border-b pl-3 lg:hidden">
+              <h2 className="text-sm font-semibold">{t("mobile.properties")}</h2>
+              <Button ref={propertiesClose} size="icon" variant="ghost" className="size-11" aria-label={t("mobile.closeProperties")} onClick={closeMobilePanel}><X aria-hidden /></Button>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col overflow-auto"><PropertyPanel /></div>
           </aside>
         </div>
       </ModelDropZone>

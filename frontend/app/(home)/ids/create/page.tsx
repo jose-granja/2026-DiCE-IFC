@@ -156,7 +156,7 @@ export default function IdsCreatePage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.25rem)] flex-col">
+    <div className="flex min-w-0 flex-col lg:h-[calc(100dvh-3.25rem-env(safe-area-inset-top))]">
       <ModuleHeader
         title={t("header.title")}
         description={t("header.description")}
@@ -266,10 +266,10 @@ export default function IdsCreatePage() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:flex">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <aside
           style={{ width: `min(${leftWidth}px, calc((100% - 22rem) / 2))` }}
-          className="flex min-h-0 shrink-0 flex-col overflow-hidden border-r max-lg:!w-full lg:border-r-0"
+          className="flex min-h-0 shrink-0 flex-col overflow-hidden border-b max-lg:max-h-64 max-lg:!w-full lg:border-0"
         >
           <div className="border-b p-2">
             <button
@@ -292,7 +292,7 @@ export default function IdsCreatePage() {
           />
         </div>
 
-        <main className="min-h-0 min-w-0 flex-1 overflow-auto">
+        <main className="min-w-0 lg:min-h-0 lg:flex-1 lg:overflow-auto">
           {selected ? (
             <SpecificationEditor
               key={selected.id}
@@ -313,7 +313,7 @@ export default function IdsCreatePage() {
 
         <aside
           style={{ width: `min(${rightWidth}px, calc((100% - 22rem) / 2))` }}
-          className="min-h-0 shrink-0 overflow-hidden border-l max-lg:!w-full lg:border-l-0"
+          className="min-h-0 shrink-0 overflow-hidden border-t max-lg:h-96 max-lg:!w-full lg:border-0"
         >
           <PreviewPanel document={document_} />
         </aside>

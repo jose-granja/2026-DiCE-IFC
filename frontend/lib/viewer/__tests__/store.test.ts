@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { GeoreferenceView, ModelSummary } from "@/lib/ifc/types";
-import { useViewerStore, type ViewerModel } from "../store";
+import { isolationGhostKeys, useViewerStore, type ViewerModel } from "../store";
 
 function summary(id: string): ModelSummary {
   return {
@@ -257,6 +257,31 @@ describe("visibility", () => {
     useViewerStore.getState().isolate([space]);
 
     expect(useViewerStore.getState().isVisible(space)).toBe(true);
+  });
+
+  it("can show some isolated elements see-through, only while that isolation lasts", () => {
+    const focus = { modelId: "a", expressId: 1 };
+    const others = [
+      { modelId: "a", expressId: 2 },
+      { modelId: "a", expressId: 3 },
+    ];
+    useViewerStore.getState().isolate([focus, ...others], "replace", others);
+
+    // Every result is shown — the others see-through, not hidden.
+    for (const ref of [focus, ...others]) expect(useViewerStore.getState().isVisible(ref)).toBe(true);
+    expect(useViewerStore.getState().isVisible({ modelId: "a", expressId: 4 })).toBe(false);
+    expect([...(isolationGhostKeys(useViewerStore.getState()) ?? [])]).toEqual(["a#2", "a#3"]);
+
+    // Anything that replaces the isolation — even by writing it directly, as a
+    // BCF snapshot restore does — leaves no stale ghosts behind.
+    useViewerStore.setState({ isolated: new Set(["a#2"]) });
+    expect(isolationGhostKeys(useViewerStore.getState())).toBeNull();
+    useViewerStore.getState().isolate([focus, ...others], "replace", others);
+    useViewerStore.getState().isolate([focus]);
+    expect(isolationGhostKeys(useViewerStore.getState())).toBeNull();
+    useViewerStore.getState().isolate([focus, ...others], "replace", others);
+    useViewerStore.getState().clearIsolation();
+    expect(isolationGhostKeys(useViewerStore.getState())).toBeNull();
   });
 });
 

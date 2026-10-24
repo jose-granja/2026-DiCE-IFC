@@ -207,7 +207,7 @@ export const ViewCube = forwardRef<ViewCubeRef, ViewCubeProps>(
           </div>
         </div>
         <div
-          className="flex flex-col mt-4"
+          className="viewer-projection-actions mt-4 flex flex-col"
           role="group"
           aria-label={t("projection")}
         >

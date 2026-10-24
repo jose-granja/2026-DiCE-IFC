@@ -38,6 +38,7 @@ import type { WgsPoint } from "@/lib/georef/transform";
 import {
   orthographicPlanes,
   perspectiveDistance,
+  perspectiveFitDistance,
   perspectiveViewHeight,
   standardViewDirection,
   type CameraProjection,
@@ -1547,8 +1548,7 @@ export class ViewerRenderer {
     const size = box.getSize(new THREE.Vector3());
     const radius = Math.max(size.length() / 2, 1);
 
-    const distance =
-      radius / Math.sin((this.perspectiveFov * Math.PI) / 360);
+    const distance = perspectiveFitDistance(radius, this.perspectiveFov, this.aspectRatio);
     // Far plane follows the model, or a 40 km infrastructure alignment clips.
     // Remembered, so switching 3D tiles off restores the model's own range
     // rather than leaving the camera at planet scale.

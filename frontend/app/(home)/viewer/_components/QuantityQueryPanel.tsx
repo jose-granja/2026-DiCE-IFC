@@ -19,6 +19,9 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getActiveRenderer } from "@/lib/viewer/active-renderer";
+import { useDisplaySettingsStore } from "@/lib/viewer/display-settings";
+import { DEFAULT_PROPERTY_DECIMALS, MAX_PROPERTY_DECIMALS } from "@/lib/viewer/property-format";
 import {
   Tooltip,
   TooltipContent,
@@ -100,13 +103,29 @@ function csvCell(value: unknown) {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-function displayValue(value: PropertyValue) {
+const numberFormats = new Map<number, Intl.NumberFormat>();
+
+/**
+ * A value as the panel shows it: numbers rounded to the viewer's "Decimal
+ * places" setting, as the properties panel does. Display only — the results,
+ * the CSV and the workbook keep full precision.
+ */
+function displayValue(value: PropertyValue, decimalPlaces: number) {
   if (value === null) return "—";
   if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
-  if (typeof value === "number")
-    return new Intl.NumberFormat(undefined, {
-      maximumFractionDigits: 6,
-    }).format(value);
+  if (typeof value === "number") {
+    const digits =
+      Number.isInteger(decimalPlaces) && decimalPlaces >= 0 && decimalPlaces <= MAX_PROPERTY_DECIMALS
+        ? decimalPlaces
+        : DEFAULT_PROPERTY_DECIMALS;
+    let format = numberFormats.get(digits);
+    if (!format) {
+      // "negative": a small negative rounded to zero reads "0", not "-0".
+      format = new Intl.NumberFormat(undefined, { maximumFractionDigits: digits, signDisplay: "negative" });
+      numberFormats.set(digits, format);
+    }
+    return format.format(value);
+  }
   return value;
 }
 
@@ -170,6 +189,7 @@ export function QuantityQueryPanel() {
   const models = useViewerStore((state) => state.models);
   const select = useViewerStore((state) => state.select);
   const isolate = useViewerStore((state) => state.isolate);
+  const decimalPlaces = useDisplaySettingsStore((state) => state.propertyDecimalPlaces);
   const workbookInput = useRef<HTMLInputElement>(null);
   const templateRequest = useRef<AbortController | null>(null);
   const ready = useMemo(
@@ -771,6 +791,41 @@ export function QuantityQueryPanel() {
       expressId: row.expressId,
     }));
 
+  // The isolation a row click made, so a second click on the same row — and
+  // only that — undoes it, leaving any isolation set elsewhere alone (§9).
+  const [focus, setFocus] = useState<{ isolated: Set<string>; key: string } | null>(null);
+  const isolated = useViewerStore((state) => state.isolated);
+  const focusedKey = focus && isolated === focus.isolated ? focus.key : null;
+
+  /**
+   * Show one result element in context: the query's whole result isolated,
+   * this element solid and selected, the rest see-through, and the camera on it.
+   */
+  const focusRow = (ref: EntityRef) => {
+    const store = useViewerStore.getState();
+    const key = `${ref.modelId}#${ref.expressId}`;
+    if (focusedKey === key) {
+      store.clearIsolation();
+      setFocus(null);
+      return;
+    }
+    const refs = resultRefs();
+    store.isolate(
+      refs,
+      "replace",
+      refs.filter((other) => other.modelId !== ref.modelId || other.expressId !== ref.expressId),
+    );
+    setFocus({ isolated: useViewerStore.getState().isolated!, key });
+    store.select([ref], "replace");
+    // The bounds only reflect the isolation once the renderer has drawn with it.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const renderer = getActiveRenderer();
+        renderer?.fitToBounds(renderer.boundsOfRefs([ref]));
+      }),
+    );
+  };
+
   const downloadCsv = () => {
     if (!result) return;
     const header = [
@@ -980,6 +1035,8 @@ export function QuantityQueryPanel() {
                     aria-label={t("list.viewItem", {
                       description: item.description,
                     })}
+                    // The row truncates; the whole code and description on hover.
+                    title={item.code ? `${item.code} · ${item.description}` : item.description}
                     onClick={() => loadItem(item, "view")}
                   >
                     <span className="min-w-0 truncate font-medium">
@@ -993,7 +1050,7 @@ export function QuantityQueryPanel() {
                     <span className="text-muted-foreground shrink-0 tabular-nums">
                       {item.result
                         ? item.result.total !== null
-                          ? `${displayValue(item.result.total)} ${item.query.unit ?? ""}`
+                          ? `${displayValue(item.result.total, decimalPlaces)} ${item.query.unit ?? ""}`
                           : t("list.matchCount", {
                               count: item.result.matchedCount,
                             })
@@ -1116,13 +1173,17 @@ export function QuantityQueryPanel() {
                 <p className="text-muted-foreground text-[10px]">
                   {t("list.code")}
                 </p>
-                <p className="truncate font-mono">{queryCode || "—"}</p>
+                <p className="truncate font-mono" title={queryCode || undefined}>
+                  {queryCode || "—"}
+                </p>
               </div>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">
                   {t("list.description")}
                 </p>
-                <p className="truncate font-medium">{queryDescription}</p>
+                <p className="truncate font-medium" title={queryDescription}>
+                  {queryDescription}
+                </p>
               </div>
             </div>
           )}
@@ -1617,7 +1678,7 @@ export function QuantityQueryPanel() {
                           {t("results.total")}
                         </p>
                         <p className="text-base font-semibold tabular-nums">
-                          {displayValue(result.total)} {unit}
+                          {displayValue(result.total, decimalPlaces)} {unit}
                         </p>
                       </div>
                     )}
@@ -1665,10 +1726,24 @@ export function QuantityQueryPanel() {
                               </tr>
                             </thead>
                             <tbody>
-                              {result.rows.slice(0, 250).map((row) => (
+                              {result.rows.slice(0, 250).map((row) => {
+                                const ref = { modelId: row.modelId, expressId: row.expressId };
+                                const focused = focusedKey === `${row.modelId}#${row.expressId}`;
+                                return (
                                 <tr
                                   key={`${row.modelId}-${row.expressId}`}
-                                  className="border-t"
+                                  className={`cursor-pointer border-t transition-colors ${focused ? "bg-primary/15" : "hover:bg-muted/50"}`}
+                                  tabIndex={0}
+                                  aria-current={focused ? "true" : undefined}
+                                  title={t("results.focus")}
+                                  data-query-result-row={`${row.modelId}#${row.expressId}`}
+                                  onClick={() => focusRow(ref)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      focusRow(ref);
+                                    }
+                                  }}
                                 >
                                   <td
                                     className="max-w-40 truncate px-2 py-1.5"
@@ -1681,11 +1756,12 @@ export function QuantityQueryPanel() {
                                   </td>
                                   <td className="px-2 py-1.5">{row.type}</td>
                                   <td className="px-2 py-1.5 text-right tabular-nums">
-                                    {displayValue(row.value)}{" "}
+                                    {displayValue(row.value, decimalPlaces)}{" "}
                                     {row.value !== null ? unit : ""}
                                   </td>
                                 </tr>
-                              ))}
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>

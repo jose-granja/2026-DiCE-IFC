@@ -41,6 +41,13 @@ export function perspectiveDistance(viewHeight: number, fovDegrees: number): num
   return viewHeight / (2 * Math.tan((fovDegrees * Math.PI) / 360));
 }
 
+/** Distance that fits a bounding sphere inside both perspective field angles. */
+export function perspectiveFitDistance(radius: number, fovDegrees: number, aspect: number): number {
+  const verticalHalfAngle = (fovDegrees * Math.PI) / 360;
+  const horizontalHalfAngle = Math.atan(Math.tan(verticalHalfAngle) * Math.max(aspect, 0.0001));
+  return radius / Math.sin(Math.min(verticalHalfAngle, horizontalHalfAngle));
+}
+
 /** Symmetric orthographic planes for a vertical span and viewport aspect. */
 export function orthographicPlanes(viewHeight: number, aspect: number) {
   const halfHeight = Math.max(viewHeight / 2, 0.0001);

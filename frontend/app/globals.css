@@ -610,3 +610,70 @@
   overflow: hidden;
   touch-action: none;
 }
+
+/* Mobile navigation and viewer panels share the same breakpoint. Keeping the
+   panels in the DOM preserves local jobs and drafts while the canvas is used. */
+.main-nav { padding-top: env(safe-area-inset-top); }
+.main-nav > nav {
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+}
+.viewer-page { height: calc(100dvh - 3.25rem - env(safe-area-inset-top)); }
+.viewer-workspace {
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+.mobile-navigation {
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+@media (width < 64rem) {
+  .viewer-header { gap: 0.25rem; padding: 0.5rem; }
+  .viewer-header > div:first-child > div { gap: 0.25rem 0.75rem; }
+  .viewer-header h1 { font-size: 1rem; }
+  .viewer-actions {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    padding-bottom: 0.25rem;
+  }
+  .viewer-actions > * { flex-shrink: 0; }
+  .module-actions button, .main-nav button, .viewer-canvas-actions button, .viewer-projection-actions button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+  .viewer-side-panel {
+    position: absolute;
+    top: 0.5rem;
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+    z-index: 40;
+    width: min(24rem, calc(100% - 1rem - env(safe-area-inset-left) - env(safe-area-inset-right))) !important;
+    box-shadow: 0 8px 30px #0003;
+    /* Solid text surfaces keep model edges and floating controls from showing
+       through the panel while reading/editing on a small screen. */
+    background-color: var(--popover);
+  }
+  .viewer-tools { left: max(0.5rem, env(safe-area-inset-left)); }
+  .viewer-properties { right: max(0.5rem, env(safe-area-inset-right)); }
+  .viewer-tool-tabs { height: auto; }
+  .viewer-tool-tabs [role="tab"] { min-height: 2.75rem; }
+  .viewer-properties [role="tablist"] { display: flex; height: auto; justify-content: start; overflow-x: auto; flex-shrink: 0; }
+  .viewer-properties [role="tab"] { min-width: 2.75rem; min-height: 2.75rem; flex-shrink: 0; }
+  [data-slot="dialog-content"] { max-height: calc(100dvh - 2rem); overflow-y: auto; }
+  [data-slot="popover-content"] {
+    max-width: calc(100vw - 1rem);
+    max-height: min(calc(100dvh - 1rem), var(--radix-popover-content-available-height));
+    overflow-y: auto;
+  }
+}
+/* Avoid Safari zooming the page when focusing a small form field. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select {
+    font-size: max(1rem, 1em);
+  }
+}

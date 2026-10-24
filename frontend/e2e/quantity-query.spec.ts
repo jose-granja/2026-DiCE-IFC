@@ -152,12 +152,44 @@ test("builds a table-style quantity query and applies its results to the viewer"
     "2/3",
   );
 
+  // The list row truncates; its whole code and description show on hover.
+  await expect(page.locator('[data-query-list] [role="listitem"] button').first()).toHaveAttribute(
+    "title",
+    "13.01.01 · Concrete walls",
+  );
+
+  // A result row puts that element in focus: the whole result isolated, the
+  // element solid and selected, the other result see-through.
+  const scene = page.locator("[data-rendered-models]");
+  await page.locator('[data-query-list] [role="listitem"] button').first().click();
+  await page.getByRole("tab", { name: "Results" }).click();
+  const rows = page.locator("[data-query-result-row]");
+  await expect(rows).toHaveCount(2);
+  await rows.first().click();
+  await expect(rows.first()).toHaveAttribute("aria-current", "true");
+  await expect(scene).toHaveAttribute("data-visible-entities", "2/3");
+  await expect(scene).toHaveAttribute("data-translucent-entities", "1");
+  // Selected, so its properties are what the properties panel shows.
+  const rowName = (await rows.first().locator("td").first().getAttribute("title"))!.split(" · ").pop()!;
+  await expect(page.locator("[data-property-panel] h3")).toHaveText(rowName);
+
+  // Another row moves the focus; the same row again shows everything.
+  await rows.nth(1).click();
+  await expect(rows.nth(1)).toHaveAttribute("aria-current", "true");
+  await expect(rows.first()).not.toHaveAttribute("aria-current", "true");
+  await expect(scene).toHaveAttribute("data-translucent-entities", "1");
+  await rows.nth(1).click();
+  await expect(scene).toHaveAttribute("data-visible-entities", "3/3");
+  await expect(scene).toHaveAttribute("data-translucent-entities", "0");
+
   // Definitions stay available when the panel unmounts while another viewer
   // tab is open; only model-derived result rows are recalculated.
   // By id, not by name: the viewer's own class-filter tab and this panel's
   // filter tab are both called "Filters".
   await page.locator('[role="tab"][id$="-trigger-classes"]').click();
-  await page.locator('[role="tab"][id$="-trigger-quantities"]').click();
+  // By name here: with an element selected, the properties panel has a
+  // "Quantities" tab with the same id suffix.
+  await page.getByRole("tab", { name: "QTO", exact: true }).click();
   await expect(page.locator('[data-query-list] [role="listitem"]')).toHaveCount(2);
 });
 
@@ -277,4 +309,45 @@ test("filters a quantity by classification code within a system", async ({ page 
   await page.getByRole("button", { name: "Update", exact: true }).click();
   await page.getByRole("button", { name: "Run query" }).click();
   await expect(page.getByText("0 matched · 0 values · 0 missing")).toBeVisible({ timeout: 30_000 });
+});
+
+test("rounds its numbers to the viewer's decimal places setting, for display only", async ({ page }) => {
+  await page.goto("/viewer?panel=quantities");
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  // Each wall's 12.5 m² over three: 4.1666… per wall, 8.333… in all.
+  await page.locator("[data-quantity-workbook-input]").setInputFiles({
+    name: "thirds.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(createQuantityWorkbook([{
+      code: "THIRD.01", description: "A third of each wall", result: null,
+      query: {
+        filters: { classes: ["IfcWall"], predefinedTypes: [], objectTypes: [], materials: [], properties: [] },
+        sources: [
+          { id: "area", alias: "area", kind: "quantity", setName: "Qto_WallBaseQuantities", valueName: "NetSideArea" },
+        ],
+        formula: "area / 3", unit: "m²",
+      },
+    }])),
+  });
+  await page.getByRole("button", { name: "Run query", exact: true }).click();
+  const results = page.locator("[data-query-results]");
+  const listItem = page.locator('[data-query-list] [role="listitem"]');
+
+  // The default, three places.
+  await expect(results.getByText("8.333 m²", { exact: true })).toBeVisible();
+  await expect(results.getByRole("cell", { name: "4.167 m²", exact: true })).toHaveCount(2);
+  await expect(listItem).toContainText("8.333 m²");
+
+  await page.getByRole("button", { name: "Open display settings" }).click();
+  await page.getByRole("combobox", { name: "Decimal places" }).selectOption("1");
+  await page.keyboard.press("Escape");
+  await expect(results.getByText("8.3 m²", { exact: true })).toBeVisible();
+  await expect(results.getByRole("cell", { name: "4.2 m²", exact: true })).toHaveCount(2);
+  await expect(listItem).toContainText("8.3 m²");
+
+  // The CSV keeps every digit: rounding is how the panel shows a value, not the value.
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download this query's rows as CSV" }).click();
+  const csv = await (await (await downloading).createReadStream()).toArray();
+  expect(Buffer.concat(csv).toString("utf8")).toContain("4.166666666666667");
 });

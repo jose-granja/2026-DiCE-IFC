@@ -77,7 +77,7 @@ export default function SignVerifyPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.25rem)] flex-col overflow-auto">
+    <div className="flex h-[calc(100dvh-3.25rem-env(safe-area-inset-top))] flex-col overflow-auto">
       <ModuleHeader title={t("title")} description={m("description")} actions={
         <>
           <Button variant="outline" size="sm" disabled={busy} onClick={() => input.current?.click()}>
