@@ -40,6 +40,7 @@ import TopicDetail from "@/app/(home)/bcf/_components/TopicDetail";
 import TopicList from "@/app/(home)/bcf/_components/TopicList";
 import { useOpenViewpoint } from "@/app/(home)/bcf/_components/useOpenViewpoint";
 import RelatedTopics from "./RelatedTopics";
+import { PanelHeader } from "./PanelHeader";
 
 /**
  * The BCF manager, in the viewer.
@@ -211,9 +212,7 @@ export function BcfPanel() {
         author field are not properties of the list, and having them disappear
         the moment you open a topic made the panel feel like two screens.
       */}
-      <div className="space-y-2 border-b p-2">
-        <div className="flex felx-row justify-between items-center gap-1.5 w-full">
-          <h2 className="flex-1 text-sm">{t("title")}</h2>
+      <PanelHeader tab="bcf">
           {/* Comments and new topics are attributed to this. Kept behind an
               icon: it is set once per session, not something to edit all day. */}
           <Popover>
@@ -356,17 +355,21 @@ export function BcfPanel() {
             </TooltipTrigger>
             <TooltipContent>{t("newTopic")}</TooltipContent>
           </Tooltip>
-        </div>
+      </PanelHeader>
 
-        {signed.map(([name, signature]) => (
-          <div key={name} className="rounded-md border p-1.5">
-            <p className="truncate text-[11px] font-medium" title={name}>
-              {name}
-            </p>
-            <SignatureBadge signature={signature} />
-          </div>
-        ))}
-      </div>
+      {/* Signatures on the loaded issue sets, when there are any. */}
+      {signed.length > 0 && (
+        <div className="space-y-2 border-b p-2">
+          {signed.map(([name, signature]) => (
+            <div key={name} className="rounded-md border p-1.5">
+              <p className="truncate text-[11px] font-medium" title={name}>
+                {name}
+              </p>
+              <SignatureBadge signature={signature} />
+            </div>
+          ))}
+        </div>
+      )}
 
       {selected && editingGuid === selected.guid ? (
         <div className="flex min-h-0 flex-1 flex-col">

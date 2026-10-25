@@ -504,6 +504,29 @@ function toSpatialNodeView(node: SpatialNode): SpatialNodeView {
 // The adapter
 // ---------------------------------------------------------------------------
 
+
+type EngineRequirementResult = Awaited<
+  ReturnType<typeof validateIDS>
+>["specificationResults"][number]["entityResults"][number]["requirementResults"][number];
+
+/**
+ * The engine reports an element that has property sets, none of them the one
+ * required, with `field: "propertySet"` — the word, not the set's name — and its
+ * sentence prints `field` first, so the user read `Property set "propertySet" not
+ * found`. The name is in `expected`. Put it where it belongs and say the sentence
+ * again with the engine's own words. (Fixed here, not in the package: patching an
+ * MPL file means publishing it — AGENTS.md §8d.)
+ */
+export function namePropertySet(
+  requirement: EngineRequirementResult,
+  describe: { describeFailure: (result: EngineRequirementResult) => string },
+): EngineRequirementResult {
+  const failure = requirement.failure;
+  if (failure?.type !== "PSET_MISSING" || failure.field !== "propertySet" || !failure.expected) return requirement;
+  const repaired = { ...requirement, failure: { ...failure, field: failure.expected } };
+  return { ...repaired, failureReason: describe.describeFailure(repaired) };
+}
+
 export const ifcLiteAdapter: IfcEngineAdapter = {
   engineId: "ifc-lite",
 
@@ -1695,16 +1718,19 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
           name: entity.entityName,
           globalId: entity.globalId,
           passed: entity.passed,
-          requirements: entity.requirementResults.map((requirement) => ({
-            requirementId: requirement.requirement?.id,
-            status: requirement.status,
-            facetType: requirement.facetType,
-            description: requirement.checkedDescription,
-            failureReason: requirement.failureReason,
-            field: requirement.failure?.field,
-            actual: requirement.failure?.actual ?? requirement.actualValue,
-            expected: requirement.failure?.expected ?? requirement.expectedValue,
-          })),
+          requirements: entity.requirementResults.map((raw) => {
+            const requirement = namePropertySet(raw, describe);
+            return {
+              requirementId: requirement.requirement?.id,
+              status: requirement.status,
+              facetType: requirement.facetType,
+              description: requirement.checkedDescription,
+              failureReason: requirement.failureReason,
+              field: requirement.failure?.field,
+              actual: requirement.failure?.actual ?? requirement.actualValue,
+              expected: requirement.failure?.expected ?? requirement.expectedValue,
+            };
+          }),
         })),
       }));
 

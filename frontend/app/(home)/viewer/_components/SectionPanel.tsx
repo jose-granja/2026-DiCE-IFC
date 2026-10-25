@@ -26,6 +26,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 
 import { CapStyleSettings } from "./CapStyleSettings";
+import { PanelHeader } from "./PanelHeader";
 
 export function SectionPanel() {
   const t = useTranslations("viewer.sectionPanel");
@@ -70,14 +71,18 @@ export function SectionPanel() {
 
   if (!hasSomething) {
     return (
-      <p className="text-muted-foreground p-3 text-xs">
-        {t("loadModel")}
-      </p>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PanelHeader tab="section" />
+        <p className="text-muted-foreground p-3 text-xs">
+          {t("loadModel")}
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="flex h-full flex-col">
+      <PanelHeader tab="section" />
       <div className="flex flex-wrap items-center gap-1 border-b p-2">
         {AXES.map(({ axis, label, hint }) => (
           <Button

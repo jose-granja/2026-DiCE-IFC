@@ -206,6 +206,9 @@ test("dragging the handle resizes the side panel", async ({ page }) => {
 });
 
 test("a stored panel width is restored on load", async ({ page }) => {
+  // Leave enough room for the saved width: smaller desktop viewports cap each
+  // panel's visible width to keep the canvas usable.
+  await page.setViewportSize({ width: 1440, height: 900 });
   // Persisted, not just live state: a returning visit keeps the width the
   // user chose rather than resetting to the default every time. Set through
   // localStorage directly — a separate concern from the drag gesture itself,

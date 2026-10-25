@@ -224,6 +224,7 @@
       "lensActive": "A lens is on"
     },
     "clash": {
+      "title": "Clash detection",
       "loadModel": "Load at least one model to detect clashes.",
       "run": "Run",
       "running": "Running…",
@@ -407,6 +408,23 @@
           "z01": "Selects only solids named CLZ_MAINT_*. Model each piece of equipment's approved maintenance envelope as such a solid; nothing is selected until you do.",
           "z02": "Selects only solids named CLZ_EGRESS_*. Model the locally approved escape route and door swing as such solids; nothing is selected until you do."
         }
+      },
+      "window": {
+        "open": "Open the groups and matrix in a larger window",
+        "title": "Clash detection",
+        "hint": "Every group and the whole matrix, with room to read them. Pick a group to edit it on the right; run from here, then read the results in the panel beside the model.",
+        "editingThere": "The groups and the matrix are open in the clash window.",
+        "showResults": "Show results",
+        "search": "Search name, discipline or note",
+        "count": "{shown, number} of {total, number}",
+        "noMatch": "No group matches the search.",
+        "selects": "Selects",
+        "elements": "Elements",
+        "select": "Edit {name}",
+        "selected": "Selected group",
+        "pick": "Pick a group to edit it here.",
+        "nothing": "Nothing yet — no filter",
+        "conditions": "{count, plural, one {# property condition} other {# property conditions}}"
       }
     },
     "resize": {
@@ -821,7 +839,16 @@
       "property": "Property",
       "value": "Current value",
       "category": "Category",
-      "description": "Description"
+      "description": "Description",
+      "headings": {
+        "attributes": "Attributes",
+        "propertySets": "Property sets",
+        "quantities": "Quantities",
+        "classification": "Classification",
+        "type": "Type properties",
+        "materials": "Materials",
+        "ids": "IDS requirements"
+      }
     },
     "relatedTopics": {
       "none": "No topic refers to the selected element.",
@@ -1621,6 +1648,20 @@
           }
         }
       }
+    },
+    "panelTitles": {
+      "models": "Models",
+      "structure": "Spatial structure",
+      "classes": "Filters",
+      "lens": "Lens",
+      "quantities": "Quantity query",
+      "georef": "Georeferencing",
+      "gis": "GIS context",
+      "section": "Section planes",
+      "measure": "Measurements",
+      "ids": "IDS verification",
+      "clash": "Clash detection",
+      "bcf": "BCF topics"
     }
   },
   "idsCreate": {

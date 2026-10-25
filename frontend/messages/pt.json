@@ -224,6 +224,7 @@
       "lensActive": "Há uma vista ativa"
     },
     "clash": {
+      "title": "Detetor de conflitos",
       "loadModel": "Carregue pelo menos um modelo para detetar conflitos.",
       "run": "Executar",
       "running": "A executar…",
@@ -407,6 +408,23 @@
           "z01": "Seleciona apenas sólidos com o nome CLZ_MAINT_*. Modele a envolvente de manutenção aprovada de cada equipamento como um destes sólidos; nada é selecionado até o fazer.",
           "z02": "Seleciona apenas sólidos com o nome CLZ_EGRESS_*. Modele o percurso de evacuação aprovado localmente e a abertura das portas como estes sólidos; nada é selecionado até o fazer."
         }
+      },
+      "window": {
+        "open": "Abrir os grupos e a matriz numa janela maior",
+        "title": "Deteção de colisões",
+        "hint": "Todos os grupos e a matriz completa, com espaço para os ler. Escolha um grupo para o editar à direita; execute a partir daqui e leia os resultados no painel junto ao modelo.",
+        "editingThere": "Os grupos e a matriz estão abertos na janela de colisões.",
+        "showResults": "Mostrar resultados",
+        "search": "Procurar nome, disciplina ou nota",
+        "count": "{shown, number} de {total, number}",
+        "noMatch": "Nenhum grupo corresponde à pesquisa.",
+        "selects": "Seleciona",
+        "elements": "Elementos",
+        "select": "Editar {name}",
+        "selected": "Grupo selecionado",
+        "pick": "Escolha um grupo para o editar aqui.",
+        "nothing": "Ainda nada — sem filtro",
+        "conditions": "{count, plural, one {# condição de propriedade} other {# condições de propriedade}}"
       }
     },
     "resize": {
@@ -821,7 +839,16 @@
       "property": "Propriedade",
       "value": "Valor atual",
       "category": "Categoria",
-      "description": "Descrição"
+      "description": "Descrição",
+      "headings": {
+        "attributes": "Atributos",
+        "propertySets": "Conjuntos de propriedades",
+        "quantities": "Quantidades",
+        "classification": "Classificação",
+        "type": "Propriedades do tipo",
+        "materials": "Materiais",
+        "ids": "Requisitos IDS"
+      }
     },
     "relatedTopics": {
       "none": "Nenhum tópico se refere ao elemento selecionado.",
@@ -1621,6 +1648,20 @@
           }
         }
       }
+    },
+    "panelTitles": {
+      "models": "Modelos",
+      "structure": "Estrutura espacial",
+      "classes": "Filtros",
+      "lens": "Vista",
+      "quantities": "Consulta de quantidades",
+      "georef": "Georreferenciação",
+      "gis": "Contexto SIG",
+      "section": "Planos de corte",
+      "measure": "Medições",
+      "ids": "Verificação IDS",
+      "clash": "Detetor de conflitos",
+      "bcf": "Tópicos BCF"
     }
   },
   "idsCreate": {

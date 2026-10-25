@@ -20,7 +20,6 @@ import {
   Download,
   Eye,
   EyeOff,
-  Glasses,
   Loader2,
   Pencil,
   Plus,
@@ -52,6 +51,7 @@ import type { Lens, LensAction, LensAutoSource, LensRule, LensUnmatched } from "
 import { useModelVocabulary } from "@/lib/viewer/use-model-vocabulary";
 import { cn } from "@/lib/utils";
 import { ElementFilterEditor } from "./ElementFilterEditor";
+import { PanelHeader } from "./PanelHeader";
 
 const SOURCES: Array<LensAutoSource["kind"]> = [
   "class",
@@ -143,12 +143,7 @@ export function LensPanel() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-lens-panel>
-      <div className="flex items-center justify-between gap-2 border-b p-2">
-        <h2 className="flex items-center gap-1.5 text-sm">
-          <Glasses className="h-4 w-4" aria-hidden />
-          {t("title")}
-        </h2>
-        <div className="flex items-center gap-1">
+      <PanelHeader tab="lens">
           <Button
             variant="ghost"
             size="icon"
@@ -196,8 +191,7 @@ export function LensPanel() {
               <DropdownMenuItem onSelect={() => create("auto")}>{t("newAuto")}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </div>
+      </PanelHeader>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-auto p-2">
         <p className="text-muted-foreground text-[11px]">{t("hint")}</p>

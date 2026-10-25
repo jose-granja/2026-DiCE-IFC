@@ -18,6 +18,7 @@ import {
 } from "@/lib/georef/transform";
 import GlobeControls from "./GlobeControls";
 import ContextModel from "./ContextModel";
+import { PanelHeader } from "./PanelHeader";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
 import { worldToIfcMetres } from "@/lib/viewer/federation";
 import type { ContextScenePlacement } from "@/lib/georef/context-placement";
@@ -225,7 +226,9 @@ export function GeorefPanels() {
 
   return (
     <>
-      <TabsContent value="gis" forceMount className="min-h-0 flex-1 overflow-auto data-[state=inactive]:hidden">
+      <TabsContent value="gis" forceMount className="flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
+        <PanelHeader tab="gis" />
+        <div className="min-h-0 flex-1 overflow-auto">
         <GlobeControls
           origin={modelAnchor?.centre ?? null}
           northCorrection={modelAnchor?.northCorrection ?? 0}
@@ -243,8 +246,10 @@ export function GeorefPanels() {
           modelPlacement={model ? (placements[model.summary.id] ?? IDENTITY) : IDENTITY}
           ready={Boolean(model?.coordinates && draft)}
         />
+        </div>
       </TabsContent>
       <TabsContent value="georef" forceMount className="flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
+        <PanelHeader tab="georef" />
         {!model ? (
           <p className="text-muted-foreground p-3 text-xs">
             {t("loadModel")}

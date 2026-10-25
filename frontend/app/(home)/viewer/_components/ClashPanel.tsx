@@ -10,7 +10,9 @@ import {
   Download,
   Eye,
   LayoutTemplate,
+  ListChecks,
   Loader2,
+  Maximize2,
   Play,
   Plus,
   Square,
@@ -22,6 +24,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -42,12 +45,14 @@ import { findRule } from "@/lib/clash/matrix";
 import { useClashStore } from "@/lib/clash/store";
 import { buildTemplate } from "@/lib/clash/templates";
 import type { ClashGroup, ClashKind, ClashResultItem, ClashTolerance } from "@/lib/clash/types";
+import type { ElementFilter } from "@/lib/ifc/types";
 import { createClashWorkbook, readClashWorkbook } from "@/lib/clash/workbook";
 import { isEmptyElementFilter } from "@/lib/ifc/element-filter";
 import { useViewerStore } from "@/lib/viewer/store";
 import { useModelVocabulary } from "@/lib/viewer/use-model-vocabulary";
 import { cn } from "@/lib/utils";
 import ElementFilterEditor from "./ElementFilterEditor";
+import { PanelHeader } from "./PanelHeader";
 
 const KIND_TONE: Record<ClashKind, string> = {
   hard: "border-destructive/40 text-destructive",
@@ -153,8 +158,17 @@ export function ClashPanel() {
   const clearResult = useClashStore((s) => s.clearResult);
 
   const [tab, setTab] = useState("groups");
+  // The groups and the matrix in a large window, where there is room for both.
+  const [windowOpen, setWindowOpen] = useState(false);
+  const [windowTab, setWindowTab] = useState<"groups" | "matrix">("groups");
   const template = useResidentialTemplate();
   const fileInput = useRef<HTMLInputElement>(null);
+
+  const runMatrix = () => {
+    void run().then(() => {
+      if (useClashStore.getState().result) setTab("results");
+    });
+  };
 
   const importWorkbook = async (file: File) => {
     try {
@@ -164,6 +178,7 @@ export function ClashPanel() {
         t("matrixImported", { groups: imported.groups.length, cells: imported.rules.length }),
       );
       setTab("matrix");
+      setWindowTab("matrix");
     } catch (failure) {
       toast.error(failure instanceof Error ? failure.message : t("importFailed"));
     }
@@ -179,7 +194,12 @@ export function ClashPanel() {
   };
 
   if (!ready) {
-    return <p className="text-muted-foreground p-3 text-xs">{t("loadModel")}</p>;
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <PanelHeader tab="clash" />
+        <p className="text-muted-foreground p-3 text-xs">{t("loadModel")}</p>
+      </div>
+    );
   }
 
   const percent =
@@ -187,44 +207,45 @@ export function ClashPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-clash-panel>
-      <div className="flex items-center gap-1 border-b p-2">
-        {running ? (
-          <Button size="sm" variant="secondary" className="h-7" onClick={cancel}>
-            <Square className="h-3.5 w-3.5" />
-            {t("stop")}
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            className="h-7"
-            onClick={() => {
-              void run().then(() => {
-                if (useClashStore.getState().result) setTab("results");
-              });
-            }}
-            disabled={matrix.rules.length === 0}
-          >
-            <Play className="h-3.5 w-3.5" />
-            {t("run")}
-          </Button>
-        )}
-
-        <div className="ml-auto flex items-center gap-0.5">
+      <PanelHeader tab="clash">
+          
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7"
-                aria-label={t("template.use")}
-                onClick={template.use}
-                data-clash-template-use
+                aria-label={t("window.open")}
+                onClick={() => setWindowOpen(true)}
+                data-clash-window-open
               >
-                <LayoutTemplate className="h-3.5 w-3.5" />
+                <Maximize2 className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{t("template.use")}</TooltipContent>
+            <TooltipContent>{t("window.open")}</TooltipContent>
           </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {running ? (
+          <Button size="sm" variant="secondary" className="h-7" onClick={cancel} aria-label={t("stop")}>
+            <Square className="h-3.5 w-3.5" />
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            className="h-7"
+            variant="ghost"
+            onClick={runMatrix}
+            disabled={matrix.rules.length === 0}
+            aria-label={t("run")}
+          >
+            <Play className="h-3.5 w-3.5" />
+          </Button>
+        )}
+            </TooltipTrigger>
+            <TooltipContent>{t(running ? "stop" : "run")}</TooltipContent>
+          </Tooltip>
+         
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -269,7 +290,21 @@ export function ClashPanel() {
               <TooltipContent>{t("clearResults")}</TooltipContent>
             </Tooltip>
           )}
-        </div>
+             <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label={t("template.use")}
+                onClick={template.use}
+                data-clash-template-use
+              >
+                <LayoutTemplate className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("template.use")}</TooltipContent>
+          </Tooltip>
         <input
           ref={fileInput}
           type="file"
@@ -282,7 +317,7 @@ export function ClashPanel() {
             if (file) void importWorkbook(file);
           }}
         />
-      </div>
+      </PanelHeader>
 
       {running && progress && (
         <div className="border-b px-2 py-1.5" role="status">
@@ -302,6 +337,11 @@ export function ClashPanel() {
         </p>
       )}
 
+      {windowOpen ? (
+        <p className="text-muted-foreground m-2 rounded-lg border p-4 text-center text-[11px]">
+          {t("window.editingThere")}
+        </p>
+      ) : (
       <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-2 mt-2 grid grid-cols-3">
           <TabsTrigger value="groups" className="text-xs">
@@ -325,6 +365,327 @@ export function ClashPanel() {
           <ResultsTab />
         </TabsContent>
       </Tabs>
+      )}
+
+      <Dialog open={windowOpen} onOpenChange={setWindowOpen}>
+        <DialogContent
+          className="flex h-[85vh] max-h-[95vh] w-full max-w-[calc(100%-2rem)] flex-col gap-3 p-4 sm:max-w-[calc(100%-2rem)]"
+          data-clash-window
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-1.5 text-base">
+              <Crosshair className="h-4 w-4" aria-hidden />
+              {t("window.title")}
+            </DialogTitle>
+            <DialogDescription>{t("window.hint")}</DialogDescription>
+          </DialogHeader>
+
+          <Tabs
+            value={windowTab}
+            onValueChange={(value) => setWindowTab(value as "groups" | "matrix")}
+            className="flex min-h-0 flex-1 flex-col gap-3"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <TabsList className="grid w-64 grid-cols-2">
+                <TabsTrigger value="groups" className="text-xs">
+                  {t("tabs.groups")} ({matrix.groups.length})
+                </TabsTrigger>
+                <TabsTrigger value="matrix" className="text-xs">
+                  {t("tabs.matrix")}
+                </TabsTrigger>
+              </TabsList>
+              <div className="ml-auto flex flex-wrap gap-1.5">
+                {running ? (
+                  <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={cancel}>
+                    <Square className="h-3.5 w-3.5" />
+                    {t("stop")}
+                  </Button>
+                ) : (
+                  <Button size="sm" className="h-8 text-xs" onClick={runMatrix} disabled={matrix.rules.length === 0}>
+                    <Play className="h-3.5 w-3.5" />
+                    {t("run")}
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={template.use}>
+                  <LayoutTemplate className="h-3.5 w-3.5" />
+                  {t("template.use")}
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => fileInput.current?.click()}>
+                  <Upload className="h-3.5 w-3.5" />
+                  {t("importMatrix")}
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={exportWorkbook}>
+                  <Download className="h-3.5 w-3.5" />
+                  {t("exportMatrix")}
+                </Button>
+              </div>
+            </div>
+
+            {running && progress && (
+              <div role="status" className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {t(`progress.${progress.phase}`)}
+                  <span className="text-muted-foreground ml-auto tabular-nums">{percent}%</span>
+                </div>
+                <div className="bg-muted h-1 overflow-hidden rounded">
+                  <div className="bg-primary h-full transition-[width]" style={{ width: `${percent}%` }} />
+                </div>
+              </div>
+            )}
+            {error && (
+              <p className="text-destructive text-xs" role="alert">
+                {error}
+              </p>
+            )}
+            {/* The results act on the 3D view, so they are read in the panel beside it. */}
+            {result && !running && (
+              <div
+                className="bg-muted/60 flex items-center gap-2 rounded-md px-2 py-1.5 text-xs"
+                role="status"
+                data-clash-window-results
+              >
+                <span className="min-w-0 flex-1">
+                  {t("results.summary", {
+                    count: result.items.length,
+                    seconds: (result.durationMs / 1000).toFixed(1),
+                  })}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setTab("results");
+                    setWindowOpen(false);
+                  }}
+                >
+                  <ListChecks className="h-3.5 w-3.5" />
+                  {t("window.showResults")}
+                </Button>
+              </div>
+            )}
+
+            <TabsContent value="groups" className="min-h-0 flex-1">
+              <GroupsWindow />
+            </TabsContent>
+            <TabsContent value="matrix" className="min-h-0 flex-1 overflow-auto rounded-lg border">
+              <MatrixTab wide />
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The large window's groups: every group in a table, the selected one beside it
+// ---------------------------------------------------------------------------
+
+function GroupsWindow() {
+  const t = useTranslations("viewer.clash");
+  const groups = useClashStore((s) => s.matrix.groups);
+  const result = useClashStore((s) => s.result);
+  const addGroup = useClashStore((s) => s.addGroup);
+  const removeGroup = useClashStore((s) => s.removeGroup);
+  const duplicateGroup = useClashStore((s) => s.duplicateGroup);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  // The first group until one is picked, and again if the picked one goes.
+  const selected = groups.find((group) => group.id === selectedId) ?? groups[0] ?? null;
+  const term = search.trim().toLocaleLowerCase();
+  const shown = term
+    ? groups.filter((group) =>
+        [group.name, group.discipline ?? "", group.note ?? ""].join(" ").toLocaleLowerCase().includes(term),
+      )
+    : groups;
+
+  return (
+    <div className="grid h-full min-h-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(22rem,1fr)]">
+      <div className="flex min-h-0 flex-col gap-2 rounded-lg border p-2">
+        <div className="flex items-center gap-2">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("window.search")}
+            aria-label={t("window.search")}
+            className="h-8 max-w-xs text-xs"
+          />
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {t("window.count", { shown: shown.length, total: groups.length })}
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="ml-auto h-8 text-xs"
+            onClick={() => setSelectedId(addGroup())}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {t("groups.add")}
+          </Button>
+        </div>
+        {groups.length === 0 ? (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-xs">{t("groups.empty")}</p>
+            <TemplateOffer />
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-auto" role="list" aria-label={t("tabs.groups")} data-clash-window-groups>
+            <div className="text-muted-foreground flex items-center gap-3 px-2 pb-1 text-[11px] font-medium" aria-hidden>
+              <span className="w-48 shrink-0">{t("groups.name")}</span>
+              <span className="w-28 shrink-0">{t("groups.discipline")}</span>
+              <span className="flex-1">{t("window.selects")}</span>
+              <span className="w-24 shrink-0 text-right">{t("window.elements")}</span>
+              <span className="w-16 shrink-0" />
+            </div>
+            {shown.length === 0 && <p className="text-muted-foreground p-2 text-xs">{t("window.noMatch")}</p>}
+            <div className="space-y-1">
+              {shown.map((group) => {
+                const count = result?.groupCounts[group.id];
+                const current = group.id === selected?.id;
+                return (
+                  <div
+                    key={group.id}
+                    role="listitem"
+                    aria-current={current ? "true" : undefined}
+                    className={cn(
+                      "flex items-center rounded-md border text-xs transition-colors",
+                      current ? "border-primary bg-primary/10" : "hover:bg-muted/50",
+                    )}
+                    data-clash-window-group={group.name}
+                  >
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-3 px-2 py-1.5 text-left"
+                      aria-label={t("window.select", { name: group.name })}
+                      onClick={() => setSelectedId(group.id)}
+                    >
+                      <span className="w-48 shrink-0 font-medium break-words">{group.name || "—"}</span>
+                      <span className="text-muted-foreground w-28 shrink-0 truncate">{group.discipline || "—"}</span>
+                      <FilterSummary filter={group.filter} />
+                      <span className="text-muted-foreground w-24 shrink-0 text-right tabular-nums">
+                        {count === undefined ? "—" : t("groups.elements", { count })}
+                      </span>
+                    </button>
+                    <div className="flex w-16 shrink-0 items-center justify-end border-l pr-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        aria-label={`${t("groups.duplicate")}: ${group.name}`}
+                        title={t("groups.duplicate")}
+                        onClick={() => duplicateGroup(group.id)}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive h-6 w-6"
+                        aria-label={`${t("groups.remove")}: ${group.name}`}
+                        title={t("groups.remove")}
+                        onClick={() => removeGroup(group.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <aside
+        className="min-h-0 overflow-auto rounded-lg border p-3"
+        aria-label={t("window.selected")}
+        data-clash-window-editor
+      >
+        {selected ? (
+          <GroupEditor key={selected.id} group={selected} />
+        ) : (
+          <p className="text-muted-foreground text-xs">{t("window.pick")}</p>
+        )}
+      </aside>
+    </div>
+  );
+}
+
+/** What a group's filter picks, in a line — enough to tell groups apart in a list. */
+function FilterSummary({ filter }: { filter: ElementFilter }) {
+  const t = useTranslations("viewer.clash");
+  if (isEmptyElementFilter(filter)) {
+    return <span className="text-warning min-w-0 flex-1 truncate">{t("window.nothing")}</span>;
+  }
+  const parts = [
+    filter.classes.join(", "),
+    ...filter.names.map((value) => `${t("filter.names")}: ${value}`),
+    filter.predefinedTypes.length > 0 ? `${t("filter.predefinedTypes")}: ${filter.predefinedTypes.join(", ")}` : "",
+    filter.objectTypes.length > 0 ? `${t("filter.objectTypes")}: ${filter.objectTypes.join(", ")}` : "",
+    filter.materials.length > 0 ? `${t("filter.materials")}: ${filter.materials.join(", ")}` : "",
+    filter.materialCategories.length > 0
+      ? `${t("filter.materialCategories")}: ${filter.materialCategories.join(", ")}`
+      : "",
+    (filter.classificationCodes ?? []).length > 0
+      ? `${filter.classificationSystem || t("filter.classificationCode")}: ${(filter.classificationCodes ?? []).join(", ")}`
+      : filter.classificationSystem ?? "",
+    filter.properties.length > 0 ? t("window.conditions", { count: filter.properties.length }) : "",
+  ].filter(Boolean);
+  const text = parts.join(" · ");
+  return (
+    <span className="text-muted-foreground min-w-0 flex-1 truncate" title={text}>
+      {text}
+    </span>
+  );
+}
+
+/** The selected group, every field of it, in the window's side panel. */
+function GroupEditor({ group }: { group: ClashGroup }) {
+  const t = useTranslations("viewer.clash");
+  const updateGroup = useClashStore((s) => s.updateGroup);
+  const vocabulary = useModelVocabulary();
+  const empty = isEmptyElementFilter(group.filter);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-2">
+        <div className="space-y-1">
+          <Label htmlFor="clash-window-name" className="text-[11px]">
+            {t("groups.name")}
+          </Label>
+          <Input
+            id="clash-window-name"
+            value={group.name}
+            onChange={(event) => updateGroup(group.id, { name: event.target.value })}
+            className="h-8 text-xs font-medium"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="clash-window-discipline" className="text-[11px]">
+            {t("groups.discipline")}
+          </Label>
+          <Input
+            id="clash-window-discipline"
+            value={group.discipline ?? ""}
+            onChange={(event) => updateGroup(group.id, { discipline: event.target.value || undefined })}
+            className="h-8 text-xs"
+          />
+        </div>
+      </div>
+      {group.note && (
+        <p className="bg-muted/50 rounded p-1.5 text-[11px] leading-snug" data-clash-group-note>
+          {group.note}
+        </p>
+      )}
+      <ElementFilterEditor
+        filter={group.filter}
+        vocabulary={vocabulary}
+        onChange={(filter) => updateGroup(group.id, { filter })}
+      />
+      {empty && <p className="text-warning text-[11px]">{t("groups.noFilter")}</p>}
     </div>
   );
 }
@@ -481,7 +842,8 @@ function GroupCard({
 // Matrix
 // ---------------------------------------------------------------------------
 
-function MatrixTab() {
+/** `wide`: the large window's layout — the grid beside its tolerances and settings, not above them. */
+function MatrixTab({ wide = false }: { wide?: boolean }) {
   const t = useTranslations("viewer.clash");
   const matrix = useClashStore((s) => s.matrix);
   const setRule = useClashStore((s) => s.setRule);
@@ -503,7 +865,12 @@ function MatrixTab() {
   );
 
   return (
-    <div className="space-y-3 p-2">
+    <div
+      className={cn(
+        "p-2",
+        wide ? "grid items-start gap-4 md:grid-cols-[minmax(0,1.5fr)_minmax(22rem,1fr)]" : "space-y-3",
+      )}
+    >
       <section className="space-y-1.5">
         <h3 className="text-xs font-semibold">{t("matrix.title")}</h3>
         <p className="text-muted-foreground text-[10px] leading-snug">{t("matrix.hint")}</p>
@@ -575,6 +942,7 @@ function MatrixTab() {
         )}
       </section>
 
+      <div className="space-y-3">
       <section className="space-y-1.5">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-semibold">{t("tolerances.title")}</h3>
@@ -613,6 +981,7 @@ function MatrixTab() {
           </Label>
         </div>
       </section>
+      </div>
     </div>
   );
 }

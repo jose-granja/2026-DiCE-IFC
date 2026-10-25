@@ -175,7 +175,7 @@ test("builds a table-style quantity query and applies its results to the viewer"
   await expect(scene).toHaveAttribute("data-translucent-entities", "1");
   // Selected, so its properties are what the properties panel shows.
   const rowName = (await rows.first().locator("td").first().getAttribute("title"))!.split(" · ").pop()!;
-  await expect(page.locator("[data-property-panel] h3")).toHaveText(rowName);
+  await expect(page.locator("[data-property-panel]").getByRole("heading", { name: rowName, exact: true })).toBeVisible();
 
   // Another row moves the focus; the same row again shows everything.
   await rows.nth(1).click();

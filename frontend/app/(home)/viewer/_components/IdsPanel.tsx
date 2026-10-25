@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 
 import ExportBar from "@/app/(home)/ids/validate/_components/ExportBar";
 import IdsSpecificationCard from "./IdsSpecificationCard";
+import { PanelHeader } from "./PanelHeader";
 
 /**
  * IDS validation, in the viewer.
@@ -88,9 +89,7 @@ export function IdsPanel() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="space-y-2 border-b p-2">
-        <div className="flex flex-row justify-between gap-1.5">
-          <h2 className="flex-1 text-sm">{t("title")}</h2>
+      <PanelHeader tab="ids">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -152,8 +151,8 @@ export function IdsPanel() {
             <TooltipContent>{t("validate")}</TooltipContent>
           </Tooltip>
         )}
-        </div>
-
+      </PanelHeader>
+      <div className="space-y-2 border-b p-2">
         <p className="text-xs">
           <span className="font-medium">{idsTitle || t("noSpecificationLoaded")}</span>
           {source === "editor" && (

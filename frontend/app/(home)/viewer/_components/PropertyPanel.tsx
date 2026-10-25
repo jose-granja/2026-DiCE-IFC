@@ -28,7 +28,19 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Component, Copy, FileCheck2, Info, Layers, ListChecks, Search, Sigma, Tag } from "lucide-react";
+import {
+  Check,
+  Component,
+  Copy,
+  FileCheck2,
+  Info,
+  Layers,
+  ListChecks,
+  Search,
+  Sigma,
+  Tag,
+  type LucideIcon,
+} from "lucide-react";
 
 import {
   Accordion,
@@ -123,6 +135,29 @@ function IfcPropertyPanel() {
         ),
       }))
       .filter((set) => set.properties.length > 0);
+
+  // What each tab shows, worked out once so its heading can count it — what is
+  // listed, so the count agrees with the filter above.
+  const attributeRows = info
+    ? [
+        ["Name", info.attributes?.name, false],
+        ["GlobalId", info.attributes?.globalId, true],
+        ["Description", info.attributes?.description, false],
+        ["ObjectType", info.attributes?.objectType, false],
+        ["Tag", info.attributes?.tag, false],
+      ]
+        .filter(([label, value]) => Boolean(value) && matches(String(label), String(value ?? "")))
+        .map(([label, value, mono]) => ({
+          id: String(label), name: String(label), value: String(value), mono: Boolean(mono),
+        }))
+    : [];
+  const shownPropertySets = info ? visibleSets(info.propertySets) : [];
+  const shownQuantities = info ? visibleSets(info.quantities) : [];
+  const shownTypeProperties = info ? visibleSets(info.typeProperties) : [];
+  const shownMaterials = info ? info.materials.filter((material) => matches(material.name, "")) : [];
+  const shownClassifications = info
+    ? info.classifications.filter((entry) => matches(entry.system, `${entry.code} ${entry.name}`))
+    : [];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-property-panel>
@@ -224,6 +259,7 @@ function IfcPropertyPanel() {
             </TabsList>
 
             <TabsContent value="ids" className="min-h-0 flex-1 overflow-auto p-3">
+              <SectionTitle icon={FileCheck2} title={t("headings.ids")} />
               <IdsProperties entity={ref} filter={filter} />
             </TabsContent>
 
@@ -232,19 +268,8 @@ function IfcPropertyPanel() {
               className="min-h-0 flex-1 overflow-auto p-3"
               data-section={t("attributes")}
             >
-              <PropertyTable rows={[
-                  ["Name", info.attributes?.name, false],
-                  ["GlobalId", info.attributes?.globalId, true],
-                  ["Description", info.attributes?.description, false],
-                  ["ObjectType", info.attributes?.objectType, false],
-                  ["Tag", info.attributes?.tag, false],
-                ]
-                  .filter(([label, value]) =>
-                    Boolean(value) && matches(String(label), String(value ?? "")),
-                  )
-                  .map(([label, value, mono]) => ({
-                    id: String(label), name: String(label), value: String(value), mono: Boolean(mono),
-                  }))} />
+              <SectionTitle icon={Info} title={t("headings.attributes")} count={attributeRows.length} />
+              <PropertyTable rows={attributeRows} />
             </TabsContent>
 
             <TabsContent
@@ -252,6 +277,7 @@ function IfcPropertyPanel() {
               className="min-h-0 flex-1 overflow-auto p-3"
               data-section={t("materials")}
             >
+              <SectionTitle icon={Layers} title={t("headings.materials")} count={shownMaterials.length} />
               {info.materials.length === 0 ? (
                 <p className="text-muted-foreground text-xs">{t("noMaterials")}</p>
               ) : (
@@ -260,9 +286,7 @@ function IfcPropertyPanel() {
                   value={openMaterials}
                   onValueChange={setOpenMaterials}
                 >
-                  {info.materials
-                    .filter((material) => matches(material.name, ""))
-                    .map((material) => (
+                  {shownMaterials.map((material) => (
                       <MaterialAccordionItem
                         key={material.expressId}
                         modelId={ref.modelId}
@@ -279,8 +303,9 @@ function IfcPropertyPanel() {
               className="min-h-0 flex-1 overflow-auto p-3"
               data-section={t("propertySets")}
             >
+              <SectionTitle icon={ListChecks} title={t("headings.propertySets")} count={shownPropertySets.length} />
               <PropertySetList
-                sets={visibleSets(info.propertySets)}
+                sets={shownPropertySets}
                 empty={t(term ? "contextNoMatches" : "noPropertySets")}
               />
             </TabsContent>
@@ -290,8 +315,9 @@ function IfcPropertyPanel() {
               className="min-h-0 flex-1 overflow-auto p-3"
               data-section={t("quantities")}
             >
+              <SectionTitle icon={Sigma} title={t("headings.quantities")} count={shownQuantities.length} />
               <PropertySetList
-                sets={visibleSets(info.quantities)}
+                sets={shownQuantities}
                 empty={t(term ? "contextNoMatches" : "noQuantities")}
               />
             </TabsContent>
@@ -301,13 +327,14 @@ function IfcPropertyPanel() {
               className="min-h-0 flex-1 overflow-auto p-3"
               data-section={t("fromItsType")}
             >
+              <SectionTitle icon={Component} title={t("headings.type")} count={shownTypeProperties.length} />
               {/* Worth its own tab: these are shared by every occurrence of
                   the type, so editing one is not a local change. */}
               <p className="text-muted-foreground mb-3 text-xs">
                 {t("fromItsTypeHint")}
               </p>
               <PropertySetList
-                sets={visibleSets(info.typeProperties)}
+                sets={shownTypeProperties}
                 empty={t(term ? "contextNoMatches" : "noTypeProperties")}
               />
             </TabsContent>
@@ -317,11 +344,11 @@ function IfcPropertyPanel() {
               className="min-h-0 flex-1 overflow-auto p-3"
               data-section={t("classification")}
             >
+              <SectionTitle icon={Tag} title={t("headings.classification")} count={shownClassifications.length} />
               {info.classifications.length === 0 ? (
                 <p className="text-muted-foreground text-xs">{t("noClassification")}</p>
               ) : (
-                <PropertyTable rows={info.classifications
-                    .filter((entry) => matches(entry.system, `${entry.code} ${entry.name}`))
+                <PropertyTable rows={shownClassifications
                     .map((entry, index) => ({
                       id: `${entry.system}-${entry.code}:${index}`,
                       name: entry.system || t("classification"),
@@ -442,3 +469,28 @@ function CopyableId({ expressId }: { expressId: number }) {
 }
 
 export default PropertyPanel;
+
+/**
+ * The heading at the top of each tab's content. The tab bar collapses to icons
+ * in a narrow panel, so without it nothing on screen said which tab was open.
+ */
+function SectionTitle({
+  icon: Icon,
+  title,
+  count,
+}: {
+  icon: LucideIcon;
+  title: string;
+  count?: number;
+}) {
+  return (
+    <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold" data-section-title>
+      <Icon className="text-muted-foreground h-3.5 w-3.5" aria-hidden />
+      {title}
+      {/* A real space, not just the flex gap, so the words read "Attributes · 3". */}
+      {count !== undefined && (
+        <span className="text-muted-foreground font-normal tabular-nums">{" "}· {count}</span>
+      )}
+    </h3>
+  );
+}

@@ -216,6 +216,13 @@ panels in dark, a soft `#e0e6f0` page with translucent white panels in light,
   transparent so BCF snapshots keep the backdrop instead of coming out with a
   transparent hole. `next-themes` toggles a class with no event, hence the
   `MutationObserver`.
+- **Every tool tab opens on `PanelHeader`** (`viewer/_components/PanelHeader.tsx`):
+  the tab's icon and the panel's title, actions on the right, one height (44 px)
+  with or without buttons. The icon comes from `tool-tabs.ts`, which the tab bar
+  uses too, and the title from `viewer.panelTitles` — so a header always says
+  what its tab says. A new panel uses it, empty state included; it does not
+  draw its own title row. An icon-only action still needs an `aria-label`: a
+  tooltip does not name a button.
 - **`.panel-tabs` collapses labels to icons** by container query when a panel is
   narrow. The label is *visually* hidden, never `display: none` — that would
   drop the word from the accessibility tree and leave the tab named only by an

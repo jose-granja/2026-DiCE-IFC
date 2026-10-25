@@ -271,3 +271,43 @@ test("edits a group's classification filter in the panel", async ({ page }) => {
     );
   expect(options).toEqual(["Ss_25_10_30", "Ss_65_40_33"]);
 });
+
+test("opens the groups and the matrix in a large window, edits a group there and runs from it", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  await open(page);
+  await page.locator("[data-clash-window-open]").click();
+  const window = page.locator("[data-clash-window]");
+  const rows = window.locator("[data-clash-window-groups] [role='listitem']");
+  const editor = window.locator("[data-clash-window-editor]");
+  await expect(rows).toHaveCount(4);
+  // Each group says what it selects, so they can be told apart without opening them.
+  await expect(window.locator('[data-clash-window-group="Pipes"]')).toContainText("Name attribute: Pipe*");
+  await expect(window.locator('[data-clash-window-group="Walls"]')).toContainText("IfcWall*");
+  // The first group is open beside the list.
+  await expect(editor.getByLabel("Group name")).toHaveValue("Walls");
+
+  await window.getByLabel("Search name, discipline or note").fill("mep");
+  await expect(rows).toHaveCount(2);
+  await window.getByLabel("Search name, discipline or note").fill("");
+
+  // Editing in the window changes the matrix.
+  await window.getByRole("button", { name: "Edit Ducts" }).click();
+  await expect(editor.getByLabel("Group name")).toHaveValue("Ducts");
+  await editor.getByLabel("Group name").fill("Ventilation ducts");
+  await expect(window.locator('[data-clash-window-group="Ventilation ducts"]')).toHaveCount(1);
+
+  // The matrix, at full size, names the renamed group.
+  await window.getByRole("tab", { name: "Matrix" }).click();
+  await expect(window.locator("[data-clash-matrix]")).toContainText("Ventilation ducts");
+  await window.screenshot({ path: testInfo.outputPath("clash-window-matrix.png") });
+
+  // Run from the window; the results are read in the panel, beside the model.
+  await window.getByRole("button", { name: "Run", exact: true }).click();
+  await expect(window.locator("[data-clash-window-results]")).toContainText(/2 clashes in/, { timeout: 60_000 });
+  await window.getByRole("button", { name: "Show results" }).click();
+  await expect(window).toHaveCount(0);
+  await expect(page.locator("[data-clash-item]")).toHaveCount(2);
+  await expect(page.getByText(/Walls × Ventilation ducts/)).toBeVisible();
+});

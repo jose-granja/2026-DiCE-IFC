@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
+import { PanelHeader } from "./PanelHeader";
 import { useDisplaySettingsStore } from "@/lib/viewer/display-settings";
 import { DEFAULT_PROPERTY_DECIMALS, MAX_PROPERTY_DECIMALS } from "@/lib/viewer/property-format";
 import {
@@ -942,7 +943,10 @@ export function QuantityQueryPanel() {
 
   if (ready.length === 0) {
     return (
-      <p className="text-muted-foreground p-3 text-xs">{t("loadModel")}</p>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PanelHeader tab="quantities" />
+        <p className="text-muted-foreground p-3 text-xs">{t("loadModel")}</p>
+      </div>
     );
   }
 
@@ -1899,33 +1903,26 @@ export function QuantityQueryPanel() {
       className="flex min-h-0 flex-1 max-h-[-webkit-fill-available] flex-col"
       data-quantity-query-panel
     >
-      <div className="flex items-center border-b p-2 text-xs font-medium justify-between">
-        <div className="flex items-center gap-1.5">
-          <Calculator className="h-3.5 w-3.5" aria-hidden />
-          {t("title")}
-          {vocabularyQueries.some((query) => query.isLoading) && (
-            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-          )}
-        </div>
-        <div className="flex flex-row gap-1">
+      <PanelHeader tab="quantities" busy={vocabularyQueries.some((query) => query.isLoading)}>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                aria-label={t("list.new")}
-                disabled={loadingTemplate}
-                onClick={resetEditor}
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t("list.new")}</p>
-            </TooltipContent>
-          </Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  aria-label={t("dialog.open")}
+                  onClick={() => setListDialogOpen(true)}
+                  data-query-list-expand
+                >
+                  <Maximize2 className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t("dialog.open")}</p>
+              </TooltipContent>
+            </Tooltip>
+          
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -1992,8 +1989,20 @@ export function QuantityQueryPanel() {
               <p>{t("workbook.download")}</p>
             </TooltipContent>
           </Tooltip>
-        </div>
-      </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="button" size="sm" variant="ghost" className="h-7 text-[11px]"
+              title={t("template.hint")} aria-label={t("template.use")}
+              disabled={!queryListLoaded || loadingTemplate || importingWorkbook || exportingWorkbook || running || runningList}
+              onClick={() => void loadDefaultTemplate()} data-quantity-template-use>
+              {loadingTemplate ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <FileSpreadsheet className="h-3 w-3" aria-hidden />}
+            </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("template.use")}</p>
+            </TooltipContent>
+          </Tooltip>
+      </PanelHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-2">
         <input
@@ -2018,6 +2027,24 @@ export function QuantityQueryPanel() {
               {t("list.title")}
             </h3>
             <div className="flex items-center gap-1">
+              <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                aria-label={t("list.new")}
+                disabled={loadingTemplate}
+                onClick={resetEditor}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("list.new")}</p>
+            </TooltipContent>
+          </Tooltip>
             {hasHierarchy && (
               <>
                 <Button type="button" size="icon" variant="ghost" className="h-7 w-7"
@@ -2030,31 +2057,8 @@ export function QuantityQueryPanel() {
                 </Button>
               </>
             )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  className="h-7 w-7"
-                  aria-label={t("dialog.open")}
-                  onClick={() => setListDialogOpen(true)}
-                  data-query-list-expand
-                >
-                  <Maximize2 className="h-3 w-3" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t("dialog.open")}</p>
-              </TooltipContent>
-            </Tooltip>
-            <Button type="button" size="sm" variant="outline" className="h-7 text-[11px]"
-              title={t("template.hint")} aria-label={t("template.use")}
-              disabled={!queryListLoaded || loadingTemplate || importingWorkbook || exportingWorkbook || running || runningList}
-              onClick={() => void loadDefaultTemplate()} data-quantity-template-use>
-              {loadingTemplate ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <FileSpreadsheet className="h-3 w-3" aria-hidden />}
-              {t(loadingTemplate ? "template.loading" : "template.use")}
-            </Button>
+            
+            
             </div>
           </div>
           {!listDialogOpen && replaceNotice}

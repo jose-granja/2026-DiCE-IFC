@@ -17,7 +17,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronRight, Eye, EyeOff, Filter, Loader2, X } from "lucide-react";
+import { ChevronRight, Eye, EyeOff, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import {
   type FacetDimension,
 } from "@/lib/viewer/facets";
 import { cn } from "@/lib/utils";
+import { PanelHeader } from "./PanelHeader";
 
 /** Long lists get a search box; short ones do not need one. */
 const SEARCHABLE_AT = 8;
@@ -142,20 +143,18 @@ export function FilterPanel() {
 
   if (ready.length === 0) {
     return (
-      <p className="text-muted-foreground p-3 text-xs">
-        {t("loadModel")}
-      </p>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PanelHeader tab="classes" />
+        <p className="text-muted-foreground p-3 text-xs">
+          {t("loadModel")}
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-filter-panel>
-      <div className="flex items-center justify-between gap-2 border-b p-2">
-        <span className="flex items-center gap-1.5 text-xs font-medium">
-          <Filter className="h-3.5 w-3.5" aria-hidden />
-          {t("filters")}
-          {loading && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
-        </span>
+      <PanelHeader tab="classes" busy={loading}>
         {chosen > 0 && (
           <Button
             variant="ghost"
@@ -167,7 +166,7 @@ export function FilterPanel() {
             {t("clearCount", { count: chosen })}
           </Button>
         )}
-      </div>
+      </PanelHeader>
 
       <div className="min-h-0 flex-1 overflow-auto">
         {FACET_DIMENSIONS.map((dimension) => {

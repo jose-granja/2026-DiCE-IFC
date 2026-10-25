@@ -336,3 +336,27 @@ ENDSEC;\nEND-ISO`);
   await expect(list.locator('[data-ids-property="ThermalTransmittance"]').getByRole("cell")).toHaveText("0.18 W/(m²·K)");
   await page.locator("[data-property-panel]").screenshot({ path: testInfo.outputPath("ids-measure-units.png") });
 });
+
+test("each tab's content starts with its title, counting what it lists", async ({ page }) => {
+  await selectWall(page);
+  const panel = page.locator("[data-property-panel]");
+  const title = panel.locator("[data-section-title]");
+
+  await expect(title).toHaveText(/^Attributes · \d+$/);
+  for (const [tab, heading] of [
+    ["Properties", "Property sets"],
+    ["Quantities", "Quantities"],
+    ["Classification", "Classification"],
+    ["Type", "Type properties"],
+    ["Materials", "Materials"],
+    ["IDS requirements", "IDS requirements"],
+  ]) {
+    await panel.getByRole("tab", { name: tab, exact: true }).click();
+    await expect(title).toHaveText(new RegExp(`^${heading}( · \\d+)?$`));
+  }
+
+  // The count is what the list shows, so it follows the filter.
+  await panel.getByRole("tab", { name: "Attributes", exact: true }).click();
+  await panel.getByLabel("Filter properties").fill("GlobalId");
+  await expect(title).toHaveText("Attributes · 1");
+});

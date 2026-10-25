@@ -35,6 +35,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { PanelHeader } from "./PanelHeader";
 
 /** "corners", "corners and edges", "corners, edge midpoints and edges" — for the hint text. */
 function joinNouns(nouns: string[], and: string): string {
@@ -161,9 +162,12 @@ export function MeasurePanel() {
 
   if (modelCount === 0 && cloudCount === 0 && !hasContext) {
     return (
-      <p className="text-muted-foreground p-3 text-xs">
-        {t("loadModel")}
-      </p>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PanelHeader tab="measure" />
+        <p className="text-muted-foreground p-3 text-xs">
+          {t("loadModel")}
+        </p>
+      </div>
     );
   }
 
@@ -185,6 +189,7 @@ export function MeasurePanel() {
 
   return (
     <div className="flex h-full flex-col">
+      <PanelHeader tab="measure" />
       <div className="flex flex-wrap items-center gap-1 border-b p-2">
         {TOOL_OPTIONS.map(({ tool: candidate, label, icon: Icon }) => (
           <Tooltip key={candidate}>

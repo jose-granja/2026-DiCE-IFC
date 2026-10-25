@@ -4,18 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
-  Boxes,
-  ClipboardCheck,
-  Crosshair,
-  Funnel,
-  Glasses,
-  Globe,
-  ListTree,
-  MapPinned,
-  MessagesSquare,
-  Ruler,
-  Scissors,
-  Sigma,
   PanelLeft,
   ListFilter,
   X,
@@ -40,6 +28,7 @@ const PANELS = [
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import ModuleHeader from "@/components/ModuleHeader";
+import { PanelHeader, ToolTabIcon } from "./_components/PanelHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useViewerPanelStore } from "@/lib/viewer/panel-store";
 import { useFacetSelectionStore } from "@/lib/viewer/facet-selection-store";
@@ -253,7 +242,7 @@ export default function ViewerPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <TabsTrigger value="models" data-state={tab === "models" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.models")}>
-                      <Boxes className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="models" />
                     </TabsTrigger>
                   </TooltipTrigger>
                   <TooltipContent>{t("tabs.models")}</TooltipContent>
@@ -261,7 +250,7 @@ export default function ViewerPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <TabsTrigger value="structure" data-state={tab === "structure" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.structure")}>
-                      <ListTree className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="structure" />
                     </TabsTrigger>
                   </TooltipTrigger>
                   <TooltipContent>{t("tabs.structure")}</TooltipContent>
@@ -280,7 +269,7 @@ export default function ViewerPage() {
                       }
                       data-filter-active={filterCount > 0 || undefined}
                     >
-                      <Funnel className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="classes" />
                       {filterCount > 0 && <ActiveDot />}
                     </TabsTrigger>
                   </TooltipTrigger>
@@ -296,7 +285,7 @@ export default function ViewerPage() {
                       title={lensOn ? t("tabs.lensActive") : undefined}
                       data-lens-active={lensOn || undefined}
                     >
-                      <Glasses className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="lens" />
                       {lensOn && <ActiveDot />}
                     </TabsTrigger>
                   </TooltipTrigger>
@@ -305,7 +294,7 @@ export default function ViewerPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <TabsTrigger value="quantities" data-state={tab === "quantities" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.quantities")}>
-                      <Sigma className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="quantities" />
                     </TabsTrigger>
                   </TooltipTrigger>
                   <TooltipContent>{t("tabs.quantities")}</TooltipContent>
@@ -317,7 +306,7 @@ export default function ViewerPage() {
                       aria-label={t("tabs.geo")}
                       className="text-xs"
                     >
-                      <Globe className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="georef" />
                     </TabsTrigger>
                   </TooltipTrigger>
                   <TooltipContent>{t("tabs.geo")}</TooltipContent>
@@ -332,7 +321,7 @@ export default function ViewerPage() {
                       title={globeOn ? t("tabs.globeActive") : undefined}
                       data-globe-active={globeOn || undefined}
                     >
-                      <MapPinned className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="gis" />
                       {globeOn && <ActiveDot />}
                     </TabsTrigger>
                   </TooltipTrigger>
@@ -341,7 +330,7 @@ export default function ViewerPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <TabsTrigger value="section" data-state={tab === "section" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.section")}>
-                      <Scissors className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="section" />
                     </TabsTrigger>
                   </TooltipTrigger>
                   <TooltipContent>{t("tabs.section")}</TooltipContent>
@@ -349,7 +338,7 @@ export default function ViewerPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <TabsTrigger value="measure" data-state={tab === "measure" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.measure")}>
-                      <Ruler className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="measure" />
                     </TabsTrigger>
                   </TooltipTrigger>
                   <TooltipContent>{t("tabs.measure")}</TooltipContent>
@@ -357,7 +346,7 @@ export default function ViewerPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <TabsTrigger value="ids" data-state={tab === "ids" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.ids")}>
-                      <ClipboardCheck className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="ids" />
                     </TabsTrigger>
                   </TooltipTrigger>
                   <TooltipContent>{t("tabs.ids")}</TooltipContent>
@@ -365,7 +354,7 @@ export default function ViewerPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <TabsTrigger value="clash" data-state={tab === "clash" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.clash")}>
-                      <Crosshair className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="clash" />
                     </TabsTrigger>
                   </TooltipTrigger>
                   <TooltipContent>{t("tabs.clash")}</TooltipContent>
@@ -373,7 +362,7 @@ export default function ViewerPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <TabsTrigger value="bcf" data-state={tab === "bcf" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.bcf")}>
-                      <MessagesSquare className="h-3.5 w-3.5" aria-hidden />
+                      <ToolTabIcon tab="bcf" />
                     </TabsTrigger>
                   </TooltipTrigger>
                   <TooltipContent>{t("tabs.bcf")}</TooltipContent>
@@ -382,16 +371,22 @@ export default function ViewerPage() {
 
               <TabsContent
                 value="models"
-                className="min-h-0 flex-1 overflow-auto"
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
-                <ModelList />
-                <PointCloudList />
+                <PanelHeader tab="models" />
+                <div className="min-h-0 flex-1 overflow-auto">
+                  <ModelList />
+                  <PointCloudList />
+                </div>
               </TabsContent>
               <TabsContent
                 value="structure"
-                className="min-h-0 flex-1 overflow-auto"
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
-                <SpatialTree />
+                <PanelHeader tab="structure" />
+                <div className="min-h-0 flex-1 overflow-auto">
+                  <SpatialTree />
+                </div>
               </TabsContent>
               <TabsContent
                 value="classes"

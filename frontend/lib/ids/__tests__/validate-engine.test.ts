@@ -19,7 +19,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { ifcLiteAdapter, resetIfcLiteAdapter } from "@/lib/ifc/ifc-lite-adapter";
 import { IdsDocumentParseError, parseIdsForEngine } from "@/lib/ifc/ids-document";
-import { aggregate, cardinalityFailure, describeRequirements } from "../report";
+import { aggregate, cardinalityFailure, describeRequirement, describeRequirements } from "../report";
 import { renderHtmlReport } from "../html-report";
 import { validateAgainstSchema } from "../validate";
 import { parseIds } from "../parse";
@@ -270,5 +270,32 @@ describe("requirements nobody failed", () => {
       expect(requirement.label.length).toBeGreaterThan(0);
       expect(requirement.failedCount).toBe(0);
     }
+  });
+});
+
+describe("a property set the element does not have", () => {
+  it("is named in the reason, not called \"propertySet\"", async () => {
+    // Wall A has Pset_WallCommon, so the engine takes its "has property sets,
+    // none of them this one" path — the one that reported the word.
+    const xml = (await readFile(path.join(IDS, "wall-fire-rating.ids"), "utf8")).replace(
+      "<simpleValue>Pset_WallCommon</simpleValue>",
+      "<simpleValue>Pset_ConcreteElementGeneral</simpleValue>",
+    );
+    const report = await ifcLiteAdapter.validateIds(model.id, parseIdsForEngine(xml));
+    const reasons = report.specifications[0].entities
+      .flatMap((entity) => entity.requirements)
+      .filter((requirement) => requirement.status === "fail");
+
+    expect(reasons.length).toBeGreaterThan(0);
+    // As the panel shows it (the engine's doubled quotes tidied to one pair).
+    const shown = reasons.map((reason) => describeRequirement(reason));
+    for (const line of shown) {
+      expect(line).toContain('Property set "Pset_ConcreteElementGeneral" not found');
+      expect(line).not.toContain("propertySet");
+    }
+    // The name, never the word — quoted where the engine quotes it (an element with no sets at all).
+    expect(reasons.every((reason) => reason.field?.replace(/"/g, "") === "Pset_ConcreteElementGeneral")).toBe(true);
+    // Where the element has others, they are still listed, so the near miss shows.
+    expect(shown.some((line) => /Available: .*Pset_WallCommon/.test(line))).toBe(true);
   });
 });
