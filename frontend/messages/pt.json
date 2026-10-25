@@ -782,7 +782,15 @@
       "group": {
         "toggle": "Linha de agrupamento",
         "toggleHint": "Um título para as linhas abaixo: sem filtro, sem quantidade, nunca executada.",
-        "note": "Uma linha de agrupamento: um título para as linhas abaixo dela. Não tem filtro nem quantidade e não é executada. Edite-a para mudar o nível, ou desmarque “Linha de agrupamento” para medir algo."
+        "note": "Uma linha de agrupamento: um título para as linhas abaixo dela. Não tem filtro nem quantidade e não é executada. Edite-a para mudar o nível, ou desmarque “Linha de agrupamento” para medir algo.",
+        "elementsTitle": "Elementos deste grupo",
+        "summary": "{elements, plural, one {# elemento} other {# elementos}} de {lines, plural, one {# linha} other {# linhas}} sob este título",
+        "running": "A executar {count, plural, one {# linha} other {# linhas}} sob este título…",
+        "noLines": "Ainda não há linhas medidas sob este título. Acrescente linhas a seguir, um nível abaixo.",
+        "hide": "Ocultar",
+        "show": "Mostrar",
+        "lines": "Linhas",
+        "previewLimit": "A mostrar os primeiros 250 de {count, number} elementos."
       }
     },
     "spatialTree": {

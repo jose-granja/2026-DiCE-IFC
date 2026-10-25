@@ -31,8 +31,10 @@ import { useDisplaySettingsStore } from "@/lib/viewer/display-settings";
 import { DEFAULT_PROPERTY_DECIMALS, MAX_PROPERTY_DECIMALS } from "@/lib/viewer/property-format";
 import {
   MAX_QUANTITY_LEVEL,
+  elementsUnder,
   groupQuery,
   isGroupQuery,
+  linesUnder,
   newLinePlacement,
   quantityHierarchy,
   quantityLevel,
@@ -208,6 +210,7 @@ export function QuantityQueryPanel() {
   const models = useViewerStore((state) => state.models);
   const select = useViewerStore((state) => state.select);
   const isolate = useViewerStore((state) => state.isolate);
+  const hiddenKeys = useViewerStore((state) => state.hidden);
   const decimalPlaces = useDisplaySettingsStore((state) => state.propertyDecimalPlaces);
   // The list in a dialog, with the selected line beside it — room to read a long list.
   const [listDialogOpen, setListDialogOpen] = useState(false);
@@ -871,7 +874,7 @@ export function QuantityQueryPanel() {
    * Show one result element in context: the query's whole result isolated,
    * this element solid and selected, the rest see-through, and the camera on it.
    */
-  const focusRow = (ref: EntityRef) => {
+  const focusRow = (ref: EntityRef, refs: EntityRef[] = resultRefs()) => {
     const store = useViewerStore.getState();
     const key = `${ref.modelId}#${ref.expressId}`;
     if (focusedKey === key) {
@@ -879,7 +882,6 @@ export function QuantityQueryPanel() {
       setFocus(null);
       return;
     }
-    const refs = resultRefs();
     store.isolate(
       refs,
       "replace",
@@ -895,6 +897,47 @@ export function QuantityQueryPanel() {
       }),
     );
   };
+
+  // ---- a grouping line: the elements of every measured line under it
+  const selectedGroup =
+    queryIsGroup && editingItemId ? (queryItems.find((item) => item.id === editingItemId) ?? null) : null;
+  const groupLines = selectedGroup ? linesUnder(queryItems, selectedGroup.id).map((index) => queryItems[index]) : [];
+  const pendingLines = groupLines.filter((item) => !item.result);
+  const pendingKey = pendingLines.map((item) => item.id).join("|");
+  const [groupError, setGroupError] = useState<string | null>(null);
+  const groupRun = useRef<string | null>(null);
+  const groupElements = elementsUnder(
+    groupLines
+      .filter((item) => item.result)
+      .map((item) => ({ label: item.code || item.description, rows: item.result!.rows })),
+  );
+  const groupRefs = groupElements.map(({ row }) => ({ modelId: row.modelId, expressId: row.expressId }));
+  const groupHidden = groupRefs.length > 0 && groupRefs.every((ref) => hiddenKeys.has(`${ref.modelId}#${ref.expressId}`));
+
+  // Lines under the group that have not been run are run now, once each, and
+  // keep their results — the list shows their values too.
+  useEffect(() => {
+    if (!selectedGroup || !pendingKey || ready.length === 0 || runningList) return;
+    const key = `${selectedGroup.id}:${pendingKey}`;
+    if (groupRun.current === key) return;
+    groupRun.current = key;
+    void (async () => {
+      try {
+        const done = new Map<string, CombinedResult>();
+        for (const item of pendingLines) done.set(item.id, await evaluateQuery(item.query));
+        setGroupError(null);
+        setQueryItems((current) =>
+          current.map((item) => (done.has(item.id) ? { ...item, result: done.get(item.id)! } : item)),
+        );
+      } catch (cause) {
+        setGroupError(cause instanceof Error ? cause.message : t("errors.run"));
+      } finally {
+        if (groupRun.current === key) groupRun.current = null;
+      }
+    })();
+    // `pendingKey` stands for `pendingLines`; the evaluator reads the models it runs on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGroup?.id, pendingKey, ready.length, runningList]);
 
   const downloadCsv = () => {
     if (!result) return;
@@ -1284,7 +1327,106 @@ export function QuantityQueryPanel() {
           </p>
         )}
 
-        {hasEditor && queryIsGroup ? (
+        {hasEditor && queryIsGroup && selectedGroup ? (
+          <section
+            className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-lg border p-2"
+            data-query-group-elements
+          >
+            <div>
+              <h3 className="flex items-center gap-1.5 text-xs font-semibold">
+                {t("group.elementsTitle")}
+                {pendingLines.length > 0 && !groupError && (
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                )}
+              </h3>
+              <p className="text-muted-foreground text-[10px]" role="status">
+                {groupLines.length === 0
+                  ? t("group.noLines")
+                  : pendingLines.length > 0 && !groupError
+                    ? t("group.running", { count: pendingLines.length })
+                    : t("group.summary", { elements: groupElements.length, lines: groupLines.length })}
+              </p>
+              {groupError && (
+                <p role="alert" className="text-destructive text-[11px]">
+                  {groupError}
+                </p>
+              )}
+            </div>
+            {groupElements.length > 0 && (
+              <>
+                <div className="flex gap-1.5">
+                  <Button type="button" variant="outline" size="sm" className="h-7 flex-1 text-[11px]"
+                    onClick={() => select(groupRefs, "replace")}>
+                    {t("results.select")}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-7 flex-1 text-[11px]"
+                    onClick={() => isolate(groupRefs)}>
+                    {t("results.isolate")}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-7 flex-1 text-[11px]"
+                    aria-pressed={groupHidden}
+                    onClick={() => {
+                      const store = useViewerStore.getState();
+                      if (groupHidden) store.show(groupRefs);
+                      else store.hide(groupRefs);
+                    }}
+                    data-query-group-hide>
+                    {groupHidden ? t("group.show") : t("group.hide")}
+                  </Button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-auto rounded-md border">
+                  <table className="w-full min-w-90 text-[10px]">
+                    <thead className="bg-muted sticky top-0">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left font-medium">{t("results.element")}</th>
+                        <th className="px-2 py-1.5 text-left font-medium">{t("results.class")}</th>
+                        <th className="px-2 py-1.5 text-left font-medium">{t("group.lines")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupElements.slice(0, 250).map(({ row, lines }) => {
+                        const ref = { modelId: row.modelId, expressId: row.expressId };
+                        const key = `${row.modelId}#${row.expressId}`;
+                        const focused = focusedKey === key;
+                        return (
+                          <tr
+                            key={key}
+                            className={`cursor-pointer border-t transition-colors ${focused ? "bg-primary/15" : "hover:bg-muted/50"} ${hiddenKeys.has(key) ? "opacity-50" : ""}`}
+                            tabIndex={0}
+                            aria-current={focused ? "true" : undefined}
+                            title={t("results.focus")}
+                            data-query-group-element={key}
+                            onClick={() => focusRow(ref, groupRefs)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                focusRow(ref, groupRefs);
+                              }
+                            }}
+                          >
+                            <td className="max-w-40 truncate px-2 py-1.5" title={`${row.modelName} · ${row.name}`}>
+                              {row.name || `#${row.expressId}`}
+                              <span className="text-muted-foreground block truncate">{row.modelName}</span>
+                            </td>
+                            <td className="px-2 py-1.5">{row.type}</td>
+                            <td className="text-muted-foreground max-w-32 truncate px-2 py-1.5 font-mono" title={lines.join(", ")}>
+                              {lines.join(", ")}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {groupElements.length > 250 && (
+                  <p className="text-muted-foreground text-[10px]">
+                    {t("group.previewLimit", { count: groupElements.length })}
+                  </p>
+                )}
+              </>
+            )}
+          </section>
+        ) : hasEditor && queryIsGroup ? (
           <p
             className="text-muted-foreground flex min-h-0 flex-1 items-center justify-center rounded-lg border border-dashed p-4 text-center text-[11px]"
             data-query-group-note

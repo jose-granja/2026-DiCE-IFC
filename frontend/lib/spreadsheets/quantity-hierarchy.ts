@@ -113,3 +113,38 @@ export function newLinePlacement(
     level: group ? Math.min(MAX_QUANTITY_LEVEL, line.level + 1) : line.level,
   };
 }
+
+/** Indices of the measured lines under a line, however deep — the grouping lines between are skipped. */
+export function linesUnder(
+  items: ReadonlyArray<{ id: string; level?: number; query: QuantityQuery }>,
+  id: string,
+): number[] {
+  const at = items.findIndex((item) => item.id === id);
+  if (at < 0) return [];
+  const { descendants } = quantityHierarchy(items)[at];
+  const out: number[] = [];
+  for (let index = at + 1; index <= at + descendants; index += 1) {
+    if (!isGroupQuery(items[index].query)) out.push(index);
+  }
+  return out;
+}
+
+/**
+ * Every element the lines under a grouping line select, once each, with the
+ * lines that select it — an element can be in more than one (a wall measured
+ * by area and by volume), and is still one element to isolate or hide.
+ */
+export function elementsUnder<Row extends { modelId: string; expressId: number }>(
+  lines: ReadonlyArray<{ label: string; rows: readonly Row[] }>,
+): Array<{ row: Row; lines: string[] }> {
+  const byKey = new Map<string, { row: Row; lines: string[] }>();
+  for (const line of lines) {
+    for (const row of line.rows) {
+      const key = `${row.modelId}#${row.expressId}`;
+      const entry = byKey.get(key);
+      if (!entry) byKey.set(key, { row, lines: [line.label] });
+      else if (!entry.lines.includes(line.label)) entry.lines.push(line.label);
+    }
+  }
+  return [...byKey.values()];
+}

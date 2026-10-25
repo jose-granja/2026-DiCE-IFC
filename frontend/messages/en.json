@@ -782,7 +782,15 @@
       "group": {
         "toggle": "Grouping line",
         "toggleHint": "A heading for the lines below it: no filter, no quantity, never run.",
-        "note": "A grouping line: a heading for the lines under it. It has no filter or quantity and is not run. Edit it to change its level, or untick “Grouping line” to measure something."
+        "note": "A grouping line: a heading for the lines under it. It has no filter or quantity and is not run. Edit it to change its level, or untick “Grouping line” to measure something.",
+        "elementsTitle": "Elements in this group",
+        "summary": "{elements, plural, one {# element} other {# elements}} from {lines, plural, one {# line} other {# lines}} under this heading",
+        "running": "Running {count, plural, one {# line} other {# lines}} under this heading…",
+        "noLines": "No measured lines under this heading yet. Add lines after it, one level down.",
+        "hide": "Hide",
+        "show": "Show",
+        "lines": "Lines",
+        "previewLimit": "Showing the first 250 of {count, number} elements."
       }
     },
     "spatialTree": {

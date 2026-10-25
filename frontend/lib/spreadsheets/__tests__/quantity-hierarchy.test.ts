@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  elementsUnder,
   groupQuery,
   isGroupQuery,
+  linesUnder,
   newLinePlacement,
   quantityHierarchy,
   quantityLevel,
@@ -65,5 +67,29 @@ describe("the quantity hierarchy", () => {
   it("reads a level as a whole number from 1 to 9", () => {
     expect([quantityLevel(undefined), quantityLevel("2"), quantityLevel(0), quantityLevel(14), quantityLevel(2.6)])
       .toEqual([1, 2, 1, 9, 3]);
+  });
+});
+
+describe("what a grouping line holds", () => {
+  it("is every measured line under it, at any depth, without the headings between", () => {
+    expect(linesUnder(list, "13").map((index) => list[index].id)).toEqual(["13.01.01", "13.01.02", "13.02"]);
+    expect(linesUnder(list, "13.01").map((index) => list[index].id)).toEqual(["13.01.01", "13.01.02"]);
+    expect(linesUnder(list, "13.02")).toEqual([]);
+    expect(linesUnder(list, "missing")).toEqual([]);
+  });
+
+  it("lists each element once, with every line that selects it", () => {
+    const row = (expressId: number, modelId = "m") => ({ modelId, expressId });
+    const elements = elementsUnder([
+      { label: "13.01.01", rows: [row(1), row(2)] },
+      { label: "13.01.02", rows: [row(2), row(3), row(1, "other")] },
+      { label: "13.02", rows: [] },
+    ]);
+    expect(elements.map((entry) => [`${entry.row.modelId}#${entry.row.expressId}`, entry.lines])).toEqual([
+      ["m#1", ["13.01.01"]],
+      ["m#2", ["13.01.01", "13.01.02"]],
+      ["m#3", ["13.01.02"]],
+      ["other#1", ["13.01.02"]],
+    ]);
   });
 });

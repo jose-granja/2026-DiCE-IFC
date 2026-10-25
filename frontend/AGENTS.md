@@ -1015,7 +1015,10 @@ empty one. The first workspace format (`workspaces/current` + handles keyed
   with a description (notes under a table stay out), still drops rows that
   filter but measure nothing (they would count every match), and refuses a
   sheet of headings alone. "New" places its line after the selected line's
-  branch, or as the last child of a selected grouping line.
+  branch, or as the last child of a selected grouping line. Selecting a grouping
+  line lists the elements of every measured line under it (`linesUnder`,
+  `elementsUnder`), each once, with the lines that select it — running, on
+  selection, only the lines under it that have no result yet.
 - **The MQT default template is a real Excel asset**,
   `public/templates/mqt-default.xlsx`. Its `Quantities` sheet owns the starter
   queries, with `Description` and `Description (PT)` for both languages. Keep

@@ -464,9 +464,11 @@ test("shows the list as a hierarchy that folds, with grouping lines that are hea
   await expect(list.nth(3)).toContainText("1");
   await expect(list.nth(0)).not.toContainText("Not run");
 
-  // A grouping line opens onto a note, with nothing to run.
+  // A grouping line opens onto the elements of the lines under it, with nothing of its own to run.
   await list.nth(1).getByRole("button", { name: /^View/ }).click();
-  await expect(page.locator("[data-query-group-note]")).toBeVisible();
+  const group = page.locator("[data-query-group-elements]");
+  await expect(group).toContainText("2 elements from 1 line under this heading");
+  await expect(group.locator("[data-query-group-element]")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Run query" })).toHaveCount(0);
 
   // New, with a heading selected, adds a line under it: after its branch, one level down.
@@ -587,4 +589,59 @@ test("the list window imports and downloads Excel too, and an import's undo work
   expect(download.suggestedFilename()).toBe("ifc-quantities.xlsx");
   await download.saveAs(testInfo.outputPath("from-dialog.xlsx"));
   await expect(dialog).toBeVisible();
+});
+
+
+test("a grouping line lists the elements of every line under it, to isolate or hide", async ({ page }) => {
+  await page.goto("/viewer?panel=quantities");
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  const none = { classes: [], predefinedTypes: [], objectTypes: [], materials: [], properties: [] };
+  const count = [{ id: "n", alias: "count", kind: "count" as const }];
+  const area = [{ id: "a", alias: "area", kind: "quantity" as const, setName: "Qto_WallBaseQuantities", valueName: "NetSideArea" }];
+  // The fixture is two walls and a slab. Nothing is run yet: selecting the
+  // heading runs what is under it, and only that.
+  await page.locator("[data-quantity-workbook-input]").setInputFiles({
+    name: "chapters.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(createQuantityWorkbook([
+      { level: 1, code: "13", description: "WALLS", result: null, query: { filters: none, sources: [] } },
+      { level: 2, code: "13.01", description: "Wall area", result: null, query: { filters: { ...none, classes: ["IfcWall"] }, sources: area, unit: "m²" } },
+      { level: 2, code: "13.02", description: "Sub-chapter", result: null, query: { filters: none, sources: [] } },
+      // The same walls again, one level deeper: still two elements, each under both lines.
+      { level: 3, code: "13.02.01", description: "Wall count", result: null, query: { filters: { ...none, classes: ["IfcWall"] }, sources: count } },
+      { level: 1, code: "14", description: "Slab count", result: null, query: { filters: { ...none, classes: ["IfcSlab"] }, sources: count } },
+    ])),
+  });
+  const list = page.locator('[data-query-list] [role="listitem"]');
+  await list.first().getByRole("button", { name: /^View/ }).click();
+
+  const group = page.locator("[data-query-group-elements]");
+  const elements = group.locator("[data-query-group-element]");
+  await expect(group).toContainText("2 elements from 2 lines under this heading", { timeout: 30_000 });
+  await expect(elements).toHaveCount(2);
+  await expect(elements.first()).toContainText("IfcWall");
+  await expect(elements.first()).toContainText("13.01, 13.02.01");
+  // The lines it ran keep their values in the list; the line outside the heading was not run.
+  await expect(list.nth(1)).toContainText("25 m²");
+  await expect(list.nth(4)).toContainText("Not run");
+
+  const scene = page.locator("[data-rendered-models]");
+  await group.getByRole("button", { name: "Hide", exact: true }).click();
+  await expect(scene).toHaveAttribute("data-visible-entities", "1/3");
+  await expect(group.getByRole("button", { name: "Show", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await group.getByRole("button", { name: "Show", exact: true }).click();
+  await expect(scene).toHaveAttribute("data-visible-entities", "3/3");
+
+  await group.getByRole("button", { name: "Isolate", exact: true }).click();
+  await expect(scene).toHaveAttribute("data-visible-entities", "2/3");
+
+  // A row puts that element in focus among the group's: solid, the other see-through.
+  await elements.first().click();
+  await expect(elements.first()).toHaveAttribute("aria-current", "true");
+  await expect(scene).toHaveAttribute("data-visible-entities", "2/3");
+  await expect(scene).toHaveAttribute("data-translucent-entities", "1");
+
+  // A sub-heading holds only what is under it.
+  await list.nth(2).getByRole("button", { name: /^View/ }).click();
+  await expect(group).toContainText("2 elements from 1 line under this heading");
 });
