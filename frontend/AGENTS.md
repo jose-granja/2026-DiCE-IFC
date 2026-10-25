@@ -1000,6 +1000,15 @@ empty one. The first workspace format (`workspaces/current` + handles keyed
   formula's alias is written whenever it could not be re-derived, and clash
   filters are matched to groups by position. The round-trip tests in
   `quantity-workbook.test.ts` and `clash/__tests__/workbook.test.ts` pin this.
+- **The quantity list is a hierarchy** (`lib/spreadsheets/quantity-hierarchy.ts`):
+  each line has a `level` (1–9, the workbook's **Level** column; absent reads as
+  1), and order says what is under what. A line with **no filter and no
+  quantity** is a grouping line — a heading, never run, skipped by Run all,
+  written as level, code and description only. The reader keeps such rows only
+  with a description (notes under a table stay out), still drops rows that
+  filter but measure nothing (they would count every match), and refuses a
+  sheet of headings alone. "New" places its line after the selected line's
+  branch, or as the last child of a selected grouping line.
 - **The MQT default template is a real Excel asset**,
   `public/templates/mqt-default.xlsx`. Its `Quantities` sheet owns the starter
   queries, with `Description` and `Description (PT)` for both languages. Keep

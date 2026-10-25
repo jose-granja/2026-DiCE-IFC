@@ -218,6 +218,7 @@ export function buildProject(session: SessionSnapshot, savedAt = new Date()): Bu
     quantities = { path };
     const workbook = createQuantityWorkbook(
       session.quantities.map((item, index) => ({
+        level: item.level,
         code: item.code ?? "",
         description: item.description ?? item.name ?? `Quantity ${index + 1}`,
         query: item.query,

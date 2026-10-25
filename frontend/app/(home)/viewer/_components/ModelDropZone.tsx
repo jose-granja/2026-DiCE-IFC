@@ -130,9 +130,9 @@ export function AddModelsButton() {
         the capability check belongs in the handler, where it runs client-side
         only.
       */}
-      <Button variant="secondary" size="sm" onClick={onPick}>
+      <Button variant="secondary" size="sm" onClick={onPick} title={t("addModels")}>
         <FolderOpen className="h-4 w-4" />
-        {t("addModels")}
+        <span className="sr-only lg:not-sr-only">{t("addModels")}</span>
       </Button>
       <input
         ref={inputRef}

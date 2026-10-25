@@ -400,16 +400,20 @@ test.describe("measurement", () => {
     await page.getByRole("tab", { name: "Measure" }).click();
     await page.getByRole("button", { name: "Distance" }).click();
 
+    // Use an orthographic front view so a fixture corner can be located from
+    // its real dimensions, independently of perspective framing and rotation.
+    await page.getByRole("button", { name: "Orthographic", exact: true }).click();
+    await page.getByRole("button", { name: "Fit view", exact: true }).click();
+    await page.locator('[data-view-face="front"]').press("Enter");
     const box = (await page.locator("[data-model-canvas]").boundingBox())!;
-
-    // Wall A's near top corner after "Fit view" — found empirically and
-    // pinned here, the same way `canvasCentre` pins the fixture's own
-    // landing spot. A grid built from the canvas centre is tempting but was
-    // the wrong tool: a coarse step easily overshoots a snap radius that is
-    // only a few percent of the canvas, and a fixed corner is exactly
-    // reproducible run to run — the fixture and the "Fit view" framing are
-    // both deterministic.
-    const corner = { x: box.x + box.width * 0.37, y: box.y + box.height * 0.27 };
+    // The fixture bounds are 5 × 3 × 4 m. Orthographic Fit leaves a 10% margin
+    // around their bounding sphere. Pick just inside Wall A's (-2, 3) corner.
+    const diameter = Math.hypot(5, 3, 4) * 1.1;
+    const scale = Math.min(box.width, box.height) / diameter;
+    const corner = {
+      x: box.x + box.width / 2 - 1.98 * scale,
+      y: box.y + box.height / 2 - 1.48 * scale,
+    };
     await page.mouse.move(corner.x, corner.y);
     expect(await snapPreviewVisible(page)).toBe(true);
     // Corners are the only enabled target here, so the marker showing at all
@@ -658,7 +662,7 @@ test.describe("display settings", () => {
     await expect(page.getByText("1.00×")).toBeVisible();
     await expect(page.getByText("0.75", { exact: true })).toBeVisible();
 
-    const brightness = page.getByRole("slider", { name: "Brightness" });
+    const brightness = page.getByRole("slider", { name: "Exposure" });
     await brightness.focus();
     await page.keyboard.press("ArrowLeft");
     await expect(page.getByText("0.70", { exact: true })).toBeVisible();

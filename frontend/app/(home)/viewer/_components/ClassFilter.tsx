@@ -191,28 +191,31 @@ export function VisibilityActions() {
         variant="ghost"
         size="sm"
         disabled={selection.length === 0}
+        title={t("hide")}
         onClick={() => hide(selection)}
       >
         <EyeOff className="h-4 w-4" />
-        {t("hide")}
+        <span className="sr-only lg:not-sr-only">{t("hide")}</span>
       </Button>
       <Button
         variant="ghost"
         size="sm"
         disabled={selection.length === 0}
+        title={t("isolate")}
         onClick={() => isolate(selection)}
       >
         <Filter className="h-4 w-4" />
-        {t("isolate")}
+        <span className="sr-only lg:not-sr-only">{t("isolate")}</span>
       </Button>
       <Button
         variant="ghost"
         size="sm"
         disabled={!hasOverrides}
+        title={t("showAll")}
         onClick={resetVisibility}
       >
         <Eye className="h-4 w-4" />
-        {t("showAll")}
+        <span className="sr-only lg:not-sr-only">{t("showAll")}</span>
       </Button>
     </div>
   );

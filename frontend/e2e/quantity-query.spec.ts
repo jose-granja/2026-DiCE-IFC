@@ -1,7 +1,8 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 
-import { createQuantityWorkbook } from "../lib/spreadsheets/quantity-workbook";
+import { createQuantityWorkbook, readQuantityWorkbook } from "../lib/spreadsheets/quantity-workbook";
 
 const FIXTURE = path.resolve(__dirname, "../fixtures/ifc/facets-ifc4.ifc");
 
@@ -98,6 +99,9 @@ test("recovers from an unavailable template and loads its Portuguese description
 test("builds a table-style quantity query and applies its results to the viewer", async ({
   page,
 }) => {
+  // The longest test here — a model, two runs, a download and an isolation —
+  // and past the default 30 s budget when the whole file runs in parallel.
+  test.setTimeout(60_000);
   await page.goto("/viewer?panel=quantities");
   await page.setInputFiles('input[type="file"]', [FIXTURE]);
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({
@@ -350,4 +354,237 @@ test("rounds its numbers to the viewer's decimal places setting, for display onl
   await page.getByRole("button", { name: "Download this query's rows as CSV" }).click();
   const csv = await (await (await downloading).createReadStream()).toArray();
   expect(Buffer.concat(csv).toString("utf8")).toContain("4.166666666666667");
+});
+
+test("opens the whole list in a window, with the selected line to see, edit and run beside it", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/viewer?panel=quantities");
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  const longDescription =
+    "Load-bearing concrete walls of the ground floor, measured on their net side area without openings";
+  const area = { id: "area", alias: "area", kind: "quantity", setName: "Qto_WallBaseQuantities", valueName: "NetSideArea" } as const;
+  const walls = { classes: ["IfcWall"], predefinedTypes: [], objectTypes: [], materials: [], properties: [] };
+  await page.locator("[data-quantity-workbook-input]").setInputFiles({
+    name: "list.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(createQuantityWorkbook([
+      { code: "13.01", description: longDescription, result: null, query: { filters: walls, sources: [area], unit: "m²" } },
+      { code: "13.02", description: "Slabs", result: null,
+        query: { filters: { ...walls, classes: ["IfcSlab"] }, sources: [{ id: "n", alias: "count", kind: "count" }] } },
+      { code: "21.01", description: "Wall count", result: null,
+        query: { filters: walls, sources: [{ id: "n", alias: "count", kind: "count" }] } },
+    ])),
+  });
+  await expect(page.locator('[data-query-list] [role="listitem"]')).toHaveCount(3);
+
+  await page.locator("[data-query-list-expand]").click();
+  const dialog = page.locator("[data-query-list-dialog]");
+  const items = dialog.locator("[data-query-list-dialog-items] [role='listitem']");
+  const side = dialog.locator("[data-query-list-dialog-editor]");
+  await expect(items).toHaveCount(3);
+  // In full, not cut to the width of a side panel.
+  const full = items.first().getByText(longDescription, { exact: true });
+  await expect(full).toBeVisible();
+  expect(await full.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  // The line the panel had selected (an import selects its first) is beside the list.
+  await expect(side.locator("[data-query-metadata-view]")).toContainText("13.01");
+
+  await dialog.getByLabel("Search code or description").fill("21.");
+  await expect(items).toHaveCount(1);
+  await expect(dialog.getByText("1 of 3")).toBeVisible();
+  await dialog.getByLabel("Search code or description").fill("");
+
+  // Picking a line shows it beside the list; running it there gives its results.
+  await items.filter({ hasText: "Wall count" }).getByRole("button", { name: /^View/ }).click();
+  await expect(side.locator("[data-query-metadata-view]")).toContainText("Wall count");
+  await side.getByRole("button", { name: "Run query" }).click();
+  await expect(side.locator("[data-query-results]")).toContainText("2 matched");
+  await expect(items.filter({ hasText: "Wall count" })).toContainText("2");
+  await dialog.screenshot({ path: testInfo.outputPath("list-dialog.png") });
+
+  // Editing there changes the list.
+  await items.filter({ hasText: "Slabs" }).getByRole("button", { name: "Edit Slabs" }).click();
+  await side.getByLabel("Description").fill("Floor slabs");
+  await side.getByRole("button", { name: "Update" }).click();
+  await expect(items.filter({ hasText: "Floor slabs" })).toHaveCount(1);
+  await expect(items.filter({ hasText: "Floor slabs" })).toHaveAttribute("aria-current", "true");
+
+  // Closed, the panel carries on with the same line.
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('[data-query-list] [role="listitem"]', { hasText: "Floor slabs" }))
+    .toHaveAttribute("aria-current", "true");
+  await expect(page.locator("[data-query-metadata-view]")).toContainText("Floor slabs");
+  await expect(page.getByRole("tab", { name: "Filters", exact: true }).last()).toBeVisible();
+});
+
+test("shows the list as a hierarchy that folds, with grouping lines that are headings and never run", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/viewer?panel=quantities");
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  const none = { classes: [], predefinedTypes: [], objectTypes: [], materials: [], properties: [] };
+  const walls = { ...none, classes: ["IfcWall"] };
+  const count = [{ id: "n", alias: "count", kind: "count" as const }];
+  await page.locator("[data-quantity-workbook-input]").setInputFiles({
+    name: "chapters.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(createQuantityWorkbook([
+      { level: 1, code: "13", description: "ALVENARIAS", result: null, query: { filters: none, sources: [] } },
+      { level: 2, code: "13.01", description: "Paredes", result: null, query: { filters: none, sources: [] } },
+      { level: 3, code: "13.01.01", description: "Wall count", result: null, query: { filters: walls, sources: count } },
+      { level: 1, code: "14", description: "Slab count", result: null,
+        query: { filters: { ...none, classes: ["IfcSlab"] }, sources: count } },
+    ])),
+  });
+  const list = page.locator('[data-query-list] [role="listitem"]');
+  await expect(list).toHaveCount(4);
+  await expect(list.nth(0)).toHaveAttribute("data-query-group", "true");
+  await expect(list.nth(2)).toHaveAttribute("data-query-level", "3");
+  // Indented by level.
+  const left = async (index: number) => (await list.nth(index).getByRole("button", { name: /^View/ }).boundingBox())!.x;
+  expect(await left(2)).toBeGreaterThan(await left(1));
+  expect(await left(1)).toBeGreaterThan(await left(0));
+
+  // Folding a chapter hides its branch and says how much is in it.
+  await page.getByRole("button", { name: "Hide the lines under ALVENARIAS" }).click();
+  await expect(list).toHaveCount(2);
+  await expect(list.nth(0)).toContainText("2 lines");
+  await page.getByRole("button", { name: "Show the lines under ALVENARIAS" }).click();
+  await expect(list).toHaveCount(4);
+  await page.getByRole("button", { name: "Collapse all" }).click();
+  await expect(list).toHaveCount(2);
+  await page.getByRole("button", { name: "Expand all" }).click();
+  await expect(list).toHaveCount(4);
+
+  // Run all measures the lines and leaves the headings alone.
+  await page.getByRole("button", { name: "Run all" }).click();
+  await expect(list.nth(2)).toContainText("2");
+  await expect(list.nth(3)).toContainText("1");
+  await expect(list.nth(0)).not.toContainText("Not run");
+
+  // A grouping line opens onto a note, with nothing to run.
+  await list.nth(1).getByRole("button", { name: /^View/ }).click();
+  await expect(page.locator("[data-query-group-note]")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Run query" })).toHaveCount(0);
+
+  // New, with a heading selected, adds a line under it: after its branch, one level down.
+  await page.getByRole("button", { name: "New", exact: true }).first().click();
+  await expect(page.getByLabel("Level")).toHaveValue("3");
+  await page.getByLabel("Description").fill("Wall area");
+  await page.locator("[data-query-filters]").getByLabel("IFC class").fill("IfcWall");
+  await page.getByRole("tab", { name: "Values" }).click();
+  await page.locator("[data-query-sources]").getByLabel("Set").fill("Qto_WallBaseQuantities");
+  await page.locator("[data-query-sources]").getByLabel("Quantity", { exact: true }).fill("NetSideArea");
+  await page.getByRole("button", { name: "Add to list" }).click();
+  await expect(list).toHaveCount(5);
+  await expect(list.nth(3)).toContainText("Wall area");
+  await expect(list.nth(3)).toHaveAttribute("data-query-level", "3");
+
+  // A line becomes a heading by ticking "Grouping line".
+  await list.nth(4).getByRole("button", { name: "Edit Slab count" }).click();
+  await page.locator("[data-query-group-toggle]").check();
+  await page.getByLabel("Level").fill("2");
+  await page.getByRole("button", { name: "Update" }).click();
+  await expect(list.nth(4)).toHaveAttribute("data-query-group", "true");
+  await expect(list.nth(4)).toHaveAttribute("data-query-level", "2");
+
+  // The window has a level column of its own.
+  await page.locator("[data-query-list-expand]").click();
+  const items = page.locator("[data-query-list-dialog-items] [role='listitem']");
+  await expect(items.locator("[data-query-level-cell]")).toHaveText(["1", "2", "3", "3", "2"]);
+  await page.locator("[data-query-list-dialog]").screenshot({ path: testInfo.outputPath("hierarchy-dialog.png") });
+  await page.keyboard.press("Escape");
+
+  // The workbook carries the levels and the headings.
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download Excel" }).click();
+  const path = testInfo.outputPath("hierarchy.xlsx");
+  await (await downloading).saveAs(path);
+  // Reading a workbook parses its XML; this side of the test is Node, so jsdom's parser.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { JSDOM } = require("jsdom") as { JSDOM: new () => { window: { DOMParser: typeof DOMParser } } };
+  globalThis.DOMParser ??= new JSDOM().window.DOMParser;
+  const back = readQuantityWorkbook(new Uint8Array(readFileSync(path)));
+  expect(back.map(({ level, code }) => [level, code])).toEqual([
+    [1, "13"], [2, "13.01"], [3, "13.01.01"], [3, ""], [2, "14"],
+  ]);
+});
+
+test("loading an Excel file replaces the whole list, with an undo", async ({ page }) => {
+  await page.goto("/viewer?panel=quantities");
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  const none = { classes: [], predefinedTypes: [], objectTypes: [], materials: [], properties: [] };
+  const count = [{ id: "n", alias: "count", kind: "count" as const }];
+  const workbook = (descriptions: string[]) => ({
+    name: "list.xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(createQuantityWorkbook(descriptions.map((description, index) => ({
+      code: `0${index + 1}`, description, result: null, query: { filters: { ...none, classes: ["IfcWall"] }, sources: count },
+    })))),
+  });
+  const items = page.locator('[data-query-list] [role="listitem"]');
+
+  // Into an empty list: nothing to replace, so no undo either.
+  await page.locator("[data-quantity-workbook-input]").setInputFiles(workbook(["First A", "First B", "First C"]));
+  await expect(items).toHaveCount(3);
+  await expect(page.getByText("Imported 3 quantities from Excel.")).toBeVisible();
+
+  await page.locator("[data-quantity-workbook-input]").setInputFiles(workbook(["Second A", "Second B"]));
+  await expect(items).toHaveCount(2);
+  await expect(items).toContainText(["Second A", "Second B"]);
+  await expect(page.locator("[data-query-undo-import]")).toContainText("Replaced the list (3 lines) with 2 quantities from Excel.");
+  // Kept that way across a reload.
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(localStorage.getItem("dice-ifc.quantity-query-list.v1") ?? "[]").length)).toBe(2);
+
+  await page.locator("[data-query-undo-import]").getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(items).toHaveCount(3);
+  await expect(page.locator("[data-query-undo-import]")).toHaveCount(0);
+  await expect(items).toContainText(["First A", "First B", "First C"]);
+  await expect(items.first()).toHaveAttribute("aria-current", "true");
+});
+
+test("the list window imports and downloads Excel too, and an import's undo works from there", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/viewer?panel=quantities");
+  await page.setInputFiles('input[type="file"]', FIXTURE);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  const none = { classes: [], predefinedTypes: [], objectTypes: [], materials: [], properties: [] };
+  const count = [{ id: "n", alias: "count", kind: "count" as const }];
+  const workbook = (descriptions: string[]) => ({
+    name: "list.xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(createQuantityWorkbook(descriptions.map((description, index) => ({
+      code: `0${index + 1}`, description, result: null, query: { filters: { ...none, classes: ["IfcWall"] }, sources: count },
+    })))),
+  });
+  await page.locator("[data-quantity-workbook-input]").setInputFiles(workbook(["Kept A", "Kept B"]));
+
+  await page.locator("[data-query-list-expand]").click();
+  const dialog = page.locator("[data-query-list-dialog]");
+  const items = dialog.locator("[data-query-list-dialog-items] [role='listitem']");
+  await expect(items).toHaveCount(2);
+
+  // The window's Import opens the same picker, and replaces the list.
+  const choosing = page.waitForEvent("filechooser");
+  await dialog.getByRole("button", { name: "Import Excel (replaces the list)" }).click();
+  await (await choosing).setFiles(workbook(["New only"]));
+  await expect(items).toHaveCount(1);
+  await expect(items).toContainText("New only");
+
+  // Undo, in the window itself, puts the list back; the window stays open.
+  await dialog.locator("[data-query-undo-import]").getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(items).toHaveCount(2);
+  await expect(dialog).toBeVisible();
+
+  const downloading = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Download Excel" }).click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toBe("ifc-quantities.xlsx");
+  await download.saveAs(testInfo.outputPath("from-dialog.xlsx"));
+  await expect(dialog).toBeVisible();
 });

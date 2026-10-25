@@ -660,15 +660,24 @@
         "duplicateItem": "Duplicar {description}",
         "deleteItem": "Eliminar {description}",
         "matchCount": "{count, plural, one {# correspondência} other {# correspondências}}",
-        "itemError": "{description}: {message}"
+        "itemError": "{description}: {message}",
+        "level": "Nível",
+        "expand": "Mostrar as linhas de {description}",
+        "collapse": "Ocultar as linhas de {description}",
+        "expandAll": "Expandir tudo",
+        "collapseAll": "Recolher tudo",
+        "groupLines": "{count, plural, one {# linha} other {# linhas}}"
       },
       "workbook": {
-        "import": "Importar Excel",
+        "import": "Importar Excel (substitui a lista)",
         "download": "Descarregar Excel",
         "imported": "Importadas {count, plural, one {# quantidade} other {# quantidades}} do Excel.",
         "downloaded": "Foi descarregada a tabela de quantidades com os valores dos elementos.",
         "importFailed": "Não foi possível importar esse ficheiro Excel. Use uma tabela .xlsx com as colunas Descrição e Quantidade.",
-        "exportFailed": "Não foi possível criar a tabela Excel de quantidades."
+        "exportFailed": "Não foi possível criar a tabela Excel de quantidades.",
+        "replaced": "A lista ({previous, plural, one {# linha} other {# linhas}}) foi substituída por {count, plural, one {# quantidade} other {# quantidades}} do Excel.",
+        "undo": "Anular",
+        "dismiss": "Fechar"
       },
       "filters": {
         "title": "Filtros",
@@ -738,6 +747,24 @@
         "loaded": "{count, plural, one {# quantidade adicionada} other {# quantidades adicionadas}} do template padrão.",
         "alreadyLoaded": "O template padrão já está na lista.",
         "failed": "Não foi possível carregar o template padrão. Tente novamente."
+      },
+      "dialog": {
+        "open": "Abrir a lista numa janela maior",
+        "title": "Lista de quantidades",
+        "hint": "Todas as linhas da lista, por extenso. Escolha uma para a ver e editar à direita, e execute-a aí.",
+        "search": "Procurar código ou descrição",
+        "count": "{shown, number} de {total, number}",
+        "noMatch": "Nenhuma linha corresponde à pesquisa.",
+        "selected": "Linha selecionada",
+        "editingThere": "A linha selecionada está aberta na janela da lista.",
+        "value": "Resultado",
+        "import": "Importar Excel",
+        "download": "Descarregar Excel"
+      },
+      "group": {
+        "toggle": "Linha de agrupamento",
+        "toggleHint": "Um título para as linhas abaixo: sem filtro, sem quantidade, nunca executada.",
+        "note": "Uma linha de agrupamento: um título para as linhas abaixo dela. Não tem filtro nem quantidade e não é executada. Edite-a para mudar o nível, ou desmarque “Linha de agrupamento” para medir algo."
       }
     },
     "spatialTree": {
@@ -1380,6 +1407,8 @@
       }
     },
     "contextMenu": {
+      "isolateSelected": "Isolar selecionados",
+      "showAll": "Mostrar tudo",
       "hideSelected": "Ocultar selecionados",
       "selectSameClass": "Selecionar todos os {type}",
       "selectSameClassUnknown": "Selecionar todos da mesma classe IFC",

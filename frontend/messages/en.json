@@ -660,15 +660,24 @@
         "duplicateItem": "Duplicate {description}",
         "deleteItem": "Delete {description}",
         "matchCount": "{count, plural, one {# match} other {# matches}}",
-        "itemError": "{description}: {message}"
+        "itemError": "{description}: {message}",
+        "level": "Level",
+        "expand": "Show the lines under {description}",
+        "collapse": "Hide the lines under {description}",
+        "expandAll": "Expand all",
+        "collapseAll": "Collapse all",
+        "groupLines": "{count, plural, one {# line} other {# lines}}"
       },
       "workbook": {
-        "import": "Import Excel",
+        "import": "Import Excel (replaces the list)",
         "download": "Download Excel",
         "imported": "Imported {count, plural, one {# quantity} other {# quantities}} from Excel.",
         "downloaded": "Downloaded the quantity table and element values.",
         "importFailed": "That Excel file could not be imported. Use a .xlsx table with Description and Quantity columns.",
-        "exportFailed": "The Excel quantity table could not be created."
+        "exportFailed": "The Excel quantity table could not be created.",
+        "replaced": "Replaced the list ({previous, plural, one {# line} other {# lines}}) with {count, plural, one {# quantity} other {# quantities}} from Excel.",
+        "undo": "Undo",
+        "dismiss": "Dismiss"
       },
       "filters": {
         "title": "Filters",
@@ -738,6 +747,24 @@
         "loaded": "Added {count, plural, one {# quantity} other {# quantities}} from the default template.",
         "alreadyLoaded": "The default template is already in your list.",
         "failed": "The default template could not be loaded. Try again."
+      },
+      "dialog": {
+        "open": "Open the list in a larger window",
+        "title": "Quantity list",
+        "hint": "Every line of the list, in full. Pick one to see and edit it on the right, then run it there.",
+        "search": "Search code or description",
+        "count": "{shown, number} of {total, number}",
+        "noMatch": "No line matches the search.",
+        "selected": "Selected line",
+        "editingThere": "The selected line is open in the list window.",
+        "value": "Result",
+        "import": "Import Excel",
+        "download": "Download Excel"
+      },
+      "group": {
+        "toggle": "Grouping line",
+        "toggleHint": "A heading for the lines below it: no filter, no quantity, never run.",
+        "note": "A grouping line: a heading for the lines under it. It has no filter or quantity and is not run. Edit it to change its level, or untick “Grouping line” to measure something."
       }
     },
     "spatialTree": {
@@ -1380,6 +1407,8 @@
       }
     },
     "contextMenu": {
+      "isolateSelected": "Isolate selected",
+      "showAll": "Show all",
       "hideSelected": "Hide selected",
       "selectSameClass": "Select all {type}",
       "selectSameClassUnknown": "Select all of the same IFC class",

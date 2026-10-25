@@ -643,6 +643,13 @@
     padding-bottom: 0.25rem;
   }
   .viewer-actions > * { flex-shrink: 0; }
+  .viewer-actions button {
+    /* Keep visually hidden labels inside the scrolling toolbar. */
+    position: relative;
+    width: 2.75rem;
+    padding-inline: 0;
+    gap: 0;
+  }
   .module-actions button, .main-nav button, .viewer-canvas-actions button, .viewer-projection-actions button {
     min-width: 2.75rem;
     min-height: 2.75rem;

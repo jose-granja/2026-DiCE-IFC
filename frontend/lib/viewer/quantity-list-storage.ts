@@ -17,6 +17,8 @@ export const QUERY_LIST_CHANGED_EVENT = "dice-ifc:quantity-query-list-changed";
 
 export type StoredQueryListItem = {
   id: string;
+  /** Hierarchy level, 1 at the top; absent in lists from before levels (read as 1). */
+  level?: number;
   code?: string;
   description?: string;
   /** Legacy field from the first version of the quantity list. */

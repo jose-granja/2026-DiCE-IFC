@@ -137,9 +137,9 @@ export function ProjectActions() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" disabled={busy} data-project-menu>
+          <Button variant="ghost" size="sm" disabled={busy} data-project-menu title={t("button")}>
             <FolderTree className="h-4 w-4" aria-hidden />
-            {t("button")}
+            <span className="sr-only lg:not-sr-only">{t("button")}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">

@@ -529,8 +529,8 @@ export function ViewerCanvas() {
 
   /**
    * Right-click on an element, in the select tool: make it the selection (unless
-   * it already is part of one) and open the menu beside the pointer. Empty space,
-   * a drag, and the measuring tools — which spend clicks on points — do nothing.
+   * it already is part of one) and open the menu beside the pointer. Outside an
+   * IFC element, offer only Show all. Right-button drags still pan the camera.
    */
   const openContextMenu = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const renderer = rendererRef.current;
@@ -545,14 +545,14 @@ export function ViewerCanvas() {
     const rect = event.currentTarget.getBoundingClientRect();
     const hit = renderer.pickInspectable(event.clientX - rect.left, event.clientY - rect.top);
     if (!hit) {
-      setContextMenu(null);
+      setContextMenu({ x: event.clientX, y: event.clientY, target: null });
       return;
     }
 
     if (hit.kind === "context") {
       store.clearSelection();
       useContextModelStore.getState().selectFeature(hit.featureIndex);
-      setContextMenu(null);
+      setContextMenu({ x: event.clientX, y: event.clientY, target: null });
       return;
     }
     const target = { modelId: hit.modelId, expressId: hit.expressId };

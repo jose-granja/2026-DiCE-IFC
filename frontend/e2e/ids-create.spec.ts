@@ -88,7 +88,7 @@ test("adds a specification with an entity applicability and a property requireme
   // Applies to: IfcWall
   const appliesTo = page
     .locator("section")
-    .filter({ hasText: "Applies to" })
+    .filter({ has: page.getByRole("button", { name: "Filters", exact: true }) })
     .first();
   await appliesTo.getByRole("button", { name: "Add facet" }).click();
   await page.getByRole("menuitem", { name: "Entity" }).click();
@@ -177,6 +177,7 @@ test("reports authoring issues as the document is edited", async ({ page }) => {
   await page.getByRole("button", { name: "Add specification" }).click();
   await expect(issues.getByText(/no requirements/i)).toBeVisible();
 
+  await page.getByRole("button", { name: "File metadata", exact: true }).click();
   await page.getByLabel("Author").fill("not an email");
   await expect(page.getByText("The author must be an email address.")).toBeVisible();
 

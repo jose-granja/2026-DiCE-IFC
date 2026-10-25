@@ -5,29 +5,45 @@ import { useLocale, useTranslations } from "next-intl";
 import { useQueries } from "@tanstack/react-query";
 import {
   Calculator,
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Copy,
   Download,
   FileSpreadsheet,
   Filter,
   ListPlus,
   Loader2,
+  Maximize2,
   Pencil,
   Plus,
   Play,
   ScanSearch,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getActiveRenderer } from "@/lib/viewer/active-renderer";
 import { useDisplaySettingsStore } from "@/lib/viewer/display-settings";
 import { DEFAULT_PROPERTY_DECIMALS, MAX_PROPERTY_DECIMALS } from "@/lib/viewer/property-format";
 import {
+  MAX_QUANTITY_LEVEL,
+  groupQuery,
+  isGroupQuery,
+  newLinePlacement,
+  quantityHierarchy,
+  quantityLevel,
+  visibleQuantityLines,
+} from "@/lib/spreadsheets/quantity-hierarchy";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -88,6 +104,8 @@ type CombinedResult = {
 
 type QueryListItem = {
   id: string;
+  /** Hierarchy level, 1 at the top (`quantity-hierarchy.ts`). */
+  level: number;
   code: string;
   description: string;
   query: QuantityQuery;
@@ -190,6 +208,9 @@ export function QuantityQueryPanel() {
   const select = useViewerStore((state) => state.select);
   const isolate = useViewerStore((state) => state.isolate);
   const decimalPlaces = useDisplaySettingsStore((state) => state.propertyDecimalPlaces);
+  // The list in a dialog, with the selected line beside it — room to read a long list.
+  const [listDialogOpen, setListDialogOpen] = useState(false);
+  const [listSearch, setListSearch] = useState("");
   const workbookInput = useRef<HTMLInputElement>(null);
   const templateRequest = useRef<AbortController | null>(null);
   const ready = useMemo(
@@ -304,6 +325,18 @@ export function QuantityQueryPanel() {
   const [formula, setFormula] = useState("");
   const [unit, setUnit] = useState("");
   const [queryCode, setQueryCode] = useState("");
+  const [queryLevel, setQueryLevel] = useState(1);
+  // A grouping line: a heading with no filter and no quantity, never run.
+  const [queryIsGroup, setQueryIsGroup] = useState(false);
+  // Where "New" puts its line: after the selected line's branch, or under it.
+  const [newPlacement, setNewPlacement] = useState<{ index: number; level: number } | null>(null);
+  // Lines whose branch is folded away, by id.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  // The list an Excel import replaced, for Undo. Shown in the list rather than
+  // on the toast: the list window is modal, and a toast is outside it.
+  const [lastReplace, setLastReplace] = useState<
+    { list: QueryListItem[]; previous: QueryListItem[]; previousId: string | null } | null
+  >(null);
   const [queryDescription, setQueryDescription] = useState(() =>
     t("list.defaultDescription", { number: 1 }),
   );
@@ -334,6 +367,7 @@ export function QuantityQueryPanel() {
       setQueryItems(
         stored.map((item, index) => ({
           id: item.id,
+          level: quantityLevel(item.level),
           code: item.code ?? "",
           description:
             item.description ??
@@ -370,8 +404,9 @@ export function QuantityQueryPanel() {
     if (!queryListLoaded) return;
     try {
       const definitions = queryItems.map(
-        ({ id, code, description, query }) => ({
+        ({ id, level, code, description, query }) => ({
           id,
+          level,
           code,
           description,
           query,
@@ -405,6 +440,7 @@ export function QuantityQueryPanel() {
     );
 
   const buildCurrentQuery = (): QuantityQuery | null => {
+    if (queryIsGroup) return groupQuery();
     const aliases = sources.map((source) => source.alias.trim());
     if (aliases.some((alias) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(alias))) {
       setError(t("errors.alias"));
@@ -514,7 +550,7 @@ export function QuantityQueryPanel() {
 
   const runQuery = async () => {
     setError(null);
-    if (ready.length === 0) return;
+    if (ready.length === 0 || queryIsGroup) return;
     const query = buildCurrentQuery();
     if (!query) return;
 
@@ -546,6 +582,10 @@ export function QuantityQueryPanel() {
   };
 
   const resetEditor = () => {
+    const placement = newLinePlacement(queryItems, editingItemId);
+    setNewPlacement(placement);
+    setQueryLevel(placement.level);
+    setQueryIsGroup(false);
     setEditingItemId(null);
     setEditorMode("new");
     setQueryCode("");
@@ -581,6 +621,8 @@ export function QuantityQueryPanel() {
     setEditingItemId(item.id);
     setEditorMode(mode);
     setQueryCode(item.code);
+    setQueryLevel(item.level);
+    setQueryIsGroup(isGroupQuery(item.query));
     setQueryDescription(item.description);
     setClasses(item.query.filters.classes.join(", "));
     setPredefinedTypes(item.query.filters.predefinedTypes.join(", "));
@@ -618,11 +660,12 @@ export function QuantityQueryPanel() {
     const description =
       queryDescription.trim() ||
       t("list.defaultDescription", { number: queryItems.length + 1 });
+    const level = quantityLevel(queryLevel);
     if (editingItemId && editorMode === "edit") {
       setQueryItems((current) =>
         current.map((item) =>
           item.id === editingItemId
-            ? { ...item, code, description, query, result: null }
+            ? { ...item, level, code, description, query, result: null }
             : item,
         ),
       );
@@ -632,12 +675,15 @@ export function QuantityQueryPanel() {
     }
     const item: QueryListItem = {
       id: rowId("query"),
+      level,
       code,
       description,
       query,
       result: null,
     };
-    setQueryItems((current) => [...current, item]);
+    const at = newPlacement?.index ?? queryItems.length;
+    setQueryItems((current) => [...current.slice(0, at), item, ...current.slice(at)]);
+    setNewPlacement(null);
     setEditingItemId(item.id);
     setEditorMode("view");
   };
@@ -653,7 +699,14 @@ export function QuantityQueryPanel() {
       query: structuredClone(source.query),
       result: null,
     };
-    setQueryItems((current) => [...current, copy]);
+    // Beside the original, after anything under it — not at the end of the list,
+    // where it would land under some other chapter.
+    setQueryItems((current) => {
+      const at = current.findIndex((item) => item.id === source.id);
+      if (at < 0) return [...current, copy];
+      const end = at + 1 + quantityHierarchy(current)[at].descendants;
+      return [...current.slice(0, end), copy, ...current.slice(end)];
+    });
     loadItem(copy, "edit");
   };
 
@@ -674,6 +727,11 @@ export function QuantityQueryPanel() {
   const evaluateList = async (items: QueryListItem[]) => {
     const completed: QueryListItem[] = [];
     for (const item of items) {
+      // A heading is not run: it has nothing to select and nothing to measure.
+      if (isGroupQuery(item.query)) {
+        completed.push({ ...item, result: null });
+        continue;
+      }
       try {
         completed.push({ ...item, result: await evaluateQuery(item.query) });
       } catch (cause) {
@@ -715,12 +773,22 @@ export function QuantityQueryPanel() {
       );
       const imported = definitions.map((definition) => ({
         ...definition,
+        level: quantityLevel(definition.level),
         id: rowId("query"),
         result: null,
       }));
-      setQueryItems((current) => [...current, ...imported]);
+      // A workbook is the whole list, as it is everywhere else (a project's
+      // quantities, Download Excel): loading one replaces what is open, with an
+      // Undo for the list that was there.
+      const previous = queryItems;
+      setQueryItems(imported);
+      setCollapsed(new Set());
+      setNewPlacement(null);
+      setLastReplace(previous.length > 0 ? { list: imported, previous, previousId: editingItemId } : null);
       loadItem(imported[0], "view");
-      toast.success(t("workbook.imported", { count: imported.length }));
+      // A replacement is announced by its Undo bar in the list; a toast as well
+      // would say it twice.
+      if (previous.length === 0) toast.success(t("workbook.imported", { count: imported.length }));
     } catch {
       setError(t("workbook.importFailed"));
     } finally {
@@ -742,7 +810,8 @@ export function QuantityQueryPanel() {
       const definitions = readDefaultQuantityTemplate(new Uint8Array(await response.arrayBuffer()), locale);
       request.signal.throwIfAborted();
       const existingIds = new Set(queryItems.map((item) => item.id));
-      const imported: QueryListItem[] = definitions.filter((item) => !existingIds.has(item.id)).map((item) => ({ ...item, result: null }));
+      const imported: QueryListItem[] = definitions.filter((item) => !existingIds.has(item.id))
+        .map((item) => ({ ...item, level: quantityLevel(item.level), result: null }));
       if (!imported.length) {
         toast.info(t("template.alreadyLoaded"));
         return;
@@ -877,161 +946,123 @@ export function QuantityQueryPanel() {
     );
   }
 
+  const search = listSearch.trim().toLocaleLowerCase();
+  const shownItems = search
+    ? queryItems.filter((item) =>
+        `${item.code ?? ""} ${item.description}`.toLocaleLowerCase().includes(search),
+      )
+    : queryItems;
+
   const readOnly = editorMode === "view";
   const hasEditor = editorMode !== "idle";
 
-  return (
+  const undoReplace = () => {
+    if (!lastReplace) return;
+    const { previous, previousId } = lastReplace;
+    setLastReplace(null);
+    setQueryItems(previous);
+    setCollapsed(new Set());
+    const restored = previous.find((item) => item.id === previousId);
+    if (restored) loadItem(restored, "view");
+    else {
+      setEditingItemId(null);
+      setEditorMode("idle");
+      setResult(null);
+    }
+  };
+  // Only while the list is still the one imported: an edit or a run makes it a
+  // new list, and undoing past that would lose the work.
+  const replaceNotice = lastReplace && lastReplace.list === queryItems && (
     <div
-      className="flex min-h-0 flex-1 max-h-[-webkit-fill-available] flex-col"
-      data-quantity-query-panel
+      role="status"
+      className="bg-muted/60 flex items-center gap-2 rounded-md px-2 py-1 text-[11px]"
+      data-query-undo-import
     >
-      <div className="flex items-center border-b p-2 text-xs font-medium justify-between">
-        <div className="flex items-center gap-1.5">
-          <Calculator className="h-3.5 w-3.5" aria-hidden />
-          {t("title")}
-          {vocabularyQueries.some((query) => query.isLoading) && (
-            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-          )}
-        </div>
-        <div className="flex flex-row gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                aria-label={t("list.new")}
-                disabled={loadingTemplate}
-                onClick={resetEditor}
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t("list.new")}</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                aria-label={t("list.runAll")}
-                disabled={queryItems.length === 0 || runningList || loadingTemplate}
-                onClick={runAll}
-              >
-                {runningList ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Play className="h-3 w-3" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t("list.runAll")}</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                aria-label={t("workbook.import")}
-                disabled={importingWorkbook || loadingTemplate}
-                onClick={() => workbookInput.current?.click()}
-              >
-                {importingWorkbook ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Upload className="h-3 w-3" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t("workbook.import")}</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                aria-label={t("workbook.download")}
-                disabled={queryItems.length === 0 || exportingWorkbook || loadingTemplate}
-                onClick={() => void downloadWorkbook()}
-              >
-                {exportingWorkbook ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Download className="h-3 w-3" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t("workbook.download")}</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
+      <span className="min-w-0 flex-1">
+        {t("workbook.replaced", { count: lastReplace.list.length, previous: lastReplace.previous.length })}
+      </span>
+      <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={undoReplace}>
+        {t("workbook.undo")}
+      </Button>
+      <Button type="button" size="icon" variant="ghost" className="h-6 w-6" aria-label={t("workbook.dismiss")}
+        onClick={() => setLastReplace(null)}>
+        <X className="h-3 w-3" />
+      </Button>
+    </div>
+  );
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-2">
-        <input
-          ref={workbookInput}
-          type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          className="hidden"
-          disabled={loadingTemplate}
-          data-quantity-workbook-input
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void importWorkbook(file);
-          }}
-        />
-        <section
-          className="shrink-0 space-y-2 rounded-lg border p-2"
-          data-query-list
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="flex items-center gap-1.5 text-xs font-semibold">
-              <ListPlus className="h-3.5 w-3.5" />
-              {t("list.title")}
-            </h3>
-            <Button type="button" size="sm" variant="outline" className="h-7 text-[11px]"
-              title={t("template.hint")} aria-label={t("template.use")}
-              disabled={!queryListLoaded || loadingTemplate || importingWorkbook || exportingWorkbook || running || runningList}
-              onClick={() => void loadDefaultTemplate()} data-quantity-template-use>
-              {loadingTemplate ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <FileSpreadsheet className="h-3 w-3" aria-hidden />}
-              {t(loadingTemplate ? "template.loading" : "template.use")}
-            </Button>
-          </div>
+  const hierarchy = quantityHierarchy(queryItems);
+  const indexById = new Map(queryItems.map((item, index) => [item.id, index]));
+  const hasHierarchy = hierarchy.some((line) => line.descendants > 0);
+  const visibleLines = visibleQuantityLines(queryItems, collapsed).map((index) => queryItems[index]);
+  const toggleCollapsed = (id: string) =>
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const collapseAll = () =>
+    setCollapsed(new Set(queryItems.filter((_, index) => hierarchy[index].descendants > 0).map((item) => item.id)));
+  const expandAll = () => setCollapsed(new Set());
 
-          {queryItems.length === 0 ? (
-            <p className="text-muted-foreground text-[10px]">
-              {t("list.empty")}
-            </p>
-          ) : (
-            <div
-              className="max-h-28 overflow-auto"
-              role="list"
-              aria-label={t("list.title")}
-            >
-              {queryItems.map((item) => (
+  /**
+   * One line of the query list. `wide` is the dialog's version: the level and
+   * the code in columns of their own and the description in full instead of
+   * truncated. Lines are indented by level; one with lines under it can fold
+   * them away, and a grouping line is a heading with no value.
+   */
+  const renderListItem = (item: (typeof queryItems)[number], wide: boolean) => {
+    const line = hierarchy[indexById.get(item.id) ?? 0];
+    const group = isGroupQuery(item.query);
+    const folded = collapsed.has(item.id);
+    return (
                 <div
                   key={item.id}
                   role="listitem"
                   aria-current={item.id === editingItemId ? "true" : undefined}
-                  className={`flex w-full items-center rounded-md border text-[11px] transition-colors ${item.id === editingItemId ? "border-primary bg-primary/10" : "hover:bg-muted/50"}`}
+                  aria-level={line.level}
+                  data-query-level={line.level}
+                  data-query-group={group ? "true" : undefined}
+                  className={`flex w-full items-center rounded-md border transition-colors ${wide ? "text-xs" : "text-[11px]"} ${item.id === editingItemId ? "border-primary bg-primary/10" : group ? "bg-muted/40 hover:bg-muted/70" : "hover:bg-muted/50"}`}
                 >
+                  {wide && (
+                    <>
+                      <span className="text-muted-foreground w-10 shrink-0 text-center tabular-nums" data-query-level-cell>
+                        {line.level}
+                      </span>
+                      {/* Level and code stay columns; only the description steps in. */}
+                      <span
+                        className="text-muted-foreground w-28 shrink-0 cursor-pointer truncate px-2 font-mono"
+                        onClick={() => loadItem(item, "view")}
+                      >
+                        {item.code || "—"}
+                      </span>
+                    </>
+                  )}
+                  {(hasHierarchy || line.level > 1) && (
+                    <>
+                      <span aria-hidden className="shrink-0" style={{ width: (line.level - 1) * (wide ? 16 : 10) }} />
+                      {line.descendants > 0 ? (
+                        <button
+                          type="button"
+                          className="hover:bg-muted flex h-5 w-5 shrink-0 items-center justify-center rounded"
+                          aria-expanded={!folded}
+                          aria-label={t(folded ? "list.expand" : "list.collapse", { description: item.description })}
+                          title={t(folded ? "list.expand" : "list.collapse", { description: item.description })}
+                          onClick={() => toggleCollapsed(item.id)}
+                          data-query-toggle
+                        >
+                          {folded ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </button>
+                      ) : (
+                        <span aria-hidden className="w-5 shrink-0" />
+                      )}
+                    </>
+                  )}
                   <button
                     type="button"
-                    className="flex min-w-0 flex-1 items-center justify-between gap-2 px-1 py-0.5 text-left"
+                    className={`flex min-w-0 flex-1 items-center justify-between gap-2 text-left ${wide ? "px-2 py-1.5" : "px-1 py-0.5"}`}
                     aria-label={t("list.viewItem", {
                       description: item.description,
                     })}
@@ -1039,16 +1070,26 @@ export function QuantityQueryPanel() {
                     title={item.code ? `${item.code} · ${item.description}` : item.description}
                     onClick={() => loadItem(item, "view")}
                   >
-                    <span className="min-w-0 truncate font-medium">
-                      {item.code && (
-                        <span className="text-muted-foreground mr-1.5 font-mono">
-                          {item.code}
-                        </span>
-                      )}
-                      {item.description}
-                    </span>
+                    {wide ? (
+                      <span className={`min-w-0 flex-1 break-words whitespace-normal ${group ? "font-semibold" : "font-medium"}`}>
+                        {item.description}
+                      </span>
+                    ) : (
+                      <span className={`min-w-0 truncate ${group ? "font-semibold" : "font-medium"}`}>
+                        {item.code && (
+                          <span className="text-muted-foreground mr-1.5 font-mono">
+                            {item.code}
+                          </span>
+                        )}
+                        {item.description}
+                      </span>
+                    )}
                     <span className="text-muted-foreground shrink-0 tabular-nums">
-                      {item.result
+                      {group
+                        ? folded
+                          ? t("list.groupLines", { count: line.descendants })
+                          : ""
+                        : item.result
                         ? item.result.total !== null
                           ? `${displayValue(item.result.total, decimalPlaces)} ${item.query.unit ?? ""}`
                           : t("list.matchCount", {
@@ -1117,12 +1158,30 @@ export function QuantityQueryPanel() {
                     </Tooltip>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+    );
+  };
+
+  // The selected line's code and description — editable, or shown.
+  const metadataBlock = (
+    <>
           {(editorMode === "new" || editorMode === "edit") && (
             <div className="space-y-1 border-t pt-2" data-query-metadata-editor>
-              <div className="grid grid-cols-[minmax(5rem,0.7fr)_minmax(0,1.3fr)] gap-1.5">
+              <div className="grid grid-cols-[3.25rem_minmax(5rem,0.7fr)_minmax(0,1.3fr)] gap-1.5">
+                <div className="space-y-1">
+                  <Label htmlFor="quantity-query-level" className="text-[11px]">
+                    {t("list.level")}
+                  </Label>
+                  <Input
+                    id="quantity-query-level"
+                    type="number"
+                    min={1}
+                    max={MAX_QUANTITY_LEVEL}
+                    step={1}
+                    value={queryLevel}
+                    onChange={(event) => setQueryLevel(quantityLevel(event.target.value))}
+                    className="h-8 min-w-0 px-2 text-xs tabular-nums"
+                  />
+                </div>
                 <div className="space-y-1">
                   <Label htmlFor="quantity-query-code" className="text-[11px]">
                     {t("list.code")}
@@ -1151,6 +1210,19 @@ export function QuantityQueryPanel() {
                   />
                 </div>
               </div>
+              <label className="flex items-start gap-2 py-1 text-[11px]">
+                <input
+                  type="checkbox"
+                  className="accent-primary mt-0.5"
+                  checked={queryIsGroup}
+                  onChange={(event) => setQueryIsGroup(event.target.checked)}
+                  data-query-group-toggle
+                />
+                <span>
+                  {t("group.toggle")}
+                  <span className="text-muted-foreground block text-[10px]">{t("group.toggleHint")}</span>
+                </span>
+              </label>
               <div className="flex gap-1.5">
                 <Button
                   type="button"
@@ -1166,9 +1238,15 @@ export function QuantityQueryPanel() {
           )}
           {editorMode === "view" && editingItemId && (
             <div
-              className="grid grid-cols-[minmax(5rem,0.7fr)_minmax(0,1.3fr)] gap-1.5 border-t pt-2 text-[11px]"
+              className="grid grid-cols-[3.25rem_minmax(5rem,0.7fr)_minmax(0,1.3fr)] gap-1.5 border-t pt-2 text-[11px]"
               data-query-metadata-view
             >
+              <div className="min-w-0">
+                <p className="text-muted-foreground text-[10px]">
+                  {t("list.level")}
+                </p>
+                <p className="tabular-nums">{queryLevel}</p>
+              </div>
               <div className="min-w-0">
                 <p className="text-muted-foreground text-[10px]">
                   {t("list.code")}
@@ -1187,8 +1265,12 @@ export function QuantityQueryPanel() {
               </div>
             </div>
           )}
-        </section>
+    </>
+  );
 
+  // The selected line's filters, values and results, and the button that runs it.
+  const editorBlock = (
+    <>
         {error && (
           <p
             role="alert"
@@ -1198,7 +1280,14 @@ export function QuantityQueryPanel() {
           </p>
         )}
 
-        {hasEditor ? (
+        {hasEditor && queryIsGroup ? (
+          <p
+            className="text-muted-foreground flex min-h-0 flex-1 items-center justify-center rounded-lg border border-dashed p-4 text-center text-[11px]"
+            data-query-group-note
+          >
+            {t("group.note")}
+          </p>
+        ) : hasEditor ? (
           <>
             <Tabs
               value={editorTab}
@@ -1802,7 +1891,302 @@ export function QuantityQueryPanel() {
             {t("list.selectHint")}
           </p>
         )}
+    </>
+  );
+
+  return (
+    <div
+      className="flex min-h-0 flex-1 max-h-[-webkit-fill-available] flex-col"
+      data-quantity-query-panel
+    >
+      <div className="flex items-center border-b p-2 text-xs font-medium justify-between">
+        <div className="flex items-center gap-1.5">
+          <Calculator className="h-3.5 w-3.5" aria-hidden />
+          {t("title")}
+          {vocabularyQueries.some((query) => query.isLoading) && (
+            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          )}
+        </div>
+        <div className="flex flex-row gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                aria-label={t("list.new")}
+                disabled={loadingTemplate}
+                onClick={resetEditor}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("list.new")}</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                aria-label={t("list.runAll")}
+                disabled={queryItems.length === 0 || runningList || loadingTemplate}
+                onClick={runAll}
+              >
+                {runningList ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Play className="h-3 w-3" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("list.runAll")}</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                aria-label={t("workbook.import")}
+                disabled={importingWorkbook || loadingTemplate}
+                onClick={() => workbookInput.current?.click()}
+              >
+                {importingWorkbook ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Upload className="h-3 w-3" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("workbook.import")}</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                aria-label={t("workbook.download")}
+                disabled={queryItems.length === 0 || exportingWorkbook || loadingTemplate}
+                onClick={() => void downloadWorkbook()}
+              >
+                {exportingWorkbook ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Download className="h-3 w-3" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("workbook.download")}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-2">
+        <input
+          ref={workbookInput}
+          type="file"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          className="hidden"
+          disabled={loadingTemplate}
+          data-quantity-workbook-input
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void importWorkbook(file);
+          }}
+        />
+        <section
+          className="shrink-0 space-y-2 rounded-lg border p-2"
+          data-query-list
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold">
+              <ListPlus className="h-3.5 w-3.5" />
+              {t("list.title")}
+            </h3>
+            <div className="flex items-center gap-1">
+            {hasHierarchy && (
+              <>
+                <Button type="button" size="icon" variant="ghost" className="h-7 w-7"
+                  aria-label={t("list.collapseAll")} title={t("list.collapseAll")} onClick={collapseAll}>
+                  <ChevronsDownUp className="h-3 w-3" />
+                </Button>
+                <Button type="button" size="icon" variant="ghost" className="h-7 w-7"
+                  aria-label={t("list.expandAll")} title={t("list.expandAll")} onClick={expandAll}>
+                  <ChevronsUpDown className="h-3 w-3" />
+                </Button>
+              </>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="h-7 w-7"
+                  aria-label={t("dialog.open")}
+                  onClick={() => setListDialogOpen(true)}
+                  data-query-list-expand
+                >
+                  <Maximize2 className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t("dialog.open")}</p>
+              </TooltipContent>
+            </Tooltip>
+            <Button type="button" size="sm" variant="outline" className="h-7 text-[11px]"
+              title={t("template.hint")} aria-label={t("template.use")}
+              disabled={!queryListLoaded || loadingTemplate || importingWorkbook || exportingWorkbook || running || runningList}
+              onClick={() => void loadDefaultTemplate()} data-quantity-template-use>
+              {loadingTemplate ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <FileSpreadsheet className="h-3 w-3" aria-hidden />}
+              {t(loadingTemplate ? "template.loading" : "template.use")}
+            </Button>
+            </div>
+          </div>
+          {!listDialogOpen && replaceNotice}
+
+          {queryItems.length === 0 ? (
+            <p className="text-muted-foreground text-[10px]">
+              {t("list.empty")}
+            </p>
+          ) : (
+            <div
+              className="max-h-28 overflow-auto"
+              role="list"
+              aria-label={t("list.title")}
+            >
+              {visibleLines.map((item) => renderListItem(item, false))}
+            </div>
+          )}
+          {!listDialogOpen && metadataBlock}
+        </section>
+
+        {listDialogOpen ? (
+          <p className="text-muted-foreground flex min-h-0 flex-1 items-center justify-center rounded-lg border p-4 text-center text-[11px]">
+            {t("dialog.editingThere")}
+          </p>
+        ) : (
+          editorBlock
+        )}
+      </div>
+
+      <Dialog open={listDialogOpen} onOpenChange={setListDialogOpen}>
+        <DialogContent
+          // Full width: the dialog primitive caps itself at sm:max-w-lg, so the cap
+          // is overridden at that breakpoint too, or it stays 512 px wide.
+          className="flex h-[85vh] max-h-[95vh] w-full max-w-[calc(100%-2rem)] flex-col gap-3 p-4 sm:max-w-[calc(100%-2rem)]"
+          data-query-list-dialog
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-1.5 text-base">
+              <Calculator className="h-4 w-4" aria-hidden />
+              {t("dialog.title")}
+            </DialogTitle>
+            <DialogDescription>{t("dialog.hint")}</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={listSearch}
+              onChange={(event) => setListSearch(event.target.value)}
+              placeholder={t("dialog.search")}
+              aria-label={t("dialog.search")}
+              className="h-8 max-w-xs text-xs"
+            />
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {t("dialog.count", { shown: shownItems.length, total: queryItems.length })}
+            </span>
+            <div className="ml-auto flex gap-1.5">
+              {hasHierarchy && (
+                <>
+                  <Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={collapseAll}>
+                    <ChevronsDownUp className="h-3.5 w-3.5" />
+                    {t("list.collapseAll")}
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={expandAll}>
+                    <ChevronsUpDown className="h-3.5 w-3.5" />
+                    {t("list.expandAll")}
+                  </Button>
+                </>
+              )}
+              <Button type="button" size="sm" variant="outline" className="h-8 text-xs"
+                disabled={loadingTemplate} onClick={resetEditor}>
+                <Plus className="h-3.5 w-3.5" />
+                {t("list.new")}
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-8 text-xs"
+                disabled={queryItems.length === 0 || runningList || loadingTemplate} onClick={runAll}>
+                {runningList ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                {t("list.runAll")}
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-8 text-xs"
+                title={t("workbook.import")} aria-label={t("workbook.import")}
+                disabled={importingWorkbook || loadingTemplate}
+                onClick={() => workbookInput.current?.click()} data-query-dialog-import>
+                {importingWorkbook ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {t("dialog.import")}
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-8 text-xs"
+                title={t("workbook.download")} aria-label={t("workbook.download")}
+                disabled={queryItems.length === 0 || exportingWorkbook || loadingTemplate}
+                onClick={() => void downloadWorkbook()} data-query-dialog-download>
+                {exportingWorkbook ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                {t("dialog.download")}
+              </Button>
+            </div>
+          </div>
+          {replaceNotice}
+
+          <div className="flex flex-row min-h-0 flex-1 gap-3">
+            <div
+              className="min-h-0 space-y-1 grow overflow-auto rounded-lg border p-2"
+              role="list"
+              aria-label={t("list.title")}
+              data-query-list-dialog-items
+            >
+              {queryItems.length > 0 && (
+                <div className="text-muted-foreground flex items-center px-px pb-1 text-[11px] font-medium" aria-hidden>
+                  <span className="w-10 shrink-0 text-center">{t("list.level")}</span>
+                  <span className="w-28 shrink-0 px-2">{t("list.code")}</span>
+                  {hasHierarchy && <span className="w-5 shrink-0" />}
+                  <span className="flex-1 px-2">{t("list.description")}</span>
+                  <span className="pr-24">{t("dialog.value")}</span>
+                </div>
+              )}
+              {queryItems.length === 0 ? (
+                <p className="text-muted-foreground p-2 text-xs">{t("list.empty")}</p>
+              ) : shownItems.length === 0 ? (
+                <p className="text-muted-foreground p-2 text-xs">{t("dialog.noMatch")}</p>
+              ) : (
+                // A search shows every match, folded or not.
+                (search ? shownItems : visibleLines).map((item) => renderListItem(item, true))
+              )}
+            </div>
+            <aside
+              className="flex min-h-0 flex-col max-w-[30%] gap-2 overflow-auto rounded-lg border p-2"
+              aria-label={t("dialog.selected")}
+              data-query-list-dialog-editor
+            >
+              {metadataBlock}
+              {editorBlock}
+            </aside>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

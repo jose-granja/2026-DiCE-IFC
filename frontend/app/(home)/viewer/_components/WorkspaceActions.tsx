@@ -104,7 +104,7 @@ export function WorkspaceActions() {
         data-workspace-save
       >
         <Save className="h-4 w-4" />
-        {t("save")}
+        <span className="sr-only lg:not-sr-only">{t("save")}</span>
       </Button>
       <Button
         variant="ghost"
@@ -115,7 +115,7 @@ export function WorkspaceActions() {
         data-workspace-restore
       >
         <RotateCcw className="h-4 w-4" />
-        {t("restore")}
+        <span className="sr-only lg:not-sr-only">{t("restore")}</span>
       </Button>
       {loader.dialog}
     </div>

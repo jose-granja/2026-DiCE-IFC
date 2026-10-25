@@ -323,6 +323,7 @@ export async function restoreProject(
       quantities = readQuantityWorkbook(new Uint8Array(await plan.quantities.arrayBuffer())).map(
         (definition, index) => ({
           id: restoredId("quantity", index),
+          level: definition.level,
           code: definition.code,
           description: definition.description,
           query: definition.query,

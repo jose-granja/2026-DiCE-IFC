@@ -2,8 +2,10 @@
 
 import { describe, expect, it } from "vitest";
 
+import { groupQuery, isGroupQuery } from "../quantity-hierarchy";
 import {
   createQuantityWorkbook,
+  namedWorkbookSheets,
   parseQuantityConfigurationRows,
   readQuantityWorkbook,
 } from "../quantity-workbook";
@@ -18,7 +20,10 @@ describe("quantity workbook", () => {
       ["14.04.01", "EQUIPAMENTOS FIXOS", "IfcFurniture", "USERDEFINED", "STONE FURNITURE", "", "Pset_FurnitureTypeCommon.IsBuiltIn = TRUE", "(element count)", "un"],
     ]);
 
-    expect(definitions).toHaveLength(2);
+    // The chapter heading — no filter, no quantity — is a grouping line.
+    expect(definitions).toHaveLength(3);
+    expect(definitions[0]).toMatchObject({ level: 1, code: "13", description: "ALVENARIAS", query: { sources: [] } });
+    definitions.shift();
     expect(definitions[0]).toMatchObject({
       code: "13.01.01",
       description: "PAREDES",
@@ -258,7 +263,7 @@ describe("the workbook as a project's quantity list", () => {
       unit: query.unit || undefined,
     });
     expect(back.map((definition) => ({ ...definition, query: tidy(definition.query) }))).toEqual(
-      definitions.map((definition) => ({ ...definition, query: tidy(definition.query) })),
+      definitions.map((definition) => ({ level: 1, ...definition, query: tidy(definition.query) })),
     );
   });
 
@@ -269,5 +274,53 @@ describe("the workbook as a project's quantity list", () => {
     ]);
     expect(definition.query.filters.classes).toEqual(["IfcWall", "IfcSlab"]);
     expect(definition.query.filters.materials).toEqual(["MASONRY", "CONCRETE", "/^Steel S\\d+,\\d$/"]);
+  });
+});
+
+describe("the workbook's hierarchy", () => {
+  const walls = {
+    filters: { classes: ["IfcWall"], predefinedTypes: [], objectTypes: [], materials: [], properties: [] },
+    sources: [{ id: "a", alias: "area", kind: "quantity" as const, setName: "Qto_WallBaseQuantities", valueName: "NetSideArea" }],
+    unit: "m²",
+  };
+
+  it("writes each line's level and keeps grouping lines as headings, then reads both back", () => {
+    const written = [
+      { level: 1, code: "13", description: "ALVENARIAS", query: groupQuery(), result: null },
+      { level: 2, code: "13.01", description: "Paredes", query: groupQuery(), result: null },
+      { level: 3, code: "13.01.01", description: "Paredes exteriores", query: walls, result: null },
+    ];
+    const bytes = createQuantityWorkbook(written);
+    const [summary] = namedWorkbookSheets(bytes);
+    expect(summary.rows[0][0]).toBe("Level");
+    // A heading row is its level, code and description, and nothing else.
+    expect(summary.rows[1].slice(0, 3)).toEqual(["1", "13", "ALVENARIAS"]);
+    expect(summary.rows[1].slice(3).every((value) => value === "")).toBe(true);
+
+    const back = readQuantityWorkbook(bytes);
+    expect(back.map(({ level, code }) => [level, code])).toEqual([[1, "13"], [2, "13.01"], [3, "13.01.01"]]);
+    expect(isGroupQuery(back[0].query)).toBe(true);
+    expect(isGroupQuery(back[2].query)).toBe(false);
+  });
+
+  it("reads a level column by its Portuguese name, and keeps out rows that only filter or only annotate", () => {
+    const definitions = parseQuantityConfigurationRows([
+      ["Nível", "Código", "Descrição", "IfcClass", "Quantidade"],
+      ["1", "13", "ALVENARIAS", "", ""],
+      ["2", "13.01", "Paredes", "IfcWall", "(element count)"],
+      ["", "13.02", "Filtra mas não mede", "IfcSlab", ""],
+      ["", "Nota: valores sem IVA", "", "", ""],
+      ["12", "13.03", "Nível acima do máximo", "", ""],
+    ]);
+    expect(definitions.map(({ level, code }) => [level, code])).toEqual([[1, "13"], [2, "13.01"], [9, "13.03"]]);
+  });
+
+  it("does not take a sheet of headings alone for a quantity table", () => {
+    expect(() =>
+      parseQuantityConfigurationRows([
+        ["Code", "Description", "Quantity"],
+        ["1", "Índice", ""],
+      ]),
+    ).toThrow();
   });
 });

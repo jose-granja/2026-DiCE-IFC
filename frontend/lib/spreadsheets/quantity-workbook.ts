@@ -7,7 +7,11 @@ import type {
   QuantityQueryRow,
 } from "@/lib/ifc/types";
 
+import { groupQuery, isGroupQuery, quantityLevel } from "./quantity-hierarchy";
+
 export type QuantityWorkbookDefinition = {
+  /** Hierarchy level, 1 at the top (`quantity-hierarchy.ts`). Absent reads as 1. */
+  level?: number;
   code: string;
   description: string;
   query: QuantityQuery;
@@ -27,6 +31,7 @@ export type QuantityWorkbookItem = QuantityWorkbookDefinition & {
 type CellValue = string | number | null | undefined;
 
 const SUMMARY_HEADERS = [
+  "Level",
   "Code",
   "Description",
   "IfcClass",
@@ -130,6 +135,7 @@ function normalizeHeader(value: string): string {
 }
 
 const HEADER_ALIASES: Record<string, string[]> = {
+  level: ["level", "hierarchylevel", "nivel", "nivelhierarquico"],
   code: ["code", "codigo", "wbs"],
   description: ["description", "descricao"],
   classes: ["ifcclass", "classifc", "classeifc"],
@@ -260,17 +266,30 @@ export function parseQuantityConfigurationRows(rows: string[][]): QuantityWorkbo
   const definitions: QuantityWorkbookDefinition[] = [];
   for (const [rowOffset, row] of rows.slice(headerIndex + 1).entries()) {
     const sources = parseSources(rawCell(row, headers, "quantities"));
-    // Chapter headings and unmapped rows from the reference table have no
-    // measurable source. Keeping them would accidentally count every model
-    // element when the list is executed.
-    if (sources.length === 0) continue;
+    const code = cell(row, headers, "code");
+    const level = quantityLevel(cell(row, headers, "level") || 1);
+    if (sources.length === 0) {
+      // A heading — a chapter with a description, no filter and no quantity —
+      // is a grouping line. Notes under a table (text in the code column and
+      // no description) are not, and neither is a row that filters but
+      // measures nothing: kept, it would run as "every matching element".
+      const description = cell(row, headers, "description");
+      const filtered = (["classes", "predefinedTypes", "objectTypes", "materials", "materialCategories",
+        "classificationSystem", "classificationCodes", "properties"] as const)
+        .some((name) => cell(row, headers, name) !== "");
+      if (!filtered && description) {
+        definitions.push({ level, code, description, query: groupQuery() });
+      }
+      continue;
+    }
     const explicitFormula = cell(row, headers, "formula").replace(/^=/, "").trim();
     const formula = explicitFormula ||
       (sources.length > 1 ? sources.map((source) => source.alias).join(" + ") : undefined);
     const properties = parseProperties(rawCell(row, headers, "properties"));
     const rule = normalizeHeader(cell(row, headers, "propertyRule"));
     definitions.push({
-      code: cell(row, headers, "code"),
+      level,
+      code,
       description: cell(row, headers, "description") || `Quantity ${rowOffset + 1}`,
       query: {
         filters: {
@@ -295,7 +314,8 @@ export function parseQuantityConfigurationRows(rows: string[][]): QuantityWorkbo
       },
     });
   }
-  if (definitions.length === 0) {
+  // Headings alone are not a quantity table — a cover or an index sheet.
+  if (!definitions.some((definition) => !isGroupQuery(definition.query))) {
     throw new Error("The workbook contains no rows with a usable Quantity value.");
   }
   return definitions;
@@ -522,7 +542,10 @@ export function createQuantityWorkbook(items: QuantityWorkbookItem[]): Uint8Arra
   const summaryRows: CellValue[][] = [Array.from(SUMMARY_HEADERS)];
   const detailRows: CellValue[][] = [Array.from(DETAIL_HEADERS)];
   for (const item of items) {
+    // A grouping line is its level, code and description and nothing else.
+    const group = isGroupQuery(item.query);
     summaryRows.push([
+      quantityLevel(item.level),
       item.code,
       item.description,
       joinListCell(item.query.filters.classes),
@@ -533,7 +556,7 @@ export function createQuantityWorkbook(items: QuantityWorkbookItem[]): Uint8Arra
       item.query.filters.classificationSystem ?? "",
       joinListCell(item.query.filters.classificationCodes ?? []),
       propertyText(item.query),
-      item.query.filters.propertyCombination === "any" ? "ANY" : "ALL",
+      group ? "" : item.query.filters.propertyCombination === "any" ? "ANY" : "ALL",
       quantityText(item.query),
       item.query.formula ?? "",
       item.query.unit ?? "",
@@ -561,7 +584,7 @@ export function createQuantityWorkbook(items: QuantityWorkbookItem[]): Uint8Arra
   }
 
   return buildWorkbook([
-    { name: "Quantities", rows: summaryRows, widths: [14, 34, 18, 18, 24, 18, 18, 22, 22, 36, 14, 36, 22, 10, 14, 16, 14] },
+    { name: "Quantities", rows: summaryRows, widths: [8, 14, 34, 18, 18, 24, 18, 18, 22, 22, 36, 14, 36, 22, 10, 14, 16, 14] },
     { name: "Elements", rows: detailRows, widths: [14, 34, 24, 12, 24, 18, 28, 18, 22, 24, 34, 14, 10] },
   ]);
 }

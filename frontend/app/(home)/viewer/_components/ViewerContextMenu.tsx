@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { EyeOff, Layers, Shapes } from "lucide-react";
+import { Eye, EyeOff, Filter, Layers, Shapes } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -19,8 +19,8 @@ export type ViewerContextMenuState = {
   /** Where the pointer was, in viewport pixels. */
   x: number;
   y: number;
-  /** The element that was right-clicked. */
-  target: EntityRef;
+  /** The IFC element that was right-clicked, or null for the background. */
+  target: EntityRef | null;
 } | null;
 
 /**
@@ -34,7 +34,8 @@ export type ViewerContextMenuState = {
  *
  * It acts on what was clicked: the click has already made that element the
  * selection (or kept the selection it was part of), so "Hide selected" means
- * exactly what the user sees highlighted.
+ * exactly what the user sees highlighted. The background only offers Show all,
+ * even when a selection from an earlier click is still active.
  */
 export function ViewerContextMenu({
   state,
@@ -50,11 +51,12 @@ export function ViewerContextMenu({
 
   if (!state) return null;
 
-  const type = typeByRef.get(refKey(state.target));
-  const tree = models.find((m) => m.summary.id === state.target.modelId)?.spatialTree ?? null;
-  const floor = sameStoreyRefs(state.target, tree, typeByRef, (ref) =>
+  const target = state.target;
+  const type = target ? typeByRef.get(refKey(target)) : undefined;
+  const tree = models.find((m) => m.summary.id === target?.modelId)?.spatialTree ?? null;
+  const floor = target ? sameStoreyRefs(target, tree, typeByRef, (ref) =>
     useViewerStore.getState().isVisible(ref),
-  );
+  ) : null;
 
   const hideSelected = () => {
     const { selection, hide, clearSelection } = useViewerStore.getState();
@@ -64,9 +66,15 @@ export function ViewerContextMenu({
     clearSelection();
   };
 
+  const isolateSelected = () => {
+    const { selection, isolate } = useViewerStore.getState();
+    isolate(selection);
+  };
+
   const selectSameClass = () => {
+    if (!target) return;
     const store = useViewerStore.getState();
-    const refs = sameClassRefs(state.target, store.entityTypeByRef, store.isVisible);
+    const refs = sameClassRefs(target, store.entityTypeByRef, store.isVisible);
     store.select(refs, "replace");
     toast.success(t("selectedClass", { count: refs.length, type: type ?? "" }));
   };
@@ -87,20 +95,32 @@ export function ViewerContextMenu({
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="bottom" data-viewer-context-menu className="min-w-56">
-        {type && <DropdownMenuLabel className="text-xs">{type}</DropdownMenuLabel>}
-        <DropdownMenuItem disabled={selectionCount === 0} onSelect={hideSelected}>
-          <EyeOff />
-          {t("hideSelected")}
+        {target && <>
+          {type && <DropdownMenuLabel className="text-xs">{type}</DropdownMenuLabel>}
+          <DropdownMenuItem disabled={selectionCount === 0} onSelect={hideSelected}>
+            <EyeOff />
+            {t("hideSelected")}
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={selectionCount === 0} onSelect={isolateSelected}>
+            <Filter />
+            {t("isolateSelected")}
+          </DropdownMenuItem>
+        </>}
+        <DropdownMenuItem onSelect={() => useViewerStore.getState().resetVisibility()}>
+          <Eye />
+          {t("showAll")}
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={!type} onSelect={selectSameClass}>
-          <Shapes />
-          {type ? t("selectSameClass", { type }) : t("selectSameClassUnknown")}
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={!floor} onSelect={selectSameFloor}>
-          <Layers />
-          {floor ? t("selectSameFloor") : t("noFloor")}
-        </DropdownMenuItem>
+        {target && <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={!type} onSelect={selectSameClass}>
+            <Shapes />
+            {type ? t("selectSameClass", { type }) : t("selectSameClassUnknown")}
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={!floor} onSelect={selectSameFloor}>
+            <Layers />
+            {floor ? t("selectSameFloor") : t("noFloor")}
+          </DropdownMenuItem>
+        </>}
       </DropdownMenuContent>
     </DropdownMenu>
   );

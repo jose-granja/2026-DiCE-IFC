@@ -51,9 +51,9 @@ export function TypeVisibilitySettings() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label={t("buttonAriaLabel")}>
+        <Button variant="ghost" size="sm" aria-label={t("buttonAriaLabel")} title={t("buttonAriaLabel")}>
           <Settings2 className="h-4 w-4" aria-hidden />
-          {t("button")}
+          <span className="sr-only lg:not-sr-only">{t("button")}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">

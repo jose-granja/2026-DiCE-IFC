@@ -11,7 +11,9 @@ describe("bundled MQT template", () => {
   it("imports through the ordinary Excel reader and has bounded, runnable definitions", () => {
     const ordinary = readQuantityWorkbook(bytes);
     const template = readDefaultQuantityTemplate(bytes, "en");
-    expect(template.map(({ code, description, query }) => ({ code, description, query }))).toEqual(ordinary);
+    expect(template.map(({ level, code, description, query }) => ({ level, code, description, query }))).toEqual(ordinary);
+    // A flat list: the template has no chapters.
+    expect(new Set(template.map((item) => item.level))).toEqual(new Set([1]));
     expect(template).toHaveLength(12);
     expect(new Set(template.map((item) => item.id)).size).toBe(template.length);
     for (const item of template) {
