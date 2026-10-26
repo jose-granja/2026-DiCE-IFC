@@ -36,6 +36,7 @@ import {
 } from "@ifc-lite/parser";
 import {
   IfcTypeEnum,
+  RelationshipType,
   type IfcAttributeValue,
   type SpatialNode,
 } from "@ifc-lite/data";
@@ -169,6 +170,82 @@ function mint(name: string): ModelId {
   nextModelSeq += 1;
   // Deterministic and readable in logs; uniqueness only has to hold per session.
   return `m${nextModelSeq}:${name}`;
+}
+
+const placedCache = new WeakMap<IfcDataStore, Set<number>>();
+
+/**
+ * The product occurrences a filter, a quantity, a lens or a clash group may pick:
+ * what the model places in its spatial structure.
+ *
+ * Mostly that is containment — a wall in a storey — plus spaces, which are
+ * spatial nodes themselves. But IFC 4.3 places some products another way: an
+ * `IfcAlignment` is aggregated under the project and only *referenced* in the
+ * site (`IfcRelReferencedInSpatialStructure`), never contained. And a part is
+ * placed through its whole: a bridge pier is an `IfcElementAssembly` contained
+ * in an `IfcBridgePart`, and its column, footing and piles are only aggregated
+ * into the assembly. Counting containment alone left all of those unselectable
+ * — in the class list, and as a clash group that selected nothing (Viadotto
+ * Acerno: every column, footing and pile). So also:
+ *
+ *   - anything referenced in a spatial element,
+ *   - non-spatial products aggregated under the project, and
+ *   - the parts (aggregated or nested) of anything placed, at any depth.
+ *
+ * Type objects stay out (none is placed), so `IfcWall*` does not also pick
+ * `IfcWallType`; so do the site, building and storeys themselves. Empty when the
+ * file has no spatial structure at all: callers then fall back to every entity,
+ * because a filter over nothing is worse than a filter over too much. Cached per
+ * store — relationships do not change while a model is open.
+ */
+function placedProducts(store: IfcDataStore): Set<number> {
+  const cached = placedCache.get(store);
+  if (cached) return cached;
+  const placed = new Set<number>();
+  const hierarchy = store.spatialHierarchy;
+  if (hierarchy) {
+    // Through `toSpatialNodeView`, the same conversion `getSpatialTree`
+    // uses. Reading `store.spatialHierarchy` raw was once the mistake: its
+    // shape is the engine's, not the view's, so a walk silently found nothing.
+    const project = toSpatialNodeView(hierarchy.project);
+    const spatial = new Set<number>();
+    const walk = (node: SpatialNodeView) => {
+      spatial.add(node.expressId);
+      if (node.type === "IfcSpace") placed.add(node.expressId);
+      for (const id of node.elementIds) placed.add(id);
+      for (const child of node.children) walk(child);
+    };
+    walk(project);
+
+    const graph = store.relationships;
+    if (graph) {
+      for (const id of spatial) {
+        for (const element of graph.getRelated(id, RelationshipType.ReferencedInSpatialStructure, "forward")) {
+          placed.add(element);
+        }
+      }
+      // Wholes first — everything placed so far, and the project's own
+      // products — then their parts, and the parts' parts. `Aggregates` also
+      // records `IfcRelNests`. Spatial elements are never parts here: a storey
+      // aggregated into a building is structure, not something to pick.
+      const queue = [
+        ...placed,
+        ...graph.getRelated(project.expressId, RelationshipType.Aggregates, "forward").filter((id) => !spatial.has(id)),
+      ];
+      const expanded = new Set<number>();
+      while (queue.length > 0) {
+        const id = queue.pop()!;
+        if (expanded.has(id)) continue;
+        expanded.add(id);
+        placed.add(id);
+        for (const part of graph.getRelated(id, RelationshipType.Aggregates, "forward")) {
+          if (!spatial.has(part) && !expanded.has(part)) queue.push(part);
+        }
+      }
+    }
+  }
+  placedCache.set(store, placed);
+  return placed;
 }
 
 function must(modelId: ModelId): LoadedModel {
@@ -936,24 +1013,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
       Falls back to every entity when a file has no spatial hierarchy at all,
       because a filter over nothing is worse than a filter over too much.
     */
-    const placed = new Set<number>();
-    const hierarchy = store.spatialHierarchy;
-    if (hierarchy) {
-      // Through `toSpatialNodeView`, the same conversion `getSpatialTree`
-      // uses. Reading `store.spatialHierarchy` raw was the mistake: its shape
-      // is the engine's, not the view's, so the walk silently found nothing
-      // and every entity in the file — units, directions, placements — ended
-      // up offered as a filter.
-      const walk = (node: SpatialNodeView) => {
-        // Spaces are spatial nodes themselves, rather than entries in their
-        // own `elementIds`. Include the node so IfcSpace appears under Class
-        // and can be combined with hierarchy, type, material and group facets.
-        if (node.type === "IfcSpace") placed.add(node.expressId);
-        for (const id of node.elementIds) placed.add(id);
-        for (const child of node.children) walk(child);
-      };
-      walk(toSpatialNodeView(hierarchy.project));
-    }
+    const placed = placedProducts(store);
 
     const isOccurrence = (expressId: number) =>
       placed.size === 0 || placed.has(expressId);
@@ -1078,15 +1138,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
       if (tree) walk(tree);
     } else {
       // Per placed occurrence, as the filter facets are.
-      const placed = new Set<number>();
-      if (tree) {
-        const walk = (node: SpatialNodeView) => {
-          if (node.type === "IfcSpace") placed.add(node.expressId);
-          for (const id of node.elementIds) placed.add(id);
-          for (const child of node.children) walk(child);
-        };
-        walk(tree);
-      }
+      const placed = placedProducts(store);
       const occurrences: number[] = [];
       for (const ids of store.entityIndex.byType.values()) {
         for (const id of ids) if (placed.size === 0 || placed.has(id)) occurrences.push(id);
@@ -1149,17 +1201,8 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
     if (isEmptyElementFilter(filter)) return [];
     const compiled = compileElementFilter(filter);
 
-    // Product occurrences only: the spatial hierarchy is the model's own
-    // declaration of them (and it includes IfcSpace nodes).
-    const placed = new Set<number>();
-    if (store.spatialHierarchy) {
-      const walk = (node: SpatialNodeView) => {
-        if (node.type === "IfcSpace") placed.add(node.expressId);
-        for (const id of node.elementIds) placed.add(id);
-        for (const child of node.children) walk(child);
-      };
-      walk(toSpatialNodeView(store.spatialHierarchy.project));
-    }
+    // Product occurrences only (`placedProducts`), alignments included.
+    const placed = placedProducts(store);
 
     const needsPredefinedType = compiled.predefinedTypes.length > 0;
     const needsMaterials =
@@ -1257,17 +1300,8 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
     }
     const calculate = formula ? compileQuantityExpression(formula) : null;
 
-    // Query only product occurrences. The spatial hierarchy is the model's
-    // own declaration of those occurrences and also includes IfcSpace nodes.
-    const placed = new Set<number>();
-    if (store.spatialHierarchy) {
-      const walk = (node: SpatialNodeView) => {
-        if (node.type === "IfcSpace") placed.add(node.expressId);
-        for (const id of node.elementIds) placed.add(id);
-        for (const child of node.children) walk(child);
-      };
-      walk(toSpatialNodeView(store.spatialHierarchy.project));
-    }
+    // Query only product occurrences (`placedProducts`), alignments included.
+    const placed = placedProducts(store);
 
     // Each entry is fixed text or a `/regex/` (see `text-match.ts`). A bad
     // pattern throws here, before any entity is read, with a message that says

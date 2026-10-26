@@ -311,3 +311,33 @@ test("opens the groups and the matrix in a large window, edits a group there and
   await expect(page.locator("[data-clash-item]")).toHaveCount(2);
   await expect(page.getByText(/Walls × Ventilation ducts/)).toBeVisible();
 });
+
+test("a group can pick an IFC 4.3 alignment, which the model places by aggregation, not containment", async ({
+  page,
+}) => {
+  const alignment = {
+    groups: [
+      { id: "g-alignment", name: "Alignment", filter: { ...empty, classes: ["IfcAlignment"] } },
+      { id: "g-girder", name: "Girder", filter: { ...empty, classes: ["IfcBeam"] } },
+    ],
+    tolerances: [{ id: "t-near", name: "Near 100 m", mode: "clearance", horizontal: 0, vertical: 0, clearance: 100 }],
+    rules: [{ a: "g-alignment", b: "g-girder", toleranceId: "t-near" }],
+    settings: { checkOverlap: true, checkInside: true, checkDuplicate: true, ignoreSameModel: false, maxClashes: 100 },
+  };
+  await page.addInitScript((matrix) => {
+    window.localStorage.setItem("dice-ifc.clash-matrix.v1", JSON.stringify(matrix));
+  }, alignment);
+  await page.goto("/viewer?panel=clash");
+  await page.setInputFiles('input[type="file"]', [
+    path.resolve(__dirname, "../fixtures/ifc/alignment-referenced-ifc4x3.ifc"),
+  ]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect(page.getByText(/\d+ clash(es)? in/)).toBeVisible({ timeout: 60_000 });
+  // The alignment was selected — and had geometry to test — rather than leaving its group empty.
+  await page.getByRole("tab", { name: /^Groups/ }).click();
+  const group = page.locator("[data-clash-group]").filter({ has: page.locator('input[value="Alignment"]') });
+  await expect(group).toContainText("1 element");
+  await expect(page.getByText(/no geometry and could not be tested/)).toHaveCount(0);
+});

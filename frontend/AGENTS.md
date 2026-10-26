@@ -361,6 +361,21 @@ clash group's `ElementFilter` — so the two can never disagree about what a cod
 means. `fixtures/ifc/classified-wall-ifc4.ifc` and `classified-clash-ifc4.ifc`
 each carry two systems on one element for exactly this test.
 
+**What a filter, a quantity, a lens or a clash group may pick is
+`placedProducts`** in the adapter — one function, not a walk copied into each.
+It is what the model places in its spatial structure: contained elements and
+spaces, **and** what IFC 4.3 places another way — elements *referenced* in a
+spatial element, non-spatial products aggregated under the project (an
+`IfcAlignment`), and the **parts of anything placed**, at any depth (a pier's
+column, footing and piles, aggregated into an `IfcElementAssembly` that is the
+only thing contained). Counting containment alone made all of those
+unselectable while still offering their class — on Viadotto Acerno every column
+and all 714 piles. Type objects and the spatial elements themselves stay out.
+The Structure tab's tree is the engine's and still lists contained elements
+only.
+`placed-products.test.ts` on `fixtures/ifc/alignment-referenced-ifc4x3.ifc`
+pins both halves.
+
 **`lib/ifc/ids-document.ts` is the second — and only other — file allowed to
 import the engine.** The engine's IDS parser needs `DOMParser`, which a Web
 Worker does not have, so `parseIDS` must run on the main thread and the parsed

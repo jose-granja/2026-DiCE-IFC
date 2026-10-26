@@ -1,0 +1,76 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('ViewDefinition [Alignment-basedReferenceView]'),'2;1');
+FILE_NAME('alignment-referenced-ifc4x3.ifc','2026-10-12T00:00:00',('DiCE-IFC'),('DiCE-IFC'),'DiCE-IFC fixtures','DiCE-IFC','');
+FILE_SCHEMA(('IFC4X3_ADD2'));
+ENDSEC;
+DATA;
+#1= IFCCARTESIANPOINT((0.,0.,0.));
+#2= IFCAXIS2PLACEMENT3D(#1,$,$);
+#3= IFCLOCALPLACEMENT($,#2);
+#4= IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-05,#2,$);
+#5= IFCGEOMETRICREPRESENTATIONSUBCONTEXT('Body','Model',*,*,*,*,#4,$,.MODEL_VIEW.,$);
+#6= IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.);
+#7= IFCUNITASSIGNMENT((#6));
+#8= IFCPROJECT('0ZvctVUKr0kugbFTf53O9L',$,'Alignment bridge',$,$,$,$,(#4),#7);
+#9= IFCSITE('1ZvctVUKr0kugbFTf53O9L',$,'Site',$,$,#3,$,$,.ELEMENT.,$,$,$,$,$);
+#10= IFCBRIDGE('2ZvctVUKr0kugbFTf53O9L',$,'Bridge',$,$,#3,$,$,.ELEMENT.,.GIRDER.);
+#11= IFCRELAGGREGATES('3ZvctVUKr0kugbFTf53O9L',$,$,$,#8,(#9));
+#12= IFCRELAGGREGATES('4ZvctVUKr0kugbFTf53O9L',$,$,$,#9,(#10));
+
+/* A straight 20 m horizontal alignment, with a flat vertical profile at 50 m. */
+#20= IFCCARTESIANPOINT((0.,0.));
+#21= IFCDIRECTION((1.,0.));
+#22= IFCAXIS2PLACEMENT2D(#20,#21);
+#23= IFCVECTOR(#21,1.);
+#24= IFCLINE(#20,#23);
+#25= IFCCURVESEGMENT(.CONTINUOUS.,#22,IFCLENGTHMEASURE(0.),IFCLENGTHMEASURE(20.),#24);
+#26= IFCCOMPOSITECURVE((#25),.F.);
+#27= IFCCARTESIANPOINT((0.,50.));
+#28= IFCAXIS2PLACEMENT2D(#27,#21);
+#29= IFCCURVESEGMENT(.CONTINUOUS.,#28,IFCLENGTHMEASURE(0.),IFCLENGTHMEASURE(20.),#24);
+#30= IFCGRADIENTCURVE((#29),.F.,#26,$);
+
+/* IFC4x3 section positions use Axis2PlacementLinear, not DistanceExpression. */
+#40= IFCRECTANGLEPROFILEDEF(.AREA.,'Girder profile',#22,2.,1.);
+#41= IFCPOINTBYDISTANCEEXPRESSION(IFCLENGTHMEASURE(0.),$,$,$,#30);
+#42= IFCAXIS2PLACEMENTLINEAR(#41,$,$);
+#43= IFCPOINTBYDISTANCEEXPRESSION(IFCLENGTHMEASURE(20.),$,$,$,#30);
+#44= IFCAXIS2PLACEMENTLINEAR(#43,$,$);
+#45= IFCSECTIONEDSOLIDHORIZONTAL(#30,(#40,#40),(#42,#44));
+#46= IFCSHAPEREPRESENTATION(#5,'Body','AdvancedSweptSolid',(#45));
+#47= IFCPRODUCTDEFINITIONSHAPE($,$,(#46));
+#48= IFCBEAM('5ZvctVUKr0kugbFTf53O9L',$,'Sectioned girder',$,$,#3,#47,$,.GIRDER.);
+
+/* A bearing at station 10 inherits the gradient elevation, without a Cartesian fallback. */
+#50= IFCPOINTBYDISTANCEEXPRESSION(IFCLENGTHMEASURE(10.),$,$,$,#30);
+#51= IFCAXIS2PLACEMENTLINEAR(#50,$,$);
+#52= IFCLINEARPLACEMENT(#3,#51,$);
+#53= IFCRECTANGLEPROFILEDEF(.AREA.,'Bearing profile',#22,1.,1.);
+#54= IFCDIRECTION((0.,0.,1.));
+#55= IFCEXTRUDEDAREASOLID(#53,#2,#54,0.5);
+#56= IFCSHAPEREPRESENTATION(#5,'Body','SweptSolid',(#55));
+#57= IFCPRODUCTDEFINITIONSHAPE($,$,(#56));
+#58= IFCBEARING('6ZvctVUKr0kugbFTf53O9L',$,'Linear bearing',$,$,#52,#57,$,.NOTDEFINED.);
+#60= IFCRELCONTAINEDINSPATIALSTRUCTURE('7ZvctVUKr0kugbFTf53O9L',$,$,$,(#48,#58),#10);
+/* The alignment as IFC 4.3 places it: aggregated under the project and only
+   referenced in the site, never contained. Its axis is the horizontal curve. */
+#70= IFCSHAPEREPRESENTATION(#5,'Axis','Curve2D',(#26));
+#71= IFCPRODUCTDEFINITIONSHAPE($,$,(#70));
+#72= IFCALIGNMENT('8ZvctVUKr0kugbFTf53O9L',$,'Main alignment',$,$,#3,#71,$);
+#73= IFCRELAGGREGATES('9ZvctVUKr0kugbFTf53O9L',$,$,$,#8,(#72));
+#74= IFCRELREFERENCEDINSPATIALSTRUCTURE('AZvctVUKr0kugbFTf53O9L',$,$,$,(#72),#9);
+/* A beam type, which no filter on IfcBeam* may pick as if it were an element. */
+#75= IFCBEAMTYPE('BZvctVUKr0kugbFTf53O9L',$,'Girder type',$,$,$,$,$,$,.GIRDER.);
+#76= IFCRELDEFINESBYTYPE('CZvctVUKr0kugbFTf53O9L',$,$,$,(#48),#75);
+/* A pier as Viadotto Acerno models one: an assembly contained in the bridge,
+   whose column is only aggregated into it, and a footing nested one level
+   further down. Neither part is contained anywhere. */
+#80= IFCELEMENTASSEMBLY('DZvctVUKr0kugbFTf53O9L',$,'Pier A',$,$,#3,$,$,.NOTDEFINED.,.NOTDEFINED.);
+#81= IFCCOLUMN('EZvctVUKr0kugbFTf53O9L',$,'Pier stem',$,$,#3,$,$,.NOTDEFINED.);
+#82= IFCFOOTING('FZvctVUKr0kugbFTf53O9L',$,'Pier footing',$,$,#3,$,$,.PAD_FOOTING.);
+#83= IFCRELCONTAINEDINSPATIALSTRUCTURE('GZvctVUKr0kugbFTf53O9L',$,$,$,(#80),#10);
+#84= IFCRELAGGREGATES('HZvctVUKr0kugbFTf53O9L',$,$,$,#80,(#81));
+#85= IFCRELAGGREGATES('IZvctVUKr0kugbFTf53O9L',$,$,$,#81,(#82));
+ENDSEC;
+END-ISO-10303-21;
