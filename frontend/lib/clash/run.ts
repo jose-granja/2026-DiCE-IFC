@@ -16,7 +16,7 @@ import { getModelHandle } from "@/lib/viewer/loader";
 import { useViewerStore } from "@/lib/viewer/store";
 import { detectInWorker } from "@/lib/workers/clash-client";
 import { isEmptyElementFilter } from "@/lib/ifc/element-filter";
-import { disciplineAllows, modelDiscipline } from "./matrix";
+import { disciplineAllows, disciplineKey, modelDiscipline } from "./matrix";
 import type { ElementMatch } from "@/lib/ifc/types";
 import type {
   ClashElementGeometry,
@@ -114,7 +114,12 @@ export async function runClashMatrix(
       continue;
     }
     withGeometry.add(key);
-    geometry.push({ key, modelId: ref.modelId, ...triangles });
+    geometry.push({
+      key,
+      modelId: ref.modelId,
+      discipline: disciplineKey(modelDiscipline(matrix, ref.modelName)),
+      ...triangles,
+    });
   }
 
   const groupCounts: Record<string, number> = {};

@@ -43,7 +43,7 @@ test("adds missing extracted values as zero in quantity formulas", async ({ page
   await expect(results.getByRole("cell", { name: "0 m²", exact: true })).toHaveCount(2);
 });
 
-test("loads the bundled MQT template, preserves existing queries and runs real quantities", async ({ page }, testInfo) => {
+test("the bundled MQT template replaces the list, with an undo, and runs real quantities", async ({ page }, testInfo) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/viewer?panel=quantities");
@@ -57,24 +57,36 @@ test("loads the bundled MQT template, preserves existing queries and runs real q
     }])),
   });
   const items = page.locator('[data-query-list] [role="listitem"]');
+  const undoBar = page.locator("[data-query-undo-import]");
+  const useTemplate = page.getByRole("button", { name: "Use default template", exact: true });
   await expect(items).toHaveCount(1);
-  await page.getByRole("button", { name: "Use default template", exact: true }).click();
-  await expect(items).toHaveCount(13);
-  await expect(items.first()).toContainText("My existing query");
-  await expect(items.filter({ hasText: "Walls: net side area" })).toContainText("MQT.01");
-  await page.getByRole("button", { name: "Run query", exact: true }).click();
-  await expect(page.getByText("25 m²", { exact: true }).last()).toBeVisible();
-  await page.getByRole("button", { name: "Use default template", exact: true }).click();
-  await expect(page.getByText("The default template is already in your list.")).toBeVisible();
-  await expect(items).toHaveCount(13);
+
+  // The template is the whole list, not lines added to it.
+  await useTemplate.click();
+  await expect(items).toHaveCount(12);
+  await expect(items.filter({ hasText: "My existing query" })).toHaveCount(0);
+  await expect(undoBar).toContainText("Replaced the list (1 line) with 12 quantities from the default template.");
+  await undoBar.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(items).toHaveCount(1);
+  await expect(items).toContainText("My existing query");
+
+  // Pressed again over an edited template, it starts the template afresh; Undo keeps the edit.
+  await useTemplate.click();
+  await expect(items).toHaveCount(12);
   await page.getByRole("button", { name: "Edit Walls: net side area", exact: true }).click();
   await page.getByLabel("Description", { exact: true }).fill("My wall measurement");
   await page.getByRole("button", { name: "Update", exact: true }).click();
-  await page.locator('[role="tab"][id$="-trigger-classes"]').click();
-  await page.locator('[role="tab"][id$="-trigger-quantities"]').click();
-  await page.getByRole("button", { name: "Use default template", exact: true }).click();
-  await expect(items).toHaveCount(13);
   await expect(items.filter({ hasText: "MQT.01" })).toContainText("My wall measurement");
+  await useTemplate.click();
+  await expect(items).toHaveCount(12);
+  await expect(items.filter({ hasText: "MQT.01" })).toContainText("Walls: net side area");
+  await expect(undoBar).toContainText("Replaced the list (12 lines) with 12 quantities from the default template.");
+  await undoBar.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(items.filter({ hasText: "MQT.01" })).toContainText("My wall measurement");
+
+  await items.filter({ hasText: "MQT.01" }).click();
+  await page.getByRole("button", { name: "Run query", exact: true }).click();
+  await expect(page.getByText("25 m²", { exact: true }).last()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("mqt-default-template.png") });
   expect(errors).toEqual([]);
 });

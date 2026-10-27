@@ -90,7 +90,12 @@ describe("clash workbook", () => {
     expect(back.rules).toHaveLength(2);
     const cross = findRule(back, back.groups[0].id, back.groups[1].id);
     expect(back.tolerances.find((t) => t.id === cross?.toleranceId)?.name).toBe("Clearance 50 mm");
-    expect(back.settings).toMatchObject({ checkInside: false, ignoreSameModel: true, checkDuplicate: true });
+    expect(back.settings).toMatchObject({
+      checkInside: false,
+      ignoreSameModel: true,
+      ignoreSameDiscipline: false,
+      checkDuplicate: true,
+    });
   });
 
   const EXAMPLE = "/Users/josegranja/Downloads/Clash Detection Matrix Report.xlsx";
@@ -151,7 +156,10 @@ describe("the workbook as a project's clash matrix", () => {
     };
     let matrix: ClashMatrix = { ...emptyMatrix(), groups: [first, second] };
     matrix = setRule(matrix, first.id, second.id, matrix.tolerances[1].id);
-    matrix = { ...matrix, settings: { ...matrix.settings, ignoreSameModel: true, checkDuplicate: false } };
+    matrix = {
+      ...matrix,
+      settings: { ...matrix.settings, ignoreSameModel: true, ignoreSameDiscipline: true, checkDuplicate: false },
+    };
 
     const back = readClashWorkbook(createClashWorkbook(matrix));
 

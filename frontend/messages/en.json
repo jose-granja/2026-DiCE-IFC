@@ -297,6 +297,8 @@
         "checkInside": "Check inside (one element within another)",
         "checkDuplicate": "Check duplicates",
         "ignoreSameModel": "Ignore elements of the same model",
+        "ignoreSameDiscipline": "Ignore elements of the same discipline",
+        "ignoreSameDisciplineHint": "No open model is classified by discipline yet, so this changes nothing. Classify them in the Groups tab.",
         "maxClashes": "Stop after this many clashes"
       },
       "matrix": {
@@ -769,9 +771,9 @@
       "template": {
         "use": "Use default template",
         "loading": "Loading template…",
-        "hint": "Add common building quantities to your list. Existing queries and edits are kept.",
-        "loaded": "Added {count, plural, one {# quantity} other {# quantities}} from the default template.",
-        "alreadyLoaded": "The default template is already in your list.",
+        "hint": "Load common building quantities as your list. It replaces the open list; Undo brings it back.",
+        "loaded": "Loaded {count, plural, one {# quantity} other {# quantities}} from the default template.",
+        "replaced": "Replaced the list ({previous, plural, one {# line} other {# lines}}) with {count, plural, one {# quantity} other {# quantities}} from the default template.",
         "failed": "The default template could not be loaded. Try again."
       },
       "dialog": {
@@ -2324,6 +2326,27 @@
       "undo": "Undo",
       "annotate": "Annotate the snapshot",
       "annotateNoSnapshot": "This viewpoint has no snapshot to annotate"
+    },
+    "picture": {
+      "add": "Add picture",
+      "addHint": "Add a picture from your computer as a viewpoint — a site photo, a sketch, a screenshot from another tool. The viewer's current camera and elements are saved with it, as Capture does.",
+      "added": "“{name}” added as a viewpoint, with the current view's camera and elements.",
+      "addedPictureOnly": "“{name}” added as a picture only: no model is open, so there is no camera or elements to save with it.",
+      "replace": "Replace the snapshot with a picture from your computer",
+      "replaceShort": "Replace picture",
+      "replaced": "Snapshot replaced with “{name}”.",
+      "view": "View picture",
+      "viewTitle": "Snapshot — {title}",
+      "untitled": "Untitled topic",
+      "size": "{width} × {height} px",
+      "annotate": "Annotate",
+      "pictureOnly": "Picture only — no camera or elements",
+      "nothingToOpen": "This viewpoint is only a picture: there is no camera or elements to restore. Use “Update with the current view” to give it one.",
+      "errors": {
+        "notImage": "“{name}” is not a picture.",
+        "tooLarge": "“{name}” is larger than {megabytes} MB.",
+        "unreadable": "“{name}” could not be read as a picture. Try a PNG or JPEG."
+      }
     },
     "filterBar": {
       "status": "Status",

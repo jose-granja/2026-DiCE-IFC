@@ -336,11 +336,14 @@ export function QuantityQueryPanel() {
   const [newPlacement, setNewPlacement] = useState<{ index: number; level: number } | null>(null);
   // Lines whose branch is folded away, by id.
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
-  // The list an Excel import replaced, for Undo. Shown in the list rather than
-  // on the toast: the list window is modal, and a toast is outside it.
-  const [lastReplace, setLastReplace] = useState<
-    { list: QueryListItem[]; previous: QueryListItem[]; previousId: string | null } | null
-  >(null);
+  // The list an Excel import or the template replaced, for Undo. Shown in the
+  // list rather than on the toast: the list window is modal, and a toast is outside it.
+  const [lastReplace, setLastReplace] = useState<{
+    list: QueryListItem[];
+    previous: QueryListItem[];
+    previousId: string | null;
+    source: "workbook" | "template";
+  } | null>(null);
   const [queryDescription, setQueryDescription] = useState(() =>
     t("list.defaultDescription", { number: 1 }),
   );
@@ -768,6 +771,23 @@ export function QuantityQueryPanel() {
     }
   };
 
+  /**
+   * Put a new list in place of the open one. A workbook or the template is the
+   * whole list, as it is everywhere else (a project's quantities, Download
+   * Excel), never lines added to what is there; the list that was there comes
+   * back with Undo. True when the list was empty, so there is no Undo bar to
+   * announce it and the caller says so with a toast instead.
+   */
+  const replaceList = (list: QueryListItem[], source: "workbook" | "template") => {
+    const previous = queryItems;
+    setQueryItems(list);
+    setCollapsed(new Set());
+    setNewPlacement(null);
+    setLastReplace(previous.length > 0 ? { list, previous, previousId: editingItemId, source } : null);
+    if (list[0]) loadItem(list[0], "view");
+    return previous.length === 0;
+  };
+
   const importWorkbook = async (file: File) => {
     setError(null);
     setImportingWorkbook(true);
@@ -781,18 +801,7 @@ export function QuantityQueryPanel() {
         id: rowId("query"),
         result: null,
       }));
-      // A workbook is the whole list, as it is everywhere else (a project's
-      // quantities, Download Excel): loading one replaces what is open, with an
-      // Undo for the list that was there.
-      const previous = queryItems;
-      setQueryItems(imported);
-      setCollapsed(new Set());
-      setNewPlacement(null);
-      setLastReplace(previous.length > 0 ? { list: imported, previous, previousId: editingItemId } : null);
-      loadItem(imported[0], "view");
-      // A replacement is announced by its Undo bar in the list; a toast as well
-      // would say it twice.
-      if (previous.length === 0) toast.success(t("workbook.imported", { count: imported.length }));
+      if (replaceList(imported, "workbook")) toast.success(t("workbook.imported", { count: imported.length }));
     } catch {
       setError(t("workbook.importFailed"));
     } finally {
@@ -813,19 +822,12 @@ export function QuantityQueryPanel() {
       if (!response.ok) throw new Error("Template unavailable.");
       const definitions = readDefaultQuantityTemplate(new Uint8Array(await response.arrayBuffer()), locale);
       request.signal.throwIfAborted();
-      const existingIds = new Set(queryItems.map((item) => item.id));
-      const imported: QueryListItem[] = definitions.filter((item) => !existingIds.has(item.id))
-        .map((item) => ({ ...item, level: quantityLevel(item.level), result: null }));
-      if (!imported.length) {
-        toast.info(t("template.alreadyLoaded"));
-        return;
-      }
-      setQueryItems((current) => {
-        const ids = new Set(current.map((item) => item.id));
-        return [...current, ...imported.filter((item) => !ids.has(item.id))];
-      });
-      loadItem(imported[0], "view");
-      toast.success(t("template.loaded", { count: imported.length }));
+      const imported: QueryListItem[] = definitions.map((item) => ({
+        ...item,
+        level: quantityLevel(item.level),
+        result: null,
+      }));
+      if (replaceList(imported, "template")) toast.success(t("template.loaded", { count: imported.length }));
     } catch {
       if (!request.signal.aborted) setError(t("template.failed"));
     } finally {
@@ -1026,7 +1028,10 @@ export function QuantityQueryPanel() {
       data-query-undo-import
     >
       <span className="min-w-0 flex-1">
-        {t("workbook.replaced", { count: lastReplace.list.length, previous: lastReplace.previous.length })}
+        {t(lastReplace.source === "template" ? "template.replaced" : "workbook.replaced", {
+          count: lastReplace.list.length,
+          previous: lastReplace.previous.length,
+        })}
       </span>
       <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={undoReplace}>
         {t("workbook.undo")}

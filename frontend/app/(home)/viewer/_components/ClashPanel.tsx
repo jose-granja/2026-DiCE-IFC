@@ -42,7 +42,7 @@ import { useBcfStore } from "@/lib/bcf/store";
 import { DEFAULT_MAX_CLASH_SNAPSHOTS, clashesToBcf } from "@/lib/clash/bcf-export";
 import { CLASH_COLOUR_A, CLASH_COLOUR_B } from "@/lib/clash/colours";
 import { showClash } from "@/lib/clash/highlight";
-import { findRule } from "@/lib/clash/matrix";
+import { findRule, modelDiscipline } from "@/lib/clash/matrix";
 import { useClashStore } from "@/lib/clash/store";
 import { buildTemplate } from "@/lib/clash/templates";
 import type { ClashGroup, ClashKind, ClashResultItem, ClashTolerance } from "@/lib/clash/types";
@@ -956,9 +956,14 @@ function MatrixTab({ wide = false }: { wide?: boolean }) {
   const setRule = useClashStore((s) => s.setRule);
   const addTolerance = useClashStore((s) => s.addTolerance);
   const updateSettings = useClashStore((s) => s.updateSettings);
+  const models = useViewerStore((s) => s.models);
   const { groups, tolerances, settings } = matrix;
+  // The same-discipline setting has nothing to compare until an open model is classified.
+  const anyClassified = models.some((model) => modelDiscipline(matrix, model.summary.name));
 
-  const check = (key: "checkOverlap" | "checkInside" | "checkDuplicate" | "ignoreSameModel") => (
+  const check = (
+    key: "checkOverlap" | "checkInside" | "checkDuplicate" | "ignoreSameModel" | "ignoreSameDiscipline",
+  ) => (
     <div className="flex items-center gap-2">
       <Checkbox
         id={`clash-${key}`}
@@ -1070,6 +1075,12 @@ function MatrixTab({ wide = false }: { wide?: boolean }) {
         {check("checkInside")}
         {check("checkDuplicate")}
         {check("ignoreSameModel")}
+        {check("ignoreSameDiscipline")}
+        {settings.ignoreSameDiscipline && models.length > 0 && !anyClassified ? (
+          <p className="text-muted-foreground pl-6 text-[10px] leading-snug" data-clash-same-discipline-hint>
+            {t("settings.ignoreSameDisciplineHint")}
+          </p>
+        ) : null}
         <div className="flex items-center gap-2">
           <Input
             id="clash-max"

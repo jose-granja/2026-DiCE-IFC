@@ -111,6 +111,19 @@ describe("detectClashes", () => {
     expect(detectClashes(geometry, [task()], settings()).hits).toHaveLength(1);
   });
 
+  it("skips elements of the same discipline when asked, but never unclassified ones", () => {
+    const pair = (a?: string, b?: string) => [
+      { ...box("a", [0, 0, 0], [2, 2, 2], "m1"), discipline: a },
+      { ...box("b", [1, 1, 1], [3, 3, 3], "m2"), discipline: b },
+    ];
+    const on = settings({ ignoreSameDiscipline: true });
+    expect(detectClashes(pair("arq", "arq"), [task()], on).hits).toHaveLength(0);
+    expect(detectClashes(pair("arq", "arq"), [task()], settings()).hits).toHaveLength(1);
+    expect(detectClashes(pair("arq", "est"), [task()], on).hits).toHaveLength(1);
+    expect(detectClashes(pair(undefined, undefined), [task()], on).hits).toHaveLength(1);
+    expect(detectClashes(pair("", ""), [task()], on).hits).toHaveLength(1);
+  });
+
   it("tests a pair once however many rules ask for it", () => {
     const geometry = [box("a", [0, 0, 0], [2, 2, 2]), box("b", [1, 1, 1], [3, 3, 3])];
     const { hits } = detectClashes(

@@ -133,6 +133,8 @@ export function createClashWorkbook(matrix: ClashMatrix): Uint8Array {
         ["Check Inside", matrix.settings.checkInside ? 1 : 0],
         ["Check Overlapping", matrix.settings.checkOverlap ? 1 : 0],
         ["Ignore in the Same Layer and Model", matrix.settings.ignoreSameModel ? 1 : 0],
+        // Not in Solibri's sheet; a workbook without the row reads as off.
+        ["Ignore in the Same Discipline", matrix.settings.ignoreSameDiscipline ? 1 : 0],
       ],
       widths: [38, 10],
     },
@@ -230,6 +232,7 @@ export function readClashWorkbook(bytes: Uint8Array): ClashMatrix {
     else if (label === "check inside") settings.checkInside = truthy(row[1]);
     else if (label === "check overlapping") settings.checkOverlap = truthy(row[1]);
     else if (label.startsWith("ignore in the same layer")) settings.ignoreSameModel = truthy(row[1]);
+    else if (label.startsWith("ignore in the same discipline")) settings.ignoreSameDiscipline = truthy(row[1]);
   }
   matrix.settings = settings;
 

@@ -73,6 +73,12 @@ export type ClashSettings = {
   checkDuplicate: boolean;
   /** Do not test elements that belong to the same model. */
   ignoreSameModel: boolean;
+  /**
+   * Do not test elements whose models are classified with the same discipline
+   * (`ClashMatrix.modelDisciplines`) — coordination between disciplines only.
+   * An unclassified model is still tested against everything.
+   */
+  ignoreSameDiscipline: boolean;
   /** Stop after this many clashes, so a bad matrix cannot flood the page. */
   maxClashes: number;
 };
@@ -82,6 +88,7 @@ export const DEFAULT_CLASH_SETTINGS: ClashSettings = {
   checkInside: true,
   checkDuplicate: true,
   ignoreSameModel: false,
+  ignoreSameDiscipline: false,
   maxClashes: 5000,
 };
 
@@ -107,6 +114,11 @@ export type ClashElementGeometry = {
   indices: Uint32Array;
   /** Elements of the same model are skipped when `ignoreSameModel` is on. */
   modelId: string;
+  /**
+   * The model's discipline, as compared (`disciplineKey`); empty when it has
+   * none. Elements of the same one are skipped when `ignoreSameDiscipline` is on.
+   */
+  discipline?: string;
 };
 
 /** One rule to run: the elements of two groups and the tolerance between them. */

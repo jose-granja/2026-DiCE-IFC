@@ -94,10 +94,12 @@ export function serializeBcf(
     put(`${folder}/markup.bcf`, markupFile(topic, guids, notes));
 
     for (const viewpoint of topic.viewpoints) {
-      put(
-        `${folder}/${viewpoint.fileName}`,
-        visualizationInfoFile(viewpoint, guids, notes, `${folder}/${viewpoint.fileName}`),
-      );
+      if (hasVisualizationInfo(viewpoint)) {
+        put(
+          `${folder}/${viewpoint.fileName}`,
+          visualizationInfoFile(viewpoint, guids, notes, `${folder}/${viewpoint.fileName}`),
+        );
+      }
 
       if (viewpoint.snapshot) {
         put(`${folder}/${viewpoint.snapshot.fileName}`, viewpoint.snapshot.bytes);
@@ -401,7 +403,7 @@ function markupFile(topic: BcfTopic, guids: GuidMap, notes: WriteNote[]): string
     lines.push("    <Viewpoints>");
     for (const viewpoint of topic.viewpoints) {
       lines.push(`      <ViewPoint Guid="${escapeAttr(guids.of(viewpoint.guid))}">`);
-      push(lines, 4, "Viewpoint", viewpoint.fileName);
+      if (hasVisualizationInfo(viewpoint)) push(lines, 4, "Viewpoint", viewpoint.fileName);
       push(lines, 4, "Snapshot", viewpoint.snapshot?.fileName);
       if (viewpoint.index !== undefined) {
         push(lines, 4, "Index", String(viewpoint.index));
@@ -418,6 +420,23 @@ function markupFile(topic: BcfTopic, guids: GuidMap, notes: WriteNote[]): string
 // ---------------------------------------------------------------------------
 // .bcfv
 // ---------------------------------------------------------------------------
+
+/**
+ * Whether a viewpoint has anything for a `.bcfv` to say. One that is only a
+ * picture — added from the user's computer — is written as a markup entry
+ * with just its snapshot, which the schema allows (`Viewpoint` is optional
+ * there). A `.bcfv` would have to carry a camera, and an invented one would
+ * send whoever opens it to the origin.
+ */
+function hasVisualizationInfo(viewpoint: BcfViewpoint): boolean {
+  return Boolean(
+    viewpoint.camera ||
+      viewpoint.components ||
+      viewpoint.clippingPlanes.length > 0 ||
+      viewpoint.lines.length > 0 ||
+      viewpoint.bitmaps.length > 0,
+  );
+}
 
 function visualizationInfoFile(
   viewpoint: BcfViewpoint,

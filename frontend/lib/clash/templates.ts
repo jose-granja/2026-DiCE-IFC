@@ -338,6 +338,7 @@ export function residentialMatrix(label: TemplateLabel): ClashMatrix {
       checkInside: true,
       checkDuplicate: true,
       ignoreSameModel: false,
+      ignoreSameDiscipline: false,
     },
   };
 }

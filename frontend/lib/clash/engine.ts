@@ -83,6 +83,9 @@ export function detectClashes(
         const b = byKey.get(keyB);
         if (!b) continue;
         if (settings.ignoreSameModel && a.geometry.modelId === b.geometry.modelId) continue;
+        if (settings.ignoreSameDiscipline && a.geometry.discipline && a.geometry.discipline === b.geometry.discipline) {
+          continue;
+        }
 
         // A pair is one question however many matrix cells ask it.
         const pair = keyA < keyB ? `${keyA}|${keyB}` : `${keyB}|${keyA}`;

@@ -466,3 +466,99 @@ test("an exported topic carries its annotated snapshot, still editable when read
   await page.getByRole("button", { name: "Annotate the snapshot" }).click();
   await expect(canvas).toHaveAttribute("data-annotation-count", "1");
 });
+
+/** A picture as a file from the computer, drawn in the page: `width`×`height`, one colour. */
+async function pictureFile(page: Page, name: string, width: number, height: number, colour: string, type: string) {
+  const base64 = await page.evaluate(
+    ([w, h, fill, mime]) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = fill;
+      context.fillRect(0, 0, w, h);
+      return canvas.toDataURL(mime).split(",")[1];
+    },
+    [width, height, colour, type] as const,
+  );
+  return { name, mimeType: type, buffer: Buffer.from(base64, "base64") };
+}
+
+test("a picture from the computer becomes a viewpoint with the current view, replaces a snapshot, and opens large", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  await page.goto("/viewer");
+  await page.setInputFiles('input[type="file"]', [IFC4]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  await page.getByRole("tab", { name: "BCF", exact: true }).click();
+  await page.getByRole("button", { name: "New topic" }).click();
+  await page.getByLabel("Topic title").fill("Site photo");
+
+  // A large photo comes in scaled to 1500 px on its longest side, as a PNG —
+  // saved with the viewer's camera and elements, as a capture would be.
+  const photo = await pictureFile(page, "site.jpg", 3000, 2000, "#2060c0", "image/jpeg");
+  await page.locator("[data-picture-input]").first().setInputFiles(photo);
+  await expect(page.getByText("“site.jpg” added as a viewpoint, with the current view's camera and elements.")).toBeVisible();
+  const card = page.locator("[data-viewpoint]").first();
+  await expect(card).toContainText("perspective camera");
+  await card.getByRole("button", { name: "Open viewpoint", exact: true }).click();
+  await expect(page.getByText("Viewpoint restored.")).toBeVisible({ timeout: 30_000 });
+  const size = (image: import("@playwright/test").Locator) =>
+    image.evaluate(async (element: HTMLImageElement) => {
+      await element.decode();
+      return [element.naturalWidth, element.naturalHeight];
+    });
+  await expect.poll(() => size(card.locator("img"))).toEqual([1500, 1000]);
+
+  // Opened large, in a dialog.
+  await card.getByRole("button", { name: "View picture" }).click();
+  const dialog = page.locator("[data-picture-dialog]");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Snapshot — Site photo");
+  await expect(dialog).toContainText("1500 × 1000 px");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  // A captured view's snapshot replaced by a picture keeps its camera.
+  await page.getByRole("button", { name: "Capture current view" }).click();
+  const captured = page.locator("[data-viewpoint]").nth(1);
+  await expect(captured.locator("img")).toBeVisible();
+  const sketch = await pictureFile(page, "sketch.png", 400, 300, "#30a46c", "image/png");
+  await captured.locator("[data-picture-input]").setInputFiles(sketch);
+  await expect(page.getByText("Snapshot replaced with “sketch.png”.")).toBeVisible();
+  await expect.poll(() => size(captured.locator("img"))).toEqual([400, 300]);
+  await expect(captured.getByRole("button", { name: "Open viewpoint", exact: true })).toBeEnabled();
+
+  // Something that is not a picture is refused, and nothing changes.
+  await captured.locator("[data-picture-input]").setInputFiles({
+    name: "notes.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("not a picture"),
+  });
+  await expect(page.getByText("“notes.txt” is not a picture.")).toBeVisible();
+  await expect.poll(() => size(captured.locator("img"))).toEqual([400, 300]);
+
+  // Exported: both viewpoints keep their view, the photo's with its camera and elements.
+  const download = page.waitForEvent("download", { timeout: 60_000 });
+  await page.getByRole("button", { name: /Export \.bcf/ }).click();
+  const exported = testInfo.outputPath("pictures.bcf");
+  await (await download).saveAs(exported);
+  const entries = unzipSync(new Uint8Array(await readFile(exported)));
+  const names = Object.keys(entries);
+  expect(names.filter((name) => name.endsWith(".png"))).toHaveLength(2);
+  const views = names.filter((name) => name.endsWith(".bcfv")).map((name) => new TextDecoder().decode(entries[name]));
+  expect(views).toHaveLength(2);
+  for (const view of views) expect(view).toMatch(/<PerspectiveCamera>[\s\S]*<Components>|<Components>[\s\S]*<PerspectiveCamera>/);
+
+  // With no model open there is no view to save: the picture is kept on its own.
+  await openBcf(page);
+  await importFiles(page, [exported]);
+  await openFirstTopic(page);
+  await expect(page.locator("[data-viewpoint]")).toHaveCount(2);
+  await page.locator("[data-picture-input]").first().setInputFiles(photo);
+  await expect(page.getByText("“site.jpg” added as a picture only", { exact: false })).toBeVisible();
+  const alone = page.locator("[data-viewpoint]").nth(2);
+  await expect(alone).toContainText("Picture only");
+  await expect(alone.getByRole("button", { name: "Open viewpoint", exact: true })).toBeDisabled();
+});

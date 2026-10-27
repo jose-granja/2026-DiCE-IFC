@@ -297,6 +297,8 @@
         "checkInside": "Verificar interior (um elemento dentro de outro)",
         "checkDuplicate": "Verificar duplicados",
         "ignoreSameModel": "Ignorar elementos do mesmo modelo",
+        "ignoreSameDiscipline": "Ignorar elementos da mesma disciplina",
+        "ignoreSameDisciplineHint": "Nenhum modelo aberto está classificado por disciplina, por isso isto não muda nada. Classifique-os no separador Grupos.",
         "maxClashes": "Parar após este número de conflitos"
       },
       "matrix": {
@@ -769,9 +771,9 @@
       "template": {
         "use": "Usar template padrão",
         "loading": "A carregar template…",
-        "hint": "Adicionar quantidades comuns de edifícios à lista. As consultas e alterações existentes são mantidas.",
-        "loaded": "{count, plural, one {# quantidade adicionada} other {# quantidades adicionadas}} do template padrão.",
-        "alreadyLoaded": "O template padrão já está na lista.",
+        "hint": "Carregar quantidades comuns de edifícios como lista. Substitui a lista aberta; Anular repõe-na.",
+        "loaded": "{count, plural, one {# quantidade carregada} other {# quantidades carregadas}} do template padrão.",
+        "replaced": "A lista ({previous, plural, one {# linha} other {# linhas}}) foi substituída por {count, plural, one {# quantidade} other {# quantidades}} do template padrão.",
         "failed": "Não foi possível carregar o template padrão. Tente novamente."
       },
       "dialog": {
@@ -2324,6 +2326,27 @@
       "undo": "Anular",
       "annotate": "Anotar a imagem",
       "annotateNoSnapshot": "Este ponto de vista não tem imagem para anotar"
+    },
+    "picture": {
+      "add": "Adicionar imagem",
+      "addHint": "Adicionar uma imagem do computador como ponto de vista — uma fotografia de obra, um esboço, uma captura de outra ferramenta. A câmara e os elementos da vista atual são guardados com ela, como em Capturar.",
+      "added": "“{name}” adicionada como ponto de vista, com a câmara e os elementos da vista atual.",
+      "addedPictureOnly": "“{name}” adicionada só como imagem: não há modelo aberto, por isso não há câmara nem elementos a guardar.",
+      "replace": "Substituir a imagem por uma do computador",
+      "replaceShort": "Substituir imagem",
+      "replaced": "Imagem substituída por “{name}”.",
+      "view": "Ver imagem",
+      "viewTitle": "Imagem — {title}",
+      "untitled": "Tópico sem título",
+      "size": "{width} × {height} px",
+      "annotate": "Anotar",
+      "pictureOnly": "Só imagem — sem câmara nem elementos",
+      "nothingToOpen": "Este ponto de vista é só uma imagem: não há câmara nem elementos a repor. Use “Atualizar com a vista atual” para lhe dar uma.",
+      "errors": {
+        "notImage": "“{name}” não é uma imagem.",
+        "tooLarge": "“{name}” tem mais de {megabytes} MB.",
+        "unreadable": "Não foi possível ler “{name}” como imagem. Experimente um PNG ou JPEG."
+      }
     },
     "filterBar": {
       "status": "Estado",

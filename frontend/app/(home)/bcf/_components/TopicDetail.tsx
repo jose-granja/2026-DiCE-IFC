@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Camera, FileText, Link2, Plus, Send, Trash2 } from "lucide-react";
+import { Camera, FileText, ImagePlus, Link2, Loader2, Plus, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -13,9 +13,12 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { captureViewpoint } from "@/lib/bcf/actions";
 import { annotationsOf, composeAnnotatedSnapshot, type Annotation } from "@/lib/bcf/annotations";
+import { pictureViewpoint } from "@/lib/bcf/snapshot-file";
 import { useBcfStore } from "@/lib/bcf/store";
 import type { BcfTopic, BcfViewpoint } from "@/lib/bcf/types";
+import { useViewerStore } from "@/lib/viewer/store";
 import { AnnotationEditor } from "./AnnotationEditor";
+import { usePictureFile } from "./usePictureFile";
 import { ViewpointCard } from "./ViewpointCard";
 import { VocabularyInput } from "./VocabularyInput";
 
@@ -61,6 +64,27 @@ export function TopicDetail({ topic }: { topic: BcfTopic }) {
       toast.error(t("annotationsFailed", { message: error instanceof Error ? error.message : String(error) }));
     }
   };
+
+  // A picture from the computer as a viewpoint of its own — a site photo, a
+  // sketch — saved with the viewer's view as "Capture" saves it: camera,
+  // elements and planes, with the picture in place of the render. With no
+  // model open there is no view to save, and it is the picture alone.
+  const tPicture = useTranslations("bcf.picture");
+  const picture = usePictureFile(async (snapshot, file) => {
+    let captured: BcfViewpoint | null = null;
+    try {
+      // The camera of an empty scene says nothing about where the picture was taken.
+      const modelOpen = useViewerStore.getState().models.some((model) => model.load.status === "ready");
+      if (modelOpen) captured = await captureViewpoint(topic.headerFiles[0]?.filename);
+    } catch {
+      // The picture is still worth keeping without the view.
+    }
+    const viewpoint = captured ? { ...captured, snapshot } : pictureViewpoint(snapshot);
+    addViewpoint(topic.guid, viewpoint);
+    const action = { label: t("annotateNow"), onClick: () => annotate(viewpoint) };
+    if (captured) toast.success(tPicture("added", { name: file.name }), { action });
+    else toast.info(tPicture("addedPictureOnly", { name: file.name }), { action });
+  });
 
   const onCapture = async () => {
     setCapturing(true);
@@ -172,8 +196,9 @@ export function TopicDetail({ topic }: { topic: BcfTopic }) {
 
       <Separator />
 
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
+      {/* Sized by its own width: the panel beside the 3D view is much narrower than the page. */}
+      <section className="@container space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-1.5 text-xs font-semibold">
             <Camera className="h-3.5 w-3.5" aria-hidden />
             {t("viewpoints")}
@@ -181,16 +206,30 @@ export function TopicDetail({ topic }: { topic: BcfTopic }) {
               {topic.viewpoints.length}
             </Badge>
           </h2>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={onCapture}
-            disabled={capturing}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {t("captureCurrentView")}
-          </Button>
+          <div className="flex items-center gap-1">
+            {picture.input}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={picture.choose}
+              disabled={picture.reading}
+              title={tPicture("addHint")}
+            >
+              {picture.reading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+              {tPicture("add")}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={onCapture}
+              disabled={capturing}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("captureCurrentView")}
+            </Button>
+          </div>
         </div>
 
         {topic.viewpoints.length === 0 ? (
@@ -198,7 +237,7 @@ export function TopicDetail({ topic }: { topic: BcfTopic }) {
             {t("noViewpoints")}
           </p>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 @md:grid-cols-2">
             {topic.viewpoints.map((viewpoint) => (
               <ViewpointCard
                 key={viewpoint.guid}

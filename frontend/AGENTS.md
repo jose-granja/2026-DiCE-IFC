@@ -579,6 +579,18 @@ current view — both need the viewport. `/bcf` redirects to `/viewer?panel=bcf`
   The chunk is untrusted (schema-checked). Shapes are fractions of the image,
   widths per 1000 px of height, so "Update" redraws them on a new capture of
   any size. Preview and saved image use the same `drawAnnotations`.
+- **A picture from the computer is re-drawn as a PNG** (`lib/bcf/snapshot-file.ts`,
+  `usePictureFile.tsx`): at most 1500 px on its longest side, white behind any
+  transparency, EXIF dropped (a phone photo's location stays on the machine).
+  "Add picture" saves the **viewer's current view with it**, exactly as Capture
+  does (`captureViewpoint`, the picture in place of the render); only with no
+  model loaded — an empty scene's camera means nothing — is it a
+  **picture-only viewpoint** (no camera, components or planes). "Replace" on a
+  card swaps the snapshot and drops its annotations. A picture-only viewpoint is written **without a `.bcfv`** — the markup's
+  `<Viewpoint>` is optional, but a `.bcfv` must have a camera, and the default
+  one the writer invents would fly the reader to the origin. The reader takes a
+  markup entry with a snapshot and no `<Viewpoint>` as that, with no "missing"
+  note. "Open viewpoint" is disabled for it (`hasViewToRestore`).
 - **Anything laid out for a wide page needs a height cap here.** `BulkEditBar`
   stacks its five fields at 19rem and squeezed the topic list to zero height —
   checking a topic made the list vanish.
@@ -1028,7 +1040,7 @@ empty one. The first workspace format (`workspaces/current` + handles keyed
   discipline, compared ignoring case (`disciplineAllows`); an unclassified model
   is tested by every group, so classifying nothing changes nothing. Loading the
   template, or importing a workbook without a `Models` sheet, keeps the
-  classification: it describes the models, not the matrix.
+  classification: it describes the models, not the matrix. `settings.ignoreSameDiscipline` (Matrix tab; the General sheet's "Ignore in the Same Discipline" row, absent from Solibri's, reads as off) skips a pair whose two models share a discipline — including two elements of one classified model; unclassified models are never skipped. The engine compares `ClashElementGeometry.discipline`, filled by `run.ts` with `disciplineKey`.
 - **The quantity list is a hierarchy** (`lib/spreadsheets/quantity-hierarchy.ts`):
   each line has a `level` (1–9, the workbook's **Level** column; absent reads as
   1), and order says what is under what. A line with **no filter and no
@@ -1044,8 +1056,10 @@ empty one. The first workspace format (`workspaces/current` + handles keyed
 - **The MQT default template is a real Excel asset**,
   `public/templates/mqt-default.xlsx`. Its `Quantities` sheet owns the starter
   queries, with `Description` and `Description (PT)` for both languages. Keep
-  its codes unique and stable: the explicit Use default template action uses
-  them as persistent IDs, appends missing entries and preserves existing edits.
+  its codes unique and stable: the Use default template action uses them as
+  persistent IDs. Like an Excel import, it **replaces** the open list
+  (`replaceList`), with the in-list Undo bar bringing the previous list back —
+  it never appends to it.
   Load it through the ordinary workbook parser; never duplicate its query
   definitions in application code. Base quantities must exist in the IFC and
   unit labels do not convert values. Tests import the shipped file and run a

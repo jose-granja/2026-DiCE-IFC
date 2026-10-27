@@ -47,7 +47,8 @@ export function emptyMatrix(): ClashMatrix {
   };
 }
 
-const disciplineKey = (value: string | undefined) => (value ?? "").trim().toLocaleLowerCase();
+/** A discipline as compared: case and surrounding spaces do not count. */
+export const disciplineKey = (value: string | undefined) => (value ?? "").trim().toLocaleLowerCase();
 
 /** A model's discipline, as classified in the matrix; empty when it has none. */
 export function modelDiscipline(matrix: ClashMatrix, modelName: string): string {

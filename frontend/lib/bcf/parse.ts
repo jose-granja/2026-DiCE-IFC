@@ -602,11 +602,14 @@ function readViewpoints(
 
   for (const entry of entries) {
     const guid = entry.getAttribute("Guid")!;
-    const fileName = text(child(entry, "Viewpoint")) ?? `${guid}.bcfv`;
+    const named = text(child(entry, "Viewpoint"));
+    const fileName = named ?? `${guid}.bcfv`;
     const snapshotName = text(child(entry, "Snapshot"));
 
     const bcfv = zip.text(`${folder}/${fileName}`);
-    if (!bcfv) {
+    // No `Viewpoint` named and no file under the guid either: a picture with no
+    // view, which the schema allows — nothing was lost.
+    if (!bcfv && (named || !snapshotName)) {
       notes.push({
         path: `${folder}/${fileName}`,
         message: "A viewpoint file is missing from the archive; its camera was lost.",

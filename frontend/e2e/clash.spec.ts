@@ -41,10 +41,10 @@ const MATRIX = {
   settings: { checkOverlap: true, checkInside: true, checkDuplicate: true, ignoreSameModel: false, maxClashes: 100 },
 };
 
-async function open(page: import("@playwright/test").Page) {
-  await page.addInitScript((matrix) => {
-    window.localStorage.setItem("dice-ifc.clash-matrix.v1", JSON.stringify(matrix));
-  }, MATRIX);
+async function open(page: import("@playwright/test").Page, matrix: object = MATRIX) {
+  await page.addInitScript((stored) => {
+    window.localStorage.setItem("dice-ifc.clash-matrix.v1", JSON.stringify(stored));
+  }, matrix);
   await page.goto("/viewer?panel=clash");
   await page.setInputFiles('input[type="file"]', [FIXTURE]);
   await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
@@ -385,6 +385,38 @@ test("models classified by discipline keep each group to its own discipline's mo
   // Blank again: tested by every group, as before.
   await section.getByRole("button", { name: /Models by discipline/ }).click();
   await discipline.fill("");
+  await run();
+  await expect(page.getByText(/2 clashes in/)).toBeVisible();
+});
+
+test("ignoring the same discipline skips clashes between models classified alike", async ({ page }) => {
+  test.setTimeout(120_000);
+  // The groups name no discipline, so only the setting can leave a pair out.
+  await open(page, { ...MATRIX, groups: MATRIX.groups.map((group) => ({ ...group, discipline: undefined })) });
+  const run = async () => {
+    await page.getByRole("button", { name: "Run", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Run", exact: true })).toBeEnabled({ timeout: 60_000 });
+  };
+  const setting = page.getByLabel("Ignore elements of the same discipline");
+  const hint = page.locator("[data-clash-same-discipline-hint]");
+
+  // On, with nothing classified: nothing to compare, so the clashes stay — and the tab says why.
+  await page.getByRole("tab", { name: /^Matrix/ }).click();
+  await setting.check();
+  await expect(hint).toBeVisible();
+  await run();
+  await expect(page.getByText(/2 clashes in/)).toBeVisible({ timeout: 60_000 });
+
+  // The duct, the pipe and the wall all come from one model: classified, they are one discipline.
+  await page.getByRole("tab", { name: /^Groups/ }).click();
+  await page.locator("[data-clash-disciplines]").getByRole("button", { name: /Models by discipline/ }).click();
+  await page.getByLabel("Discipline of clash-ifc4.ifc").fill("Architecture");
+  await run();
+  await expect(page.getByText(/0 clashes in/)).toBeVisible();
+
+  await page.getByRole("tab", { name: /^Matrix/ }).click();
+  await expect(hint).toHaveCount(0);
+  await setting.uncheck();
   await run();
   await expect(page.getByText(/2 clashes in/)).toBeVisible();
 });
