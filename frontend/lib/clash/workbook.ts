@@ -4,8 +4,9 @@
  *
  * Sheets: `Clash Detection Matrix` (discipline row, filter row, then one row
  * per group with the tolerance name in each cell below the diagonal),
- * `Tolerances`, `General Requirements`, and `Filters` — ours — carrying the
- * full filter of each group, which a single "class" cell cannot hold.
+ * `Tolerances`, `General Requirements`, `Filters` — ours — carrying the
+ * full filter of each group, which a single "class" cell cannot hold, and
+ * `Models` — also ours — the discipline of each model, by model name.
  */
 
 import {
@@ -23,6 +24,7 @@ const MATRIX_SHEET = "Clash Detection Matrix";
 const TOLERANCES_SHEET = "Tolerances";
 const GENERAL_SHEET = "General Requirements";
 const FILTERS_SHEET = "Filters";
+const MODELS_SHEET = "Models";
 
 const OPERATOR_TEXT: Record<QuantityQueryOperator, string> = {
   equals: "=",
@@ -159,6 +161,14 @@ export function createClashWorkbook(matrix: ClashMatrix): Uint8Array {
       ],
       widths: [28, 18, 24, 24, 20, 20, 24, 22, 40, 12, 60, 24, 24],
     },
+    {
+      name: MODELS_SHEET,
+      rows: [
+        ["Model", "Discipline"],
+        ...Object.entries(matrix.modelDisciplines ?? {}).map(([model, discipline]) => [model, discipline]),
+      ],
+      widths: [48, 24],
+    },
   ]);
 }
 
@@ -289,6 +299,18 @@ export function readClashWorkbook(bytes: Uint8Array): ClashMatrix {
       matrix.rules.push({ a: groups[i].id, b: groups[j].id, toleranceId: tolerance.id });
     }
   }
+
+  // --- Models -------------------------------------------------------------
+  // Absent from a Solibri workbook and from ours before it existed: then no
+  // model is classified, and every group picks from every model, as before.
+  const modelRows = sheet(MODELS_SHEET);
+  const modelDisciplines: Record<string, string> = {};
+  for (const row of modelRows?.slice(1) ?? []) {
+    const model = (row[0] ?? "").trim();
+    const discipline = (row[1] ?? "").trim();
+    if (model && discipline) modelDisciplines[model] = discipline;
+  }
+  matrix.modelDisciplines = modelDisciplines;
 
   return sanitiseMatrix(matrix);
 }

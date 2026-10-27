@@ -425,6 +425,14 @@
         "pick": "Escolha um grupo para o editar aqui.",
         "nothing": "Ainda nada — sem filtro",
         "conditions": "{count, plural, one {# condição de propriedade} other {# condições de propriedade}}"
+      },
+      "disciplines": {
+        "title": "Modelos por disciplina",
+        "summary": "{classified, number} de {total, number} classificados",
+        "hint": "Indique a disciplina de cada modelo aberto. Um grupo com disciplina passa a escolher elementos apenas dos modelos dessa disciplina — as paredes da arquitetura, não as da estrutura. Um modelo em branco é testado por todos os grupos.",
+        "unclassified": "Sem classificação",
+        "modelLabel": "Disciplina de {name}",
+        "unmatched": "Nenhum modelo aberto está classificado como {list}, por isso esses grupos escolhem apenas dos modelos sem classificação."
       }
     },
     "resize": {

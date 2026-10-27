@@ -172,3 +172,22 @@ describe("the workbook as a project's clash matrix", () => {
     expect(shape(back)).toEqual(shape(matrix));
   });
 });
+
+describe("the workbook's model disciplines", () => {
+  it("are written to a Models sheet and read back", () => {
+    const matrix = {
+      ...emptyMatrix(),
+      groups: [{ ...newGroup("Walls"), discipline: "Architecture", filter: { ...EMPTY_ELEMENT_FILTER, classes: ["IfcWall*"] } }],
+      modelDisciplines: { "Hospital ARQ.ifc": "Architecture", "Hospital EST.ifc": "Structure" },
+    };
+    expect(readClashWorkbook(createClashWorkbook(matrix)).modelDisciplines).toEqual(matrix.modelDisciplines);
+  });
+
+  it("are none when the workbook has no Models sheet, as a Solibri one does not", () => {
+    const withModels = createClashWorkbook({
+      ...emptyMatrix(),
+      groups: [{ ...newGroup("Walls"), filter: { ...EMPTY_ELEMENT_FILTER, classes: ["IfcWall*"] } }],
+    });
+    expect(readClashWorkbook(withModels).modelDisciplines).toEqual({});
+  });
+});

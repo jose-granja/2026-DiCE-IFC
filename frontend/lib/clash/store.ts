@@ -60,6 +60,8 @@ type ClashState = {
   removeTolerance: (id: string) => void;
   setRule: (a: string, b: string, toleranceId: string | null) => void;
   updateSettings: (patch: Partial<ClashSettings>) => void;
+  /** Classify an open model by discipline; an empty one unclassifies it. */
+  setModelDiscipline: (modelName: string, discipline: string) => void;
 
   run: () => Promise<void>;
   cancel: () => void;
@@ -129,6 +131,14 @@ export const useClashStore = create<ClashState>((set, get) => {
     removeTolerance: (id) => edit((matrix) => dropTolerance(matrix, id)),
 
     setRule: (a, b, toleranceId) => edit((matrix) => setMatrixRule(matrix, a, b, toleranceId)),
+
+    setModelDiscipline: (modelName, discipline) =>
+      edit((matrix) => {
+        const next = { ...(matrix.modelDisciplines ?? {}) };
+        if (discipline.trim()) next[modelName] = discipline;
+        else delete next[modelName];
+        return { ...matrix, modelDisciplines: next };
+      }),
 
     updateSettings: (patch) =>
       edit((matrix) => ({ ...matrix, settings: { ...matrix.settings, ...patch } })),

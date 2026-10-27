@@ -16,7 +16,11 @@ export type Vec3 = [number, number, number];
 export type ClashGroup = {
   id: string;
   name: string;
-  /** Optional discipline label, like the first row of a Solibri matrix. */
+  /**
+   * The discipline the group belongs to, like the first row of a Solibri
+   * matrix. When the open models are classified (`modelDisciplines`), a group
+   * with a discipline picks elements only from models of that discipline.
+   */
   discipline?: string;
   /**
    * What the project still has to say for this group to select the right
@@ -86,6 +90,12 @@ export type ClashMatrix = {
   tolerances: ClashTolerance[];
   rules: ClashRule[];
   settings: ClashSettings;
+  /**
+   * Each model's discipline, by model **name** — the id is minted per load, and
+   * the classification should outlive a reload. A model with none is tested by
+   * every group, so classifying nothing changes nothing.
+   */
+  modelDisciplines?: Record<string, string>;
 };
 
 export type ClashKind = "hard" | "clearance" | "inside" | "duplicate";

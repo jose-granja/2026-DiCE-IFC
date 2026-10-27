@@ -16,6 +16,7 @@ import { getModelHandle } from "@/lib/viewer/loader";
 import { useViewerStore } from "@/lib/viewer/store";
 import { detectInWorker } from "@/lib/workers/clash-client";
 import { isEmptyElementFilter } from "@/lib/ifc/element-filter";
+import { disciplineAllows, modelDiscipline } from "./matrix";
 import type { ElementMatch } from "@/lib/ifc/types";
 import type {
   ClashElementGeometry,
@@ -70,6 +71,8 @@ export async function runClashMatrix(
       options.signal?.throwIfAborted();
       options.onProgress?.({ phase: "selecting", done: step, total: steps });
       step += 1;
+      // A group of one discipline picks nothing from a model of another.
+      if (!disciplineAllows(group.discipline, modelDiscipline(matrix, model.summary.name))) continue;
       const handle = getModelHandle(model.summary.id);
       if (!handle) continue;
       const matches: ElementMatch[] = await handle.selectElements(group.filter);

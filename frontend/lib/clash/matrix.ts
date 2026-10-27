@@ -43,7 +43,26 @@ export function emptyMatrix(): ClashMatrix {
     ],
     rules: [],
     settings: { ...DEFAULT_CLASH_SETTINGS },
+    modelDisciplines: {},
   };
+}
+
+const disciplineKey = (value: string | undefined) => (value ?? "").trim().toLocaleLowerCase();
+
+/** A model's discipline, as classified in the matrix; empty when it has none. */
+export function modelDiscipline(matrix: ClashMatrix, modelName: string): string {
+  return (matrix.modelDisciplines?.[modelName] ?? "").trim();
+}
+
+/**
+ * Whether a group may pick elements from a model. Only when both say a
+ * discipline do they have to agree (ignoring case): an unclassified model is
+ * tested by every group, and a group with no discipline picks from every model.
+ */
+export function disciplineAllows(groupDiscipline: string | undefined, modelDisciplineValue: string | undefined): boolean {
+  const group = disciplineKey(groupDiscipline);
+  const model = disciplineKey(modelDisciplineValue);
+  return !group || !model || group === model;
 }
 
 /** The cell between two groups is the same whichever way round it is asked. */
@@ -119,5 +138,17 @@ export function sanitiseMatrix(value: unknown): ClashMatrix {
     tolerances,
     rules,
     settings: { ...DEFAULT_CLASH_SETTINGS, ...(input.settings ?? {}) },
+    modelDisciplines: sanitiseDisciplines(input.modelDisciplines),
   };
+}
+
+/** Model name → discipline, keeping only real text on both sides. */
+function sanitiseDisciplines(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out: Record<string, string> = {};
+  for (const [name, discipline] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof discipline !== "string" || !name.trim() || !discipline.trim()) continue;
+    out[name] = discipline.trim().slice(0, 200);
+  }
+  return out;
 }

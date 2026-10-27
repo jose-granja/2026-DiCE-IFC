@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { emptyMatrix, findRule, newGroup, removeGroup, removeTolerance, ruleKey, sanitiseMatrix, setRule } from "../matrix";
+import {
+  disciplineAllows,
+  emptyMatrix,
+  findRule,
+  modelDiscipline,
+  newGroup,
+  removeGroup,
+  removeTolerance,
+  ruleKey,
+  sanitiseMatrix,
+  setRule,
+} from "../matrix";
 
 describe("the clash matrix", () => {
   it("treats A×B and B×A as one cell", () => {
@@ -60,5 +71,35 @@ describe("the clash matrix", () => {
     expect(cleaned.rules).toHaveLength(1);
     expect(cleaned.settings.maxClashes).toBeGreaterThan(0);
     expect(sanitiseMatrix(null).groups).toEqual([]);
+  });
+});
+
+describe("models classified by discipline", () => {
+  it("keep a group to its own discipline's models, once both say one", () => {
+    expect(disciplineAllows("Structure", "Structure")).toBe(true);
+    // Written by different hands: case and spaces do not matter.
+    expect(disciplineAllows(" structure ", "STRUCTURE")).toBe(true);
+    expect(disciplineAllows("Structure", "Architecture")).toBe(false);
+  });
+
+  it("change nothing until there is something on both sides", () => {
+    // An unclassified model is tested by every group…
+    expect(disciplineAllows("Structure", "")).toBe(true);
+    expect(disciplineAllows("Structure", undefined)).toBe(true);
+    // …and a group with no discipline picks from every model.
+    expect(disciplineAllows(undefined, "Architecture")).toBe(true);
+    expect(disciplineAllows("", "Architecture")).toBe(true);
+  });
+
+  it("are read back clean from storage, by model name", () => {
+    const matrix = sanitiseMatrix({
+      ...emptyMatrix(),
+      modelDisciplines: { "ARQ.ifc": " Architecture ", "EST.ifc": "", "": "MEP", "MEP.ifc": 7 },
+    });
+    expect(matrix.modelDisciplines).toEqual({ "ARQ.ifc": "Architecture" });
+    expect(modelDiscipline(matrix, "ARQ.ifc")).toBe("Architecture");
+    expect(modelDiscipline(matrix, "unknown.ifc")).toBe("");
+    // A matrix saved before disciplines existed has none.
+    expect(sanitiseMatrix({ ...emptyMatrix(), modelDisciplines: undefined }).modelDisciplines).toEqual({});
   });
 });

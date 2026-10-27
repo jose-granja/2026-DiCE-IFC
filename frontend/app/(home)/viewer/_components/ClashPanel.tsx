@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,7 +92,8 @@ function useResidentialTemplate() {
   const use = () => {
     const previous = useClashStore.getState().matrix;
     const template = buildTemplate("residential", label);
-    setMatrix(template);
+    // The classification is about the models open, not the matrix: keep it.
+    setMatrix({ ...template, modelDisciplines: previous.modelDisciplines });
     toast.success(
       templateT("applied", { groups: template.groups.length, cells: template.rules.length }),
       previous.groups.length > 0
@@ -172,7 +174,12 @@ export function ClashPanel() {
 
   const importWorkbook = async (file: File) => {
     try {
-      const imported = readClashWorkbook(new Uint8Array(await file.arrayBuffer()));
+      const read = readClashWorkbook(new Uint8Array(await file.arrayBuffer()));
+      // A workbook without a Models sheet (a Solibri one, an older one of ours)
+      // says nothing about the models open, so their classification is kept.
+      const imported = Object.keys(read.modelDisciplines ?? {}).length > 0
+        ? read
+        : { ...read, modelDisciplines: useClashStore.getState().matrix.modelDisciplines };
       setMatrix(imported);
       toast.success(
         t("matrixImported", { groups: imported.groups.length, cells: imported.rules.length }),
@@ -483,6 +490,102 @@ export function ClashPanel() {
 // The large window's groups: every group in a table, the selected one beside it
 // ---------------------------------------------------------------------------
 
+/** One datalist for every discipline field — models' and groups' — so the words match. */
+const disciplineListId = "clash-discipline-options";
+
+/** The disciplines to offer: the template's, then any a group or model already uses. */
+function useDisciplineSuggestions(): string[] {
+  const templateT = useTranslations("viewer.clash.template.disciplines");
+  const groups = useClashStore((s) => s.matrix.groups);
+  const modelDisciplines = useClashStore((s) => s.matrix.modelDisciplines);
+  return useMemo(() => {
+    const keys = ["architecture", "structure", "hvac", "plumbing", "electrical", "fire", "elv", "transport", "civil"];
+    const out = new Map<string, string>();
+    const add = (value: string | undefined) => {
+      const text = (value ?? "").trim();
+      if (text && !out.has(text.toLocaleLowerCase())) out.set(text.toLocaleLowerCase(), text);
+    };
+    keys.forEach((key) => add(templateT(key as never)));
+    groups.forEach((group) => add(group.discipline));
+    Object.values(modelDisciplines ?? {}).forEach(add);
+    return [...out.values()];
+  }, [templateT, groups, modelDisciplines]);
+}
+
+/**
+ * Each open model's discipline. A group with a discipline then picks elements
+ * only from models of that discipline — the architectural model's walls, not the
+ * structural model's — and a model left blank is tested by every group, so
+ * nothing changes until something is classified.
+ */
+function ModelDisciplines({ defaultOpen = false }: { defaultOpen?: boolean }) {
+  const t = useTranslations("viewer.clash.disciplines");
+  const models = useViewerStore((s) => s.models);
+  const groups = useClashStore((s) => s.matrix.groups);
+  const modelDisciplines = useClashStore((s) => s.matrix.modelDisciplines);
+  const setModelDiscipline = useClashStore((s) => s.setModelDiscipline);
+  const suggestions = useDisciplineSuggestions();
+  // Each name once: two loads of one file share a classification.
+  const names = [...new Map(models.map((model) => [model.summary.name, model])).values()];
+  const classified = names.filter((model) => (modelDisciplines?.[model.summary.name] ?? "").trim()).length;
+
+  // Group disciplines no classified model has: those groups pick from unclassified models only.
+  const modelKeys = new Set(
+    names.map((model) => (modelDisciplines?.[model.summary.name] ?? "").trim().toLocaleLowerCase()).filter(Boolean),
+  );
+  const unmatched = classified === 0
+    ? []
+    : [...new Set(groups.map((group) => (group.discipline ?? "").trim()).filter(Boolean))].filter(
+        (discipline) => !modelKeys.has(discipline.toLocaleLowerCase()),
+      );
+
+  return (
+    <Collapsible defaultOpen={defaultOpen} className="rounded-lg border" data-clash-disciplines>
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="hover:bg-muted/50 group flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-xs font-medium"
+        >
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-90" aria-hidden />
+          <span className="flex-1">{t("title")}</span>
+          <span className="text-muted-foreground font-normal tabular-nums" data-clash-disciplines-summary>
+            {t("summary", { classified, total: names.length })}
+          </span>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-2 border-t p-2">
+        <p className="text-muted-foreground text-[10px] leading-snug">{t("hint")}</p>
+        {names.map((model) => (
+          <div key={model.summary.name} className="flex items-center gap-2" data-clash-model={model.summary.name}>
+            <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: model.colour }} />
+            <span className="min-w-0 flex-1 truncate text-[11px]" title={model.summary.name}>
+              {model.summary.name}
+            </span>
+            <Input
+              list={disciplineListId}
+              value={modelDisciplines?.[model.summary.name] ?? ""}
+              onChange={(event) => setModelDiscipline(model.summary.name, event.target.value)}
+              placeholder={t("unclassified")}
+              aria-label={t("modelLabel", { name: model.summary.name })}
+              className="h-7 w-36 shrink-0 text-xs"
+            />
+          </div>
+        ))}
+        {unmatched.length > 0 && (
+          <p className="text-warning text-[10px] leading-snug" data-clash-disciplines-unmatched>
+            {t("unmatched", { list: unmatched.join(", ") })}
+          </p>
+        )}
+      </CollapsibleContent>
+      <datalist id={disciplineListId}>
+        {suggestions.map((value) => (
+          <option key={value} value={value} />
+        ))}
+      </datalist>
+    </Collapsible>
+  );
+}
+
 function GroupsWindow() {
   const t = useTranslations("viewer.clash");
   const groups = useClashStore((s) => s.matrix.groups);
@@ -505,6 +608,7 @@ function GroupsWindow() {
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(22rem,1fr)]">
       <div className="flex min-h-0 flex-col gap-2 rounded-lg border p-2">
+        <ModelDisciplines defaultOpen />
         <div className="flex items-center gap-2">
           <Input
             value={search}
@@ -669,6 +773,7 @@ function GroupEditor({ group }: { group: ClashGroup }) {
           </Label>
           <Input
             id="clash-window-discipline"
+            list={disciplineListId}
             value={group.discipline ?? ""}
             onChange={(event) => updateGroup(group.id, { discipline: event.target.value || undefined })}
             className="h-8 text-xs"
@@ -703,6 +808,7 @@ function GroupsTab() {
 
   return (
     <div className="space-y-2 p-2">
+      <ModelDisciplines />
       {groups.length === 0 && (
         <>
           <p className="text-muted-foreground text-xs">{t("groups.empty")}</p>
@@ -819,6 +925,7 @@ function GroupCard({
             </Label>
             <Input
               id={`${group.id}-discipline`}
+              list={disciplineListId}
               value={group.discipline ?? ""}
               onChange={(event) =>
                 updateGroup(group.id, { discipline: event.target.value || undefined })

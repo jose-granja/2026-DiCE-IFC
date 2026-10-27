@@ -341,3 +341,50 @@ test("a group can pick an IFC 4.3 alignment, which the model places by aggregati
   await expect(group).toContainText("1 element");
   await expect(page.getByText(/no geometry and could not be tested/)).toHaveCount(0);
 });
+
+test("models classified by discipline keep each group to its own discipline's models", async ({ page }) => {
+  test.setTimeout(120_000);
+  await open(page);
+  const run = async () => {
+    await page.getByRole("button", { name: "Run", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Run", exact: true })).toBeEnabled({ timeout: 60_000 });
+  };
+  const section = page.locator("[data-clash-disciplines]");
+  const discipline = page.getByLabel("Discipline of clash-ifc4.ifc");
+
+  // Unclassified, the model is tested by every group: the duct and the pipe.
+  await run();
+  await expect(page.getByText(/2 clashes in/)).toBeVisible({ timeout: 60_000 });
+
+  await page.getByRole("tab", { name: /^Groups/ }).click();
+  await expect(section).toContainText("0 of 1 classified");
+  await section.getByRole("button", { name: /Models by discipline/ }).click();
+  // The template's disciplines and the groups' own are offered.
+  const options = await discipline.evaluate((input: HTMLInputElement) =>
+    [...(input.list?.options ?? [])].map((option) => option.value),
+  );
+  expect(options).toEqual(expect.arrayContaining(["Architecture", "Structure", "Architectural", "MEP"]));
+
+  // As an MEP model, the architectural Walls group picks nothing from it.
+  await discipline.fill("mep");
+  await expect(section).toContainText("1 of 1 classified");
+  await expect(page.locator("[data-clash-disciplines-unmatched]")).toContainText("Architectural");
+  await run();
+  await expect(page.getByText(/0 clashes in/)).toBeVisible();
+  await page.getByRole("tab", { name: /^Groups/ }).click();
+  const walls = page.locator("[data-clash-group]").filter({ has: page.locator('input[value="Walls"]') });
+  await expect(walls).toContainText("0 elements");
+
+  // Kept with the matrix in this browser, by the model's name. (Read from
+  // storage: this spec's setup rewrites the stored matrix on every load.)
+  const stored = await page.evaluate(
+    () => JSON.parse(window.localStorage.getItem("dice-ifc.clash-matrix.v1") ?? "{}").modelDisciplines,
+  );
+  expect(stored).toEqual({ "clash-ifc4.ifc": "mep" });
+
+  // Blank again: tested by every group, as before.
+  await section.getByRole("button", { name: /Models by discipline/ }).click();
+  await discipline.fill("");
+  await run();
+  await expect(page.getByText(/2 clashes in/)).toBeVisible();
+});

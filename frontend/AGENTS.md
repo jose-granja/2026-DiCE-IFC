@@ -1022,6 +1022,13 @@ empty one. The first workspace format (`workspaces/current` + handles keyed
   formula's alias is written whenever it could not be re-derived, and clash
   filters are matched to groups by position. The round-trip tests in
   `quantity-workbook.test.ts` and `clash/__tests__/workbook.test.ts` pin this.
+- **Clash detection classifies the open models by discipline**
+  (`matrix.modelDisciplines`, by model *name* — ids are per load; the workbook's
+  `Models` sheet). A group with a discipline picks only from models of that
+  discipline, compared ignoring case (`disciplineAllows`); an unclassified model
+  is tested by every group, so classifying nothing changes nothing. Loading the
+  template, or importing a workbook without a `Models` sheet, keeps the
+  classification: it describes the models, not the matrix.
 - **The quantity list is a hierarchy** (`lib/spreadsheets/quantity-hierarchy.ts`):
   each line has a `level` (1–9, the workbook's **Level** column; absent reads as
   1), and order says what is under what. A line with **no filter and no
