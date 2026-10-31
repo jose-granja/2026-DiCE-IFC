@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowLeft,
   Download,
+  FileText,
+  Loader2,
   MapPin,
   MessageSquarePlus,
   Save,
@@ -29,8 +31,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { BCF_FILE_EXTENSIONS } from "@/config";
+import { isFilterActive, sortTopics } from "@/lib/bcf/filter";
+import { bcfReportFileName, buildBcfReport, type ReportScope, type ReportTranslate } from "@/lib/bcf/pdf-report";
+import { reportImages } from "@/lib/bcf/report-images";
 import { bcfFileName, serializeBcf } from "@/lib/bcf/serialize";
-import { useBcfStore, useSelectedTopic } from "@/lib/bcf/store";
+import { useBcfStore, useSelectedTopic, useVisibleTopics } from "@/lib/bcf/store";
 import { createTopic, type BcfTopic } from "@/lib/bcf/types";
 import { validateAgainstSchema } from "@/lib/bcf/validate";
 
@@ -75,6 +80,26 @@ export function BcfPanel() {
 
   const fileInput = useRef<HTMLInputElement>(null);
   const [validating, setValidating] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const locale = useLocale();
+  const tReport = useTranslations("bcf.report");
+  const checked = useBcfStore((s) => s.checked);
+  const filter = useBcfStore((s) => s.filter);
+  const sortKey = useBcfStore((s) => s.sortKey);
+  const sortDirection = useBcfStore((s) => s.sortDirection);
+  const visibleTopics = useVisibleTopics();
+
+  // The report covers the checked topics when there are any, else what the
+  // list shows — every topic unless a filter is on — in the list's order.
+  const report = useMemo((): { topics: BcfTopic[]; scope: ReportScope } => {
+    const picked = file.topics.filter((topic) => checked.has(topic.guid));
+    if (picked.length > 0) return { topics: sortTopics(picked, sortKey, sortDirection), scope: "selected" };
+    return { topics: visibleTopics, scope: isFilterActive(filter) ? "filtered" : "all" };
+  }, [file.topics, checked, sortKey, sortDirection, visibleTopics, filter]);
+  const reportLabel = t(
+    report.scope === "selected" ? "pdfReportSelected" : report.scope === "filtered" ? "pdfReportFiltered" : "pdfReportAll",
+    { count: report.topics.length },
+  );
   const { openViewpoint, openingGuid } = useOpenViewpoint();
 
   const onOpenTopic = (topic: BcfTopic) => {
@@ -186,6 +211,37 @@ export function BcfPanel() {
       toast.error(
         error instanceof Error ? error.message : t("fileCouldNotBeRead"),
       );
+    }
+  };
+
+  /** A PDF of the report's topics, made in this browser: nothing is uploaded. */
+  const onReport = async () => {
+    if (report.topics.length === 0) return;
+    setReporting(true);
+    const progress = toast.loading(t("pdfReportPreparing"));
+    try {
+      // The PDF engine and its fonts load only when a report is asked for.
+      const [images, pdfMakeModule, fontsModule] = await Promise.all([
+        reportImages(report.topics),
+        import("pdfmake/build/pdfmake"),
+        import("pdfmake/build/vfs_fonts"),
+      ]);
+      const pdfMake = pdfMakeModule.default;
+      pdfMake.addVirtualFileSystem(fontsModule.default);
+      const translate: ReportTranslate = (key, values) => tReport(key as Parameters<typeof tReport>[0], values);
+      const definition = buildBcfReport(
+        { file, topics: report.topics, scope: report.scope, author: author || undefined, generatedAt: new Date(), locale, images },
+        translate,
+      );
+      const name = bcfReportFileName(file);
+      await pdfMake.createPdf(definition).download(name);
+      toast.success(t("pdfReportDone", { name, count: report.topics.length }), { id: progress });
+    } catch (error) {
+      toast.error(t("pdfReportFailed", { message: error instanceof Error ? error.message : String(error) }), {
+        id: progress,
+      });
+    } finally {
+      setReporting(false);
     }
   };
 
@@ -331,6 +387,23 @@ export function BcfPanel() {
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t("exportBcf")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                aria-label={t("pdfReport")}
+                onClick={() => void onReport()}
+                disabled={reporting || report.topics.length === 0}
+                data-bcf-report
+                data-report-scope={report.scope}
+              >
+                {reporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{reportLabel}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>

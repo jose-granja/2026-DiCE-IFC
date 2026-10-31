@@ -591,6 +591,15 @@ current view — both need the viewport. `/bcf` redirects to `/viewer?panel=bcf`
   one the writer invents would fly the reader to the origin. The reader takes a
   markup entry with a snapshot and no `<Viewpoint>` as that, with no "missing"
   note. "Open viewpoint" is disabled for it (`hasViewToRestore`).
+- **The PDF report** (`lib/bcf/pdf-report.ts`, the panel's file icon) covers the
+  **checked topics when any are**, else what the list shows (every topic unless
+  a filter is on), in the list's order; the cover says which. pdfmake and its
+  fonts load on click, as for the IDS report. `buildBcfReport` is pure — words
+  through `t`, snapshots as data URLs — and `report-images.ts` redraws each
+  snapshot as a JPEG (≤1400 px) first: a full-viewport PNG per viewpoint made
+  PDFs of tens of MB, pdfmake reads only some PNGs, and a snapshot the browser
+  cannot decode costs its picture, not the report. A row of two viewpoints is
+  wrapped in one unbreakable stack: unbreakable *columns* split across a page.
 - **Anything laid out for a wide page needs a height cap here.** `BulkEditBar`
   stacks its five fields at 19rem and squeezed the topic list to zero height —
   checking a topic made the list vanish.

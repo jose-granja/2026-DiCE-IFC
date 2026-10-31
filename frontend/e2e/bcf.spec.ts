@@ -562,3 +562,53 @@ test("a picture from the computer becomes a viewpoint with the current view, rep
   await expect(alone).toContainText("Picture only");
   await expect(alone.getByRole("button", { name: "Open viewpoint", exact: true })).toBeDisabled();
 });
+
+/** The pages of a PDF: page objects stay readable though their contents are compressed. */
+function pdfPages(bytes: Buffer): number {
+  return bytes.toString("latin1").match(/\/Type \/Page\b/g)?.length ?? 0;
+}
+
+test("downloads a PDF report of every topic, or of the checked ones", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  await page.goto("/viewer");
+  await page.setInputFiles('input[type="file"]', [IFC4]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+  await page.getByRole("tab", { name: "BCF", exact: true }).click();
+  const report = page.locator("[data-bcf-report]");
+  await expect(report).toBeDisabled();
+
+  for (const title of ["Wall too thin", "Slab edge"]) {
+    await page.getByRole("button", { name: "New topic" }).click();
+    await page.getByLabel("Topic title").fill(title);
+    await page.getByRole("button", { name: "Capture current view" }).click();
+    await expect(page.locator("[data-viewpoint] img")).toBeVisible();
+    await page.getByRole("button", { name: "All topics" }).click();
+  }
+
+  const download = async (name: string) => {
+    const downloading = page.waitForEvent("download", { timeout: 60_000 });
+    await report.click();
+    const file = await downloading;
+    const saved = testInfo.outputPath(name);
+    await file.saveAs(saved);
+    return { suggested: file.suggestedFilename(), bytes: await readFile(saved) };
+  };
+
+  // Nothing checked: every topic — a cover, then a page each, with its snapshot.
+  await expect(report).toHaveAttribute("data-report-scope", "all");
+  const all = await download("all.pdf");
+  expect(all.suggested).toMatch(/-report\.pdf$/);
+  expect(all.bytes.subarray(0, 5).toString()).toBe("%PDF-");
+  expect(pdfPages(all.bytes)).toBe(3);
+  expect(all.bytes.toString("latin1")).toContain("/Subtype /Image");
+  await expect(page.getByText(/PDF report of 2 topics downloaded/)).toBeVisible();
+
+  // One checked: only that one.
+  await page.getByRole("checkbox", { name: "Select Slab edge for bulk editing" }).check();
+  await expect(report).toHaveAttribute("data-report-scope", "selected");
+  await report.hover();
+  await expect(page.getByRole("tooltip")).toContainText("PDF report of the 1 selected topic");
+  const one = await download("one.pdf");
+  expect(pdfPages(one.bytes)).toBe(2);
+  await expect(page.getByText(/PDF report of 1 topic downloaded/)).toBeVisible();
+});
