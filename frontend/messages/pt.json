@@ -2527,6 +2527,7 @@
     "metaDescription": "Licença, créditos de terceiros, atribuições de dados e avisos legais do DiCE-IFC.",
     "title": "Sobre, créditos e licenças",
     "intro": "O DiCE-IFC é um conjunto de ferramentas BIM que corre no navegador. Esta página diz em que se baseia, de quem são os dados que pode mostrar e o que não deve ser tomado como garantia.",
+    "repository": "Código-fonte no GitHub",
     "operator": {
       "title": "Responsável",
       "name": "Operado por {name}.",

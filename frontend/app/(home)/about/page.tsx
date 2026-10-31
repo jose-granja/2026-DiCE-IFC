@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { useTranslations } from "next-intl";
+import { CodeXml } from "lucide-react";
 
 import MaxWidthWrapper from "@/components/MaxWidthWrapper";
 import LocalOnlyBadge from "@/components/LocalOnlyBadge";
@@ -91,6 +92,17 @@ export default function AboutPage() {
         <LocalOnlyBadge className="self-start" />
         <h1 className="text-3xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-muted-foreground max-w-3xl text-sm">{t("intro")}</p>
+        <a
+          href={OPERATOR.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:bg-muted inline-flex items-center gap-2 self-start rounded-md border px-3 py-1.5 text-sm font-medium"
+          data-about-repository
+        >
+          <CodeXml className="h-4 w-4" aria-hidden />
+          {t("repository")}
+          <span className="text-muted-foreground font-normal">{OPERATOR.sourceUrl.replace(/^https?:\/\//, "")}</span>
+        </a>
       </div>
 
       {(OPERATOR.name || OPERATOR.contact) && (
@@ -110,11 +122,9 @@ export default function AboutPage() {
       <section className="mt-10 max-w-3xl">
         <h2 className="text-xl font-semibold tracking-tight">{t("licence.title")}</h2>
         <p className="text-muted-foreground mt-3 text-sm">{t("licence.body")}</p>
-        {OPERATOR.sourceUrl && (
-          <p className="mt-2 text-sm">
-            <External href={OPERATOR.sourceUrl}>{t("licence.source")}</External>
-          </p>
-        )}
+        <p className="mt-2 text-sm">
+          <External href={OPERATOR.sourceUrl}>{t("licence.source")}</External>
+        </p>
       </section>
 
       <section className="mt-10">

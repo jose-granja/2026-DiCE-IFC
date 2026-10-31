@@ -2527,6 +2527,7 @@
     "metaDescription": "Licence, third-party credits, data attributions and disclaimers for DiCE-IFC.",
     "title": "About, credits and licences",
     "intro": "DiCE-IFC is a browser-based BIM toolkit. This page says what it is built on, whose data it can show, and what you should not take it to promise.",
+    "repository": "Source code on GitHub",
     "operator": {
       "title": "Operator",
       "name": "Operated by {name}.",

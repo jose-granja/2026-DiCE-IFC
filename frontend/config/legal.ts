@@ -9,11 +9,15 @@
 
 const clean = (value: string | undefined) => (value ?? "").trim();
 
+/** Where DiCE-IFC's own source lives. A fork sets `NEXT_PUBLIC_SOURCE_URL` to its own. */
+export const REPOSITORY_URL = "https://github.com/jose-granja/2026-DiCE-IFC";
+
 export const OPERATOR = {
   name: clean(process.env.NEXT_PUBLIC_OPERATOR_NAME),
   /** An email address or a URL. */
   contact: clean(process.env.NEXT_PUBLIC_OPERATOR_CONTACT),
-  sourceUrl: clean(process.env.NEXT_PUBLIC_SOURCE_URL),
+  /** The source code, as the MIT licence and the About page point to it. */
+  sourceUrl: clean(process.env.NEXT_PUBLIC_SOURCE_URL) || REPOSITORY_URL,
 };
 
 /** `mailto:` for an address, the URL itself for a link, nothing for neither. */

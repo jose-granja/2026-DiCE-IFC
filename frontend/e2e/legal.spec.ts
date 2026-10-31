@@ -12,6 +12,16 @@ test("the About page credits what the app is built on and whose data it shows", 
 
   await expect(page.getByRole("heading", { name: "Licence", level: 2 })).toBeVisible();
   await expect(page.getByText(/released under the MIT licence/)).toBeVisible();
+  // The source, on GitHub, linked at the top and from the licence.
+  await expect(page.locator("[data-about-repository]")).toHaveAttribute(
+    "href",
+    "https://github.com/jose-granja/2026-DiCE-IFC",
+  );
+  await expect(page.locator("[data-about-repository]")).toContainText("Source code on GitHub");
+  await expect(page.getByRole("link", { name: "Source code and licence" })).toHaveAttribute(
+    "href",
+    "https://github.com/jose-granja/2026-DiCE-IFC",
+  );
 
   // The credits the providers' terms ask for, each with a link to its own terms.
   const osm = page.locator('[data-data-credit="osm"]');
