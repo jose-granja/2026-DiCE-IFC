@@ -46,6 +46,12 @@
         "when": "Apenas após escolher Ler camadas ou Carregar camada selecionada no Modelo de contexto",
         "where": "O serviço público escolhido, através do proxy de leitura /api/ogc desta aplicação",
         "why": "Para descarregar elementos de contexto ou uma imagem de mapa à volta do modelo. O fornecedor recebe a área pedida e o endereço IP do alojamento. Não são enviados geometria, propriedades ou ficheiros do modelo. Abrir um projeto guardado utiliza a cópia local da camada sem contactar o serviço."
+      },
+      {
+        "what": "Sinais sobre o seu navegador e dispositivo, e o resultado de um pequeno desafio",
+        "when": "Só se esta instalação ativar a verificação humana: uma vez ao abrir o site e de novo quando o passe expira (24 horas por omissão)",
+        "where": "Cloudflare Turnstile (challenges.cloudflare.com), carregado apenas na página de verificação; o servidor desta aplicação confirma depois o resultado com a Cloudflare",
+        "why": "Para manter bots e recolha automatizada fora do site e dos seus serviços. A Cloudflare vê o seu endereço IP e as características do navegador durante a verificação; esta aplicação envia-lhe apenas o código de uso único da verificação, nunca o seu endereço. Nenhum modelo, conjunto de tópicos, especificação ou ficheiro está envolvido, e a página de verificação é a única que carrega algo da Cloudflare."
       }
     ],
     "localOnly": [
@@ -78,6 +84,7 @@
     "storageTitle": "Cookies e armazenamento local",
     "storage": [
       "Um cookie, dice-locale, memoriza se escolheu português ou inglês. É necessário para a escolha se manter e não contém identificador.",
+      "Quando a verificação humana está ativa, um segundo cookie, dice_human_pass, regista que este navegador a passou e até quando. Não contém nenhum identificador e os scripts da página não o conseguem ler.",
       "O armazenamento do navegador guarda o tema, a largura dos painéis, a matriz de colisões e as definições guardadas, e o trabalho em rascunho no Origin Private File System. Fica no seu navegador; limpar os dados do sítio remove-o.",
       "Guardar um projeto escreve os ficheiros que abriu e um project.json com as suas definições numa pasta que escolhe no seu computador (ou numa única transferência .zip, quando o navegador não consegue escrever pastas). Abrir um projeto lê apenas a pasta que escolher. Guardar mantém o mesmo projeto no armazenamento privado deste navegador, copiando os ficheiros que o navegador não consiga reabrir por si. Nada disto envia dados pela rede.",
       "Não há cookies de análise, publicidade ou rastreio."
@@ -2647,5 +2654,19 @@
   },
   "trustNotice": {
     "summary": "O que esta verificação estabelece e o que não estabelece"
+  },
+  "humanCheck": {
+    "metaTitle": "Verificação de segurança",
+    "title": "A verificar que é uma pessoa",
+    "intro": "Este site está protegido contra acessos automatizados. A verificação abaixo costuma concluir-se sozinha em poucos segundos; depois segue diretamente para a página que pediu.",
+    "loading": "A carregar a verificação…",
+    "verifying": "A confirmar…",
+    "passed": "Concluído. A abrir o site…",
+    "failed": "A verificação não foi aceite. Tente novamente.",
+    "unavailable": "Não foi possível concluir a verificação. Confirme que challenges.cloudflare.com não está bloqueado por uma extensão ou filtro de rede e tente novamente.",
+    "retry": "Tentar novamente",
+    "noscript": "Esta verificação precisa de JavaScript, tal como o resto do site.",
+    "privacy": "A verificação é feita pelo Cloudflare Turnstile, que analisa o seu navegador para distinguir pessoas de bots. Nenhum dos seus ficheiros, modelos ou tópicos está envolvido.",
+    "privacyLink": "O que é enviado"
   }
 }

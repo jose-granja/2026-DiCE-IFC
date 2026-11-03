@@ -25,6 +25,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { isSameOrigin } from "@/lib/http/same-origin";
 import { base64 } from "@/lib/signing/canonical";
 import {
   TIMESTAMP_REPLY_TYPE,
@@ -88,8 +89,7 @@ export async function POST(request: NextRequest) {
   if (!url) return fail("No time-stamp authority is configured for this deployment.", 501);
 
   // A page on another site must not be able to spend this deployment's stamps.
-  const origin = request.headers.get("origin");
-  if (origin && origin !== request.nextUrl.origin) return fail("Cross-origin requests are not accepted.", 403);
+  if (!isSameOrigin(request.headers)) return fail("Cross-origin requests are not accepted.", 403);
 
   const client = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "local";
   if (!allowed(client, perHour)) return fail("Too many time-stamp requests; try again later.", 429);

@@ -46,6 +46,12 @@
         "when": "Only after you choose Read layers or Load selected layer in Context model",
         "where": "The public service you choose, through this app’s read-only /api/ogc proxy",
         "why": "To download context features or a map image around the model. The provider receives the requested area and the deployment’s IP address. No model geometry, properties or files are sent. Loading a saved project uses the saved layer snapshot without contacting the service."
+      },
+      {
+        "what": "Signals about your browser and device, and the result of a small challenge",
+        "when": "Only if this deployment turns on the human check, once when you first open the site and again when your pass expires (24 hours by default)",
+        "where": "Cloudflare Turnstile (challenges.cloudflare.com), loaded on the check page only; this app's server then confirms the result with Cloudflare",
+        "why": "To keep bots and automated scraping off the site and its services. Cloudflare sees your IP address and browser characteristics while the check runs; this app sends it only the check's one-time token, never your address. No model, issue set, specification or file is involved, and the check page is the only page that loads anything from Cloudflare."
       }
     ],
     "localOnly": [
@@ -78,6 +84,7 @@
     "storageTitle": "Cookies and local storage",
     "storage": [
       "One cookie, dice-locale, remembers whether you chose Portuguese or English. It is needed for that choice to stick and holds no identifier.",
+      "When the human check is on, a second cookie, dice_human_pass, records that this browser passed it and until when. It holds no identifier, and scripts on the page cannot read it.",
       "Browser storage keeps your theme, panel widths, clash matrix and saved settings, and draft work in the Origin Private File System. It stays in your browser; clearing site data removes it.",
       "Saving a project writes the files you opened and a project.json with your settings into a folder you choose on your computer (or one .zip download where the browser cannot write folders). Loading one reads only the folder you pick. Save keeps the same project in this browser’s private storage instead, copying in any file the browser could not reopen by itself. None of this sends anything over the network.",
       "There are no analytics, advertising or tracking cookies."
@@ -2647,5 +2654,19 @@
   },
   "trustNotice": {
     "summary": "What this check does and does not establish"
+  },
+  "humanCheck": {
+    "metaTitle": "Security check",
+    "title": "Checking that you are human",
+    "intro": "This site is protected from automated access. The check below usually completes on its own in a few seconds; you will then go straight to the page you asked for.",
+    "loading": "Loading the check…",
+    "verifying": "Confirming…",
+    "passed": "Done. Opening the site…",
+    "failed": "The check did not pass. Try again.",
+    "unavailable": "The check could not be completed. Make sure challenges.cloudflare.com is not blocked by an extension or network filter, then try again.",
+    "retry": "Try again",
+    "noscript": "This check needs JavaScript, as does the rest of the site.",
+    "privacy": "The check is run by Cloudflare Turnstile, which looks at your browser to tell people from bots. None of your files, models or issues are involved.",
+    "privacyLink": "What is sent"
   }
 }

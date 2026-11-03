@@ -14,6 +14,7 @@
 | [010](010-vector-context-formats.md) | CityJSON, GeoJSON, CityGML/GML and GeoPackage read in the browser | Accepted |
 | [011](011-embedded-ifc-signatures.md) | Embedded IFC CMS signatures alongside the existing IFCZIP flow | Accepted |
 | [012](012-signature-timestamps.md) | Signature time-stamps (XAdES-B-T) through a same-origin RFC 3161 proxy | Mechanism accepted; the authority is a deployment choice (Q5) |
+| [013](013-human-check.md) | A human check (Cloudflare Turnstile) in front of the site | Accepted; off unless a deployment sets the keys |
 
 ## Open questions from the build brief
 

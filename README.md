@@ -89,7 +89,9 @@ viewer panel.
 Only what the user switches on, and never model, issue or specification content:
 basemap tiles and 3D tiles from the configured provider, WFS/WMS services the
 user adds, bSDD lookups (through the app's own `/api/bsdd` proxy), and signature
-time-stamps (through `/api/tsa`). The full list, with what each request
+time-stamps (through `/api/tsa`). A deployment can also put a **human check**
+(Cloudflare Turnstile) in front of the site to keep bots out: visitors pass it
+once and get a pass cookie for a day (ADR 013). The full list, with what each request
 carries, is in [`frontend/AGENTS.md`](frontend/AGENTS.md) §1 and on `/privacy`.
 
 ## Repository layout
@@ -142,6 +144,7 @@ Deployment settings are environment variables — see
 | `NEXT_PUBLIC_OPERATOR_NAME`, `NEXT_PUBLIC_OPERATOR_CONTACT` | Who runs the deployment, shown on About and Privacy |
 | `NEXT_PUBLIC_SOURCE_URL` | The source link on About; defaults to this repository |
 | `TSA_URL`, `TSA_USERNAME`, `TSA_PASSWORD`, `TSA_NAME` | The time-stamping authority (server-side only) |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, `TURNSTILE_PASS_HOURS` | The human check in front of the site (Cloudflare Turnstile); off when the keys are empty. Runtime settings |
 
 `NEXT_PUBLIC_*` values are inlined **at build time**: each needs an `ARG`/`ENV`
 pair in `frontend/Dockerfile.prod` and an entry under `build.args` in

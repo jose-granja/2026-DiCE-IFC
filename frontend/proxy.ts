@@ -1,5 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  CHECK_PATH,
+  PASS_COOKIE,
+  TURNSTILE_ORIGIN,
+  gateFor,
+  humanCheckConfig,
+  verifyPass,
+} from "@/lib/human-check/pass";
+
 /**
  * Content-Security-Policy, with a per-request nonce.
  *
@@ -22,8 +31,44 @@ import { NextResponse, type NextRequest } from "next/server";
  * complete list of origins this app is physically able to send anything to.
  * Adding one needs an ADR first (AGENTS.md §1). The loopback entries for the
  * signing companion are ADR 007.
+ *
+ * **The human check comes first** (ADR 013), when the deployment turned it on:
+ * a page request without a valid pass is sent to `/human-check`, an API call
+ * is refused. It runs on prefetches too — skipping the proxy for them, as the
+ * matcher once did, would let a `Purpose: prefetch` header walk past it.
  */
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
+  const humanCheck = humanCheckConfig();
+  const { pathname, search } = request.nextUrl;
+  if (humanCheck) {
+    const gate = gateFor(pathname);
+    if (gate && !(await verifyPass(request.cookies.get(PASS_COOKIE)?.value, humanCheck.secretKey))) {
+      if (gate === "api") {
+        return NextResponse.json(
+          { error: "Open the site in a browser and pass the human check first." },
+          { status: 403, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      // On the host the visitor used (nginx passes it through) and the scheme
+      // they used: behind a TLS proxy this server itself only ever sees http.
+      const target = request.nextUrl.clone();
+      target.pathname = CHECK_PATH;
+      target.search = `?next=${encodeURIComponent(pathname + search)}`;
+      if (request.headers.get("x-forwarded-proto") === "https") target.protocol = "https:";
+      const redirect = NextResponse.redirect(target, 307);
+      redirect.headers.set("Cache-Control", "no-store");
+      return redirect;
+    }
+  }
+
+  // A prefetched RSC payload is not rendered under a nonce it would never reuse.
+  if (
+    request.headers.has("next-router-prefetch") ||
+    request.headers.get("purpose") === "prefetch"
+  ) {
+    return NextResponse.next();
+  }
+
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
 
@@ -93,7 +138,14 @@ export function proxy(request: NextRequest) {
     `http://localhost:${companionPort}`,
   ].join(" ");
 
-  const connect = ["'self'", tileOrigin, maptilerOrigin, ionOrigins, companion]
+  /**
+   * Cloudflare Turnstile, on the check page only and only when it is on: the
+   * widget's script (added by our own nonced code, which `'strict-dynamic'`
+   * trusts), the frame it runs in, and the calls that frame's parent makes.
+   */
+  const turnstile = humanCheck && pathname === CHECK_PATH ? TURNSTILE_ORIGIN : "";
+
+  const connect = ["'self'", tileOrigin, maptilerOrigin, ionOrigins, companion, turnstile]
     .filter(Boolean)
     .join(" ");
 
@@ -108,7 +160,7 @@ export function proxy(request: NextRequest) {
     // neither React nor Next uses it in production.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${
       isDev ? " 'unsafe-eval'" : ""
-    }`,
+    } ${turnstile}`,
     // Tailwind and the radix primitives inject styles at runtime.
     `style-src 'self' 'unsafe-inline'`,
     // blob: for the Web Workers and canvas snapshots.
@@ -123,6 +175,7 @@ export function proxy(request: NextRequest) {
     `img-src ${images}`,
     `font-src 'self' data:`,
     `connect-src ${connect} blob: data:`,
+    `frame-src 'self' ${turnstile}`,
     `object-src 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
@@ -146,15 +199,9 @@ export const config = {
   matcher: [
     /*
      * Everything except Next's own static assets and image optimiser, which are
-     * immutable and do not execute scripts. Prefetch requests are excluded so a
-     * prefetched RSC payload is not rendered under a nonce it will never reuse.
+     * immutable and do not execute scripts. Prefetches come through too, for the
+     * human check; the proxy itself leaves them without a nonce.
      */
-    {
-      source: "/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)",
-      missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
-      ],
-    },
+    "/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)",
   ],
 };

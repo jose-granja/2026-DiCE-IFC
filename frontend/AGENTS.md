@@ -41,7 +41,8 @@ else** — permission to send more is not a reason to.
 - **Every page that touches a payload is a Client Component** (`"use client"` at
   the top of the route's `page.tsx`): `/viewer`, `/ids/create`, `/sign/ifc`,
   `/sign/bcf`, `/sign/verify`.
-- **CSP forbids third-party origins** other than the configured map tile provider.
+- **CSP forbids third-party origins** other than the configured map tile provider
+  (and, on `/human-check` only and only when it is on, Cloudflare Turnstile — ADR 013).
   Default tile provider is self-hosted Protomaps/PMTiles, i.e. same-origin. The
   policy lives in `proxy.ts`, which mints a per-request nonce — Next injects
   inline bootstrap scripts, and a `script-src` without a nonce blocks them, so
@@ -59,6 +60,7 @@ else** — permission to send more is not a reason to.
 | Map tiles, 3D tiles | the configured provider (opt-in) | basemap and 3D context |
 | WFS/WMS service URL, layer, style and map bounds | user-selected public provider via `/api/ogc` (opt-in) | context features, map images and legends; ADR 010 |
 | SHA-256 of a `SignatureValue` + a nonce (opt-in, when a `TSA_URL` is configured) | `app/api/tsa/route.ts`, this app's own server, then the time-stamp authority | RFC 3161 time-stamps send no CORS headers and the paid ones need credentials (ADR 012) |
+| The Turnstile widget's own traffic, then its one-time token (opt-in, when `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set) | the browser to `challenges.cloudflare.com` on `/human-check` only; the token via `app/api/human-check/route.ts` to Cloudflare's `siteverify` | the human check in front of the site (ADR 013); before the app loads, so no user content exists yet |
 
 There is no account, no project database and no Django API any more. Anything
 that would need a server — an RFC 3161 timestamp, OCSP/CRL/TSL fetches for full
@@ -502,6 +504,30 @@ mistake worth not repeating.)
   plus the CSP. Keep `nginx/nginx.conf` and any `proxy.ts` header logic in sync.
 
 ---
+
+## 7a. The human check (ADR 013)
+
+Off unless `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set (runtime
+settings, read per request). Then `proxy.ts` sends a page request without a
+valid `dice_human_pass` cookie to `/human-check`, and refuses an API call with
+403; static files, `/human-check`, `/api/human-check` and `/privacy` stay open.
+Everything is in `lib/human-check/pass.ts`.
+
+- **The pass is checked locally.** An HMAC of its expiry under the Turnstile
+  secret, verified with Web Crypto in the proxy — Cloudflare is asked once, by
+  `/api/human-check`, when the widget is solved.
+- **The proxy runs on prefetches.** The matcher used to skip them; with a gate,
+  that would let a `Purpose: prefetch` header past it. They are gated, then
+  left without a nonce as before.
+- **Next will not send a relative `Location` from the proxy** ("Invalid URL",
+  a 500); redirect to an absolute URL, which Next itself writes back as relative
+  when it is same-origin.
+- **Compare a request's `Origin` with its `Host`, not `request.nextUrl.origin`**
+  (`lib/http/same-origin.ts`): the latter is Next's own listening address
+  (`localhost:3000`), so the old check refused every real browser on another
+  address — `/api/tsa` had the same bug.
+- **Testing:** `e2e/human-check.spec.ts` starts its own `next start` with
+  Cloudflare's test keys; the main test server runs without the check.
 
 ## 8. BCF
 
