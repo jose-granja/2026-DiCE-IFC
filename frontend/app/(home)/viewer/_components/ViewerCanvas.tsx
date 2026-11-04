@@ -14,6 +14,7 @@ import { isolationGhostKeys, useViewerStore } from "@/lib/viewer/store";
 import { hasAnySnapTarget } from "@/lib/viewer/tools";
 import MeasurementLabels from "./MeasurementLabels";
 import BcfMarkers from "./BcfMarkers";
+import GlobeGoogleLogo from "./GlobeGoogleLogo";
 import OrbitPivotMarker from "./OrbitPivotMarker";
 import { Button } from "@/components/ui/button";
 import { Axis3D, Contrast, Maximize2 } from "lucide-react";
@@ -806,6 +807,7 @@ export function ViewerCanvas() {
       <MeasurementLabels />
       <OrbitPivotMarker ready={ready} active={orbiting} />
       <BcfMarkers ready={ready} />
+      <GlobeGoogleLogo />
       {contextAttribution && <div data-context-attribution className="bg-background/80 text-muted-foreground absolute bottom-0 right-1 z-10 max-w-[65%] rounded px-1 text-right text-[10px]">
         {contextAttributionUrl ? <a href={contextAttributionUrl} target="_blank" rel="noopener noreferrer" className="underline">{contextAttribution}</a> : contextAttribution}
       </div>}

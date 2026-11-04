@@ -154,6 +154,18 @@ function IfcPropertyPanel() {
   const shownPropertySets = info ? visibleSets(info.propertySets) : [];
   const shownQuantities = info ? visibleSets(info.quantities) : [];
   const shownTypeProperties = info ? visibleSets(info.typeProperties) : [];
+  // The type object's own attributes, as the first group of the Type tab.
+  const typeAttributeRows = info?.typeObject
+    ? info.typeObject.attributes
+        .map(({ name, value }) => ({
+          id: name,
+          name,
+          value: typeof value === "boolean" ? t(value ? "yes" : "no") : String(value),
+          mono: name === "GlobalId",
+        }))
+        .filter((row) => matches(row.name, row.value))
+    : [];
+  const typeGroupCount = (typeAttributeRows.length ? 1 : 0) + shownTypeProperties.length;
   const shownMaterials = info ? info.materials.filter((material) => matches(material.name, "")) : [];
   const shownClassifications = info
     ? info.classifications.filter((entry) => matches(entry.system, `${entry.code} ${entry.name}`))
@@ -327,15 +339,18 @@ function IfcPropertyPanel() {
               className="min-h-0 flex-1 overflow-auto p-3"
               data-section={t("fromItsType")}
             >
-              <SectionTitle icon={Component} title={t("headings.type")} count={shownTypeProperties.length} />
+              <SectionTitle icon={Component} title={t("headings.type")} count={typeGroupCount} />
               {/* Worth its own tab: these are shared by every occurrence of
                   the type, so editing one is not a local change. */}
               <p className="text-muted-foreground mb-3 text-xs">
                 {t("fromItsTypeHint")}
               </p>
               <PropertySetList
+                lead={info.typeObject && typeAttributeRows.length
+                  ? { id: "type-attributes", name: t("typeAttributes", { type: info.typeObject.type }), rows: typeAttributeRows }
+                  : undefined}
                 sets={shownTypeProperties}
-                empty={t(term ? "contextNoMatches" : "noTypeProperties")}
+                empty={t(term ? "contextNoMatches" : info.typeObject ? "noTypeProperties" : "noType")}
               />
             </TabsContent>
 
@@ -422,10 +437,11 @@ function MaterialAccordionItem({
 }
 
 /** A tab's worth of named property sets — Property sets, Quantities, From its type. */
-function PropertySetList({ sets, empty }: { sets: PropertySetView[]; empty: string }) {
+function PropertySetList({ sets, empty, lead }: { sets: PropertySetView[]; empty: string; lead?: PropertyTableGroup }) {
   const t = useTranslations("viewer.propertyPanel");
   const decimalPlaces = useDisplaySettingsStore((s) => s.propertyDecimalPlaces);
-  return <PropertyTable groups={propertySetGroups(sets, t("yes"), t("no"), decimalPlaces)} empty={empty} />;
+  const groups = propertySetGroups(sets, t("yes"), t("no"), decimalPlaces);
+  return <PropertyTable groups={lead ? [lead, ...groups] : groups} empty={empty} />;
 }
 
 function propertySetGroups(sets: PropertySetView[], yes: string, no: string, decimalPlaces: number): PropertyTableGroup[] {

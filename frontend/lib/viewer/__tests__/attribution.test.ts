@@ -12,15 +12,15 @@ describe("linkAttribution", () => {
   });
 
   it("splits two credits that share one segment, and links both", () => {
-    const parts = linkAttribution("© MapTiler © OpenStreetMap contributors");
-    expect(parts.map((part) => part.text)).toEqual(["© MapTiler", "© OpenStreetMap contributors"]);
+    const parts = linkAttribution("© Cesium ion © OpenStreetMap contributors");
+    expect(parts.map((part) => part.text)).toEqual(["© Cesium ion", "© OpenStreetMap contributors"]);
     expect(parts.every((part) => part.href)).toBe(true);
   });
 
   it("keeps every word of the line, so nothing a provider requires is dropped", () => {
-    const line = "© Cesium ion · terrain via Cesium ion · © MapTiler © OpenStreetMap contributors";
+    const line = "© Cesium ion · terrain via Cesium ion · Map data ©2026 Google";
     expect(linkAttribution(line).map((part) => part.text).join(" ")).toBe(
-      "© Cesium ion terrain via Cesium ion © MapTiler © OpenStreetMap contributors",
+      "© Cesium ion terrain via Cesium ion Map data ©2026 Google",
     );
   });
 

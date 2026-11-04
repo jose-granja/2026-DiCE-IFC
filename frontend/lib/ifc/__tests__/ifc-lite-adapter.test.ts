@@ -137,6 +137,16 @@ describe("getElementInfo units", () => {
         .find((property) => property.name === "CrossSectionArea");
       expect(crossSection?.value).toBe(0.04);
       expect(crossSection?.unit).toBe("m²");
+
+      // The type's own attributes, not only its property sets.
+      expect(info.typeObject).toMatchObject({ expressId: 162, type: "IfcWallType" });
+      expect(info.typeObject?.attributes[0]).toEqual({ name: "GlobalId", value: "2WallType00000000001" });
+      expect(info.typeObject?.attributes).toEqual(
+        expect.arrayContaining([
+          { name: "Name", value: "Basic Wall 200" },
+          { name: "PredefinedType", value: "STANDARD" },
+        ]),
+      );
     } finally {
       await ifcLiteAdapter.unloadModel(summary.id);
     }
@@ -191,6 +201,8 @@ describe("materials", () => {
     });
     try {
       const info = await ifcLiteAdapter.getElementInfo(summary.id, 71);
+      // No IfcRelDefinesByType: no type, rather than an empty one.
+      expect(info.typeObject).toBeNull();
       expect(info.materials).toEqual([
         { expressId: 100, name: "Concrete C30/37", category: "Concrete" },
       ]);

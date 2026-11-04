@@ -75,26 +75,11 @@ export async function proxy(request: NextRequest) {
   const tileOrigin = process.env.NEXT_PUBLIC_TILE_ORIGIN ?? "";
 
   /**
-   * MapTiler, only when a key is configured.
+   * Cesium ion — terrain, 3D tiles and the Google Maps 2D map, which ion
+   * proxies through `assets.ion.cesium.com` — only when a token is configured.
    *
-   * Street, OSM and satellite basemaps from one provider (ADR 003, amended).
-   * Absent from the CSP entirely when `NEXT_PUBLIC_MAPTILER_KEY` is unset, so a
-   * deployment that has not opted in grants nothing — the styles are not
-   * offered in the UI either, and the two are driven by the same variable so
-   * they cannot drift apart.
-   *
-   * Satellite is raster, so its tiles are images: unlike a vector style this
-   * genuinely needs `img-src` as well as `connect-src`.
-   */
-  const maptilerOrigin = process.env.NEXT_PUBLIC_MAPTILER_KEY
-    ? "https://api.maptiler.com"
-    : "";
-
-  /**
-   * Cesium ion 3D tiles, only when a token is configured.
-   *
-   * Same opt-in shape as MapTiler: no token means these origins are absent from
-   * the CSP and the style is absent from the menu, both from this one variable.
+   * No token means these origins are absent from the CSP and the 3D world
+   * context is unavailable, both from this one variable.
    *
    * Two hosts, and both are needed: `api.cesium.com` exchanges the token for an
    * asset endpoint, and that endpoint streams from `assets.ion.cesium.com`.
@@ -145,11 +130,11 @@ export async function proxy(request: NextRequest) {
    */
   const turnstile = humanCheck && pathname === CHECK_PATH ? TURNSTILE_ORIGIN : "";
 
-  const connect = ["'self'", tileOrigin, maptilerOrigin, ionOrigins, companion, turnstile]
+  const connect = ["'self'", tileOrigin, ionOrigins, companion, turnstile]
     .filter(Boolean)
     .join(" ");
 
-  const images = ["'self'", "blob:", "data:", tileOrigin, maptilerOrigin, ionOrigins]
+  const images = ["'self'", "blob:", "data:", tileOrigin, ionOrigins]
     .filter(Boolean)
     .join(" ");
 

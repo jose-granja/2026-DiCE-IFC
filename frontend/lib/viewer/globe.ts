@@ -52,6 +52,7 @@ import * as THREE from "three";
 import { ensureEgm96Grid, toEllipsoidalHeight, type Egm96Grid } from "@/lib/georef/geoid";
 import type { WgsPoint } from "@/lib/georef/transform";
 import { trackGlobeLoading, type GlobeLoadingState } from "./globe-loading";
+import { GOOGLE_2D_ASSETS, type GlobeImageryId } from "./globe-layers";
 
 export const CESIUM_ION_API = "https://api.cesium.com";
 export const CESIUM_ION_ASSETS = "https://assets.ion.cesium.com";
@@ -99,6 +100,8 @@ export type Globe = {
   setSectionPlanes: (planes: GlobeSectionPlane[]) => void;
   /** Swap what is drawn. Rejects with a message fit to show the user. */
   setLayer: (layer: GlobeLayer) => Promise<void>;
+  /** Swap the map draped over the terrain (Google Maps 2D through ion), or take it away. */
+  setImagery: (imagery: GlobeImageryId) => Promise<void>;
   /** Required by ion's and Google's terms wherever their data is shown. */
   getAttribution: () => string;
   /** For e2e: whether the globe has drawn anything yet. */
@@ -112,9 +115,21 @@ export function ionConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN);
 }
 
-/** Whether the "terrain" layer will also carry MapTiler's OSM imagery. */
-export function mapTilerConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_MAPTILER_KEY);
+/** Google's logo, which its terms require next to Google Maps tiles; served by ion, already in the CSP. */
+export const GOOGLE_LOGO_URL = `${CESIUM_ION_ASSETS}/google-credit.png`;
+
+/**
+ * Google's tiles take a language and a region (for labels and disputed
+ * borders). The page's own language, and the browser's region when it names
+ * one — never more than the two letters `navigator.language` already gives
+ * every site.
+ */
+function mapLocale(): { language?: string; region?: string } {
+  const page = (typeof document !== "undefined" ? document.documentElement.lang : "") || "en";
+  const browserRegion = typeof navigator !== "undefined" ? /-([A-Z]{2})$/i.exec(navigator.language)?.[1] : undefined;
+  const region = (browserRegion ?? (page.startsWith("pt") ? "PT" : "")).toUpperCase() || undefined;
+  const language = page.includes("-") ? page : region ? `${page}-${region}` : page;
+  return { language, region };
 }
 
 /**
@@ -289,37 +304,71 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
   scene.globe.clippingPlanes = globeClippingPlanes;
 
   /*
-    Base imagery: MapTiler's OpenStreetMap raster style, opt-in.
+    Base imagery: Google Maps 2D, through Cesium ion (ADR 003, amended
+    2026-11-04).
 
-    `Cesium.ImageryLayer.fromWorldImagery({})` — Bing Maps Aerial, fetched
-    straight from `dev.virtualearth.net` — used to be here. That origin was
-    never in the CSP and was never getting an ADR just to draw a base
-    texture (see ADR 003). The obvious next thought, matching
-    bedrock-engineer/ifc-georeferencer's approach, is OSM's own public tile
-    server — but ADR 003's original context already rejected that
-    specifically: "its usage policy forbids production application use."
-    Reversing that would need its own ADR amendment, not a config tweak.
+    It was MapTiler's OpenStreetMap raster style, under its own key and CSP
+    origin. ion now carries Google's 2D maps as ordinary assets (`globe-layers.ts`
+    names them) and **proxies the tiles itself**, through
+    `assets.ion.cesium.com/proxy/<asset>` — measured from the endpoint ion
+    returns — so the one ion token covers terrain, buildings and the map, and
+    no Google origin joins the CSP. Bing (`fromWorldImagery`, from
+    `dev.virtualearth.net`) and OSM's own tile server stay out for the reasons
+    the ADR gives.
 
-    `api.maptiler.com` is already a conditional CSP origin for exactly this
-    key (`NEXT_PUBLIC_MAPTILER_KEY`, see `proxy.ts`), and MapTiler serves an
-    "openstreetmap" raster style built for production use. With no key set,
-    `api.maptiler.com` is absent from the CSP and this layer is skipped —
-    the "terrain" layer stays terrain-shaded geometry only, same as without
-    a key.
+    One layer at a time, swapped by `setImagery`. Hidden under Google
+    Photorealistic 3D Tiles, which cover the ground themselves: drawing it there
+    would only spend tile requests on a map nobody can see.
   */
-  const mapTilerKey = process.env.NEXT_PUBLIC_MAPTILER_KEY ?? "";
-  if (mapTilerKey) {
-    try {
-      const osmImagery = new Cesium.UrlTemplateImageryProvider({
-        url: `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.png?key=${mapTilerKey}`,
-        credit: "© MapTiler © OpenStreetMap contributors",
-        maximumLevel: 19,
-      });
-      scene.imageryLayers.add(new Cesium.ImageryLayer(osmImagery));
-    } catch {
-      // Imagery is the nicety; terrain and tilesets are the substance.
-    }
-  }
+  let imagery: {
+    kind: Exclude<GlobeImageryId, "none">;
+    layer: InstanceType<typeof Cesium.ImageryLayer>;
+    provider: InstanceType<typeof Cesium.Google2DImageryProvider>;
+  } | null = null;
+  let imageryGeneration = 0;
+  const removeImagery = () => {
+    if (imagery) scene.imageryLayers.remove(imagery.layer, true);
+    imagery = null;
+  };
+  const imageryVisible = () => layerKind !== "google-photorealistic";
+
+  /**
+   * The data credit Google gives for **the area in view** ("Map data ©2026
+   * Google", "Imagery ©2026 Airbus, …"), which its terms ask to be shown with
+   * the tiles.
+   *
+   * Asked of Google's viewport endpoint, through the same ion proxy as the
+   * tiles, for the camera's own rectangle and zoom. The provider's built-in
+   * credits ask for the whole planet (north 90, south −90 …), so over satellite
+   * they name every imagery supplier in the world — a paragraph in the panel
+   * and not what is on screen. That endpoint is not public API on the
+   * provider; read defensively, and without it the credit falls back to
+   * "© Google".
+   */
+  let viewportCredit = { key: "", text: "" };
+  const refreshViewportCredit = () => {
+    if (!imagery) return;
+    const provider = imagery.provider as unknown as {
+      _resource?: { getDerivedResource: (options: object) => { fetchJson: () => Promise<{ copyright?: unknown }> } };
+      _viewportUrl?: string;
+    };
+    const view = scene.camera.computeViewRectangle();
+    if (!provider._resource || !provider._viewportUrl || !view) return;
+    const height = Math.max(1, scene.camera.positionCartographic.height);
+    const zoom = Math.min(22, Math.max(0, Math.round(Math.log2(40_000_000 / height))));
+    const degrees = (radians: number) => Math.round(Cesium.Math.toDegrees(radians) * 1000) / 1000;
+    const bounds = { north: degrees(view.north), south: degrees(view.south), east: degrees(view.east), west: degrees(view.west) };
+    const key = `${imagery.kind}|${zoom}|${bounds.north}|${bounds.south}|${bounds.east}|${bounds.west}`;
+    if (key === viewportCredit.key) return;
+    viewportCredit = { key, text: viewportCredit.text };
+    provider._resource
+      .getDerivedResource({ url: provider._viewportUrl, queryParameters: { zoom, ...bounds } })
+      .fetchJson()
+      .then((json) => {
+        if (viewportCredit.key === key) viewportCredit = { key, text: typeof json.copyright === "string" ? json.copyright : "" };
+      })
+      .catch(() => undefined);
+  };
 
   type TilesetWithClipOrigin = InstanceType<typeof Cesium.Cesium3DTileset> & {
     /** Cesium's object frame used before a collection's additional matrix. */
@@ -531,6 +580,7 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
       if (!isCurrent()) return;
       removeCurrent();
       layerKind = layer.kind;
+      if (imagery) imagery.layer.show = imageryVisible();
 
       /*
         Terrain goes on the globe, not through `scene.setTerrain`.
@@ -772,11 +822,42 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
       const parts = ["© Cesium ion"];
       if (layerKind === "osm-buildings") parts.push("© OpenStreetMap contributors");
       if (layerKind === "google-photorealistic") parts.push("© Google");
-      if (layerKind === "terrain" || layerKind === "osm-buildings") {
-        parts.push("terrain via Cesium ion");
-        if (mapTilerKey) parts.push("© MapTiler © OpenStreetMap contributors");
+      if (layerKind === "terrain" || layerKind === "osm-buildings") parts.push("terrain via Cesium ion");
+      if (imagery && imageryVisible()) {
+        // Polled by the panel every couple of seconds: a moved camera asks again.
+        refreshViewportCredit();
+        parts.push(viewportCredit.text || "© Google");
       }
       return parts.join(" · ");
+    },
+
+    async setImagery(next) {
+      const generation = ++imageryGeneration;
+      if (next === "none" || !token) {
+        removeImagery();
+        return;
+      }
+      if (imagery?.kind === next) return;
+      const { assetId, mapType } = GOOGLE_2D_ASSETS[next];
+      const provider = await Cesium.Google2DImageryProvider.fromIonAssetId({
+        assetId: String(assetId),
+        mapType,
+        ...mapLocale(),
+      });
+      // A later choice, or the globe going away, wins over this one.
+      if (disposed || generation !== imageryGeneration) return;
+      removeImagery();
+      viewportCredit = { key: "", text: "" };
+      // Under any 3D Tiles: index 0 is the bottom of the imagery stack.
+      // Cesium's own typings declare `getTileCredits` as never undefined on an
+      // `ImageryProvider`, while this provider (rightly) returns undefined until
+      // Google's credits have arrived; the runtime takes it as any other.
+      const layer = scene.imageryLayers.addImageryProvider(
+        provider as unknown as Parameters<typeof scene.imageryLayers.addImageryProvider>[0],
+        0,
+      );
+      layer.show = imageryVisible();
+      imagery = { kind: next, layer, provider };
     },
 
     isReady: () => ready,

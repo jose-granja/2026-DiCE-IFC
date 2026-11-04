@@ -36,7 +36,6 @@ import {
   type RestoreReport,
 } from "@/lib/project/session";
 import { useBcfStore } from "@/lib/bcf/store";
-import { mapTilerConfigured } from "@/lib/viewer/globe";
 import { usePointCloudStore } from "@/lib/viewer/pointcloud-store";
 import { useViewerStore } from "@/lib/viewer/store";
 
@@ -58,13 +57,18 @@ const GLOBE_LAYER_KEYS = {
   "tileset-url": "tilesetUrl",
 } as const;
 
-/** Who receives the tile requests for a layer, for the dialog to name. */
+/**
+ * Who receives the tile requests for a layer, for the dialog to name. The map
+ * over the terrain is Google's, through Cesium ion, under every layer but
+ * Google Photorealistic (which is Google's already).
+ */
 function providerKey(globe: NonNullable<PendingLoad["globe"]>): {
-  key: "terrain" | "terrainMapTiler" | "ion" | "google" | "url";
+  key: "terrain" | "terrainGoogle" | "ion" | "ionGoogle" | "google" | "url" | "urlGoogle";
   host?: string;
 } {
-  if (globe.layer === "terrain") return { key: mapTilerConfigured() ? "terrainMapTiler" : "terrain" };
+  const map = (globe.imagery ?? "roadmap") !== "none";
   if (globe.layer === "google-photorealistic") return { key: "google" };
+  if (globe.layer === "terrain") return { key: map ? "terrainGoogle" : "terrain" };
   if (globe.layer === "tileset-url") {
     let host = globe.url;
     try {
@@ -72,9 +76,9 @@ function providerKey(globe: NonNullable<PendingLoad["globe"]>): {
     } catch {
       // Not a URL: name it as written.
     }
-    return { key: "url", host };
+    return { key: map ? "urlGoogle" : "url", host };
   }
-  return { key: "ion" };
+  return { key: map ? "ionGoogle" : "ion" };
 }
 
 export function useProjectLoader() {

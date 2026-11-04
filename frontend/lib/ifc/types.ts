@@ -446,8 +446,23 @@ export type ElementInfo = {
   quantities: PropertySetView[];
   /** Property sets inherited from the element's type, not its occurrence. */
   typeProperties: PropertySetView[];
+  /**
+   * The type object itself (`IfcRelDefinesByType` → `IfcWallType`, …) and its
+   * own attributes — Name, GlobalId, PredefinedType, ElementType, Tag… — or
+   * null when the occurrence has no type. Kept apart from `typeProperties`:
+   * a type with attributes but no property sets is common, and is still a type.
+   */
+  typeObject: TypeObjectView | null;
   materials: MaterialRef[];
   classifications: Array<{ system: string; code: string; name: string }>;
+};
+
+export type TypeObjectView = {
+  expressId: ExpressId;
+  /** The class, normalised like every other one the panel shows ("IfcWallType"). */
+  type: string;
+  /** In schema order, GlobalId first; unset attributes are left out. */
+  attributes: Array<{ name: string; value: string | number | boolean }>;
 };
 
 /**

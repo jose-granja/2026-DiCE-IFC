@@ -9,10 +9,9 @@
 
 export type AttributionPart = { text: string; href?: string };
 
-/** Longest phrase first, so "© MapTiler © OpenStreetMap contributors" is not split. */
+/** Longest phrase first, so "© Cesium ion" and "terrain via Cesium ion" are not confused. */
 const KNOWN: Array<{ phrase: string; href: string }> = [
   { phrase: "© OpenStreetMap contributors", href: "https://www.openstreetmap.org/copyright" },
-  { phrase: "© MapTiler", href: "https://www.maptiler.com/copyright/" },
   { phrase: "© Cesium ion", href: "https://cesium.com/legal/terms-of-service/" },
   { phrase: "terrain via Cesium ion", href: "https://cesium.com/platform/cesium-ion/content/cesium-world-terrain/" },
   { phrase: "© Google", href: "https://www.google.com/intl/en/help/terms_maps/" },
@@ -22,7 +21,7 @@ export function linkAttribution(line: string): AttributionPart[] {
   return line
     .split(" · ")
     .flatMap((segment) => {
-      // A segment can hold more than one credit ("© MapTiler © OpenStreetMap contributors").
+      // A segment can hold more than one credit ("© Cesium ion © OpenStreetMap contributors").
       const parts: AttributionPart[] = [];
       let rest = segment;
       while (rest.length > 0) {

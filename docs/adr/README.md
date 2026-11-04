@@ -4,7 +4,7 @@
 |---|---|---|
 | [001](001-ifc-engine.md) | IFC engine: IFC-lite behind an adapter | Accepted |
 | [002](002-signature-container-format.md) | Signature container: ASiC-E with XAdES | Accepted, pending Q4 |
-| [003](003-map-tile-provider.md) | Map tiles: self-hosted Protomaps PMTiles | Accepted; **amended** — OpenFreeMap for dev, opt-in MapTiler styles, camera-following extent, Cesium globe replaces the texture basemap, Bing removed in favour of MapTiler's OSM style |
+| [003](003-map-tile-provider.md) | Map tiles: self-hosted Protomaps PMTiles | Accepted; **amended** — OpenFreeMap for dev, opt-in MapTiler styles, camera-following extent, Cesium globe replaces the texture basemap, Bing removed in favour of MapTiler's OSM style; **Google Maps 2D through ion replaces MapTiler** (2026-11-04) |
 | [004](004-card-signing-companion.md) | Card companion: forked Web eID; CMD dropped | **Companion choice superseded by 007**; card/CMD analysis stands |
 | [005](005-bcf-implementation.md) | BCF: own reader/writer, XSD-validated | Accepted |
 | [006](006-canonical-xml-by-construction.md) | XMLDSig: canonical XML by construction | **Superseded by 008 — the premise was wrong** |

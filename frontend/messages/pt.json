@@ -30,10 +30,10 @@
         "why": "Para sugerir os conjuntos de propriedades, os nomes de propriedades e os valores admissíveis de uma classe, para que uma especificação não deixe silenciosamente de se aplicar a nada por causa de uma gralha. O bSDD não envia cabeçalhos CORS, por isso o pedido passa pela API desta aplicação — o que também significa que o bSDD vê o endereço desta instalação e não o seu. As consultas partem de uma classe que já nomeou, não de cada tecla. Nenhum modelo, ficheiro IDS ou valor de propriedade é enviado, e o editor funciona normalmente com o bSDD inacessível."
       },
       {
-        "what": "Mosaicos de mapa",
-        "when": "No mapa de georreferenciação",
-        "where": "O fornecedor de mosaicos configurado. Por omissão, Protomaps alojado localmente, que é a origem da própria aplicação; esta instalação está configurada para o OpenFreeMap (tiles.openfreemap.org)",
-        "why": "Para desenhar um mapa base sob a implantação do modelo na georreferenciação. Os pedidos de mosaicos revelam aproximadamente onde está a olhar — neste módulo, onde fica o edifício — e é por isso que um fornecedor alojado localmente é a opção por omissão. O OpenFreeMap não exige conta e declara que não regista os pedidos, mas continua a ser um terceiro. Remover NEXT_PUBLIC_MAP_STYLE_URL desliga o mapa base; a georreferenciação em si não precisa dele. Quando existe uma chave MapTiler configurada, o painel oferece também Streets, OpenStreetMap e Satélite a partir de api.maptiler.com; esses pedidos ficam associados a essa chave de conta. O mapa base cobre agora aquilo para onde a câmara está a olhar, pelo que deslocar e afastar vai buscar mosaicos da área para onde se move. Escolher os edifícios 3D transmite geometria 3D a partir do Cesium ion (api.cesium.com e assets.ion.cesium.com) com um token ion; esses pedidos ficam associados a esse token e a atribuição do ion permanece visível enquanto os mosaicos são mostrados."
+        "what": "Mosaicos de mapa, terreno e edifícios 3D",
+        "when": "Só quando liga o contexto 3D do mundo no separador GIS (um projeto restaurado pergunta primeiro), e só se esta instalação tiver um token Cesium ion",
+        "where": "Cesium ion (api.cesium.com, assets.ion.cesium.com), que também entrega o mapa Google Maps 2D (rodoviário ou satélite); a Google (tile.googleapis.com) só quando escolhe Google Photorealistic 3D",
+        "why": "Para mostrar o modelo no seu local real: terreno, edifícios OSM e um mapa rodoviário ou imagem de satélite por baixo. Os pedidos de mosaicos revelam aproximadamente para onde está a olhar — ou seja, onde fica o edifício — e ficam associados ao token ion desta instalação. O mapa Google é pedido através do ion, pelo que a Google não é contactada diretamente para ele; escolher “Sem mapa” deixa só o terreno. Os créditos do ion e da Google, com o logótipo da Google, permanecem no ecrã enquanto os seus dados são mostrados. Nenhuma geometria, propriedade ou ficheiro do modelo é enviado."
       },
       {
         "what": "O resumo SHA-256 do valor da própria assinatura (nunca um ficheiro) e um número aleatório",
@@ -856,6 +856,8 @@
       "noMaterialProperties": "Este material não tem conjuntos de propriedades.",
       "noQuantities": "Este elemento não tem quantidades.",
       "noTypeProperties": "Este elemento não tem propriedades do seu tipo.",
+      "noType": "Este elemento não tem tipo.",
+      "typeAttributes": "Atributos de {type}",
       "noClassification": "Este elemento não tem classificação.",
       "copyExpressId": "Copiar id express {id}",
       "yes": "Sim",
@@ -1172,7 +1174,6 @@
       "loadFailed": "Não foi possível carregar o mundo.",
       "layers": {
         "terrain": "Terreno",
-        "terrainAndImagery": "Terreno e imagem",
         "osmBuildings": "Edifícios OSM",
         "googlePhotorealistic": "Google Fotorrealista 3D",
         "ionAsset": "Recurso do Cesium ion…",
@@ -1184,10 +1185,21 @@
       "tilesetUrlHint": "Qualquer conjunto 3D Tiles, incluindo um alojado por si — essa via não envolve terceiros.",
       "noTokenHint": "Defina <code>NEXT_PUBLIC_CESIUM_ION_TOKEN</code> para mostrar terreno, imagem e edifícios 3D sob o modelo. O resto deste painel funciona sem ele.",
       "noOriginHint": "Este modelo ainda não tem uma conversão de mapa utilizável, por isso não há onde o colocar na Terra.",
-      "googleTerms": "Os Google Photorealistic 3D Tiles são fornecidos pela Google e usados ao abrigo dos termos da Google Maps Platform, incluindo as suas condições de atribuição e de utilização.",
+      "googleTerms": "Os mosaicos do Google Maps são fornecidos pela Google, através do Cesium ion, e usados ao abrigo dos termos da Google Maps Platform, incluindo as suas condições de atribuição e de utilização.",
       "restore": {
         "notConfigured": "Esta instalação não tem token do Cesium ion, por isso o contexto 3D do mundo não pode ser mostrado.",
         "noOrigin": "Este modelo não tem posição na Terra, por isso o contexto 3D do mundo não pode ser mostrado à sua volta."
+      },
+      "imagery": {
+        "label": "Mapa",
+        "options": {
+          "roadmap": "Mapa rodoviário Google",
+          "satellite": "Satélite Google",
+          "satellite-labels": "Satélite Google com nomes",
+          "none": "Sem mapa (só terreno)"
+        },
+        "notUnderPhotorealistic": "O Google Photorealistic 3D já cobre o terreno, por isso não é desenhado nenhum mapa por baixo.",
+        "failed": "Não foi possível carregar o mapa Google: {message}"
       }
     },
     "gisAreas": {
@@ -1507,10 +1519,12 @@
         "globe": "Ativar o contexto 3D do mundo ({layer}). Transfere mosaicos de {provider}, que recebe a localização do edifício.",
         "providers": {
           "terrain": "Cesium ion",
-          "terrainMapTiler": "Cesium ion e MapTiler",
+          "terrainGoogle": "Cesium ion, com o mapa da Google através do Cesium ion",
           "ion": "Cesium ion",
+          "ionGoogle": "Cesium ion, com o mapa da Google através do Cesium ion",
           "google": "Google, através do Cesium ion",
-          "url": "{host}"
+          "url": "{host}",
+          "urlGoogle": "{host}, e o Cesium ion para o mapa da Google"
         }
       },
       "errors": {
@@ -2582,17 +2596,13 @@
           "name": "OpenFreeMap",
           "text": "Mosaicos do mapa de base, quando configurado: OpenFreeMap © OpenMapTiles, dados do OpenStreetMap."
         },
-        "maptiler": {
-          "name": "MapTiler",
-          "text": "Ruas, OpenStreetMap e imagem de satélite, quando existe uma chave MapTiler configurada: © MapTiler © OpenStreetMap contributors. Sujeito aos termos da MapTiler."
-        },
         "cesium": {
           "name": "Cesium ion e Cesium World Terrain",
-          "text": "O terreno e os edifícios OSM são transmitidos pelo Cesium ion, cujo crédito se mantém no ecrã enquanto são mostrados. Usado ao abrigo dos termos de serviço do Cesium ion."
+          "text": "O terreno, os edifícios OSM e o mapa Google são transmitidos pelo Cesium ion, cujo crédito se mantém no ecrã enquanto são mostrados. Usado ao abrigo dos termos de serviço do Cesium ion."
         },
         "google": {
-          "name": "Google Photorealistic 3D Tiles",
-          "text": "Apenas quando selecionado. Fornecido pela Google e sujeito aos termos de serviço da Google Maps Platform, incluindo as suas condições de atribuição e de utilização."
+          "name": "Google Maps 2D e Photorealistic 3D Tiles",
+          "text": "O mapa rodoviário e a imagem de satélite sob o terreno (através do Cesium ion), e o Google Photorealistic 3D quando selecionado. Fornecidos pela Google e sujeitos aos termos de serviço da Google Maps Platform, incluindo o logótipo, a atribuição e as condições de utilização."
         },
         "egm96": {
           "name": "Geoide EGM96",
@@ -2637,7 +2647,7 @@
         },
         {
           "title": "Sem associação nem apoio",
-          "text": "Cartão de Cidadão e Autenticação.gov pertencem ao Estado Português e à AMA; buildingSMART, IFC, BCF e IDS à buildingSMART International; Google, MapTiler, Cesium e OpenStreetMap aos seus titulares. São nomeados para dizer com o que esta aplicação funciona, e nenhum a apoia. Os logótipos do ISISE e da Universidade do Minho pertencem a essas instituições."
+          "text": "Cartão de Cidadão e Autenticação.gov pertencem ao Estado Português e à AMA; buildingSMART, IFC, BCF e IDS à buildingSMART International; Google, Cesium e OpenStreetMap aos seus titulares. São nomeados para dizer com o que esta aplicação funciona, e nenhum a apoia. Os logótipos do ISISE e da Universidade do Minho pertencem a essas instituições."
         }
       ]
     },

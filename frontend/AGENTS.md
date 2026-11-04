@@ -820,11 +820,19 @@ a separate 2D map. `/georef` redirects to `/viewer?panel=georef`.
 - **Import `3d-tiles-renderer` dynamically**, inside `createIonTiles`. It is a
   large dependency for a feature that is off unless a token is set, and a
   static import puts it in the viewer bundle for everyone.
-- **A basemap style in the menu must be an origin in the CSP.** Both come from
-  `NEXT_PUBLIC_MAPTILER_KEY` via `lib/viewer/basemap-styles.ts` and `proxy.ts`
-  so they cannot drift; a style whose origin is missing fails as `AJAXError:
-  Failed to fetch (0)`, which names nothing. Satellite is raster, so it is the
-  one style that genuinely needs `img-src` and not only `connect-src`.
+- **The map under the terrain is Google Maps 2D, through Cesium ion**
+  (`GOOGLE_2D_ASSETS` in `lib/viewer/globe-layers.ts`, `Globe#setImagery`;
+  ADR 003, amended 2026-11-04). ion proxies the tiles through
+  `assets.ion.cesium.com/proxy/<asset>`, so the ion origins already in the CSP
+  cover it and no Google origin is added; MapTiler, its key and its CSP origin
+  are gone. The choice (road map, satellite, satellite with labels, none) is
+  separate from the 3D layer, saved in projects (`viewer.globe.imagery`, absent
+  = road map), and the map is hidden under Google Photorealistic, which covers
+  the ground itself. Google's terms want its logo and data credit beside the
+  tiles: `GlobeGoogleLogo` puts the logo on the map (ion serves a white one,
+  invisible on the panel), and `getAttribution` asks Google's viewport endpoint
+  for the credit of the area in view — the provider's own credits are for the
+  whole planet and over satellite name every supplier in the world.
 - **A context model is not a model.** CityJSON loaded through
   `ContextModel.tsx` goes to `renderer.setContextGeometry`, never
   `setModelGeometry`: it must stay out of the model list, the spatial tree, the
@@ -1199,7 +1207,7 @@ flows live. Both are written in `messages/*.json` (no hard-coded prose).
 - **Adding a data source or provider means adding its credit in the same change.**
   Row in `app/(home)/about/page.tsx` `DATA` plus `about.data.rows.<key>`, the line in
   `Globe#getAttribution` and, if it needs a link, `lib/viewer/attribution.ts`. ODbL,
-  Cesium ion, MapTiler and Google all make visible attribution a condition of use.
+  Cesium ion and Google (with its logo) make visible attribution a condition of use.
 - **Adding a dependency that ships to users needs nothing by hand:** the notices file
   (`public/third-party-licenses.txt`) is generated from the installed production
   dependency closure by `scripts/generate-licenses.mts`, run by `prebuild`/`predev`.

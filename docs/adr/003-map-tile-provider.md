@@ -1,6 +1,6 @@
 # ADR 003 — Map tile provider
 
-- **Status:** Accepted; **amended 2026-09-05** (OpenFreeMap for development), **2026-09-08** (MapTiler styles; camera-following extent; Cesium ion 3D tiles) and **2026-09-18** (Bing removed from the Cesium globe; MapTiler's OpenStreetMap style used instead). See the amendments.
+- **Status:** Accepted; **amended 2026-09-05** (OpenFreeMap for development), **2026-09-08** (MapTiler styles; camera-following extent; Cesium ion 3D tiles), **2026-09-18** (Bing removed from the Cesium globe; MapTiler's OpenStreetMap style used instead) and **2026-11-04** (Google Maps 2D through Cesium ion replaces MapTiler). See the amendments.
 - **Date:** 2026-09-03
 - **Phase:** decided in Phase 1, used in Phase 4
 
@@ -319,3 +319,63 @@ https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.png?key=<NEXT_PUBLIC_MAP
 Not verified: whether the tiles actually draw well under the model — needs a
 real MapTiler key, which development does not currently have configured.
 Same caveat this ADR already carries for the ion 3D tiles amendment above.
+
+## Amendment — 2026-11-04: Google Maps 2D through Cesium ion replaces MapTiler
+
+### Context
+
+The 2026-09-18 amendment put MapTiler's OpenStreetMap raster style under the
+Cesium globe — the only remaining use of MapTiler (the MapLibre basemap and
+its styles had gone). It meant a second account, a second key and a second CSP
+origin for one picture, while terrain, OSM Buildings, Google Photorealistic and
+custom tilesets all came from one ion token.
+
+Cesium ion now carries Google's 2D maps as ordinary imagery assets. Read with
+this deployment's token from `GET /v1/assets/{id}` and `/endpoint` on
+2026-11-04:
+
+| Asset | Name | Endpoint |
+|---|---|---|
+| 3830182 | Google Maps 2D Satellite | `externalType: GOOGLE_2D_MAPS`, `url: https://assets.ion.cesium.com/proxy/3830182` |
+| 3830183 | Google Maps 2D Satellite with Labels | same shape |
+| 3830184 | Google Maps 2D Roadmap | same shape |
+| 3830185 / 3830186 | Labels Only / Contour | not used |
+
+The endpoint answers with a Google session and key, and a **proxy URL on
+`assets.ion.cesium.com`**: the browser asks ion for the tiles, not Google. Its
+attributions are ion's logo, "Upgrade for commercial use" (the account's plan)
+and Google's logo (`assets.ion.cesium.com/google-credit.png`).
+
+### Decision
+
+- **The map under the terrain is Google Maps 2D, through ion**
+  (`Cesium.Google2DImageryProvider.fromIonAssetId`), chosen in the GIS panel:
+  road map (default — closest to the OSM map it replaces), satellite,
+  satellite with labels, or none. Saved in projects; a project from before
+  reads as road map.
+- **MapTiler is removed**: `NEXT_PUBLIC_MAPTILER_KEY`, `api.maptiler.com` in
+  the CSP, its credit on `/about`, its label in the menu.
+- **No new CSP origin.** The tiles come through `assets.ion.cesium.com`,
+  already present whenever a token is; the Google logo is on the same host.
+- **Hidden under Google Photorealistic 3D**, which covers the ground itself —
+  drawing a map nobody can see would only spend requests.
+- **Attribution**: "© Cesium ion", Google's logo **on the map** (bottom-left;
+  ion serves a white logo, made for imagery), and the data credit Google's
+  viewport endpoint returns for **the area in view** ("Map data ©2026 Google",
+  "Imagery ©2026 …"). Cesium's provider asks that endpoint for the whole
+  planet, which over satellite names every supplier in the world; the globe
+  asks for the camera's own rectangle instead. Google's Map Tiles policies
+  want the logo and the credit with the tiles.
+
+### Consequences
+
+- One account, one token. Without a token — or with its quota spent — there is
+  neither terrain nor a map; with MapTiler, a map could be drawn alone.
+- The look changes from OpenStreetMap cartography to Google's.
+- **Licensing is the operator's to check**: the attribution ion returns on this
+  account says "Upgrade for commercial use", i.e. the plan in use is for
+  non-commercial use. Google's tiles also count against ion's usage.
+- Google learns nothing new directly — the requests go to ion — but the
+  privacy statement now names Google as the map's source (`/privacy`).
+
+Verified in the app, against the real assets: see `e2e/globe-imagery.spec.ts`.

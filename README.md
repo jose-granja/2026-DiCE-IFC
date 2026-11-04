@@ -28,7 +28,7 @@ federated by their `IfcMapConversion`, and shown in 3D. The left-hand tool tabs:
 | **Lens** | Saved ways of looking at the model: colour, ghost or hide by rules, or auto-colour by any property. Lens lists can be downloaded and uploaded |
 | **Quantity query (QTO)** | A bill of quantities: hierarchical lines with filters and formulas, run against the models. Imports and exports Excel; a default MQT template is included |
 | **Georeferencing** | LoGeoRef grading, placement editing, control-point fitting, corrected-IFC export |
-| **GIS context** | Basemap and 3D globe, terrain and 3D tiles, CityJSON / GeoJSON / CityGML / GeoPackage context, WFS and WMS layers |
+| **GIS context** | 3D globe (Cesium ion): terrain, a Google road map or satellite imagery, OSM or Google 3D buildings, your own 3D tiles; CityJSON / GeoJSON / CityGML / GeoPackage context, WFS and WMS layers |
 | **Section planes** | Any number of planes, each flippable and toggleable |
 | **Measurements** | Point-to-point distance with plan and vertical components, snapped to corners |
 | **IDS verification** | Check the models against an IDS file; jump from a failure to the element; export the failures as BCF |
@@ -139,8 +139,7 @@ Deployment settings are environment variables — see
 | Variable | |
 |---|---|
 | `NEXT_PUBLIC_MAP_STYLE_URL`, `NEXT_PUBLIC_TILE_ORIGIN` | The basemap style and the origin the CSP allows for it |
-| `NEXT_PUBLIC_MAPTILER_KEY` | Optional MapTiler styles |
-| `NEXT_PUBLIC_CESIUM_ION_TOKEN`, `NEXT_PUBLIC_CESIUM_ION_ASSET_ID` | Optional Cesium ion terrain and 3D tiles |
+| `NEXT_PUBLIC_CESIUM_ION_TOKEN`, `NEXT_PUBLIC_CESIUM_ION_ASSET_ID` | Optional Cesium ion: terrain, 3D tiles, and the Google Maps 2D road map or satellite under the model |
 | `NEXT_PUBLIC_OPERATOR_NAME`, `NEXT_PUBLIC_OPERATOR_CONTACT` | Who runs the deployment, shown on About and Privacy |
 | `NEXT_PUBLIC_SOURCE_URL` | The source link on About; defaults to this repository |
 | `TSA_URL`, `TSA_USERNAME`, `TSA_PASSWORD`, `TSA_NAME` | The time-stamping authority (server-side only) |

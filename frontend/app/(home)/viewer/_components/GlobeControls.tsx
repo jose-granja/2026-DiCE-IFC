@@ -29,8 +29,8 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { linkAttribution } from "@/lib/viewer/attribution";
-import { ionConfigured, mapTilerConfigured } from "@/lib/viewer/globe";
-import { getGlobe, useGlobeStore, type GlobeLayerId } from "@/lib/viewer/globe-store";
+import { ionConfigured } from "@/lib/viewer/globe";
+import { GLOBE_IMAGERY, getGlobe, useGlobeStore, type GlobeImageryId, type GlobeLayerId } from "@/lib/viewer/globe-store";
 import type { WgsPoint } from "@/lib/georef/transform";
 import type { GlobeLoadingState } from "@/lib/viewer/globe-loading";
 import LoadingProgress from "./LoadingProgress";
@@ -55,7 +55,6 @@ export function GlobeControls({
   const t = useTranslations("viewer.globeControls");
 
   const LABELS: Record<LayerId, string> = {
-    // Overridden below when MapTiler's OSM imagery is configured — see globe.ts.
     terrain: t("layers.terrain"),
     "osm-buildings": t("layers.osmBuildings"),
     "google-photorealistic": t("layers.googlePhotorealistic"),
@@ -69,6 +68,7 @@ export function GlobeControls({
   const layer = useGlobeStore((s) => s.layer);
   const assetId = useGlobeStore((s) => s.assetId);
   const url = useGlobeStore((s) => s.url);
+  const imagery = useGlobeStore((s) => s.imagery);
   const phase = useGlobeStore((s) => s.phase);
   const pending = useGlobeStore((s) => s.pending);
   const setSettings = useGlobeStore((s) => s.setSettings);
@@ -80,7 +80,14 @@ export function GlobeControls({
   const [attribution, setAttribution] = useState("");
 
   const configured = ionConfigured();
-  const terrainLabel = mapTilerConfigured() ? t("layers.terrainAndImagery") : t("layers.terrain");
+  // Google Photorealistic covers the ground itself, so the map is not drawn under it.
+  const mapApplies = layer !== "google-photorealistic";
+  const showsGoogle = on && (layer === "google-photorealistic" || imagery !== "none");
+
+  const chooseImagery = async (next: GlobeImageryId) => {
+    const outcome = await useGlobeStore.getState().setImagery(next);
+    if (!outcome.ok) toast.error(t("imagery.failed", { message: outcome.error }));
+  };
 
   // Tell the store where the model is, for as long as this panel is the one
   // that knows; the globe keeps the last placement when the panel closes.
@@ -191,11 +198,34 @@ export function GlobeControls({
             <SelectContent>
               {(Object.keys(LABELS) as LayerId[]).map((id) => (
                 <SelectItem key={id} value={id}>
-                  {id === "terrain" ? terrainLabel : LABELS[id]}
+                  {LABELS[id]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
+          <div className="flex items-center gap-2">
+            <Label htmlFor="globe-imagery" className="text-muted-foreground shrink-0 text-[11px] font-normal">
+              {t("imagery.label")}
+            </Label>
+            <Select
+              value={imagery}
+              disabled={busy || !mapApplies}
+              onValueChange={(value) => void chooseImagery(value as GlobeImageryId)}
+            >
+              <SelectTrigger id="globe-imagery" className="h-7 flex-1 text-xs" aria-label={t("imagery.label")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GLOBE_IMAGERY.map((id) => (
+                  <SelectItem key={id} value={id}>
+                    {t(`imagery.options.${id}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {!mapApplies && <p className="text-muted-foreground text-[11px]">{t("imagery.notUnderPhotorealistic")}</p>}
 
           {layer === "ion-asset" && (
             <div className="space-y-1">
@@ -234,7 +264,8 @@ export function GlobeControls({
       )}
 
       {on && attribution && (
-        // Required wherever the data is shown, by both ion's and Google's terms.
+        // Required wherever the data is shown, by both ion's and Google's terms;
+        // Google's logo is on the map itself (`GlobeGoogleLogo`).
         <p className="text-muted-foreground text-[11px]" data-globe-attribution>
           {linkAttribution(attribution).map((part, index) => (
             <span key={`${part.text}-${index}`}>
@@ -256,7 +287,7 @@ export function GlobeControls({
         </p>
       )}
 
-      {on && layer === "google-photorealistic" && (
+      {showsGoogle && (
         <p className="text-muted-foreground text-[11px]" data-globe-google-terms>
           {t("googleTerms")}
         </p>

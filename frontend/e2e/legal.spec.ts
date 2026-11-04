@@ -30,7 +30,7 @@ test("the About page credits what the app is built on and whose data it shows", 
     "href",
     "https://www.openstreetmap.org/copyright",
   );
-  for (const key of ["openfreemap", "maptiler", "cesium", "google", "egm96", "epsg", "buildingsmart"]) {
+  for (const key of ["openfreemap", "cesium", "google", "egm96", "epsg", "buildingsmart"]) {
     await expect(page.locator(`[data-data-credit="${key}"]`)).toBeVisible();
   }
 

@@ -13,7 +13,7 @@ const { renderer, notify } = vi.hoisted(() => ({
   renderer: { setGlobe: vi.fn(), setDepthProxy: vi.fn(), visibleGroundMetres: () => 100 },
   notify: vi.fn(),
 }));
-vi.mock("../globe", () => ({ createGlobe: vi.fn(), ionConfigured: () => true, mapTilerConfigured: () => false }));
+vi.mock("../globe", () => ({ createGlobe: vi.fn(), ionConfigured: () => true }));
 vi.mock("../active-renderer", () => ({ getActiveRenderer: () => renderer }));
 vi.mock("../globe-canvas", () => ({ getGlobeCanvas: () => document.createElement("div") }));
 vi.mock("sonner", () => ({ toast: { error: notify } }));
@@ -35,9 +35,10 @@ beforeEach(() => {
   // The globe lives in a store that outlives the panel (it stays on across
   // tabs), so each test starts from a released globe, not the last test's.
   useGlobeStore.getState().off();
-  useGlobeStore.setState({ layer: "terrain", assetId: "", url: "", pendingOutcome: null });
+  useGlobeStore.setState({ layer: "terrain", assetId: "", url: "", imagery: "roadmap", pendingOutcome: null });
   globe = {
     setLayer: vi.fn().mockResolvedValue(undefined),
+    setImagery: vi.fn().mockResolvedValue(undefined),
     sampleDepthProxy: vi.fn().mockResolvedValue(null),
     getLoadingState: vi.fn().mockReturnValue({ loading: false, pending: 0 }),
     sync: vi.fn(), setSectionPlanes: vi.fn(), getAttribution: () => "", isReady: () => true, dispose: vi.fn(),

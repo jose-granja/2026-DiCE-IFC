@@ -83,6 +83,17 @@ test("separates what the type defines from what the occurrence does", async ({
   await expect(page.getByText(/shared by every occurrence/i)).toBeVisible();
   await expect(page.locator('[data-section="Type"]').getByRole("columnheader", { name: "Current value" })).toBeVisible();
 
+  // The type object's own attributes come first, ahead of its property sets.
+  const typeAttributes = page.locator('[data-section="Type"] [data-property-group="Attributes of IfcWallType"]');
+  await expect(typeAttributes).toBeVisible();
+  await expect(typeAttributes.getByRole("cell", { name: "2FacetWallType0000001", exact: true })).toBeVisible();
+  await expect(typeAttributes.getByRole("cell", { name: "Basic Wall 200", exact: true })).toBeVisible();
+  await expect(typeAttributes.getByRole("cell", { name: "STANDARD", exact: true })).toBeVisible();
+  await expect(page.locator('[data-section="Type"] [data-property-group]').first()).toHaveAttribute(
+    "data-property-group",
+    "Attributes of IfcWallType",
+  );
+
   // The occurrence's own property sets are a different tab, hidden while
   // this one is active — the two must never bleed into each other.
   await expect(page.getByText("REI 60")).toHaveCount(0);

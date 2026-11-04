@@ -26,14 +26,16 @@ import { getActiveRenderer } from "./active-renderer";
 import { createGlobe, type Globe, type GlobeLayer } from "./globe";
 import { getGlobeCanvas } from "./globe-canvas";
 
-import { GLOBE_LAYERS, type GlobeLayerId } from "./globe-layers";
+import { GLOBE_IMAGERY, GLOBE_LAYERS, type GlobeImageryId, type GlobeLayerId } from "./globe-layers";
 
-export { GLOBE_LAYERS, type GlobeLayerId };
+export { GLOBE_IMAGERY, GLOBE_LAYERS, type GlobeImageryId, type GlobeLayerId };
 
 export type GlobeSettings = {
   layer: GlobeLayerId;
   assetId: string;
   url: string;
+  /** The map draped over the terrain; a road map unless the user chose otherwise. */
+  imagery: GlobeImageryId;
 };
 
 export type GlobeOutcome =
@@ -55,6 +57,8 @@ type GlobeState = GlobeSettings & {
   setPlacement: (origin: WgsPoint | null, northCorrection: number) => void;
   /** Switch on (with the current layer) or off. Resolves to what happened. */
   enable: (enabled: boolean) => Promise<GlobeOutcome>;
+  /** Change the map over the terrain, on the live globe too if it is on. */
+  setImagery: (imagery: GlobeImageryId) => Promise<GlobeOutcome>;
   /** Turn it off and release the globe — the viewer is going away, or the models are. */
   off: () => void;
   restore: (settings: GlobeSettings, turnOn: boolean) => void;
@@ -83,6 +87,7 @@ export const useGlobeStore = create<GlobeState>((set, get) => ({
   layer: "terrain",
   assetId: "",
   url: "",
+  imagery: "roadmap",
   on: false,
   phase: null,
   origin: null,
@@ -108,7 +113,7 @@ export const useGlobeStore = create<GlobeState>((set, get) => ({
 
     const current = ++generation;
     const isCurrent = () => current === generation;
-    const { layer, assetId, url, origin, northCorrection } = get();
+    const { layer, assetId, url, imagery, origin, northCorrection } = get();
     const renderer = getActiveRenderer();
     const canvas = getGlobeCanvas();
     if (!renderer || !canvas || !origin) {
@@ -136,6 +141,9 @@ export const useGlobeStore = create<GlobeState>((set, get) => ({
 
       set({ phase: "layer" });
       await active.setLayer(described);
+      // The map is the nicety; terrain and the 3D layer are the substance, so a
+      // map that will not load costs the map, not the globe.
+      await active.setImagery(imagery).catch(() => undefined);
       if (!isCurrent()) return { ok: true };
       renderer.setGlobe(active, origin, northCorrection);
       set({ phase: "preparing" });
@@ -168,6 +176,17 @@ export const useGlobeStore = create<GlobeState>((set, get) => ({
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
     } finally {
       if (isCurrent()) set({ phase: null });
+    }
+  },
+
+  setImagery: async (imagery) => {
+    set({ imagery });
+    if (!globe) return { ok: true };
+    try {
+      await globe.setImagery(imagery);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
   },
 

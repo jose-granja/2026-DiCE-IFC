@@ -144,7 +144,7 @@ export function snapshotSession(): SessionSnapshot {
     pointCloudEdgeShading: usePointCloudStore.getState().edgeShading,
     globe: (() => {
       const globe = useGlobeStore.getState();
-      return { on: globe.on, layer: globe.layer, assetId: globe.assetId, url: globe.url };
+      return { on: globe.on, layer: globe.layer, assetId: globe.assetId, url: globe.url, imagery: globe.imagery };
     })(),
     worldOrigin: viewer.worldOrigin
       ? { source: viewer.worldOrigin.source, mapPosition: viewer.worldOrigin.mapPosition }
@@ -584,7 +584,7 @@ export async function restoreProject(
   const globe = viewer.globe;
   if (globe) {
     useGlobeStore.getState().restore(
-      { layer: globe.layer, assetId: globe.assetId, url: globe.url },
+      { layer: globe.layer, assetId: globe.assetId, url: globe.url, imagery: globe.imagery ?? "roadmap" },
       globe.on && allowGlobe,
     );
   }

@@ -30,10 +30,10 @@
         "why": "To suggest the property sets, property names and allowed values a class can carry, so a specification does not silently apply to nothing because of a typo. bSDD sends no CORS headers, so the call goes through this app's API — which also means bSDD sees this deployment's address rather than yours. Lookups fire on a class you have named, not on every keystroke. No model, no IDS file and no property value is sent, and the editor works normally with bSDD unreachable."
       },
       {
-        "what": "Map tiles",
-        "when": "On the georeferencing map",
-        "where": "The configured tile provider. Self-hosted Protomaps by default, which is this app's own origin; this deployment is configured for OpenFreeMap (tiles.openfreemap.org)",
-        "why": "To draw a basemap under the model footprint in georeferencing. Tile requests reveal roughly where you are looking — in this module, that is where the building is — which is why a self-hosted provider is the default. OpenFreeMap needs no account and states that it does not log requests, but it is still a third party. Removing NEXT_PUBLIC_MAP_STYLE_URL turns the basemap off; the georeferencing itself does not need it. When a MapTiler key is configured the panel also offers Streets, OpenStreetMap and Satellite from api.maptiler.com; those requests are tied to that account key. The basemap now covers whatever the camera is looking at, so panning and zooming out fetches tiles for the area you move to. Choosing 3D buildings streams 3D geometry from Cesium ion (api.cesium.com and assets.ion.cesium.com) against an ion token; those requests are tied to that token and ion's attribution stays on screen while the tiles are shown."
+        "what": "Map tiles, terrain and 3D buildings",
+        "when": "Only when you turn on the 3D world context in the GIS tab (a restored project asks first), and only if this deployment has a Cesium ion token",
+        "where": "Cesium ion (api.cesium.com, assets.ion.cesium.com), which also passes on the Google Maps 2D map (road map or satellite); Google (tile.googleapis.com) only when you choose Google Photorealistic 3D",
+        "why": "To show the model on its real site: terrain, OSM buildings and a road map or satellite imagery underneath. Tile requests reveal roughly where you are looking — that is, where the building is — and are tied to this deployment's ion token. The Google map is requested through ion, so Google is not contacted directly for it; choosing “No map” leaves only terrain. ion's and Google's credits, with Google's logo, stay on screen while their data is shown. No model geometry, property or file is sent."
       },
       {
         "what": "The SHA-256 hash of a signature's own value (never a file) and a random number",
@@ -856,6 +856,8 @@
       "noMaterialProperties": "This material has no property sets.",
       "noQuantities": "This element has no quantities.",
       "noTypeProperties": "This element has no properties from its type.",
+      "noType": "This element has no type.",
+      "typeAttributes": "Attributes of {type}",
       "noClassification": "This element has no classification.",
       "copyExpressId": "Copy express id {id}",
       "yes": "Yes",
@@ -1172,7 +1174,6 @@
       "loadFailed": "The world could not be loaded.",
       "layers": {
         "terrain": "Terrain",
-        "terrainAndImagery": "Terrain and imagery",
         "osmBuildings": "OSM buildings",
         "googlePhotorealistic": "Google Photorealistic 3D",
         "ionAsset": "Cesium ion asset…",
@@ -1184,10 +1185,21 @@
       "tilesetUrlHint": "Any 3D Tiles set, including one you host yourself — that route involves no third party at all.",
       "noTokenHint": "Set <code>NEXT_PUBLIC_CESIUM_ION_TOKEN</code> to show terrain, imagery and 3D buildings under the model. The rest of this panel works without one.",
       "noOriginHint": "This model has no usable map conversion yet, so there is nowhere on earth to put it.",
-      "googleTerms": "Google Photorealistic 3D Tiles are provided by Google and used under the Google Maps Platform terms, including their attribution and usage conditions.",
+      "googleTerms": "Google Maps tiles are provided by Google, through Cesium ion, and used under the Google Maps Platform terms, including their attribution and usage conditions.",
       "restore": {
         "notConfigured": "This deployment has no Cesium ion token, so the 3D world context cannot be shown.",
         "noOrigin": "This model has no position on the earth, so the 3D world context cannot be shown around it."
+      },
+      "imagery": {
+        "label": "Map",
+        "options": {
+          "roadmap": "Google road map",
+          "satellite": "Google satellite",
+          "satellite-labels": "Google satellite with labels",
+          "none": "No map (terrain only)"
+        },
+        "notUnderPhotorealistic": "Google Photorealistic 3D covers the ground itself, so no map is drawn under it.",
+        "failed": "The Google map could not be loaded: {message}"
       }
     },
     "gisAreas": {
@@ -1507,10 +1519,12 @@
         "globe": "Turn on the 3D world context ({layer}). It streams tiles from {provider}, which receives the location of the building.",
         "providers": {
           "terrain": "Cesium ion",
-          "terrainMapTiler": "Cesium ion and MapTiler",
+          "terrainGoogle": "Cesium ion, with Google's map through Cesium ion",
           "ion": "Cesium ion",
+          "ionGoogle": "Cesium ion, with Google's map through Cesium ion",
           "google": "Google, through Cesium ion",
-          "url": "{host}"
+          "url": "{host}",
+          "urlGoogle": "{host}, and Cesium ion for Google's map"
         }
       },
       "errors": {
@@ -2582,17 +2596,13 @@
           "name": "OpenFreeMap",
           "text": "Basemap tiles, when configured: OpenFreeMap © OpenMapTiles, data from OpenStreetMap."
         },
-        "maptiler": {
-          "name": "MapTiler",
-          "text": "Streets, OpenStreetMap and satellite imagery, when a MapTiler key is configured: © MapTiler © OpenStreetMap contributors. Subject to MapTiler's terms."
-        },
         "cesium": {
           "name": "Cesium ion and Cesium World Terrain",
-          "text": "Terrain and OSM buildings are streamed from Cesium ion, and its credit stays on screen while they are shown. Used under Cesium ion's terms of service."
+          "text": "Terrain, OSM buildings and the Google map are streamed from Cesium ion, and its credit stays on screen while they are shown. Used under Cesium ion's terms of service."
         },
         "google": {
-          "name": "Google Photorealistic 3D Tiles",
-          "text": "Only when selected. Provided by Google and subject to the Google Maps Platform terms of service, including their attribution and usage conditions."
+          "name": "Google Maps 2D and Photorealistic 3D Tiles",
+          "text": "The road map and satellite imagery under the terrain (through Cesium ion), and Google Photorealistic 3D when selected. Provided by Google and subject to the Google Maps Platform terms of service, including their logo, attribution and usage conditions."
         },
         "egm96": {
           "name": "EGM96 geoid",
@@ -2637,7 +2647,7 @@
         },
         {
           "title": "No affiliation or endorsement",
-          "text": "Cartão de Cidadão and Autenticação.gov belong to the Portuguese State and AMA; buildingSMART, IFC, BCF and IDS to buildingSMART International; Google, MapTiler, Cesium and OpenStreetMap to their owners. They are named to say what this application works with, and none of them endorses it. The ISISE and University of Minho logos belong to those institutions."
+          "text": "Cartão de Cidadão and Autenticação.gov belong to the Portuguese State and AMA; buildingSMART, IFC, BCF and IDS to buildingSMART International; Google, Cesium and OpenStreetMap to their owners. They are named to say what this application works with, and none of them endorses it. The ISISE and University of Minho logos belong to those institutions."
         }
       ]
     },

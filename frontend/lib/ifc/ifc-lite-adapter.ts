@@ -68,6 +68,7 @@ import {
   type ElementInfo,
   type MaterialDetailView,
   type MaterialRef,
+  type TypeObjectView,
   type PropertyValue,
   type FilterFacets,
   type FilterFacetValue,
@@ -293,6 +294,32 @@ const QUANTITY_KIND_MEASURE = [
   "IfcMassMeasure",
   "IfcTimeMeasure",
 ] as const;
+
+/**
+ * The occurrence's type object and its own attributes, for the Properties
+ * panel's Type tab. Found through the relationship rather than through
+ * `extractTypePropertiesOnDemand`, which answers null for a type that has no
+ * property sets — and a type with only attributes (Name, PredefinedType,
+ * ElementType…) is the common case for many exporters.
+ *
+ * `extractAllEntityAttributes` names the slots from the schema but leaves out
+ * GlobalId (with the references), so that is read from the root attributes
+ * and put first, as on the occurrence's own Attributes tab.
+ */
+function typeObjectFor(store: IfcDataStore, expressId: number): TypeObjectView | null {
+  const typeId = store.relationships?.getRelated(expressId, RelationshipType.DefinesByType, "inverse")[0];
+  if (typeId === undefined) return null;
+  const entity = store.getEntity(typeId);
+  if (!entity) return null;
+  const globalId = extractEntityAttributesOnDemand(store, typeId).globalId;
+  const attributes: TypeObjectView["attributes"] = [
+    ...(globalId ? [{ name: "GlobalId", value: globalId }] : []),
+    ...extractAllEntityAttributes(store, typeId).filter(
+      (attribute) => attribute.value !== "" && attribute.name !== "GlobalId",
+    ),
+  ];
+  return { expressId: typeId, type: normalizeIfcTypeName(entity.type), attributes };
+}
 
 /**
  * The base `IfcMaterial`(s) an element is made of, resolved past any layer
@@ -923,6 +950,8 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
             })),
           )
         : [],
+
+      typeObject: typeObjectFor(store, expressId),
 
       materials: materialRefsFor(store, expressId),
 

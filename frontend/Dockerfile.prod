@@ -42,9 +42,8 @@ ARG NEXT_PUBLIC_TILE_ORIGIN=
 # and the tile origin is what the CSP allows it to reach. Having only one is the
 # same as having neither, and the app says so on the georeferencing panel.
 ARG NEXT_PUBLIC_MAP_STYLE_URL=
-# Optional. Adds the MapTiler styles to the menu and api.maptiler.com to the CSP.
-ARG NEXT_PUBLIC_MAPTILER_KEY=
-# Optional. Adds Cesium ion 3D buildings, and its origins to the CSP.
+# Optional. Adds the 3D world context — Cesium ion terrain, 3D buildings and the
+# Google Maps 2D map ion carries — and ion's origins to the CSP.
 ARG NEXT_PUBLIC_CESIUM_ION_TOKEN=
 ARG NEXT_PUBLIC_CESIUM_ION_ASSET_ID=
 # The default is the local companion (ADR 007). `webeid` cannot sign a Cartão de
@@ -62,7 +61,6 @@ ENV NEXT_PUBLIC_OPERATOR_NAME=$NEXT_PUBLIC_OPERATOR_NAME \
     NEXT_PUBLIC_SOURCE_URL=$NEXT_PUBLIC_SOURCE_URL
 ENV NEXT_PUBLIC_TILE_ORIGIN=$NEXT_PUBLIC_TILE_ORIGIN \
     NEXT_PUBLIC_MAP_STYLE_URL=$NEXT_PUBLIC_MAP_STYLE_URL \
-    NEXT_PUBLIC_MAPTILER_KEY=$NEXT_PUBLIC_MAPTILER_KEY \
     NEXT_PUBLIC_CESIUM_ION_TOKEN=$NEXT_PUBLIC_CESIUM_ION_TOKEN \
     NEXT_PUBLIC_CESIUM_ION_ASSET_ID=$NEXT_PUBLIC_CESIUM_ION_ASSET_ID \
     NEXT_PUBLIC_SIGNING_PROVIDER=$NEXT_PUBLIC_SIGNING_PROVIDER

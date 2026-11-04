@@ -22,7 +22,7 @@ import type {
   VolumeMeasurement,
 } from "@/lib/viewer/tools";
 import type { TypeVisibilityState } from "@/lib/viewer/type-visibility";
-import type { GlobeLayerId } from "@/lib/viewer/globe-layers";
+import type { GlobeImageryId, GlobeLayerId } from "@/lib/viewer/globe-layers";
 import { serializeLenses } from "@/lib/lens/file";
 import type { Lens } from "@/lib/lens/types";
 import type { StoredQueryListItem } from "@/lib/viewer/quantity-list-storage";
@@ -85,7 +85,7 @@ export type SessionSnapshot = {
   areaMode: "points" | "face";
   volumeMode: "element" | "box";
   pointCloudEdgeShading: boolean;
-  globe: { on: boolean; layer: GlobeLayerId; assetId: string; url: string };
+  globe: { on: boolean; layer: GlobeLayerId; assetId: string; url: string; imagery: GlobeImageryId };
   worldOrigin: { source: string; mapPosition?: Vec3 } | null;
 
   typeFilter: string[];

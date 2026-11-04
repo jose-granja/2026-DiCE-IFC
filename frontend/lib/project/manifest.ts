@@ -28,7 +28,7 @@ import { z } from "zod";
 import { HATCH_PATTERNS } from "@/lib/viewer/section-cap";
 import { lensListSchema } from "@/lib/lens/schema";
 import { TYPE_VISIBILITY_CATEGORIES } from "@/lib/viewer/type-visibility";
-import { GLOBE_LAYERS } from "@/lib/viewer/globe-layers";
+import { GLOBE_IMAGERY, GLOBE_LAYERS } from "@/lib/viewer/globe-layers";
 import { DEFAULT_PROPERTY_DECIMALS, MAX_PROPERTY_DECIMALS } from "@/lib/viewer/property-format";
 
 export const PROJECT_FORMAT = "dice-ifc-project";
@@ -239,6 +239,8 @@ export const projectManifestSchema = z.object({
           layer: z.enum(GLOBE_LAYERS),
           assetId: text.default(""),
           url: text.default(""),
+          /** The map over the terrain; absent in projects from before Google 2D (a road map then). */
+          imagery: z.enum(GLOBE_IMAGERY).optional(),
         })
         .optional(),
       /**

@@ -78,7 +78,7 @@ function session(over: Partial<SessionSnapshot> = {}): SessionSnapshot {
       saved: [{ id: "lens-1", name: "Slabs", kind: "auto", source: { kind: "class" }, unmatched: "ghost" }],
       activeId: "lens-1",
     },
-    globe: { on: true, layer: "google-photorealistic", assetId: "", url: "" },
+    globe: { on: true, layer: "google-photorealistic", assetId: "", url: "", imagery: "satellite-labels" },
     worldOrigin: { source: "mapConversion", mapPosition: [100, 200, 0] },
     typeFilter: ["IfcWall"],
     facets: { classes: ["IfcSlab"], materials: [] },
@@ -177,7 +177,17 @@ describe("saving a session", () => {
       layer: "google-photorealistic",
       assetId: "",
       url: "",
+      imagery: "satellite-labels",
     });
+  });
+
+  it("reads a project from before the map choice as a road map", () => {
+    const manifest = buildProject(session()).manifest;
+    const older = { ...manifest.viewer.globe!, imagery: undefined };
+    const parsed = parseProjectManifest(JSON.stringify({ ...manifest, viewer: { ...manifest.viewer, globe: older } }));
+    // Absent, and restored as a road map (`session.ts`).
+    expect(parsed.viewer.globe?.imagery).toBeUndefined();
+    expect(parsed.viewer.globe?.layer).toBe("google-photorealistic");
   });
 
   it("names elements by model position, and drops those on a model it could not save", () => {

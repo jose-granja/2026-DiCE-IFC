@@ -52,7 +52,6 @@ const DATA: Array<{ key: string; href: string }> = [
   { key: "ogc", href: "https://www.ogc.org/standards/" },
   { key: "osm", href: "https://www.openstreetmap.org/copyright" },
   { key: "openfreemap", href: "https://openfreemap.org" },
-  { key: "maptiler", href: "https://www.maptiler.com/copyright/" },
   { key: "cesium", href: "https://cesium.com/legal/terms-of-service/" },
   { key: "google", href: "https://cloud.google.com/maps-platform/terms" },
   { key: "egm96", href: "https://earth-info.nga.mil/" },
