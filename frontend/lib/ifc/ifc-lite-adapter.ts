@@ -69,6 +69,7 @@ import {
   type MaterialDetailView,
   type MaterialRef,
   type TypeObjectView,
+  type SurfaceMaterialEntry,
   type PropertyValue,
   type FilterFacets,
   type FilterFacetValue,
@@ -963,6 +964,20 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
         }),
       ),
     };
+  },
+
+  async getSurfaceMaterials(modelId: ModelId): Promise<SurfaceMaterialEntry[]> {
+    const { store } = must(modelId);
+    const placed = placedProducts(store);
+    const entries: SurfaceMaterialEntry[] = [];
+    for (const [type, ids] of store.entityIndex.byType) {
+      for (const expressId of ids) {
+        if (placed.size > 0 && !placed.has(expressId)) continue;
+        const materials = materialRefsFor(store, expressId).map(({ name, category }) => (category ? { name, category } : { name }));
+        if (materials.length) entries.push({ expressId, type: normalizeIfcTypeName(type), materials });
+      }
+    }
+    return entries;
   },
 
   async getMaterialInfo(

@@ -143,6 +143,86 @@ vec3 CustomToneMapping( vec3 color ) {
   );
 }
 
+/**
+ * Realistic materials (`lib/viewer/realistic/`): one texture array shared by
+ * every model material, a tile size per layer, and a switch. Which layer a
+ * vertex draws is its `aSurfaceLayer` attribute — 0 for none, layer + 1
+ * otherwise — so one batch can mix concrete, brick and timber without a draw
+ * call or a material per texture.
+ */
+export const MAX_SURFACE_LAYERS = 16;
+
+type SurfaceUniforms = {
+  uSurfaceMaps: THREE.IUniform<THREE.DataArrayTexture>;
+  /**
+   * Each layer's relief, linear: normal x and y (OpenGL convention), roughness,
+   * ambient occlusion — `lib/viewer/realistic/relief.ts`.
+   */
+  uSurfaceDetail: THREE.IUniform<THREE.DataArrayTexture>;
+  /** Metres one tile of each layer covers, width × height. */
+  uSurfaceScale: THREE.IUniform<THREE.Vector2[]>;
+  /** Each layer's mean colour, linear RGB. */
+  uSurfaceMean: THREE.IUniform<THREE.Vector3[]>;
+  uSurfaceOn: THREE.IUniform<number>;
+};
+
+/**
+ * How far a texture is pulled toward the colour the model gives the element:
+ * 0 shows the photograph as it is, 1 matches the model's colour on average.
+ * Halfway keeps the material's own character while a grey roof stays grey
+ * when the nearest asphalt Poly Haven has is darker.
+ */
+const SURFACE_COLOUR_PULL = 0.6;
+
+/** One texture for the realistic-materials array: RGBA rows, top row first. */
+export type SurfaceTextureLayer = {
+  pixels: Uint8Array | Uint8ClampedArray;
+  size: number;
+  /** Metres one tile covers on the model, width × height. */
+  metres: [number, number];
+  /** The texture's mean colour, linear RGB 0–1. */
+  mean: [number, number, number];
+  /** Normal x, y, roughness, occlusion: RGBA rows, top row first, `detailSize`². */
+  detail: Uint8Array | Uint8ClampedArray;
+  detailSize: number;
+};
+
+function emptySurfaceMaps(): THREE.DataArrayTexture {
+  const texture = new THREE.DataArrayTexture(new Uint8Array(4), 1, 1, 1);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** One flat, matte texel. */
+function emptySurfaceDetail(): THREE.DataArrayTexture {
+  const texture = new THREE.DataArrayTexture(new Uint8Array([128, 128, 230, 255]), 1, 1, 1);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** A tiling, mipmapped texture array of `layers`' pixels, all `size`². */
+function surfaceArray(
+  layers: Array<Uint8Array | Uint8ClampedArray>,
+  size: number,
+  colorSpace: THREE.ColorSpace,
+  anisotropy: number,
+): THREE.DataArrayTexture {
+  const data = new Uint8Array(size * size * 4 * layers.length);
+  layers.forEach((pixels, index) => {
+    if (pixels.length !== size * size * 4) throw new Error("Every realistic-material layer must be the same size.");
+    data.set(pixels, index * size * size * 4);
+  });
+  const texture = new THREE.DataArrayTexture(data, size, size, layers.length);
+  texture.colorSpace = colorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
+  texture.anisotropy = anisotropy;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 /** Shared by every model material, so one change restyles all of them. */
 type EdgeUniforms = {
   /** Total line width in CSS pixels; 0 hides the edges. */
@@ -163,8 +243,67 @@ type EdgeUniforms = {
 function applyIfcLiteMaterialFinish(
   material: THREE.MeshStandardMaterial,
   edges?: EdgeUniforms,
+  surface?: SurfaceUniforms,
 ) {
   material.onBeforeCompile = (shader) => {
+    if (surface) {
+      shader.uniforms.uSurfaceMaps = surface.uSurfaceMaps;
+      shader.uniforms.uSurfaceDetail = surface.uSurfaceDetail;
+      shader.uniforms.uSurfaceScale = surface.uSurfaceScale;
+      shader.uniforms.uSurfaceMean = surface.uSurfaceMean;
+      shader.uniforms.uSurfaceOn = surface.uSurfaceOn;
+      // Object-space position and normal: the batch's frame is the model's
+      // own, in metres, so a texture keeps its real size and stays put on the
+      // element as the camera moves.
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          "#include <common>",
+          /* glsl */ `#include <common>
+attribute float aSurfaceLayer;
+flat varying float vSurfaceLayer;
+varying vec3 vSurfacePos;
+varying vec3 vSurfaceNormal;
+// The object's axes in view space, where the lighting is done.
+flat varying vec3 vSurfaceAxisX;
+flat varying vec3 vSurfaceAxisY;
+flat varying vec3 vSurfaceAxisZ;`,
+        )
+        .replace(
+          "#include <begin_vertex>",
+          /* glsl */ `#include <begin_vertex>
+vSurfaceLayer = aSurfaceLayer;
+vSurfacePos = position;
+vSurfaceNormal = normal;
+vSurfaceAxisX = normalize( ( modelViewMatrix * vec4( 1.0, 0.0, 0.0, 0.0 ) ).xyz );
+vSurfaceAxisY = normalize( ( modelViewMatrix * vec4( 0.0, 1.0, 0.0, 0.0 ) ).xyz );
+vSurfaceAxisZ = normalize( ( modelViewMatrix * vec4( 0.0, 0.0, 1.0, 0.0 ) ).xyz );`,
+        );
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <common>",
+        /* glsl */ `#include <common>
+precision highp sampler2DArray;
+uniform sampler2DArray uSurfaceMaps;
+uniform sampler2DArray uSurfaceDetail;
+uniform vec2 uSurfaceScale[ ${MAX_SURFACE_LAYERS} ];
+uniform vec3 uSurfaceMean[ ${MAX_SURFACE_LAYERS} ];
+uniform float uSurfaceOn;
+flat varying float vSurfaceLayer;
+varying vec3 vSurfacePos;
+varying vec3 vSurfaceNormal;
+flat varying vec3 vSurfaceAxisX;
+flat varying vec3 vSurfaceAxisY;
+flat varying vec3 vSurfaceAxisZ;
+
+// A projection's normal-map sample, leaning \`normal\` along the directions the
+// image's right (\`t\`) and top (\`g\`) run on the face: each axis less its
+// part along the normal, so a slanted face gets the slope it actually has.
+vec3 ifcLiteLean( vec3 normal, vec4 detail, vec3 t, vec3 g ) {
+  vec2 xy = detail.rg * 2.0 - 1.0;
+  float z = sqrt( max( 1.0 - dot( xy, xy ), 0.0 ) );
+  return normal * z + xy.x * ( t - normal * dot( normal, t ) ) + xy.y * ( g - normal * dot( normal, g ) );
+}`,
+      );
+    }
     if (edges) {
       shader.uniforms.uEdgeWidth = edges.uEdgeWidth;
       shader.uniforms.uEdgeColour = edges.uEdgeColour;
@@ -208,13 +347,93 @@ diffuseColor.rgb = mix(
   diffuseColor.rgb,
   diffuseColor.rgb * 0.7,
   ifcLiteWhiteish * 0.4
-);`,
+);${
+          surface
+            ? /* glsl */ `
+// Triplanar: IFC geometry carries no texture coordinates, so the texture is
+// projected along each axis and blended by how squarely the face looks down
+// it. Only the normal's direction matters (abs), which is just as well — IFC
+// normals often disagree in sign with the winding.
+bool ifcLiteSurface = uSurfaceOn > 0.5 && vSurfaceLayer > 0.5;
+// Each projection's relief sample, and how much it counts; kept for the
+// roughness, normal and occlusion stages further down.
+vec3 ifcLiteW = vec3( 0.0 );
+vec4 ifcLiteDetailX = vec4( 0.5, 0.5, 0.9, 1.0 );
+vec4 ifcLiteDetailY = ifcLiteDetailX;
+vec4 ifcLiteDetailZ = ifcLiteDetailX;
+if ( ifcLiteSurface ) {
+  int ifcLiteLayer = int( vSurfaceLayer + 0.5 ) - 1;
+  vec2 ifcLiteTile = uSurfaceScale[ ifcLiteLayer ];
+  vec3 ifcLiteN = vSurfaceNormal;
+  if ( dot( ifcLiteN, ifcLiteN ) < 1e-8 ) ifcLiteN = cross( dFdx( vSurfacePos ), dFdy( vSurfacePos ) );
+  ifcLiteW = pow( abs( normalize( ifcLiteN ) ), vec3( 4.0 ) );
+  ifcLiteW /= max( ifcLiteW.x + ifcLiteW.y + ifcLiteW.z, 1e-5 );
+  float ifcLiteL = float( ifcLiteLayer );
+  // Image rows run top-down, so the vertical axis is flipped on walls.
+  vec3 ifcLiteUvX = vec3( vec2( vSurfacePos.z, -vSurfacePos.y ) / ifcLiteTile, ifcLiteL );
+  vec3 ifcLiteUvY = vec3( vSurfacePos.xz / ifcLiteTile, ifcLiteL );
+  vec3 ifcLiteUvZ = vec3( vec2( vSurfacePos.x, -vSurfacePos.y ) / ifcLiteTile, ifcLiteL );
+  vec3 ifcLiteTex =
+    texture( uSurfaceMaps, ifcLiteUvX ).rgb * ifcLiteW.x +
+    texture( uSurfaceMaps, ifcLiteUvY ).rgb * ifcLiteW.y +
+    texture( uSurfaceMaps, ifcLiteUvZ ).rgb * ifcLiteW.z;
+  ifcLiteDetailX = texture( uSurfaceDetail, ifcLiteUvX );
+  ifcLiteDetailY = texture( uSurfaceDetail, ifcLiteUvY );
+  ifcLiteDetailZ = texture( uSurfaceDetail, ifcLiteUvZ );
+  // Toward the element's own colour: vertex colours hold the IFC (sRGB)
+  // value as authored, so it is decoded before comparing with the texture.
+  vec3 ifcLiteWant = pow( max( vColor.rgb, vec3( 0.0 ) ), vec3( 2.2 ) );
+  vec3 ifcLiteRatio = clamp( ifcLiteWant / max( uSurfaceMean[ ifcLiteLayer ], vec3( 0.02 ) ), 0.25, 4.0 );
+  diffuseColor.rgb = ifcLiteTex * mix( vec3( 1.0 ), ifcLiteRatio, ${SURFACE_COLOUR_PULL.toFixed(2)} );
+}`
+            : ""
+        }`,
+      )
+      .replace(
+        "#include <roughnessmap_fragment>",
+        surface
+          ? /* glsl */ `#include <roughnessmap_fragment>
+if ( ifcLiteSurface ) {
+  roughnessFactor = clamp(
+    ifcLiteDetailX.b * ifcLiteW.x + ifcLiteDetailY.b * ifcLiteW.y + ifcLiteDetailZ.b * ifcLiteW.z,
+    0.04, 1.0
+  );
+}`
+          : "#include <roughnessmap_fragment>",
+      )
+      .replace(
+        "#include <normal_fragment_maps>",
+        surface
+          ? /* glsl */ `#include <normal_fragment_maps>
+// Triplanar relief. Flat shading's normal faces the camera, so the relief
+// stands out of whichever side is seen. Per projection, the image's right
+// and top run along: X — +Z and +Y; Y — +X and −Z; Z — +X and +Y (the same
+// coordinates the colour is read with above).
+if ( ifcLiteSurface ) {
+  normal = normalize(
+    ifcLiteLean( normal, ifcLiteDetailX, vSurfaceAxisZ, vSurfaceAxisY ) * ifcLiteW.x +
+    ifcLiteLean( normal, ifcLiteDetailY, vSurfaceAxisX, - vSurfaceAxisZ ) * ifcLiteW.y +
+    ifcLiteLean( normal, ifcLiteDetailZ, vSurfaceAxisX, vSurfaceAxisY ) * ifcLiteW.z
+  );
+}`
+          : "#include <normal_fragment_maps>",
+      )
+      .replace(
+        "#include <aomap_fragment>",
+        surface
+          ? /* glsl */ `#include <aomap_fragment>
+// Occlusion dims the light from all round (ambient, sky), not the sun's.
+if ( ifcLiteSurface ) {
+  reflectedLight.indirectDiffuse *=
+    ifcLiteDetailX.a * ifcLiteW.x + ifcLiteDetailY.a * ifcLiteW.y + ifcLiteDetailZ.a * ifcLiteW.z;
+}`
+          : "#include <aomap_fragment>",
       )
       .replace(
         "#include <tonemapping_fragment>",
         /* glsl */ `float ifcLiteLitGray = dot( gl_FragColor.rgb, vec3( 0.299, 0.587, 0.114 ) );
 float ifcLiteSaturationBoost = mix( 1.4, 1.1, ifcLiteWhiteish );
-gl_FragColor.rgb = mix(
+${surface ? "// A photograph is already as saturated as it should be.\nif ( ifcLiteSurface ) ifcLiteSaturationBoost = 1.0;\n" : ""}gl_FragColor.rgb = mix(
   vec3( ifcLiteLitGray ),
   gl_FragColor.rgb,
   ifcLiteSaturationBoost
@@ -256,7 +475,7 @@ ${
       );
   };
   material.customProgramCacheKey = () =>
-    edges ? "ifc-lite-material-finish-v1-edges" : "ifc-lite-material-finish-v1";
+    `ifc-lite-material-finish-v3${edges ? "-edges" : ""}${surface ? "-surface" : ""}`;
   return material;
 }
 
@@ -622,6 +841,14 @@ type Batch = {
   allIndices: Uint32Array;
   /** Base colour per vertex, so selection can be undone without a rebuild. */
   baseColours: Float32Array;
+  /**
+   * Realistic-materials layer per vertex (0 none, else layer + 1), before
+   * anything paints over it: a lens, highlight or selection colour shows as
+   * that colour, not as a texture, so `repaintColours` clears it there.
+   */
+  baseSurfaceLayers: Float32Array;
+  /** Translucent batches (glass) are never textured. */
+  transparent: boolean;
   /** Filled IFC material owned by this batch. */
   fillMaterial: THREE.MeshStandardMaterial;
   /**
@@ -805,6 +1032,14 @@ export class ViewerRenderer {
   private edgeUniforms: EdgeUniforms = {
     uEdgeWidth: { value: DEFAULT_EDGE_WIDTH },
     uEdgeColour: { value: new THREE.Color(DEFAULT_EDGE_COLOUR) },
+  };
+  /** Shared by every model material — see `SurfaceUniforms`. */
+  private surfaceUniforms: SurfaceUniforms = {
+    uSurfaceMaps: { value: emptySurfaceMaps() },
+    uSurfaceDetail: { value: emptySurfaceDetail() },
+    uSurfaceScale: { value: Array.from({ length: MAX_SURFACE_LAYERS }, () => new THREE.Vector2(1, 1)) },
+    uSurfaceMean: { value: Array.from({ length: MAX_SURFACE_LAYERS }, () => new THREE.Vector3(0.5, 0.5, 0.5)) },
+    uSurfaceOn: { value: 0 },
   };
   private sectionGizmoGroup = new THREE.Group();
   private sectionGizmoTargets: THREE.Mesh[] = [];
@@ -1114,6 +1349,8 @@ export class ViewerRenderer {
       if (merged.edgeMask) {
         geometry.setAttribute("aEdgeMask", new THREE.BufferAttribute(merged.edgeMask, 1));
       }
+      const surfaceLayers = new Float32Array(merged.entityIds.length);
+      geometry.setAttribute("aSurfaceLayer", new THREE.BufferAttribute(surfaceLayers.slice(), 1));
       geometry.computeBoundingSphere();
 
       const fillMaterial = this.material(merged.transparent);
@@ -1132,6 +1369,8 @@ export class ViewerRenderer {
         entityIds: merged.entityIds,
         allIndices: merged.indices,
         baseColours: merged.colours.slice(),
+        baseSurfaceLayers: surfaceLayers,
+        transparent: merged.transparent,
         fillMaterial,
       };
       batches.push(batch);
@@ -1198,6 +1437,7 @@ export class ViewerRenderer {
         clipShadows: false,
       }),
       this.edgeUniforms,
+      this.surfaceUniforms,
     );
   }
 
@@ -1387,6 +1627,113 @@ export class ViewerRenderer {
     this.repaintColours();
   }
 
+  // -------------------------------------------------------------------------
+  // Realistic materials (lib/viewer/realistic/)
+  // -------------------------------------------------------------------------
+
+  /**
+   * The distinct opaque colours each element is drawn in, as authored (the
+   * vertex buffers hold the IFC colour unconverted). Several when an element
+   * has several styled parts. Translucent parts are left out: glass is never
+   * textured.
+   */
+  surfaceColours(modelId: string): Map<number, Array<[number, number, number]>> {
+    const out = new Map<number, Array<[number, number, number]>>();
+    const model = this.models.get(modelId);
+    if (!model) return out;
+    for (const [expressId, spans] of model.ranges) {
+      const colours: Array<[number, number, number]> = [];
+      for (const span of spans) {
+        const batch = model.batches[span.batch];
+        if (batch.transparent || span.count === 0) continue;
+        const at = span.start * 4;
+        const rgb: [number, number, number] = [batch.baseColours[at], batch.baseColours[at + 1], batch.baseColours[at + 2]];
+        if (!colours.some((c) => c[0] === rgb[0] && c[1] === rgb[1] && c[2] === rgb[2])) colours.push(rgb);
+      }
+      if (colours.length) out.set(expressId, colours);
+    }
+    return out;
+  }
+
+  /** Replace the texture arrays every model draws its realistic materials from. */
+  setSurfaceTextureLayers(layers: SurfaceTextureLayer[]) {
+    const previous = [this.surfaceUniforms.uSurfaceMaps.value, this.surfaceUniforms.uSurfaceDetail.value];
+    const kept = layers.slice(0, MAX_SURFACE_LAYERS);
+    if (kept.length === 0) {
+      this.surfaceUniforms.uSurfaceMaps.value = emptySurfaceMaps();
+      this.surfaceUniforms.uSurfaceDetail.value = emptySurfaceDetail();
+    } else {
+      kept.forEach((layer, index) => {
+        this.surfaceUniforms.uSurfaceScale.value[index].set(layer.metres[0], layer.metres[1]);
+        this.surfaceUniforms.uSurfaceMean.value[index].set(...layer.mean);
+      });
+      const anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+      this.surfaceUniforms.uSurfaceMaps.value = surfaceArray(
+        kept.map((layer) => layer.pixels),
+        kept[0].size,
+        THREE.SRGBColorSpace,
+        anisotropy,
+      );
+      // Numbers, not colours: never decoded from sRGB.
+      this.surfaceUniforms.uSurfaceDetail.value = surfaceArray(
+        kept.map((layer) => layer.detail),
+        kept[0].detailSize,
+        THREE.NoColorSpace,
+        anisotropy,
+      );
+    }
+    for (const texture of previous) texture.dispose();
+  }
+
+  /**
+   * Which texture layer each element's parts draw (`pick` answers the layer
+   * index, or -1 for none), from its own authored colour.
+   */
+  setSurfaceTextures(
+    modelId: string,
+    pick: (expressId: number, colour: [number, number, number]) => number,
+  ) {
+    const model = this.models.get(modelId);
+    if (!model) return;
+    for (const batch of model.batches) batch.baseSurfaceLayers.fill(0);
+    for (const [expressId, spans] of model.ranges) {
+      for (const span of spans) {
+        const batch = model.batches[span.batch];
+        if (batch.transparent || span.count === 0) continue;
+        const at = span.start * 4;
+        const layer = pick(expressId, [batch.baseColours[at], batch.baseColours[at + 1], batch.baseColours[at + 2]]);
+        if (layer >= 0 && layer < MAX_SURFACE_LAYERS) {
+          batch.baseSurfaceLayers.fill(layer + 1, span.start, span.start + span.count);
+        }
+      }
+    }
+    this.surfaceUniforms.uSurfaceOn.value = 1;
+    this.repaintColours();
+  }
+
+  /** Plain IFC colours again, everywhere. */
+  clearSurfaceTextures() {
+    for (const model of this.models.values()) {
+      for (const batch of model.batches) batch.baseSurfaceLayers.fill(0);
+    }
+    this.surfaceUniforms.uSurfaceOn.value = 0;
+    this.setSurfaceTextureLayers([]);
+    this.repaintColours();
+  }
+
+  /** How many vertices draw a texture, for tests: `data-surface-textured`. */
+  get texturedVertexCount(): number {
+    if (!this.surfaceUniforms.uSurfaceOn.value) return 0;
+    let count = 0;
+    for (const model of this.models.values()) {
+      for (const batch of model.batches) {
+        const layers = (batch.geometry.getAttribute("aSurfaceLayer") as THREE.BufferAttribute).array as Float32Array;
+        for (let i = 0; i < layers.length; i += 1) if (layers[i] > 0) count += 1;
+      }
+    }
+    return count;
+  }
+
   private lensColours: ReadonlyMap<string, string> | null = null;
   private selectionRefs: Array<{ modelId: string; expressId: number }> = [];
   private highlights: Array<{ modelId: string; expressId: number; colour: string }> = [];
@@ -1399,8 +1746,17 @@ export class ViewerRenderer {
         const colours = batch.geometry.getAttribute("color") as THREE.BufferAttribute;
         (colours.array as Float32Array).set(batch.baseColours);
         colours.needsUpdate = true;
+        const layers = batch.geometry.getAttribute("aSurfaceLayer") as THREE.BufferAttribute;
+        (layers.array as Float32Array).set(batch.baseSurfaceLayers);
+        layers.needsUpdate = true;
       }
     }
+    // Whatever paints over the base colour paints over the texture too.
+    const untexture = (batch: Batch, span: { start: number; count: number }) => {
+      const layers = batch.geometry.getAttribute("aSurfaceLayer") as THREE.BufferAttribute;
+      (layers.array as Float32Array).fill(0, span.start, span.start + span.count);
+      layers.needsUpdate = true;
+    };
 
     const colour = new THREE.Color();
     if (this.lensColours) {
@@ -1425,6 +1781,7 @@ export class ViewerRenderer {
             array[v * 4 + 2] = linear.b;
           }
           colours.needsUpdate = true;
+          untexture(model.batches[span.batch], span);
         }
       }
     }
@@ -1446,6 +1803,7 @@ export class ViewerRenderer {
           array[v * 4 + 2] = colour.b;
         }
         colours.needsUpdate = true;
+        untexture(model.batches[span.batch], span);
       }
     }
 
@@ -1466,6 +1824,7 @@ export class ViewerRenderer {
           array[v * 4 + 3] = 1;
         }
         colours.needsUpdate = true;
+        untexture(model.batches[span.batch], span);
       }
     }
   }
@@ -3811,6 +4170,8 @@ export class ViewerRenderer {
     for (const id of [...this.pointClouds.keys()]) this.removePointCloud(id);
     this.pointEdl.dispose();
     this.ghostMaterial?.dispose();
+    this.surfaceUniforms.uSurfaceMaps.value.dispose();
+    this.surfaceUniforms.uSurfaceDetail.value.dispose();
     disposeGroup(this.measurementGroup);
     disposeGroup(this.angleGroup);
     disposeGroup(this.areaGroup);

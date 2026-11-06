@@ -35,8 +35,17 @@ federated by their `IfcMapConversion`, and shown in 3D. The left-hand tool tabs:
 | **Clash detection** | A Solibri-style matrix: groups by filter, tolerances per cell, models classified by discipline, Excel import/export, results to BCF |
 | **BCF topics** | Read, edit, merge and export BCF 2.1/3.0 issue sets; viewpoints with annotated snapshots or pictures from your computer; 3D markers; a PDF report of all or the selected topics |
 
+**Realistic materials** (Display → Realistic materials) puts textures on the
+models. For each material, the browser finds the kind (concrete, brick,
+timber…) from its name. It then picks the texture of that kind nearest the
+material's colour, from Poly Haven or 360into, whichever is closer, and
+projects it onto the geometry with relief and roughness: Poly Haven's own
+normal and roughness maps, or, for 360into's photographs, both estimated from
+the photograph. It is off until switched on, and nothing about the model is
+sent (ADR 014).
+
 The **Properties** panel on the right shows the selected element's attributes,
-materials, property sets, quantities, type properties and classifications, and
+materials, property sets, quantities, its type's attributes and properties, classifications, and
 what the loaded IDS requires of it.
 
 **Point clouds** (`.las .laz .ply .pcd .e57 .pts .xyz`) open alongside the models.
@@ -87,8 +96,8 @@ viewer panel.
 ## What does reach the network
 
 Only what the user switches on, and never model, issue or specification content:
-basemap tiles and 3D tiles from the configured provider, WFS/WMS services the
-user adds, bSDD lookups (through the app's own `/api/bsdd` proxy), and signature
+basemap tiles and 3D tiles from the configured provider, Poly Haven and
+360into textures for realistic materials, WFS/WMS services the user adds, bSDD lookups (through the app's own `/api/bsdd` proxy), and signature
 time-stamps (through `/api/tsa`). A deployment can also put a **human check**
 (Cloudflare Turnstile) in front of the site to keep bots out: visitors pass it
 once and get a pass cookie for a day (ADR 013). The full list, with what each request

@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
+import { workerCsp } from "./lib/http/csp";
+
 // No i18n routing — the locale comes from a cookie. See i18n/config.ts.
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
@@ -63,6 +65,22 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value:
               "camera=(), microphone=(), geolocation=(), interest-cohort=(), usb=(), serial=()",
+          },
+        ],
+      },
+      {
+        // The Web Workers' CSP (ADR 015). A dedicated worker takes its policy
+        // from its own script's response, not from the page, and every bundled
+        // worker starts from `/_next/static/chunks/turbopack-worker-*.js` —
+        // which `proxy.ts` skips. Browsers ignore a CSP on an ordinary script
+        // response, so on the other chunks this header does nothing; it is set
+        // on the whole directory so a renamed bootstrap is still covered.
+        // `e2e/worker-csp.spec.ts` proves a worker cannot leave the allow-list.
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: workerCsp({ isDev: process.env.NODE_ENV === "development" }),
           },
         ],
       },

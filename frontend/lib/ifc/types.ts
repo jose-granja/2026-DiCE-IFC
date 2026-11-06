@@ -457,6 +457,14 @@ export type ElementInfo = {
   classifications: Array<{ system: string; code: string; name: string }>;
 };
 
+/** One element's materials, for `getSurfaceMaterials`. */
+export type SurfaceMaterialEntry = {
+  expressId: ExpressId;
+  /** IFC class, normalised ("IfcWall"). */
+  type: string;
+  materials: Array<{ name: string; category?: string }>;
+};
+
 export type TypeObjectView = {
   expressId: ExpressId;
   /** The class, normalised like every other one the panel shows ("IfcWallType"). */
@@ -815,6 +823,14 @@ export interface IfcEngineAdapter {
     modelId: ModelId,
     materialExpressId: ExpressId,
   ): Promise<MaterialDetailView>;
+
+  /**
+   * Every placed element that has a material, with its materials in the
+   * order the model gives them (a layer set's first layer first) — for the
+   * viewer's realistic materials, which choose a texture from them. One pass
+   * over the model rather than an `ElementInfo` per element.
+   */
+  getSurfaceMaterials(modelId: ModelId): Promise<SurfaceMaterialEntry[]>;
 
   /**
    * What the model can be filtered by, with membership.

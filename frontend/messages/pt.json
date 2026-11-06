@@ -36,6 +36,18 @@
         "why": "Para mostrar o modelo no seu local real: terreno, edifícios OSM e um mapa rodoviário ou imagem de satélite por baixo. Os pedidos de mosaicos revelam aproximadamente para onde está a olhar — ou seja, onde fica o edifício — e ficam associados ao token ion desta instalação. O mapa Google é pedido através do ion, pelo que a Google não é contactada diretamente para ele; escolher “Sem mapa” deixa só o terreno. Os créditos do ion e da Google, com o logótipo da Google, permanecem no ecrã enquanto os seus dados são mostrados. Nenhuma geometria, propriedade ou ficheiro do modelo é enviado."
       },
       {
+        "what": "Pedidos da lista de texturas da Poly Haven e das miniaturas e texturas dos tipos de material que um modelo usa (betão, madeira… nas categorias da própria Poly Haven). Revelam esses tipos, nunca o nome de um material, uma cor ou outra coisa do modelo",
+        "when": "Só quando liga Materiais realistas nas definições de Visualização do visualizador. Desligado em cada visita, e nunca ligado por abrir um projeto",
+        "where": "Poly Haven (api.polyhaven.com, cdn.polyhaven.com, dl.polyhaven.org), com o endereço deste site como referenciador, como pedem os termos da API da Poly Haven",
+        "why": "Para mostrar o modelo com texturas reais. A aplicação lê a lista de texturas da Poly Haven, mede a cor das texturas candidatas a partir das suas pré-visualizações planas (guardada depois neste navegador) e escolhe uma para cada material no navegador, pelo seu nome e pela cor que o modelo lhe dá. Só então descarrega as texturas escolhidas, cada uma com os seus mapas de relevo (normais) e de rugosidade. Pelo que é descarregado, a Poly Haven sabe que tipos de material e que texturas foram pedidos, mas não o modelo, os seus nomes ou as suas cores. Um crédito “Texturas: Poly Haven” permanece na vista enquanto há texturas."
+      },
+      {
+        "what": "Pedidos da lista de texturas da 360into (para as categorias de material que um modelo usa, como “Concrete” ou “Wood”) e de miniaturas e texturas dela. Revelam essas categorias, nunca o nome de um material, uma cor ou outra coisa do modelo",
+        "when": "Juntamente com a linha da Poly Haven acima: só quando liga Materiais realistas, desligado em cada visita",
+        "where": "360into (360into.com), sem referenciador",
+        "why": "A 360into é a segunda biblioteca de texturas, forte em materiais de acabamento (tinta, tijolo de face à vista, ladrilhos de pedra, betão pré-fabricado) onde a Poly Haven tem pouco. A aplicação mede a cor de uma lista curta de candidatas a partir das miniaturas (guardada depois neste navegador) e usa a biblioteca que tiver a textura mais próxima. Pelo que é descarregado, a 360into sabe que categorias e texturas foram pedidas, mas não o modelo."
+      },
+      {
         "what": "O resumo SHA-256 do valor da própria assinatura (nunca um ficheiro) e um número aleatório",
         "when": "Apenas quando assina com “Acrescentar um selo temporal” assinalado, e só se esta instalação tiver uma autoridade de selos temporais configurada",
         "where": "O servidor desta aplicação, que o reencaminha para a autoridade de selos temporais configurada (/api/tsa)",
@@ -630,7 +642,18 @@
       "edgeWidthLabel": "Largura das arestas",
       "propertiesHeading": "Propriedades",
       "decimalPlacesLabel": "Casas decimais",
-      "decimalPlacesHint": "Arredondar os valores de propriedades e quantidades com unidades, e os resultados do QTO, para este número de casas decimais."
+      "decimalPlacesHint": "Arredondar os valores de propriedades e quantidades com unidades, e os resultados do QTO, para este número de casas decimais.",
+      "realisticHeading": "Materiais realistas",
+      "realisticToggle": "Materiais realistas",
+      "realisticHint": "Texturas da Poly Haven e da 360into, escolhidas para cada material pelo seu tipo (betão, tijolo, madeira…) e depois pela cor que o modelo lhe dá, da biblioteca que tiver a mais próxima. As texturas da Poly Haven trazem os seus próprios mapas de relevo e rugosidade; nas fotografias da 360into ambos são estimados a partir da fotografia. Ao ligar, as listas de texturas e as texturas escolhidas são obtidas de polyhaven.com e 360into.com; nada sobre o modelo é enviado.",
+      "realisticSearching": "A procurar nas bibliotecas de texturas…",
+      "realisticSearchingProgress": "A procurar nas bibliotecas de texturas… {done} de {total}",
+      "realisticApplied": "{textures, plural, one {# textura} other {# texturas}} em {elements, plural, one {# elemento} other {# elementos}}",
+      "realisticNone": "Nenhum material dos modelos abertos é de um tipo para o qual as bibliotecas tenham texturas. O vidro e o isolamento nunca levam textura.",
+      "realisticFailed": "Não foi possível contactar nem a Poly Haven nem a 360into. O modelo mantém as suas cores.",
+      "realisticUnreachable": "Não foi possível contactar {sources}; só texturas da outra biblioteca.",
+      "realisticReliefMaps": "mapas de relevo e rugosidade da biblioteca",
+      "realisticReliefEstimated": "relevo e rugosidade estimados a partir da fotografia"
     },
     "filterPanel": {
       "dimensions": {
@@ -1708,6 +1731,9 @@
       "ids": "Verificação IDS",
       "clash": "Detetor de conflitos",
       "bcf": "Tópicos BCF"
+    },
+    "realistic": {
+      "credit": "Texturas:"
     }
   },
   "idsCreate": {
@@ -2603,6 +2629,14 @@
         "google": {
           "name": "Google Maps 2D e Photorealistic 3D Tiles",
           "text": "O mapa rodoviário e a imagem de satélite sob o terreno (através do Cesium ion), e o Google Photorealistic 3D quando selecionado. Fornecidos pela Google e sujeitos aos termos de serviço da Google Maps Platform, incluindo o logótipo, a atribuição e as condições de utilização."
+        },
+        "polyhaven": {
+          "name": "Poly Haven",
+          "text": "Texturas dos Materiais realistas do visualizador, publicadas em CC0 pela Poly Haven e obtidas da sua API pública quando os liga. Creditada na vista enquanto há texturas suas."
+        },
+        "into360": {
+          "name": "360into",
+          "text": "Texturas dos Materiais realistas do visualizador, gratuitas para uso comercial, obtidas da API pública da 360into quando os liga. A 360into declara que as texturas que importou mantêm a sua licença aberta original, sem indicar qual por textura. Creditada na vista enquanto há texturas suas."
         },
         "egm96": {
           "name": "Geoide EGM96",

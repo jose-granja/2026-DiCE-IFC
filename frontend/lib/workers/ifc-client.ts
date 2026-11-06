@@ -24,6 +24,7 @@ import type {
   EntityQuery,
   EntitySummary,
   MaterialDetailView,
+  SurfaceMaterialEntry,
   ModelGeometry,
   ModelVocabulary,
   VocabularyOptions,
@@ -66,6 +67,8 @@ export type ModelHandle = {
   getIdsProperties(expressId: ExpressId, idsXml: string): Promise<IdsPropertyView[]>;
   /** Everything the information panel shows for one material, opened from `ElementInfo.materials`. */
   getMaterialInfo(materialExpressId: ExpressId): Promise<MaterialDetailView>;
+  /** Every placed element's materials, for realistic materials. */
+  getSurfaceMaterials(): Promise<SurfaceMaterialEntry[]>;
   /** The elements an `ElementFilter` selects, evaluated in the model worker. */
   selectElements(filter: ElementFilter): Promise<ElementMatch[]>;
   /** Evaluate filters and calculated quantities in the model worker. */
@@ -146,6 +149,7 @@ export async function openModel(
     getElementInfo: (expressId) => api.getElementInfo(summary.id, expressId),
     getIdsProperties: (expressId, idsXml) =>
       api.getIdsProperties(summary.id, expressId, parseIdsForEngine(idsXml)),
+    getSurfaceMaterials: () => api.getSurfaceMaterials(summary.id),
     getMaterialInfo: (materialExpressId) =>
       api.getMaterialInfo(summary.id, materialExpressId),
     selectElements: (filter) => api.selectElements(summary.id, filter),

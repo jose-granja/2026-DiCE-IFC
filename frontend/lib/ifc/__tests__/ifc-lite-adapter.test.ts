@@ -203,6 +203,11 @@ describe("materials", () => {
       const info = await ifcLiteAdapter.getElementInfo(summary.id, 71);
       // No IfcRelDefinesByType: no type, rather than an empty one.
       expect(info.typeObject).toBeNull();
+
+      // The same materials, for every element in one call (realistic materials).
+      expect(await ifcLiteAdapter.getSurfaceMaterials(summary.id)).toEqual([
+        { expressId: 71, type: "IfcWall", materials: [{ name: "Concrete C30/37", category: "Concrete" }] },
+      ]);
       expect(info.materials).toEqual([
         { expressId: 100, name: "Concrete C30/37", category: "Concrete" },
       ]);

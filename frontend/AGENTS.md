@@ -42,13 +42,28 @@ else** — permission to send more is not a reason to.
   the top of the route's `page.tsx`): `/viewer`, `/ids/create`, `/sign/ifc`,
   `/sign/bcf`, `/sign/verify`.
 - **CSP forbids third-party origins** other than the configured map tile provider
-  (and, on `/human-check` only and only when it is on, Cloudflare Turnstile — ADR 013).
+  (and, on `/human-check` only and only when it is on, Cloudflare Turnstile — ADR 013;
+  on `/viewer` only, the texture libraries for realistic materials: Poly Haven's
+  three hosts and `360into.com` — ADR 014).
   Default tile provider is self-hosted Protomaps/PMTiles, i.e. same-origin. The
   policy lives in `proxy.ts`, which mints a per-request nonce — Next injects
   inline bootstrap scripts, and a `script-src` without a nonce blocks them, so
   the page renders but **never hydrates**. That failure is silent: the HTML looks
   right and nothing is interactive. If you change the CSP, run
   `npm run test:e2e` — the viewer suite only passes on a hydrated page.
+- **Web Workers have their own CSP, and it is narrower** (ADR 015). A worker
+  takes its policy from its own script's response, not the page's, and every
+  bundled worker starts from `/_next/static/chunks/turbopack-worker-*.js`,
+  which `proxy.ts` skips. So `next.config.ts` sets `workerCsp()` from
+  `lib/http/csp.ts` on `/_next/static/*`. Browsers ignore it on ordinary
+  scripts. In a worker, `connect-src` is `'self'` and the texture libraries
+  only. Workers hold whole models, so they get no tile, ion, Turnstile or
+  **companion** origin. A worker that needs an origin gets it added there,
+  with an ADR. Never add a nonce or `'strict-dynamic'` there: the bootstrap's
+  `importScripts` of its own chunks would be refused. `blob:` workers started
+  from a worker inherit its policy. Workers under `public/` (Cesium's) go
+  through the proxy and get the page's policy. `e2e/worker-csp.spec.ts`
+  proves a worker cannot reach a foreign origin or the companion.
 - **Every module renders `<LocalOnlyBadge />`** ("Processed locally — nothing
   uploaded"). `/privacy` documents exactly what leaves the device.
 
@@ -60,6 +75,8 @@ else** — permission to send more is not a reason to.
 | Map tiles, 3D tiles | the configured provider (opt-in) | basemap and 3D context |
 | WFS/WMS service URL, layer, style and map bounds | user-selected public provider via `/api/ogc` (opt-in) | context features, map images and legends; ADR 010 |
 | SHA-256 of a `SignatureValue` + a nonce (opt-in, when a `TSA_URL` is configured) | `app/api/tsa/route.ts`, this app's own server, then the time-stamp authority | RFC 3161 time-stamps send no CORS headers and the paid ones need credentials (ADR 012) |
+| Poly Haven's texture catalogue, previews of the candidate textures for the material families in use, and the chosen textures by id (opt-in, per visit) | the browser to `api.polyhaven.com`, `cdn.polyhaven.com`, `dl.polyhaven.org`, with the site's origin as `Referer` | realistic materials in the viewer (ADR 014); chosen in the browser from the model's material names and colours, none of which is sent |
+| 360into's catalogue for the categories those families need, thumbnails of a shortlist of candidates, and the chosen textures (opt-in, per visit, with the row above) | the browser (a Web Worker for the thumbnails) to `360into.com`, no `Referer` | the second texture library for realistic materials (ADR 014, amended 2026-11-06) |
 | The Turnstile widget's own traffic, then its one-time token (opt-in, when `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set) | the browser to `challenges.cloudflare.com` on `/human-check` only; the token via `app/api/human-check/route.ts` to Cloudflare's `siteverify` | the human check in front of the site (ADR 013); before the app loads, so no user content exists yet |
 
 There is no account, no project database and no Django API any more. Anything
@@ -85,7 +102,8 @@ it needs an ADR first.
 - [ ] New network calls are one of the allowed kinds above.
 - [ ] Page touching a payload is `"use client"`.
 - [ ] `<LocalOnlyBadge />` present on the module.
-- [ ] New third-party origin? CSP updated **and** ADR written.
+- [ ] New third-party origin? CSP updated **and** ADR written — and if a
+      worker fetches it, `workerCsp` in `lib/http/csp.ts` too.
 - [ ] Nothing written outside OPFS / `localStorage` keys we own.
 - [ ] Nothing sent to the companion but a digest.
 
@@ -134,7 +152,9 @@ Re-read it before touching routing, config or caching.
 - **`proxy.ts` sets the CSP with a per-request nonce**, and `app/layout.tsx`
   reads it from the `x-nonce` header to pass to `next-themes` (whose pre-paint
   script is inline). COOP/COEP and the other static headers stay in
-  `next.config.ts`, mirrored by `nginx/nginx.conf` in production.
+  `next.config.ts`, mirrored by `nginx/nginx.conf` in production. So does
+  the workers' CSP on `/_next/static/*` (§1, ADR 015). nginx passes it
+  through and must not add one of its own.
 - **`turbopack.resolveAlias` stubs `laz-perf`** — see `lib/empty-module.ts` for
   why the build fails without it.
 - **`output: "standalone"` is opt-in** via `BUILD_STANDALONE=1`, set only by
@@ -1199,6 +1219,62 @@ be duplicated.
   it is there. Projects from before the file carried `lenses.saved` inline;
   still read.
 
+## 8c-quater. Realistic materials (ADR 014)
+
+Display → "Realistic materials" textures the models from two libraries, Poly
+Haven and 360into. The code is in `lib/viewer/realistic/`, synced by
+`RealisticMaterials.tsx` in the canvas.
+
+- **Choose in the browser, fetch only the libraries' data.** The model's
+  material names and colours never leave. A new source must keep that shape:
+  send the library's own vocabulary or ids, never the model's.
+- **A library is a `TextureSource`** (`source.ts`):
+  - `candidates(family)`, `previews`, `colourKey`, `load`.
+  - `measureAll`: Poly Haven's 64 px previews are cheap, so all of a family's
+    candidates are measured. 360into's thumbnails are 36 kB, so only the
+    `SHORTLIST` nearest by their words (`colourFromWords`) are.
+  - The shortlist ranks every candidate, measured or not; otherwise each
+    visit measures eight more.
+- **Measure Poly Haven from `asset_img/primary`, not `thumbnail_url`.** The
+  thumbnails are shaded spheres that read about 14 ΔE dark. Never add a
+  version parameter to preview URLs: each new URL is resized cold by the CDN.
+- **Colours are measured in `lib/workers/texture-colour.worker.ts`.** On the
+  main thread each step waits for a frame, and a heavy model made the first
+  search take minutes.
+- **Words decide the kind, colour decides the texture.** `classify.ts` is an
+  ordered word list in English and Portuguese (plus a little Spanish and French).
+  Order matters: "tijolo cerâmico" must hit brick before tiles. `NEVER` runs
+  first. Add words with a test in `__tests__/classify.test.ts`.
+  `INTO360_CATEGORIES` maps families to 360into's machine-assigned categories,
+  each with the surface it suits ("concrete plates" are mostly pavers, so floor).
+- **One `DataArrayTexture` for every model material**, indexed by the
+  per-vertex `aSurfaceLayer` attribute (0 = none). That is why there is a
+  layer budget (`MAX_SURFACE_LAYERS`). Every layer is the same square size;
+  `metres` carries a non-square texture's proportions back.
+- **No UVs in IFC geometry:** the shader projects triplanar in object space.
+  It uses `abs()` of the normal, because IFC normals' sign is unreliable.
+- **Relief is a second array beside the colour one** (`uSurfaceDetail`,
+  `relief.ts`): normal x/y (OpenGL convention), roughness, occlusion, at 512²
+  and never decoded as sRGB (`decodeImage(…, "data")`).
+  - Poly Haven's `nor_gl` and `arm` maps are packed into it. 360into has only
+    a photograph, so its relief is estimated from brightness (dark = deep) and
+    its roughness is `FAMILY_ROUGHNESS`; no occlusion, the photo has its shadows.
+  - A relief map that fails to load costs the relief, not the texture: it falls
+    back to the estimate.
+  - Per projection, the image's right and top run along X: +Z, +Y; Y: +X, −Z;
+    Z: +X, +Y. Change the colour's projection and these must change with it, or
+    bumps turn into dents.
+- **Anything that repaints a colour clears the texture under it** in
+  `repaintColours` (lens, highlight, selection). A new kind of override must
+  do the same, or the texture will hide it.
+- **Vertex colours are the IFC values unconverted.** The shader decodes them
+  (`pow 2.2`) before comparing with the texture's linear mean, and `choose.ts`
+  treats them as sRGB.
+- **Not saved in projects, not remembered across visits.** It is the one
+  display setting that reaches the network.
+- **Measured colours cache** under `localStorage["dice-realistic-colours-v2"]`,
+  keyed `source:id@version`. Bump the key if the measuring changes.
+
 ## 8d. Notices, attribution and disclaimers
 
 `/about` is where credits, licences and disclaimers live; `/privacy` is where data
@@ -1207,7 +1283,8 @@ flows live. Both are written in `messages/*.json` (no hard-coded prose).
 - **Adding a data source or provider means adding its credit in the same change.**
   Row in `app/(home)/about/page.tsx` `DATA` plus `about.data.rows.<key>`, the line in
   `Globe#getAttribution` and, if it needs a link, `lib/viewer/attribution.ts`. ODbL,
-  Cesium ion and Google (with its logo) make visible attribution a condition of use.
+  Cesium ion and Google (with its logo) make visible attribution a condition of use;
+  so does Poly Haven's API (the view's credit names each texture library in use — ADR 014).
 - **Adding a dependency that ships to users needs nothing by hand:** the notices file
   (`public/third-party-licenses.txt`) is generated from the installed production
   dependency closure by `scripts/generate-licenses.mts`, run by `prebuild`/`predev`.

@@ -95,6 +95,10 @@ const api = {
     return adapter.getElementInfo(modelId, expressId);
   },
 
+  getSurfaceMaterials(modelId: ModelId) {
+    return adapter.getSurfaceMaterials(modelId);
+  },
+
   getMaterialInfo(modelId: ModelId, materialExpressId: ExpressId) {
     return adapter.getMaterialInfo(modelId, materialExpressId);
   },

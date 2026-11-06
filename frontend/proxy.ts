@@ -8,6 +8,7 @@ import {
   humanCheckConfig,
   verifyPass,
 } from "@/lib/human-check/pass";
+import { TEXTURE_LIBRARY_ORIGINS } from "@/lib/http/csp";
 
 /**
  * Content-Security-Policy, with a per-request nonce.
@@ -31,6 +32,11 @@ import {
  * complete list of origins this app is physically able to send anything to.
  * Adding one needs an ADR first (AGENTS.md §1). The loopback entries for the
  * signing companion are ADR 007.
+ *
+ * **This is the page's policy only.** A Web Worker takes its policy from its
+ * own script's response, and every bundled worker starts from a script under
+ * `/_next/static/`, which the matcher below skips. Those get `workerCsp` from
+ * `lib/http/csp.ts`, set in `next.config.ts` (ADR 015).
  *
  * **The human check comes first** (ADR 013), when the deployment turned it on:
  * a page request without a valid pass is sent to `/human-check`, an API call
@@ -130,7 +136,20 @@ export async function proxy(request: NextRequest) {
    */
   const turnstile = humanCheck && pathname === CHECK_PATH ? TURNSTILE_ORIGIN : "";
 
-  const connect = ["'self'", tileOrigin, ionOrigins, companion, turnstile]
+  /**
+   * The texture libraries for the viewer's realistic materials (ADR 014),
+   * listed in `lib/http/csp.ts`.
+   *
+   * All are read with `fetch` and decoded in the page (or in the
+   * texture-colour worker, whose policy is `workerCsp` there), so
+   * `connect-src` covers them and `img-src` needs nothing. Only on the viewer,
+   * the one page with the switch.
+   */
+  const textureLibraries = pathname === "/viewer" || pathname.startsWith("/viewer/")
+    ? TEXTURE_LIBRARY_ORIGINS.join(" ")
+    : "";
+
+  const connect = ["'self'", tileOrigin, ionOrigins, companion, turnstile, textureLibraries]
     .filter(Boolean)
     .join(" ");
 
@@ -184,8 +203,9 @@ export const config = {
   matcher: [
     /*
      * Everything except Next's own static assets and image optimiser, which are
-     * immutable and do not execute scripts. Prefetches come through too, for the
-     * human check; the proxy itself leaves them without a nonce.
+     * immutable and need no nonce. The worker scripts among them get their
+     * policy from `next.config.ts` instead (ADR 015). Prefetches come through
+     * too, for the human check; the proxy itself leaves them without a nonce.
      */
     "/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)",
   ],

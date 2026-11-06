@@ -15,6 +15,7 @@ import { hasAnySnapTarget } from "@/lib/viewer/tools";
 import MeasurementLabels from "./MeasurementLabels";
 import BcfMarkers from "./BcfMarkers";
 import GlobeGoogleLogo from "./GlobeGoogleLogo";
+import RealisticMaterials from "./RealisticMaterials";
 import OrbitPivotMarker from "./OrbitPivotMarker";
 import { Button } from "@/components/ui/button";
 import { Axis3D, Contrast, Maximize2 } from "lucide-react";
@@ -808,9 +809,14 @@ export function ViewerCanvas() {
       <OrbitPivotMarker ready={ready} active={orbiting} />
       <BcfMarkers ready={ready} />
       <GlobeGoogleLogo />
-      {contextAttribution && <div data-context-attribution className="bg-background/80 text-muted-foreground absolute bottom-0 right-1 z-10 max-w-[65%] rounded px-1 text-right text-[10px]">
-        {contextAttributionUrl ? <a href={contextAttributionUrl} target="_blank" rel="noopener noreferrer" className="underline">{contextAttribution}</a> : contextAttribution}
-      </div>}
+      {/* Credits, bottom-right: the context model's, and Poly Haven's while
+          realistic materials are on (their API terms ask for one). */}
+      <div className="pointer-events-none absolute bottom-0 right-1 z-10 flex max-w-[65%] flex-col items-end gap-0.5 text-[10px]">
+        {contextAttribution && <div data-context-attribution className="bg-background/80 text-muted-foreground pointer-events-auto rounded px-1 text-right">
+          {contextAttributionUrl ? <a href={contextAttributionUrl} target="_blank" rel="noopener noreferrer" className="underline">{contextAttribution}</a> : contextAttribution}
+        </div>}
+        <RealisticMaterials ready={ready} />
+      </div>
 
       <ViewerContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
 

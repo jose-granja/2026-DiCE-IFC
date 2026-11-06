@@ -15,6 +15,8 @@
 | [011](011-embedded-ifc-signatures.md) | Embedded IFC CMS signatures alongside the existing IFCZIP flow | Accepted |
 | [012](012-signature-timestamps.md) | Signature time-stamps (XAdES-B-T) through a same-origin RFC 3161 proxy | Mechanism accepted; the authority is a deployment choice (Q5) |
 | [013](013-human-check.md) | A human check (Cloudflare Turnstile) in front of the site | Accepted; off unless a deployment sets the keys |
+| [014](014-realistic-materials.md) | Realistic materials: Poly Haven textures chosen in the browser | Accepted; off until the user turns it on; **amended** — 360into as a second library, Poly Haven's colours from flat previews; relief and roughness maps (2026-11-06) |
+| [015](015-worker-csp.md) | A CSP for the Web Workers, narrower than the page's | Accepted |
 
 ## Open questions from the build brief
 
