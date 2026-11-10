@@ -41,6 +41,13 @@ const fileHandles = new Map<string, FileSystemFileHandle>();
  */
 const sourceFiles = new Map<string, File>();
 
+/** The images inside each model's `.ifczip`, for its own textures (`container.ts`). */
+const modelImages = new Map<string, Map<string, Uint8Array>>();
+
+export function getModelImages(modelId: string): Map<string, Uint8Array> | undefined {
+  return modelImages.get(modelId);
+}
+
 export function getSourceFile(modelId: string): File | undefined {
   return sourceFiles.get(modelId);
 }
@@ -107,6 +114,7 @@ export async function loadModelFile(
     modelId = handle.summary.id;
     handles.set(modelId, handle);
     sourceFiles.set(modelId, file);
+    if (unwrapped.images.size > 0) modelImages.set(modelId, unwrapped.images);
     if (fileHandle) fileHandles.set(modelId, fileHandle);
 
     // The model's own name, not the entry's: "model.ifczip" is what the user
@@ -220,6 +228,7 @@ export async function unloadModel(modelId: string): Promise<void> {
   const handle = handles.get(modelId);
   handles.delete(modelId);
   sourceFiles.delete(modelId);
+  modelImages.delete(modelId);
   fileHandles.delete(modelId);
   useViewerStore.getState().removeModel(modelId);
   // The store is updated first so the UI never renders a model whose worker

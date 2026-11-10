@@ -55,7 +55,6 @@ const DATA: Array<{ key: string; href: string }> = [
   { key: "cesium", href: "https://cesium.com/legal/terms-of-service/" },
   { key: "google", href: "https://cloud.google.com/maps-platform/terms" },
   { key: "polyhaven", href: "https://polyhaven.com/license" },
-  { key: "into360", href: "https://360into.com/license" },
   { key: "egm96", href: "https://earth-info.nga.mil/" },
   { key: "epsg", href: "https://epsg.org" },
   { key: "buildingsmart", href: "https://www.buildingsmart.org" },

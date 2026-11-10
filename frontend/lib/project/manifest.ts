@@ -30,6 +30,8 @@ import { lensListSchema } from "@/lib/lens/schema";
 import { TYPE_VISIBILITY_CATEGORIES } from "@/lib/viewer/type-visibility";
 import { GLOBE_IMAGERY, GLOBE_LAYERS } from "@/lib/viewer/globe-layers";
 import { DEFAULT_PROPERTY_DECIMALS, MAX_PROPERTY_DECIMALS } from "@/lib/viewer/property-format";
+import { DEFAULT_LIGHT_PRESET, DEFAULT_SUN_AZIMUTH, LIGHT_PRESETS, LIGHT_RIGS } from "@/lib/viewer/lighting";
+import { CLOCK_TIME, ISO_DATE, isTimeZone, localTimeZone, todayIso } from "@/lib/viewer/sun-time";
 
 export const PROJECT_FORMAT = "dice-ifc-project";
 export const PROJECT_VERSION = 1;
@@ -213,6 +215,17 @@ export const projectManifestSchema = z.object({
       camera: camera.nullable().default(null),
       display: z
         .object({
+          // Absent in projects from before light conditions: the studio rig, no shadows.
+          // An unknown preset (from a newer version) falls back to it too.
+          lightPreset: z.enum(LIGHT_PRESETS).catch(DEFAULT_LIGHT_PRESET).default(DEFAULT_LIGHT_PRESET),
+          sunAzimuth: finite.default(DEFAULT_SUN_AZIMUTH),
+          sunElevation: finite.min(-90).max(90).default(LIGHT_RIGS[DEFAULT_LIGHT_PRESET].elevation),
+          // The sun's date and time at the site (used when the models say where they are).
+          sunDate: z.string().regex(ISO_DATE).default(() => todayIso()),
+          sunTime: z.string().regex(CLOCK_TIME).default("12:00"),
+          // A zone this browser does not know: its own, rather than refusing the project.
+          sunTimeZone: z.string().refine(isTimeZone).catch(() => localTimeZone()).default(() => localTimeZone()),
+          shadows: z.boolean().default(false),
           lightIntensity: finite,
           exposure: finite,
           edgesOn: z.boolean(),
@@ -229,6 +242,8 @@ export const projectManifestSchema = z.object({
       volumeMode: z.enum(["element", "box"]).optional(),
       /** The point clouds' edge shading; absent in projects from before it existed (on). */
       pointCloudEdgeShading: z.boolean().optional(),
+      /** Realistic materials; absent in projects from before it was saved (left as it is). */
+      realisticMaterials: z.boolean().optional(),
       /**
        * The 3D world context. Saved as it was; a restore asks before turning
        * it on, because it is the one request that leaves for a third party.

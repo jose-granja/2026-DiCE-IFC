@@ -8,7 +8,6 @@ import {
   humanCheckConfig,
   verifyPass,
 } from "@/lib/human-check/pass";
-import { TEXTURE_LIBRARY_ORIGINS } from "@/lib/http/csp";
 
 /**
  * Content-Security-Policy, with a per-request nonce.
@@ -136,20 +135,8 @@ export async function proxy(request: NextRequest) {
    */
   const turnstile = humanCheck && pathname === CHECK_PATH ? TURNSTILE_ORIGIN : "";
 
-  /**
-   * The texture libraries for the viewer's realistic materials (ADR 014),
-   * listed in `lib/http/csp.ts`.
-   *
-   * All are read with `fetch` and decoded in the page (or in the
-   * texture-colour worker, whose policy is `workerCsp` there), so
-   * `connect-src` covers them and `img-src` needs nothing. Only on the viewer,
-   * the one page with the switch.
-   */
-  const textureLibraries = pathname === "/viewer" || pathname.startsWith("/viewer/")
-    ? TEXTURE_LIBRARY_ORIGINS.join(" ")
-    : "";
-
-  const connect = ["'self'", tileOrigin, ionOrigins, companion, turnstile, textureLibraries]
+  // The texture library is this origin's own (`/texture-library/`, ADR 016).
+  const connect = ["'self'", tileOrigin, ionOrigins, companion, turnstile]
     .filter(Boolean)
     .join(" ");
 

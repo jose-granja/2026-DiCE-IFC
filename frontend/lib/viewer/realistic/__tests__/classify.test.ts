@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyMaterial, inFamily, normaliseMaterialText, surfaceMaterial, surfaceUseFor } from "../classify";
+import { classifyMaterial, normaliseMaterialText, surfaceMaterial, surfaceUseFor } from "../classify";
 
 const family = (name: string, category?: string) => classifyMaterial({ name, category })?.id ?? null;
 
@@ -60,16 +60,6 @@ describe("surfaceUseFor", () => {
     expect(surfaceUseFor("IfcWallStandardCase")).toBe("wall");
     expect(surfaceUseFor("IfcRoof")).toBe("roof");
     expect(surfaceUseFor("IfcFurnishingElement")).toBeNull();
-  });
-});
-
-describe("inFamily", () => {
-  it("matches Poly Haven's category path by whole segments", () => {
-    const concrete = classifyMaterial({ name: "Concrete" })!;
-    expect(inFamily({ category: "Concrete/Cast Walls & Floors/Bare Cast" }, concrete)).toBe(true);
-    expect(inFamily({ category: "Concrete/Cast Walls & Floors" }, concrete)).toBe(true);
-    expect(inFamily({ category: "Concrete/Plaster & Stucco/Bare Plaster" }, concrete)).toBe(false);
-    expect(inFamily({ category: "Concrete/Cast Walls & Floorsy" }, concrete)).toBe(false);
   });
 });
 

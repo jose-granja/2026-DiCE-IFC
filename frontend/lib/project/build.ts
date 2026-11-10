@@ -85,6 +85,8 @@ export type SessionSnapshot = {
   areaMode: "points" | "face";
   volumeMode: "element" | "box";
   pointCloudEdgeShading: boolean;
+  /** Realistic materials (ADR 016): textures from this server's library. */
+  realisticMaterials: boolean;
   globe: { on: boolean; layer: GlobeLayerId; assetId: string; url: string; imagery: GlobeImageryId };
   worldOrigin: { source: string; mapPosition?: Vec3 } | null;
 
@@ -303,6 +305,7 @@ export function buildProject(session: SessionSnapshot, savedAt = new Date()): Bu
       areaMode: session.areaMode,
       volumeMode: session.volumeMode,
       pointCloudEdgeShading: session.pointCloudEdgeShading,
+      realisticMaterials: session.realisticMaterials,
       globe: session.globe,
       worldOrigin: session.worldOrigin,
     },

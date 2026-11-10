@@ -28,7 +28,7 @@ beforeEach(() => {
 describe("viewer signature verification", () => {
   it("verifies raw IFC embedded signatures and puts the result on the model", async () => {
     boundary.summariseEmbeddedSignature.mockResolvedValue(summary);
-    await verifySignedContainer("model-1", raw.name, { file: raw, container: null, entryName: null });
+    await verifySignedContainer("model-1", raw.name, { file: raw, container: null, entryName: null, images: new Map() });
     expect(boundary.summariseEmbeddedSignature).toHaveBeenCalledWith(raw);
     expect(boundary.summariseSignature).not.toHaveBeenCalled();
     expect(boundary.updateModel).toHaveBeenCalledWith("model-1", { signature: summary });
@@ -36,21 +36,21 @@ describe("viewer signature verification", () => {
 
   it("leaves unsigned raw IFC with no signature badge", async () => {
     boundary.summariseEmbeddedSignature.mockResolvedValue(undefined);
-    await verifySignedContainer("model-1", raw.name, { file: raw, container: null, entryName: null });
+    await verifySignedContainer("model-1", raw.name, { file: raw, container: null, entryName: null, images: new Map() });
     expect(boundary.updateModel).toHaveBeenCalledWith("model-1", { signature: undefined });
   });
 
   it("retains invalid raw signatures visibly on the model", async () => {
     const invalid = { ...summary, valid: false, embeddedProblem: "invalid-signature" };
     boundary.summariseEmbeddedSignature.mockResolvedValue(invalid);
-    await verifySignedContainer("model-1", raw.name, { file: raw, container: null, entryName: null });
+    await verifySignedContainer("model-1", raw.name, { file: raw, container: null, entryName: null, images: new Map() });
     expect(boundary.updateModel).toHaveBeenCalledWith("model-1", { signature: invalid });
   });
 
   it("preserves the existing IFCZIP verification path", async () => {
     const archive = new Uint8Array([80, 75, 3, 4]);
     boundary.summariseSignature.mockResolvedValue({ ...summary, containerName: "model.ifczip", format: undefined });
-    await verifySignedContainer("model-1", "model.ifczip", { file: raw, container: archive, entryName: raw.name });
+    await verifySignedContainer("model-1", "model.ifczip", { file: raw, container: archive, entryName: raw.name, images: new Map() });
     expect(boundary.summariseSignature).toHaveBeenCalledWith(archive, "model.ifczip");
     expect(boundary.summariseEmbeddedSignature).not.toHaveBeenCalled();
   });
@@ -60,7 +60,7 @@ describe("viewer signature verification", () => {
       boundary.models = [];
       return summary;
     });
-    await verifySignedContainer("model-1", raw.name, { file: raw, container: null, entryName: null });
+    await verifySignedContainer("model-1", raw.name, { file: raw, container: null, entryName: null, images: new Map() });
     expect(boundary.updateModel).not.toHaveBeenCalled();
   });
 });

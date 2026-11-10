@@ -36,16 +36,10 @@
         "why": "Para mostrar o modelo no seu local real: terreno, edifícios OSM e um mapa rodoviário ou imagem de satélite por baixo. Os pedidos de mosaicos revelam aproximadamente para onde está a olhar — ou seja, onde fica o edifício — e ficam associados ao token ion desta instalação. O mapa Google é pedido através do ion, pelo que a Google não é contactada diretamente para ele; escolher “Sem mapa” deixa só o terreno. Os créditos do ion e da Google, com o logótipo da Google, permanecem no ecrã enquanto os seus dados são mostrados. Nenhuma geometria, propriedade ou ficheiro do modelo é enviado."
       },
       {
-        "what": "Pedidos da lista de texturas da Poly Haven e das miniaturas e texturas dos tipos de material que um modelo usa (betão, madeira… nas categorias da própria Poly Haven). Revelam esses tipos, nunca o nome de um material, uma cor ou outra coisa do modelo",
-        "when": "Só quando liga Materiais realistas nas definições de Visualização do visualizador. Desligado em cada visita, e nunca ligado por abrir um projeto",
-        "where": "Poly Haven (api.polyhaven.com, cdn.polyhaven.com, dl.polyhaven.org), com o endereço deste site como referenciador, como pedem os termos da API da Poly Haven",
-        "why": "Para mostrar o modelo com texturas reais. A aplicação lê a lista de texturas da Poly Haven, mede a cor das texturas candidatas a partir das suas pré-visualizações planas (guardada depois neste navegador) e escolhe uma para cada material no navegador, pelo seu nome e pela cor que o modelo lhe dá. Só então descarrega as texturas escolhidas, cada uma com os seus mapas de relevo (normais) e de rugosidade. Pelo que é descarregado, a Poly Haven sabe que tipos de material e que texturas foram pedidos, mas não o modelo, os seus nomes ou as suas cores. Um crédito “Texturas: Poly Haven” permanece na vista enquanto há texturas."
-      },
-      {
-        "what": "Pedidos da lista de texturas da 360into (para as categorias de material que um modelo usa, como “Concrete” ou “Wood”) e de miniaturas e texturas dela. Revelam essas categorias, nunca o nome de um material, uma cor ou outra coisa do modelo",
-        "when": "Juntamente com a linha da Poly Haven acima: só quando liga Materiais realistas, desligado em cada visita",
-        "where": "360into (360into.com), sem referenciador",
-        "why": "A 360into é a segunda biblioteca de texturas, forte em materiais de acabamento (tinta, tijolo de face à vista, ladrilhos de pedra, betão pré-fabricado) onde a Poly Haven tem pouco. A aplicação mede a cor de uma lista curta de candidatas a partir das miniaturas (guardada depois neste navegador) e usa a biblioteca que tiver a textura mais próxima. Pelo que é descarregado, a 360into sabe que categorias e texturas foram pedidas, mas não o modelo."
+        "what": "Um pedido da lista da biblioteca de texturas e, depois, das texturas escolhidas para os materiais do modelo, pelos seus identificadores. Mostram que texturas foram pedidas, nunca o nome de um material, uma cor ou outra coisa do modelo",
+        "when": "Só enquanto os Materiais realistas estão ligados nas definições de Visualização (desligados sempre que o visualizador abre; ligados de novo ao abrir um projeto guardado com eles ligados)",
+        "where": "O próprio servidor deste site (/texture-library/), que aloja as texturas; nenhum terceiro",
+        "why": "Para mostrar o modelo com texturas reais. A biblioteca é um conjunto selecionado de texturas CC0 da Poly Haven e da ambientCG, preparado e alojado por esta instalação. A aplicação lê a lista, escolhe no navegador uma textura para cada material pelo seu nome e pela cor que o modelo lhe dá, e só então descarrega as texturas escolhidas com os seus mapas de relevo e rugosidade. O servidor vê que texturas foram pedidas, como para qualquer ficheiro que sirva, mas não o modelo."
       },
       {
         "what": "O resumo SHA-256 do valor da própria assinatura (nunca um ficheiro) e um número aleatório",
@@ -635,6 +629,26 @@
       "title": "Visualização",
       "reset": "Repor",
       "lightingHeading": "Iluminação",
+      "lightConditionsLabel": "Condições de luz",
+      "lightPresets": {
+        "studio": "Estúdio",
+        "clearSky": "Céu limpo",
+        "overcast": "Nublado",
+        "goldenHour": "Hora dourada"
+      },
+      "lightConditionsHint": "Estúdio ilumina todas as faces por igual. As outras iluminam o modelo como ao ar livre, pelo sol e pelo céu.",
+      "sunPlaceMapConversion": "O sol está onde está no local do modelo ({latitude}°, {longitude}°, da sua conversão de mapa) nesta data e hora.",
+      "sunPlaceSite": "O sol está onde está no local do modelo ({latitude}°, {longitude}°, do seu terreno) nesta data e hora.",
+      "sunDateLabel": "Data",
+      "sunTimeLabel": "Hora",
+      "sunTimeZoneLabel": "Fuso horário",
+      "sunPosition": "Sol a {azimuth}° do norte, {elevation}° de altura",
+      "sunDown": "O sol está abaixo do horizonte: só o céu ilumina o modelo.",
+      "sunByHandHint": "Os modelos não indicam onde estão na Terra, por isso o sol é definido à mão.",
+      "sunDirectionLabel": "Direção do sol",
+      "sunHeightLabel": "Altura do sol",
+      "shadowsToggle": "Sombras",
+      "shadowsHint": "Sombras projetadas pelo sol. O modelo é desenhado uma segunda vez, por isso modelos grandes podem mover-se mais devagar.",
       "lightIntensityLabel": "Intensidade da luz",
       "brightnessLabel": "Exposição",
       "edgesHeading": "Arestas",
@@ -645,15 +659,15 @@
       "decimalPlacesHint": "Arredondar os valores de propriedades e quantidades com unidades, e os resultados do QTO, para este número de casas decimais.",
       "realisticHeading": "Materiais realistas",
       "realisticToggle": "Materiais realistas",
-      "realisticHint": "Texturas da Poly Haven e da 360into, escolhidas para cada material pelo seu tipo (betão, tijolo, madeira…) e depois pela cor que o modelo lhe dá, da biblioteca que tiver a mais próxima. As texturas da Poly Haven trazem os seus próprios mapas de relevo e rugosidade; nas fotografias da 360into ambos são estimados a partir da fotografia. Ao ligar, as listas de texturas e as texturas escolhidas são obtidas de polyhaven.com e 360into.com; nada sobre o modelo é enviado.",
-      "realisticSearching": "A procurar nas bibliotecas de texturas…",
-      "realisticSearchingProgress": "A procurar nas bibliotecas de texturas… {done} de {total}",
+      "realisticHint": "Texturas da biblioteca de texturas deste site (CC0, da Poly Haven e da ambientCG), escolhidas para cada material pelo seu tipo (betão, tijolo, madeira…) e depois pela cor que o modelo lhe dá, cada uma com os seus mapas de relevo e rugosidade. Os elementos com texturas próprias no modelo mantêm-nas. Nada sobre o modelo é enviado.",
+      "realisticSearching": "A escolher texturas…",
+      "realisticSearchingProgress": "A carregar texturas… {done} de {total}",
       "realisticApplied": "{textures, plural, one {# textura} other {# texturas}} em {elements, plural, one {# elemento} other {# elementos}}",
-      "realisticNone": "Nenhum material dos modelos abertos é de um tipo para o qual as bibliotecas tenham texturas. O vidro e o isolamento nunca levam textura.",
-      "realisticFailed": "Não foi possível contactar nem a Poly Haven nem a 360into. O modelo mantém as suas cores.",
-      "realisticUnreachable": "Não foi possível contactar {sources}; só texturas da outra biblioteca.",
+      "realisticNone": "Nenhum material dos modelos abertos é de um tipo para o qual a biblioteca tenha texturas. O vidro e o isolamento nunca levam textura.",
+      "realisticFailed": "Não foi possível ler a biblioteca de texturas. O modelo mantém as suas cores.",
       "realisticReliefMaps": "mapas de relevo e rugosidade da biblioteca",
-      "realisticReliefEstimated": "relevo e rugosidade estimados a partir da fotografia"
+      "realisticReliefEstimated": "relevo e rugosidade estimados a partir da fotografia (não foi possível ler os mapas da biblioteca)",
+      "realisticUnavailable": "Este servidor não tem uma biblioteca de texturas instalada, por isso o modelo mantém as suas cores."
     },
     "filterPanel": {
       "dimensions": {
@@ -941,7 +955,9 @@
         "probeFailed": "Falha ao detetar WebGPU; a renderização usa WebGL."
       },
       "edgeShadingOn": "Ativar o sombreamento de arestas da nuvem de pontos",
-      "edgeShadingOff": "Desativar o sombreamento de arestas da nuvem de pontos"
+      "edgeShadingOff": "Desativar o sombreamento de arestas da nuvem de pontos",
+      "ownTexturesMissing": "{model}: {count, plural, one {# textura refere} other {# texturas referem}} uma imagem que não está dentro do modelo, por isso {count, plural, one {é mostrada} other {são mostradas}} com cores simples. Abra o modelo como o .ifczip em que veio para as ver.",
+      "ownTexturesRemote": "{model}: {count, plural, one {# textura está} other {# texturas estão}} na internet, por isso {count, plural, one {é mostrada} other {são mostradas}} com cores simples. O visualizador nunca descarrega o que um modelo indica."
     },
     "measureLabels": {
       "plan": "Planta",
@@ -1795,12 +1811,9 @@
     "documentTitleLabel": "Título do documento *",
     "descriptionLabel": "Descrição",
     "authorLabel": "Autor",
-    "authorPlaceholder": "voce@exemplo.com",
     "versionLabel": "Versão",
-    "versionPlaceholder": "1.0.0",
     "dateLabel": "Data",
     "milestoneLabel": "Marco",
-    "milestonePlaceholder": "Fase 4",
     "purposeLabel": "Finalidade",
     "copyrightLabel": "Direitos de autor",
     "noSpecificationSelected": "Nenhuma especificação selecionada.",
@@ -1968,13 +1981,10 @@
     },
     "specEditor": {
       "nameLabel": "Nome *",
-      "namePlaceholder": "Paredes estruturais têm classificação de resistência ao fogo",
       "identifierLabel": "Identificador",
-      "identifierPlaceholder": "SPEC-001",
       "ifcSchemas": "Esquemas IFC *",
       "descriptionLabel": "Descrição",
       "instructionsLabel": "Instruções",
-      "instructionsPlaceholder": "Como satisfazer esta especificação como um todo",
       "requirementTypeLabel": "Tipo de requisito",
       "requirementTypeHint": "Cardinalidade da própria especificação: quantas entidades que cumprem os filtros têm de existir. Os novos requisitos começam com este tipo; cada requisito mantém a sua cardinalidade abaixo. Entidade e Parte de não podem ser opcionais.",
       "filters": "Filtros",
@@ -2020,9 +2030,7 @@
       "material": "Material",
       "materialHint": "Deixe vazio para exigir qualquer material.",
       "instructionsLabel": "Instruções",
-      "requirementInstructionsPlaceholder": "Como satisfazer este requisito",
       "uri": "URI",
-      "uriPlaceholder": "https://identifier.buildingsmart.org/uri/…",
       "addUri": "+ URI",
       "clear": "Limpar",
       "bsddUri": "URI do bSDD"
@@ -2039,10 +2047,8 @@
       },
       "baseType": "Tipo base de {label}",
       "allowedValue": "Valor permitido de {label}",
-      "addAllowedValuePlaceholder": "Adicionar um valor permitido",
       "removeValue": "Remover {value}",
       "patternAriaLabel": "Padrão de {label}",
-      "patternPlaceholder": "EF_25_10(_\\d+)?",
       "invalidRegex": "Não é uma expressão regular válida.",
       "regexHint": "Regex XSD. É ancorada ao valor inteiro — não é preciso ^ ou $.",
       "boundsMinInclusive": "Mín (≥)",
@@ -2631,12 +2637,8 @@
           "text": "O mapa rodoviário e a imagem de satélite sob o terreno (através do Cesium ion), e o Google Photorealistic 3D quando selecionado. Fornecidos pela Google e sujeitos aos termos de serviço da Google Maps Platform, incluindo o logótipo, a atribuição e as condições de utilização."
         },
         "polyhaven": {
-          "name": "Poly Haven",
-          "text": "Texturas dos Materiais realistas do visualizador, publicadas em CC0 pela Poly Haven e obtidas da sua API pública quando os liga. Creditada na vista enquanto há texturas suas."
-        },
-        "into360": {
-          "name": "360into",
-          "text": "Texturas dos Materiais realistas do visualizador, gratuitas para uso comercial, obtidas da API pública da 360into quando os liga. A 360into declara que as texturas que importou mantêm a sua licença aberta original, sem indicar qual por textura. Creditada na vista enquanto há texturas suas."
+          "name": "Poly Haven e ambientCG",
+          "text": "As texturas dos Materiais realistas do visualizador: um conjunto selecionado da Poly Haven e da ambientCG, ambas publicadas em CC0 (domínio público), preparado e alojado por esta instalação. Creditadas na vista enquanto são mostradas."
         },
         "egm96": {
           "name": "Geoide EGM96",

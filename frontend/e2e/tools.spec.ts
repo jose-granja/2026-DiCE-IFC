@@ -13,6 +13,8 @@ const IFC4 = path.resolve(
   __dirname,
   "../fixtures/ifc/georeferenced-wall-ifc4.ifc",
 );
+// No map conversion and no site location: nowhere on the earth.
+const FACETS = path.resolve(__dirname, "../fixtures/ifc/facets-ifc4.ifc");
 const NEIGHBOUR = path.resolve(
   __dirname,
   "../fixtures/cityjson/neighbour.city.json",
@@ -669,6 +671,101 @@ test.describe("display settings", () => {
 
     await page.getByRole("button", { name: "Reset" }).click();
     await expect(page.getByText("0.75", { exact: true })).toBeVisible();
+  });
+
+  test("changes the light conditions and casts shadows, with no shader errors", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("console", (message) => {
+      // A shader that does not compile is only ever a console message.
+      if (message.type() === "error" || /Shader Error|WebGLProgram/.test(message.text())) errors.push(message.text());
+    });
+    page.on("pageerror", (error) => errors.push(error.message));
+
+    await loadModel(page);
+    const canvas = page.locator("canvas").first();
+    const frame = async () => {
+      await page.waitForTimeout(800);
+      return canvas.screenshot();
+    };
+    const display = page.getByRole("button", { name: "Display" });
+    await display.click();
+
+    const conditions = page.getByRole("combobox", { name: "Light conditions" });
+    await expect(conditions).toHaveValue("studio");
+    await page.keyboard.press("Escape");
+    const studio = await frame();
+
+    await display.click();
+    await conditions.selectOption("goldenHour");
+    await page.keyboard.press("Escape");
+    const golden = await frame();
+    expect(golden.equals(studio)).toBe(false);
+
+    await display.click();
+    const shadows = page.getByRole("switch", { name: "Shadows" });
+    await expect(shadows).not.toBeChecked();
+    await shadows.click();
+    await expect(shadows).toBeChecked();
+    await page.keyboard.press("Escape");
+    const shaded = await frame();
+    expect(shaded.equals(golden)).toBe(false);
+
+    // Reset puts back the studio, without shadows.
+    await display.click();
+    await page.getByRole("button", { name: "Reset" }).click();
+    await expect(conditions).toHaveValue("studio");
+    await expect(shadows).not.toBeChecked();
+
+    expect(errors).toEqual([]);
+  });
+
+  test("sets the sun from the date and time at the model's place", async ({ page }) => {
+    // The fixture's map conversion puts it in the north of Portugal.
+    await loadModel(page);
+    const display = page.getByRole("button", { name: "Display" });
+    await display.click();
+    await expect(page.locator("[data-sun-place]")).toContainText("41.");
+    await expect(page.locator("[data-sun-place]")).toContainText("-8.");
+    // No hand-set sun for a model that says where it is.
+    await expect(page.getByRole("slider", { name: "Sun direction" })).toHaveCount(0);
+
+    await page.locator("[data-sun-from='place']").getByLabel("Date").fill("2026-06-21");
+    await page.getByRole("combobox", { name: "Time zone" }).selectOption("Europe/Lisbon");
+    const time = page.getByRole("slider", { name: "Time", exact: true });
+    await time.focus();
+    await page.keyboard.press("Home");
+    const position = page.locator("[data-sun-position]");
+    await expect(position).toHaveText("The sun is below the horizon: only the sky lights the model.");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(800);
+    const night = await page.locator("canvas").first().screenshot();
+
+    // 13:30 summer time is about solar noon there: the sun due south, and high.
+    await display.click();
+    await time.focus();
+    for (let step = 0; step < 162; step += 1) await page.keyboard.press("ArrowRight");
+    await expect(page.locator("[data-sun-from='place']")).toContainText("13:30");
+    const text = (await position.textContent()) ?? "";
+    const [, azimuth, elevation] = text.match(/Sun at (\d+)° from north, (\d+)° high/) ?? [];
+    expect(Math.abs(Number(azimuth) - 180)).toBeLessThan(10);
+    // 90° − 41.4° + 23.4°.
+    expect(Math.abs(Number(elevation) - 72)).toBeLessThanOrEqual(2);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(800);
+    expect((await page.locator("canvas").first().screenshot()).equals(night)).toBe(false);
+  });
+
+  test("leaves the sun to be set by hand for a model with no place", async ({ page }) => {
+    await page.goto("/viewer");
+    await page.setInputFiles('input[type="file"]', [FACETS]);
+    await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 60_000 });
+    await page.getByRole("button", { name: "Display" }).click();
+    await expect(page.locator("[data-sun-from='hand']")).toBeVisible();
+    await expect(page.getByRole("slider", { name: "Sun height" })).toHaveAttribute("aria-valuenow", "60");
+    // By hand, a preset brings its own sun height: golden hour's is low.
+    await page.getByRole("combobox", { name: "Light conditions" }).selectOption("goldenHour");
+    await expect(page.getByRole("slider", { name: "Sun height" })).toHaveAttribute("aria-valuenow", "12");
+    await expect(page.locator("[data-sun-from='place']")).toHaveCount(0);
   });
 
   test("renders with no console errors while adjusting display settings", async ({

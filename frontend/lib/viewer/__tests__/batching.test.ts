@@ -167,3 +167,44 @@ describe("visibleIndices", () => {
     expect(asked).toEqual([1, 2]);
   });
 });
+
+describe("the model's own textures", () => {
+  const textured = (expressId: number, key: string): MeshView => ({
+    ...triangle(expressId),
+    uvs: new Float32Array([0, 1, 1, 1, 0, 0]),
+    texture: { key, repeatS: true, repeatT: true, url: `${key}.png` },
+  });
+
+  it("gives each texture batches of its own, after the untextured ones", () => {
+    const plain = triangle(1);
+    const brick = textured(2, "ref:10");
+    const wood = textured(3, "ref:11");
+    const brick2 = textured(4, "ref:10");
+    expect(planBatches([brick, plain, wood, brick2], 100)).toEqual([[plain], [brick, brick2], [wood]]);
+  });
+
+  it("treats a texture without coordinates as no texture", () => {
+    const loose = { ...textured(2, "ref:10"), uvs: undefined };
+    expect(planBatches([triangle(1), loose], 100)).toEqual([[triangle(1), loose]]);
+  });
+
+  it("carries the coordinates and the texture into the merged batch", () => {
+    const merged = mergeMeshes([textured(2, "ref:10"), textured(4, "ref:10")]);
+    expect(merged.texture?.key).toBe("ref:10");
+    expect([...merged.uvs!]).toEqual([0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0]);
+    expect(mergeMeshes([triangle(1)]).uvs).toBeUndefined();
+  });
+
+  it("gives every corner its coordinate when triangles are unshared for edges", () => {
+    // A quad of two triangles sharing an edge: corners repeat when unshared.
+    const quad: MeshView = {
+      ...textured(5, "ref:12"),
+      positions: new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0]),
+      normals: new Float32Array(12),
+      indices: new Uint32Array([0, 1, 2, 0, 2, 3]),
+      uvs: new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]),
+    };
+    const merged = mergeMeshes([quad], { edges: true });
+    expect([...merged.uvs!]).toEqual([0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0]);
+  });
+});

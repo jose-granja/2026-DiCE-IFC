@@ -231,14 +231,12 @@ export function FacetEditor({
               required
               value={facet.name}
               suggestions={entityNames}
-              placeholder="IFCWALL"
               onChange={(name) => onChange({ ...facet, name })}
             />
             <OptionalValue
               label={t("predefinedType")}
               value={facet.predefinedType}
               suggestions={predefinedTypes}
-              placeholder="SOLIDWALL"
               onChange={(predefinedType) => onChange({ ...facet, predefinedType })}
             />
           </>
@@ -280,7 +278,6 @@ export function FacetEditor({
               required
               value={facet.entity.name}
               suggestions={entityNames}
-              placeholder="IFCBUILDINGSTOREY"
               onChange={(name) =>
                 onChange({ ...facet, entity: { ...facet.entity, name } })
               }
@@ -295,13 +292,11 @@ export function FacetEditor({
               required
               value={facet.system}
               suggestions={vocabulary?.classificationSystems ?? []}
-              placeholder="Uniclass"
               onChange={(system) => onChange({ ...facet, system })}
             />
             <OptionalValue
               label={t("code")}
               value={facet.value}
-              placeholder="EF_25_10"
               onChange={(value) => onChange({ ...facet, value })}
             />
             <UriField
@@ -317,7 +312,6 @@ export function FacetEditor({
               label={t("attributeName")}
               required
               value={facet.name}
-              placeholder="Name"
               onChange={(name) => onChange({ ...facet, name })}
             />
             <OptionalValue
@@ -335,7 +329,6 @@ export function FacetEditor({
               required
               value={facet.propertySet}
               suggestions={psetNames}
-              placeholder="Pset_WallCommon"
               onChange={(propertySet) => onChange({ ...facet, propertySet })}
             />
             <ValueEditor
@@ -343,7 +336,6 @@ export function FacetEditor({
               required
               value={facet.baseName}
               suggestions={propertyNames}
-              placeholder="FireRating"
               onChange={onPropertyName}
             />
             <OptionalValue
@@ -366,7 +358,6 @@ export function FacetEditor({
               <Input
                 id="facet-datatype"
                 value={facet.dataType ?? ""}
-                placeholder="IFCLABEL"
                 // Uppercased on the way in: the XSD's upperCaseName type rejects
                 // anything else, and correcting it silently beats a validation
                 // error minutes later.
@@ -412,7 +403,6 @@ export function FacetEditor({
               label={t("material")}
               value={facet.value}
               suggestions={vocabulary?.materials ?? []}
-              placeholder="Concrete"
               hint={t("materialHint")}
               onChange={(value) => onChange({ ...facet, value })}
             />
@@ -431,7 +421,6 @@ export function FacetEditor({
             <Input
               id="facet-instructions"
               value={instructions ?? ""}
-              placeholder={t("requirementInstructionsPlaceholder")}
               onChange={(event) => onInstructionsChange(event.target.value)}
               className="h-8 text-xs"
             />
@@ -533,7 +522,6 @@ function UriField({
       <Input
         id="facet-uri"
         value={uri}
-        placeholder={t("uriPlaceholder")}
         onChange={(event) => onChange(event.target.value || "")}
         className="h-8 font-mono text-xs"
       />
@@ -560,14 +548,12 @@ function OptionalValue({
   value,
   onChange,
   suggestions,
-  placeholder,
   hint,
 }: {
   label: string;
   value: IdsValue | undefined;
   onChange: (value: IdsValue | undefined) => void;
   suggestions?: string[];
-  placeholder?: string;
   hint?: string;
 }) {
   if (!value) {
@@ -592,7 +578,6 @@ function OptionalValue({
       label={label}
       value={value}
       suggestions={suggestions}
-      placeholder={placeholder}
       onChange={onChange}
       onClear={() => onChange(undefined)}
     />

@@ -154,18 +154,40 @@ const api = {
     // one extra copy of the geometry inside the worker, which is the price of
     // not copying it again across the boundary — and the copies are released as
     // soon as they are transferred.
-    const meshes = geometry.meshes.map((mesh) => ({
-      ...mesh,
-      positions: mesh.positions.slice(),
-      normals: mesh.normals.slice(),
-      indices: mesh.indices.slice(),
-    }));
+    //
+    // A model's own texture pixels are shared by every mesh that uses them
+    // (keyed in the adapter), so each is copied and transferred once.
+    const pixelCopies = new Map<string, Uint8Array>();
+    const meshes = geometry.meshes.map((mesh) => {
+      const pixels = mesh.texture?.pixels;
+      let rgba: Uint8Array | undefined;
+      if (mesh.texture && pixels) {
+        rgba = pixelCopies.get(mesh.texture.key);
+        if (!rgba) {
+          rgba = pixels.rgba.slice();
+          pixelCopies.set(mesh.texture.key, rgba);
+        }
+      }
+      return {
+        ...mesh,
+        positions: mesh.positions.slice(),
+        normals: mesh.normals.slice(),
+        indices: mesh.indices.slice(),
+        uvs: mesh.uvs?.slice(),
+        texture: mesh.texture && {
+          ...mesh.texture,
+          pixels: pixels && rgba ? { ...pixels, rgba } : undefined,
+        },
+      };
+    });
 
     const transfers = meshes.flatMap((mesh) => [
       mesh.positions.buffer as ArrayBuffer,
       mesh.normals.buffer as ArrayBuffer,
       mesh.indices.buffer as ArrayBuffer,
+      ...(mesh.uvs ? [mesh.uvs.buffer as ArrayBuffer] : []),
     ]);
+    for (const rgba of pixelCopies.values()) transfers.push(rgba.buffer as ArrayBuffer);
 
     return Comlink.transfer({ ...geometry, meshes }, transfers);
   },

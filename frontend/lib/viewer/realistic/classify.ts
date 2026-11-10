@@ -32,12 +32,6 @@ export type TextureFamilyId =
 
 export type TextureFamily = {
   id: TextureFamilyId;
-  /**
-   * Poly Haven's own category paths ("Top/Sub/…") a texture must start with,
-   * or flat category tags it must carry, to be a candidate.
-   */
-  paths: string[];
-  tags?: string[];
 };
 
 /**
@@ -60,67 +54,67 @@ const NEVER = [
  */
 const FAMILIES: Array<{ family: TextureFamily; words: RegExp[] }> = [
   {
-    family: { id: "roofTiles", paths: ["Ceramic/Terracotta"] },
+    family: { id: "roofTiles" },
     words: [/roof ?tile|telha|teja|tuile|shingle|roofing|cobertura ceramica/],
   },
   {
-    family: { id: "stoneMasonry", paths: ["Brick & Block/Stone Block & Paver", "Stone/Walls & Rubble"] },
+    family: { id: "stoneMasonry" },
     words: [/rubble|alvenaria de pedra|stone wall|stonework|cantaria|silharia|ashlar/],
   },
   {
-    family: { id: "brick", paths: ["Brick & Block/Clay Brick"] },
+    family: { id: "brick" },
     words: [/brick|tijolo|ladrillo|brique|clay|barro|masonry|alvenaria|mamposteria|maconnerie/],
   },
   {
-    family: { id: "block", paths: ["Brick & Block/Concrete Block & Paver"] },
+    family: { id: "block" },
     words: [/\bblocks?\b|bloco|bloque|parpaing|\bcmu\b|paver|pave|pavimento em blocos/],
   },
   {
-    family: { id: "tiles", paths: ["Ceramic/Glazed Tiles", "Ceramic/Terrazzo & Mosaic", "Ceramic/Quarry & Unglazed"], tags: ["tiles"] },
+    family: { id: "tiles" },
     words: [/\btiles?\b|azulej|ceramic|ceramica|porcela|\bgres\b|mosaic|mosaico|terrazzo|ladrilho|baldosa|carrelage|mosaique/],
   },
   {
-    family: { id: "stone", paths: ["Stone/Slabs & Tiles", "Stone/Cobblestone & Paving"] },
+    family: { id: "stone" },
     words: [/stone|pedra|piedra|pierre|granit|marble|marmore|marmol|marbre|limestone|calcario|calizo|slate|ardosia|pizarra|basalt|sandstone|arenito|travertin|lioz|cobble|calcada|cubo/],
   },
   {
-    family: { id: "wood", paths: ["Wood/Boards & Planks", "Wood/Veneer", "Wood/Engineered Wood"] },
+    family: { id: "wood" },
     words: [/wood|timber|madeira|madera|\bbois\b|oak|carvalho|roble|chene|pine|pinho|pino|\bpin\b|beech|faia|walnut|nogueira|birch|cherry|maple|teak|\bteca\b|cedar|poplar|choupo|eucalypt|eucalipt|mahogany|mogno|spruce|abeto|\bfir\b|larch|larico|bamboo|bambu|sucupira|jatoba|\bipe\b|wenge|sapele|iroko|afzelia|meranti|\bash\b|freixo|plywood|contraplacado|contrachapado|\bosb\b|\bmdf\b|aglomerado|\bclt\b|glulam|lamelado|parquet|parquete|soalho|tarima|laminat|deck/],
   },
   {
-    family: { id: "metal", paths: ["Metal"] },
+    family: { id: "metal" },
     words: [/steel|\baco\b|acero|acier|metal|alumin|iron|ferro|hierro|\bfer\b|zinc|zinco|copper|cobre|cuivre|brass|latao|bronze|galvani|inox|stainless|corten/],
   },
   {
-    family: { id: "plaster", paths: ["Concrete/Plaster & Stucco"], tags: ["plaster"] },
+    family: { id: "plaster" },
     words: [/plaster|reboco|estuque|gesso|gypsum|yeso|platre|stucco|estuco|render|reboque|argamassa|mortar|mortero|paint|tinta|pintura|peinture|drywall|plasterboard|pladur|placo|cartonado|\bcapoto\b|\bettics\b|etics|\beifs\b/],
   },
   {
-    family: { id: "concrete", paths: ["Concrete/Cast Walls & Floors"] },
+    family: { id: "concrete" },
     words: [/concrete|betao|beton|hormigon|cement|cimento|cemento|screed|betonilha|\bc\d{2}\/\d{2}\b|\blc\d{2}\/\d{2}\b|precast|pre-?fabricad/],
   },
   {
-    family: { id: "asphalt", paths: ["Asphalt & Bitumen/Asphalt", "Asphalt & Bitumen/Roads"] },
+    family: { id: "asphalt" },
     words: [/asphalt|asfalto|betuminos|bituminous|tarmac|bitume/],
   },
   {
-    family: { id: "gravel", paths: ["Ground & Terrain/Gravel & Pebbles"] },
+    family: { id: "gravel" },
     words: [/gravel|brita|gravilha|grava|gravier|seixo|pebble|ballast|balastro/],
   },
   {
-    family: { id: "soil", paths: ["Ground & Terrain/Soil & Mud", "Ground & Terrain/Sand"] },
+    family: { id: "soil" },
     words: [/\bsoil\b|\bearth\b|\bterra\b|tierra|\bterre\b|ground|solo|\bsand\b|areia|arena|sable|saibro|\bmud\b|lama/],
   },
   {
-    family: { id: "grass", paths: ["Ground & Terrain/Grass & Vegetation", "Ground & Terrain/Forest Floor"] },
+    family: { id: "grass" },
     words: [/grass|relva|cesped|gazon|lawn|turf|vegeta|green roof|cobertura ajardinada/],
   },
   {
-    family: { id: "carpet", paths: ["Textiles & Leather/Carpet & Matting", "Textiles & Leather/Woven"] },
+    family: { id: "carpet" },
     words: [/carpet|alcatifa|moqueta|moquette|rug|tapete|fabric|tecido|textile/],
   },
   {
-    family: { id: "vinyl", paths: ["Plastic & Rubber/Vinyl & Linoleum", "Plastic & Rubber/Rubber"] },
+    family: { id: "vinyl" },
     words: [/vinyl|vinil|linoleum|linoleo|\bpvc\b|rubber|borracha|caucho|caoutchouc|epoxy|epoxi/],
   },
 ];
@@ -174,7 +168,7 @@ export function surfaceMaterial(
   return null;
 }
 
-/** Poly Haven's `surface_use`, as the IFC class suggests it. */
+/** The surface a texture is for, as the IFC class suggests it (the library's `surface`). */
 export type SurfaceUse = "floor" | "wall" | "roof" | "ground";
 
 export function surfaceUseFor(ifcClass: string): SurfaceUse | null {
@@ -184,14 +178,4 @@ export function surfaceUseFor(ifcClass: string): SurfaceUse | null {
   if (/^ifc(wall|curtainwall|column|beam|member|plate|footing|pile|chimney|parapet)/.test(name)) return "wall";
   if (/^ifc(geographicelement|earthworks|course|pavement|kerb)/.test(name)) return "ground";
   return null;
-}
-
-/** Whether a Poly Haven texture belongs to a family. */
-export function inFamily(
-  asset: { category?: string; categories?: string[] },
-  family: TextureFamily,
-): boolean {
-  const path = asset.category ?? "";
-  if (family.paths.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) return true;
-  return Boolean(family.tags?.some((tag) => asset.categories?.includes(tag)));
 }

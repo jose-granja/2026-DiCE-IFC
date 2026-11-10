@@ -77,6 +77,35 @@ describe("project.json", () => {
     expect(manifest.viewer.panel).toBe("ids");
   });
 
+  it("restores projects from before light conditions with the studio rig and no shadows", () => {
+    const display = { lightIntensity: 1, exposure: 0.75, edgesOn: true, edgeWidth: 1 };
+    expect(parse({ ...minimal, viewer: { display } }).viewer.display).toMatchObject({
+      lightPreset: "studio",
+      sunAzimuth: 60,
+      sunElevation: 60,
+      shadows: false,
+    });
+    const saved = { ...display, lightPreset: "goldenHour", sunAzimuth: 250, sunElevation: 10, shadows: true };
+    expect(parse({ ...minimal, viewer: { display: saved } }).viewer.display).toMatchObject(saved);
+    // A preset from a newer version: the studio, rather than refusing the project.
+    expect(parse({ ...minimal, viewer: { display: { ...saved, lightPreset: "moonlight" } } }).viewer.display?.lightPreset).toBe("studio");
+    expect(() => parse({ ...minimal, viewer: { display: { ...saved, sunElevation: 120 } } })).toThrow(ProjectFormatError);
+  });
+
+  it("keeps the sun's date, time and time zone, and fills them in for older projects", () => {
+    const display = { lightIntensity: 1, exposure: 0.75, edgesOn: true, edgeWidth: 1 };
+    const old = parse({ ...minimal, viewer: { display } }).viewer.display;
+    expect(old?.sunDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(old?.sunTime).toBe("12:00");
+    expect(typeof old?.sunTimeZone).toBe("string");
+
+    const saved = { ...display, sunDate: "2026-06-21", sunTime: "17:30", sunTimeZone: "Africa/Casablanca" };
+    expect(parse({ ...minimal, viewer: { display: saved } }).viewer.display).toMatchObject(saved);
+    // A zone this browser does not know becomes its own, rather than refusing the project.
+    expect(parse({ ...minimal, viewer: { display: { ...saved, sunTimeZone: "Mars/Olympus" } } }).viewer.display?.sunTimeZone).not.toBe("Mars/Olympus");
+    expect(() => parse({ ...minimal, viewer: { display: { ...saved, sunTime: "5pm" } } })).toThrow(ProjectFormatError);
+  });
+
   it("defaults old projects to three property decimal places and validates saved precision", () => {
     const display = { lightIntensity: 1, exposure: 0.75, edgesOn: true, edgeWidth: 1 };
     expect(parse({ ...minimal, viewer: { display } }).viewer.display?.propertyDecimalPlaces).toBe(3);

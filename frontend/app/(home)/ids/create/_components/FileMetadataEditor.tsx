@@ -54,7 +54,6 @@ export default function FileMetadataEditor() {
             onChange={(event) =>
               updateInfo({ author: event.target.value || undefined })
             }
-            placeholder={t("authorPlaceholder")}
             className="h-8 text-xs"
           />
         </div>
@@ -68,7 +67,6 @@ export default function FileMetadataEditor() {
             onChange={(event) =>
               updateInfo({ version: event.target.value || undefined })
             }
-            placeholder={t("versionPlaceholder")}
             className="h-8 text-xs"
           />
         </div>
@@ -97,7 +95,6 @@ export default function FileMetadataEditor() {
             onChange={(event) =>
               updateInfo({ milestone: event.target.value || undefined })
             }
-            placeholder={t("milestonePlaceholder")}
             className="h-8 text-xs"
           />
         </div>

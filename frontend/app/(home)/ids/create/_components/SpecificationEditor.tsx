@@ -113,7 +113,6 @@ export function SpecificationEditor({
             id="spec-name"
             value={specification.name}
             onChange={(event) => update(id, { name: event.target.value })}
-            placeholder={t("namePlaceholder")}
             className="h-8"
           />
         </div>
@@ -129,7 +128,6 @@ export function SpecificationEditor({
               onChange={(event) =>
                 update(id, { identifier: event.target.value || undefined })
               }
-              placeholder={t("identifierPlaceholder")}
               className="h-8 font-mono text-xs"
             />
           </div>
@@ -188,7 +186,6 @@ export function SpecificationEditor({
             onChange={(event) =>
               update(id, { instructions: event.target.value || undefined })
             }
-            placeholder={t("instructionsPlaceholder")}
             className="min-h-14 text-xs"
           />
         </div>

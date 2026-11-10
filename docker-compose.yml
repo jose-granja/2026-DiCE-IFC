@@ -1,6 +1,7 @@
-# Production: the Next.js front end behind nginx. There is no backend — models,
-# issues and specifications are processed in the browser, and the front end's own
-# server only serves pages and proxies bSDD (frontend/AGENTS.md §1).
+# Production: the Next.js front end and the texture library behind nginx.
+# Models, issues and specifications are processed in the browser; the front
+# end's own server only serves pages and proxies bSDD, and the texture library
+# (backend/, ADR 016) only lists and serves textures (frontend/AGENTS.md §1).
 services:
   frontend:
     build:
@@ -24,12 +25,38 @@ services:
       - "3000"
     restart: unless-stopped
 
+  # The texture library: curated CC0 textures for realistic materials. Empty
+  # until built once — see README, "Texture library".
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - stack.env
+    environment:
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,backend}
+    volumes:
+      - texture-library:/srv/texture-library
+      - texture-cache:/srv/texture-cache
+      - texture-data:/srv/texture-data
+    expose:
+      - "8000"
+    restart: unless-stopped
+
   nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
     depends_on:
       - frontend
+      - backend
+    volumes:
+      # The library's files, served straight from disk and cached for good.
+      - texture-library:/srv/texture-library:ro
     ports:
       - "9881:80"
     restart: unless-stopped
+
+volumes:
+  texture-library:
+  texture-cache:
+  texture-data:

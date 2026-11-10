@@ -35,14 +35,22 @@ federated by their `IfcMapConversion`, and shown in 3D. The left-hand tool tabs:
 | **Clash detection** | A Solibri-style matrix: groups by filter, tolerances per cell, models classified by discipline, Excel import/export, results to BCF |
 | **BCF topics** | Read, edit, merge and export BCF 2.1/3.0 issue sets; viewpoints with annotated snapshots or pictures from your computer; 3D markers; a PDF report of all or the selected topics |
 
-**Realistic materials** (Display → Realistic materials) puts textures on the
-models. For each material, the browser finds the kind (concrete, brick,
-timber…) from its name. It then picks the texture of that kind nearest the
-material's colour, from Poly Haven or 360into, whichever is closer, and
-projects it onto the geometry with relief and roughness: Poly Haven's own
-normal and roughness maps, or, for 360into's photographs, both estimated from
-the photograph. It is off until switched on, and nothing about the model is
-sent (ADR 014).
+**Textures.** A model's own textures (`IfcSurfaceStyleWithTextures`) are drawn
+as it carries them: images inside the file, or beside it in its `.ifczip`; a
+texture that links to the internet is never fetched. **Realistic materials**
+(Display → Realistic materials) textures everything else: for each material,
+the browser finds the kind (concrete, brick, timber…) from its name and picks
+the texture of that kind nearest the material's colour from this site's own
+texture library (149 curated CC0 textures from Poly Haven and ambientCG, each
+with relief and roughness maps), projected onto the geometry. Nothing about
+the model is sent. It is off whenever the viewer opens, and saved with a
+project (ADRs 014, 016).
+
+**Lighting** (Display → Lighting) offers light conditions (studio, clear sky,
+overcast, golden hour) and the sun's shadows. When a model says where it is
+(its map conversion, or its site's latitude and longitude), the sun is placed
+for a date, time and time zone there; otherwise its direction and height are
+set by hand. All are saved with a project.
 
 The **Properties** panel on the right shows the selected element's attributes,
 materials, property sets, quantities, its type's attributes and properties, classifications, and
@@ -96,8 +104,8 @@ viewer panel.
 ## What does reach the network
 
 Only what the user switches on, and never model, issue or specification content:
-basemap tiles and 3D tiles from the configured provider, Poly Haven and
-360into textures for realistic materials, WFS/WMS services the user adds, bSDD lookups (through the app's own `/api/bsdd` proxy), and signature
+basemap tiles and 3D tiles from the configured provider, textures from this
+site's own texture library for realistic materials, WFS/WMS services the user adds, bSDD lookups (through the app's own `/api/bsdd` proxy), and signature
 time-stamps (through `/api/tsa`). A deployment can also put a **human check**
 (Cloudflare Turnstile) in front of the site to keep bots out: visitors pass it
 once and get a pass cookie for a day (ADR 013). The full list, with what each request
@@ -107,14 +115,16 @@ carries, is in [`frontend/AGENTS.md`](frontend/AGENTS.md) §1 and on `/privacy`.
 
 ```
 frontend/   Next.js 16 + React 19 + Tailwind 4 app      ← read AGENTS.md first
+backend/    The texture library: Django + Django Ninja (ADR 016)
 companion/  Local signing service for the Cartão de Cidadão (Python)
 docs/adr/   Architecture decision records               ← index in docs/adr/README.md
 nginx/      Reverse proxy for production
 ```
 
-There is no backend. The front end's own server serves the pages and three
-small same-origin proxies: `app/api/bsdd` (dictionary lookups), `app/api/ogc`
-(WFS/WMS) and `app/api/tsa` (time-stamps).
+The front end's own server serves the pages and three small same-origin
+proxies: `app/api/bsdd` (dictionary lookups), `app/api/ogc` (WFS/WMS) and
+`app/api/tsa` (time-stamps). The one backend, `backend/`, is the texture
+library; it never receives anything from a model.
 
 ## Getting started
 
@@ -162,7 +172,7 @@ pair in `frontend/Dockerfile.prod` and an entry under `build.args` in
 
 ```bash
 docker compose -f docker-compose_dev.yml up     # dev server on http://localhost:3000
-docker compose up                               # production: front end behind nginx, port 9881
+docker compose up                               # production: front end and texture library behind nginx, port 9881
 ```
 
 `frontend/Dockerfile.prod` builds the production image and `frontend/Dockerfile`
@@ -184,6 +194,38 @@ break local `npm start` and the Playwright web server.
 > tsc read half-written files: the container's `next dev` writes into the
 > bind-mounted `.next/dev`. Stop the frontend container, or run the local
 > tooling on its own.
+
+### Texture library
+
+The backend starts empty. Build the library once (about 370 MB of textures,
+from about 1 GB of downloads it caches), then whenever
+`backend/textures/selection.json` changes:
+
+```bash
+docker compose run --rm backend python manage.py build_texture_library
+```
+
+Locally, without Docker (`uv` installs the backend's dependencies):
+
+```bash
+cd backend && uv sync && DJANGO_DEBUG=1 uv run python manage.py migrate
+```
+
+```bash
+cd backend && DJANGO_DEBUG=1 uv run python manage.py build_texture_library
+```
+
+```bash
+cd backend && DJANGO_DEBUG=1 uv run python manage.py runserver
+```
+
+`next dev` forwards `/texture-library/` to `http://127.0.0.1:8000`
+(`TEXTURE_LIBRARY_ORIGIN` sets another). `selection.json` is the curated list,
+reviewed like code; `propose_texture_selection --write` regenerates a proposal
+spread over each kind's colours. With `TEXTURE_LIBRARY_ADMIN=1` (on in
+development), `/texture-library/review/` shows every texture by kind and
+`/texture-library/admin/` switches textures off. Without a built library, the
+viewer says the server has none and keeps the model's colours.
 
 nginx must not set its own `Content-Security-Policy`: `proxy.ts` mints one per
 request with a nonce, and two CSP headers are enforced as their intersection —

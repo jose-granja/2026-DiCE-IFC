@@ -61,7 +61,26 @@ import { PointCloudEdl, POINT_CLOUD_EDL_LAYER } from "./point-edl";
 import { buildPointIndex, pickPointOnRay, type PointIndex } from "./point-pick";
 import { DEFAULT_POINT_SIZE } from "./pointcloud-store";
 import { ifcToRender } from "./federation";
+import { imageKey } from "./container";
 import {
+  DEFAULT_LIGHT_PRESET,
+  DEFAULT_SUN_AZIMUTH,
+  LIGHT_RIGS,
+  sunDirection,
+  type LightPreset,
+} from "./lighting";
+
+/** Light conditions the renderer is drawn under (`lighting.ts`). */
+export type LightingOptions = {
+  preset: LightPreset;
+  /** Degrees round the vertical from +Z toward +X. */
+  sunAzimuth: number;
+  /** Degrees above the horizon. */
+  sunElevation: number;
+  shadows: boolean;
+};
+import {
+  meshTextureKey,
   mergeMeshes,
   planBatches,
   visibleIndices,
@@ -152,6 +171,9 @@ vec3 CustomToneMapping( vec3 color ) {
  */
 export const MAX_SURFACE_LAYERS = 16;
 
+/** `aSurfaceLayer` for the model's own texture: below every realistic layer (0 none, else layer + 1). */
+const OWN_TEXTURE_LAYER = -1;
+
 type SurfaceUniforms = {
   uSurfaceMaps: THREE.IUniform<THREE.DataArrayTexture>;
   /**
@@ -167,10 +189,10 @@ type SurfaceUniforms = {
 };
 
 /**
- * How far a texture is pulled toward the colour the model gives the element:
- * 0 shows the photograph as it is, 1 matches the model's colour on average.
- * Halfway keeps the material's own character while a grey roof stays grey
- * when the nearest asphalt Poly Haven has is darker.
+ * How far a texture's hue is pulled toward the colour the model gives the
+ * element: 0 keeps the photograph's own, 1 matches the model's on average.
+ * Its brightness always matches the model's (the lights and tone curve are set
+ * for the model's colours, and a photograph's own is mostly how it was lit).
  */
 const SURFACE_COLOUR_PULL = 0.6;
 
@@ -244,8 +266,37 @@ function applyIfcLiteMaterialFinish(
   material: THREE.MeshStandardMaterial,
   edges?: EdgeUniforms,
   surface?: SurfaceUniforms,
+  ownTexture = false,
 ) {
   material.onBeforeCompile = (shader) => {
+    if (ownTexture) {
+      // The model's own texture (`material.map`, once decoded), drawn where
+      // `aSurfaceLayer` is OWN_TEXTURE_LAYER — which `repaintColours` clears
+      // under a lens, highlight or selection colour, as it clears realistic
+      // textures. Its pixels are taken as the model takes its colours: as they
+      // are, not decoded from sRGB, so a texture is as light as a colour of the
+      // same value. Never combined with `surface`.
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          "#include <common>",
+          /* glsl */ `#include <common>
+attribute float aSurfaceLayer;
+flat varying float vOwnTexture;`,
+        )
+        .replace(
+          "#include <begin_vertex>",
+          /* glsl */ `#include <begin_vertex>
+vOwnTexture = aSurfaceLayer;`,
+        );
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          "#include <common>",
+          /* glsl */ `#include <common>
+flat varying float vOwnTexture;`,
+        )
+        // The texture replaces the colour below rather than tinting it.
+        .replace("#include <map_fragment>", "");
+    }
     if (surface) {
       shader.uniforms.uSurfaceMaps = surface.uSurfaceMaps;
       shader.uniforms.uSurfaceDetail = surface.uSurfaceDetail;
@@ -338,7 +389,14 @@ flat varying float vEdgeMask;`,
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <color_fragment>",
-        /* glsl */ `#include <color_fragment>
+        /* glsl */ `#include <color_fragment>${
+          ownTexture
+            ? /* glsl */ `
+#ifdef USE_MAP
+if ( vOwnTexture < -0.5 ) diffuseColor.rgb = texture2D( map, vMapUv ).rgb;
+#endif`
+            : ""
+        }
 float ifcLiteBaseGray = dot( diffuseColor.rgb, vec3( 0.299, 0.587, 0.114 ) );
 float ifcLiteBaseSaturation = length( diffuseColor.rgb - vec3( ifcLiteBaseGray ) )
   / max( ifcLiteBaseGray, 0.001 );
@@ -380,11 +438,18 @@ if ( ifcLiteSurface ) {
   ifcLiteDetailX = texture( uSurfaceDetail, ifcLiteUvX );
   ifcLiteDetailY = texture( uSurfaceDetail, ifcLiteUvY );
   ifcLiteDetailZ = texture( uSurfaceDetail, ifcLiteUvZ );
-  // Toward the element's own colour: vertex colours hold the IFC (sRGB)
-  // value as authored, so it is decoded before comparing with the texture.
-  vec3 ifcLiteWant = pow( max( vColor.rgb, vec3( 0.0 ) ), vec3( 2.2 ) );
-  vec3 ifcLiteRatio = clamp( ifcLiteWant / max( uSurfaceMean[ ifcLiteLayer ], vec3( 0.02 ) ), 0.25, 4.0 );
-  diffuseColor.rgb = ifcLiteTex * mix( vec3( 1.0 ), ifcLiteRatio, ${SURFACE_COLOUR_PULL.toFixed(2)} );
+  // Toward the element's own colour, as this material would draw it without
+  // the texture (the vertex colour, already finished above). The colours are
+  // used as they are, with no decoding from sRGB: the plain model draws them
+  // that way, and decoding them again made every texture darker than the
+  // element it replaced. Brightness is matched in full, so a textured model
+  // is as light as the plain one; the hue only part of the way.
+  vec3 ifcLiteWant = max( diffuseColor.rgb, vec3( 0.0 ) );
+  vec3 ifcLiteMean = max( uSurfaceMean[ ifcLiteLayer ], vec3( 0.02 ) );
+  const vec3 ifcLiteLuma = vec3( 0.2126, 0.7152, 0.0722 );
+  float ifcLiteBright = clamp( dot( ifcLiteWant, ifcLiteLuma ) / dot( ifcLiteMean, ifcLiteLuma ), 0.2, 6.0 );
+  vec3 ifcLiteHue = clamp( ifcLiteWant / ( ifcLiteMean * ifcLiteBright ), 0.25, 4.0 );
+  diffuseColor.rgb = ifcLiteTex * ifcLiteBright * mix( vec3( 1.0 ), ifcLiteHue, ${SURFACE_COLOUR_PULL.toFixed(2)} );
 }`
             : ""
         }`,
@@ -475,7 +540,7 @@ ${
       );
   };
   material.customProgramCacheKey = () =>
-    `ifc-lite-material-finish-v3${edges ? "-edges" : ""}${surface ? "-surface" : ""}`;
+    `ifc-lite-material-finish-v4${edges ? "-edges" : ""}${surface ? "-surface" : ""}${ownTexture ? "-own" : ""}`;
   return material;
 }
 
@@ -832,6 +897,22 @@ export async function detectWebGpu(): Promise<WebGpuSupport> {
   }
 }
 
+/** A batch's layers with no realistic texture: its own texture where it has one. */
+function resetSurfaceLayers(batch: Batch) {
+  batch.baseSurfaceLayers.fill(batch.ownTexture ? OWN_TEXTURE_LAYER : 0);
+}
+
+/**
+ * A reference to something on the network (`http:`, `https:`, `ftp:`, `data:`…),
+ * as opposed to a file: a relative name, an absolute path (`C:\…`, `/…`) or a
+ * `file:` URI, each looked up by its file name among the `.ifczip`'s images.
+ */
+function isNetworkReference(url: string): boolean {
+  const scheme = /^([a-z][a-z0-9+.-]+):/i.exec(url)?.[1]?.toLowerCase();
+  // One letter is a Windows drive, not a scheme.
+  return scheme !== undefined && scheme !== "file";
+}
+
 type Batch = {
   mesh: THREE.Mesh;
   geometry: THREE.BufferGeometry;
@@ -847,8 +928,10 @@ type Batch = {
    * that colour, not as a texture, so `repaintColours` clears it there.
    */
   baseSurfaceLayers: Float32Array;
-  /** Translucent batches (glass) are never textured. */
+  /** Translucent batches (glass) are never textured by realistic materials. */
   transparent: boolean;
+  /** Drawn with the model's own texture: realistic materials leaves it alone. */
+  ownTexture: boolean;
   /** Filled IFC material owned by this batch. */
   fillMaterial: THREE.MeshStandardMaterial;
   /**
@@ -870,6 +953,20 @@ type ModelScene = {
   batches: Batch[];
   /** expressId → the vertex ranges holding it, for colour updates. */
   ranges: Map<number, Array<VertexSpan & { batch: number }>>;
+  /** The model's own textures, one per image, disposed with it. */
+  textures: THREE.Texture[];
+  /** Elements with an own texture on any of their parts: realistic materials leaves them alone. */
+  ownTextured: Set<number>;
+};
+
+/** What became of a model's own textures (`setModelGeometry`). */
+export type OwnTextureReport = {
+  /** Distinct images drawn. */
+  shown: number;
+  /** References to a network URL (`http:`, `https:`…): never fetched. */
+  remote: string[];
+  /** References to a file that is not among the model's images (a plain `.ifc`, or not in its `.ifczip`). */
+  missing: string[];
 };
 
 export type PickResult = { modelId: string; expressId: number } | null;
@@ -1107,9 +1204,29 @@ export class ViewerRenderer {
   private modelFar = 10_000;
   private perspectiveFov = 60;
   private originsVisible = false;
-  /** Studio lights and their authored values, used by the display control. */
-  private lights: Array<{ light: THREE.Light; baseIntensity: number }> = [];
+  /** The lights; `applyLighting` sets them from the light conditions below. */
+  private hemisphereLight = new THREE.HemisphereLight();
+  private ambientLight = new THREE.AmbientLight();
+  private sun = new THREE.DirectionalLight();
+  private counterSun = new THREE.DirectionalLight();
+  private fillLight = new THREE.DirectionalLight();
+  private counterFillLight = new THREE.DirectionalLight();
+  private rimLight = new THREE.DirectionalLight();
   private lightIntensityScale = 1;
+  private lighting: LightingOptions = {
+    preset: DEFAULT_LIGHT_PRESET,
+    sunAzimuth: DEFAULT_SUN_AZIMUTH,
+    sunElevation: LIGHT_RIGS[DEFAULT_LIGHT_PRESET].elevation,
+    shadows: false,
+  };
+  /** Toward the sun, unit length. */
+  private sunDir = new THREE.Vector3();
+  private shadowBox = new THREE.Box3();
+  /** What the shadow map was last drawn from, and this frame's; see `updateShadows`. */
+  private shadowState: number[] = [];
+  private shadowStateNow: number[] = [];
+  private shadowIds = new WeakMap<object, number>();
+  private nextShadowId = 1;
   private projectionListeners = new Set<(projection: CameraProjection) => void>();
   private cameraRotationListeners = new Set<
     (rotation: { azimuth: number; elevation: number }) => void
@@ -1151,47 +1268,26 @@ export class ViewerRenderer {
     this.orbitPivot = new OrbitPivot(this.controls);
     this.controls.addEventListener("change", this.notifyCameraRotation);
 
-    // IFC Lite's default studio rig. Three's Lambert BRDF divides irradiance
-    // by PI while IFC Lite's shader multiplies its light term directly, so PI
-    // is the required conversion between the two intensity conventions.
-    const lightScale = Math.PI;
-    // Adds one authored light and remembers its unscaled intensity.
-    const addLight = <T extends THREE.Light>(light: T): T => {
-      this.lights.push({ light, baseIntensity: light.intensity });
-      this.scene.add(light);
-      return light;
-    };
-
-    const sky = new THREE.Color().setRGB(0.3, 0.35, 0.4);
-    const ground = new THREE.Color().setRGB(0.15, 0.1, 0.08);
-    addLight(new THREE.HemisphereLight(sky, ground, 0.25 * lightScale));
-
-    // IFC Lite wraps the sun by 0.3, which gives every face a small direct
-    // contribution and prevents back-facing IFC normals from becoming black.
-    // The directional part below supplies the remainder on faces toward it.
-    const wrappedSun = (0.55 * 0.3) / 1.3;
-    addLight(new THREE.AmbientLight(0xffffff, wrappedSun * lightScale));
-
-    const sun = addLight(
-      new THREE.DirectionalLight(0xffffff, (0.55 / 1.3) * lightScale),
-    );
-    sun.position.set(0.5, 1, 0.3).normalize();
-
-    const oppositeSun = addLight(
-      new THREE.DirectionalLight(0xffffff, (0.55 / 1.3) * lightScale),
-    );
-    oppositeSun.position.set(-0.5, -1, -0.3).normalize();
-
-    const fill = addLight(new THREE.DirectionalLight(0xffffff, 0.15 * lightScale));
-    fill.position.set(-0.5, 0.3, -0.3).normalize();
-
-    const oppositeFill = addLight(
-      new THREE.DirectionalLight(0xffffff, 0.15 * lightScale),
-    );
-    oppositeFill.position.set(0.5, -0.3, 0.3).normalize();
-
-    const rim = addLight(new THREE.DirectionalLight(0xffffff, 0.15 * lightScale));
-    rim.position.set(0, 0.2, -1).normalize();
+    // The lights. Their colours, strengths and the sun's direction come from
+    // the light conditions (`lighting.ts`), applied by `applyLighting`.
+    this.scene.add(this.hemisphereLight, this.ambientLight, this.sun, this.sun.target, this.counterSun);
+    this.scene.add(this.fillLight, this.counterFillLight, this.rimLight);
+    this.fillLight.position.set(-0.5, 0.3, -0.3).normalize();
+    this.counterFillLight.position.set(0.5, -0.3, 0.3).normalize();
+    this.rimLight.position.set(0, 0.2, -1).normalize();
+    // Shadows are the sun's alone, and only while they are switched on: with
+    // no light casting one, three draws no shadow map at all.
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
+    const shadowSize = Math.min(4096, this.renderer.capabilities.maxTextureSize);
+    this.sun.shadow.mapSize.set(shadowSize, shadowSize);
+    // In depth units, so it scales with the shadow camera's range (the model's
+    // size). No normal bias: IFC normals often point the wrong way, and a bias
+    // along one would push the surface into its own shadow.
+    this.sun.shadow.bias = -0.0005;
+    this.sun.shadow.normalBias = 0;
+    this.applyLighting();
 
     this.measurementGroup.renderOrder = 999;
     this.scene.add(this.measurementGroup);
@@ -1285,6 +1381,7 @@ export class ViewerRenderer {
    * too, so a BCF image shows the clouds as the viewport does.
    */
   private renderFrame() {
+    this.updateShadows();
     let shaded = false;
     if (this.pointEdlEnabled) {
       for (const points of this.pointClouds.values()) shaded ||= points.visible;
@@ -1315,9 +1412,13 @@ export class ViewerRenderer {
       tint?: THREE.ColorRepresentation;
       tintAmount?: number;
       originShift?: Vec3;
+      /** The images in the model's `.ifczip`, by `imageKey`, for its `IfcImageTexture`s. */
+      images?: ReadonlyMap<string, Uint8Array>;
     } = {},
-  ) {
+  ): OwnTextureReport {
     this.removeModel(modelId);
+    const own = this.ownTextures(meshes, options.images);
+    meshes = own.meshes;
 
     const group = new THREE.Group();
     const batches: Batch[] = [];
@@ -1349,13 +1450,24 @@ export class ViewerRenderer {
       if (merged.edgeMask) {
         geometry.setAttribute("aEdgeMask", new THREE.BufferAttribute(merged.edgeMask, 1));
       }
-      const surfaceLayers = new Float32Array(merged.entityIds.length);
+      const ownTexture = merged.texture ? own.textures.get(merged.texture.key) : undefined;
+      if (ownTexture && merged.uvs) geometry.setAttribute("uv", new THREE.BufferAttribute(merged.uvs, 2));
+      const surfaceLayers = new Float32Array(merged.entityIds.length).fill(ownTexture ? OWN_TEXTURE_LAYER : 0);
       geometry.setAttribute("aSurfaceLayer", new THREE.BufferAttribute(surfaceLayers.slice(), 1));
       geometry.computeBoundingSphere();
 
-      const fillMaterial = this.material(merged.transparent);
+      const fillMaterial = this.material(merged.transparent, ownTexture !== undefined);
+      // Drawn in the element's colour until its image is decoded.
+      if (ownTexture) ownTexture.then((texture) => {
+        if (!texture || this.models.get(modelId)?.batches !== batches) return;
+        fillMaterial.map = texture;
+        fillMaterial.needsUpdate = true;
+      });
       const mesh = new THREE.Mesh(geometry, fillMaterial);
       mesh.frustumCulled = true;
+      // Glass lets the sun through; everything shows the shadows on it.
+      mesh.castShadow = !merged.transparent;
+      mesh.receiveShadow = true;
 
       for (const [expressId, spans] of merged.spans) {
         const existing = ranges.get(expressId) ?? [];
@@ -1371,6 +1483,7 @@ export class ViewerRenderer {
         baseColours: merged.colours.slice(),
         baseSurfaceLayers: surfaceLayers,
         transparent: merged.transparent,
+        ownTexture: ownTexture !== undefined,
         fillMaterial,
       };
       batches.push(batch);
@@ -1379,13 +1492,91 @@ export class ViewerRenderer {
 
     this.scene.add(group);
     this.markSectionCapsDirty();
+    const ownTextured = new Set<number>();
+    for (const mesh of meshes) if (meshTextureKey(mesh) !== null) ownTextured.add(mesh.expressId);
     this.models.set(modelId, {
       modelId,
       group,
       originMarker,
       batches,
       ranges,
+      textures: own.created,
+      ownTextured,
     });
+    return own.report;
+  }
+
+  /**
+   * The model's own textures, one GPU texture per image. Embedded pixels are
+   * ready at once; an image from the `.ifczip` is decoded first. A reference
+   * that cannot be honoured — a URL, or a file not in the archive — drops the
+   * texture from its meshes, which keep their colour: a URL in the model is
+   * never fetched (AGENTS.md §1).
+   */
+  private ownTextures(
+    meshes: MeshView[],
+    images: ReadonlyMap<string, Uint8Array> | undefined,
+  ): {
+    meshes: MeshView[];
+    textures: Map<string, Promise<THREE.Texture | null>>;
+    created: THREE.Texture[];
+    report: OwnTextureReport;
+  } {
+    const textures = new Map<string, Promise<THREE.Texture | null>>();
+    const created: THREE.Texture[] = [];
+    const report: OwnTextureReport = { shown: 0, remote: [], missing: [] };
+    const refused = new Set<string>();
+    const anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+    const finish = (texture: THREE.Texture, view: NonNullable<MeshView["texture"]>) => {
+      // As the model's colours are taken: the values as they are (see the shader).
+      texture.colorSpace = THREE.NoColorSpace;
+      texture.flipY = false;
+      texture.wrapS = view.repeatS ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+      texture.wrapT = view.repeatT ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+      texture.magFilter = THREE.LinearFilter;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.generateMipmaps = true;
+      texture.anisotropy = anisotropy;
+      texture.needsUpdate = true;
+      created.push(texture);
+      return texture;
+    };
+
+    for (const mesh of meshes) {
+      const view = mesh.texture;
+      const key = meshTextureKey(mesh);
+      if (!view || key === null || textures.has(key) || refused.has(key)) continue;
+      if (view.pixels) {
+        const { rgba, width, height } = view.pixels;
+        textures.set(key, Promise.resolve(finish(new THREE.DataTexture(rgba, width, height, THREE.RGBAFormat), view)));
+        continue;
+      }
+      const url = view.url ?? "";
+      const network = isNetworkReference(url);
+      const bytes = network || url === "" ? undefined : images?.get(imageKey(url));
+      if (!bytes) {
+        refused.add(key);
+        (network ? report.remote : report.missing).push(url);
+        continue;
+      }
+      textures.set(
+        key,
+        createImageBitmap(new Blob([bytes as BlobPart]), { colorSpaceConversion: "none", premultiplyAlpha: "none" })
+          .then((bitmap) => finish(new THREE.Texture(bitmap), view))
+          // An image the browser cannot decode costs its texture, not the model.
+          .catch(() => null),
+      );
+    }
+    report.shown = textures.size;
+
+    return {
+      meshes: refused.size === 0 ? meshes : meshes.map((mesh) =>
+        mesh.texture && refused.has(mesh.texture.key) ? { ...mesh, texture: undefined, uvs: undefined } : mesh,
+      ),
+      textures,
+      created,
+      report,
+    };
   }
 
   /** One translucent material for every ghost: drawn after the solids, writing no depth. */
@@ -1417,7 +1608,7 @@ export class ViewerRenderer {
     return ghost;
   }
 
-  private material(transparent = false): THREE.MeshStandardMaterial {
+  private material(transparent = false, ownTexture = false): THREE.MeshStandardMaterial {
     return applyIfcLiteMaterialFinish(
       new THREE.MeshStandardMaterial({
         vertexColors: true,
@@ -1434,10 +1625,13 @@ export class ViewerRenderer {
         // Winding order is unreliable, so back-face culling would punch holes.
         side: THREE.DoubleSide,
         clippingPlanes: this.clipPlanes,
-        clipShadows: false,
+        // What a section cuts away casts no shadow: the sun reaches into the cut.
+        clipShadows: true,
       }),
       this.edgeUniforms,
-      this.surfaceUniforms,
+      // Realistic textures or the model's own, never both on one material.
+      ownTexture ? undefined : this.surfaceUniforms,
+      ownTexture,
     );
   }
 
@@ -1463,6 +1657,7 @@ export class ViewerRenderer {
       batch.fillMaterial.dispose();
       batch.ghost?.geometry.dispose();
     }
+    for (const texture of model.textures) texture.dispose();
     disposeObject(model.originMarker);
     if (model.siteMarker) disposeObject(model.siteMarker);
     this.models.delete(modelId);
@@ -1485,11 +1680,122 @@ export class ViewerRenderer {
     this.markSectionCapsDirty();
   }
 
-  /** Scale the authored studio-light intensities without compounding changes. */
+  /** Scale every light of the current conditions, without compounding changes. */
   setLightIntensityScale(scale: number) {
     this.lightIntensityScale = scale;
-    for (const entry of this.lights) {
-      entry.light.intensity = entry.baseIntensity * scale;
+    this.applyLighting();
+  }
+
+  /** Light conditions: which rig, where the sun is, and whether it casts shadows. */
+  setLighting(options: Partial<LightingOptions>) {
+    this.lighting = { ...this.lighting, ...options };
+    this.applyLighting();
+  }
+
+  getLighting(): LightingOptions {
+    return { ...this.lighting };
+  }
+
+  private applyLighting() {
+    const rig = LIGHT_RIGS[this.lighting.preset] ?? LIGHT_RIGS[DEFAULT_LIGHT_PRESET];
+    // Three's Lambert BRDF divides irradiance by π while IFC Lite's shader
+    // multiplies its light term directly, so π converts between the two.
+    const scale = Math.PI * this.lightIntensityScale;
+    this.hemisphereLight.color.setRGB(...rig.sky);
+    this.hemisphereLight.groundColor.setRGB(...rig.ground);
+    this.hemisphereLight.intensity = rig.hemisphere * scale;
+    this.ambientLight.intensity = rig.ambient * scale;
+    // From a date and time the sun can be low or down: it fades over its
+    // last three degrees, and once set only the sky lights the model.
+    const daylight = Math.min(1, Math.max(0, this.lighting.sunElevation / 3));
+    this.sun.color.setRGB(...rig.sun.colour);
+    this.sun.intensity = rig.sun.intensity * scale * daylight;
+    this.counterSun.intensity = rig.counterSun * scale * daylight;
+    this.fillLight.intensity = rig.fill * scale;
+    this.counterFillLight.intensity = rig.counterFill * scale;
+    this.rimLight.intensity = rig.rim * scale;
+    // A light of no strength is still a light to every shader: hidden instead.
+    for (const light of [this.sun, this.counterSun, this.fillLight, this.counterFillLight, this.rimLight]) {
+      light.visible = light.intensity > 0;
+    }
+
+    this.sunDir.set(...sunDirection(this.lighting.sunAzimuth, this.lighting.sunElevation));
+    this.sun.position.copy(this.sun.target.position).add(this.sunDir);
+    this.counterSun.position.copy(this.sunDir).negate();
+    this.sun.castShadow = this.lighting.shadows && this.sun.visible;
+    this.sun.shadow.intensity = rig.shadowStrength;
+    // Drawn afresh when they are next switched on.
+    if (!this.sun.castShadow) this.shadowState.length = 0;
+  }
+
+  /**
+   * Redraw the shadow map only when what casts the shadows has changed: the
+   * sun, the models (loaded, moved, hidden, isolated), the context, or the
+   * section planes. They stay put in the world as the camera moves, so most
+   * frames reuse the last one, and orbiting a large model with shadows on
+   * costs no more than without.
+   */
+  private updateShadows() {
+    if (!this.sun.castShadow) return;
+    this.fitShadow();
+    const state = this.shadowStateNow;
+    state.length = 0;
+    const id = (object: object) => {
+      let value = this.shadowIds.get(object);
+      if (value === undefined) {
+        value = this.nextShadowId++;
+        this.shadowIds.set(object, value);
+      }
+      return value;
+    };
+    const geometryState = (mesh: THREE.Mesh) => {
+      const index = mesh.geometry.index;
+      state.push(id(mesh), mesh.visible ? 1 : 0, index ? id(index) : 0, index?.version ?? 0, mesh.geometry.drawRange.count);
+    };
+    state.push(...this.sun.position.toArray(), ...this.sun.target.position.toArray(), this.sun.shadow.camera.right);
+    for (const plane of this.clipPlanes) state.push(plane.normal.x, plane.normal.y, plane.normal.z, plane.constant);
+    for (const model of this.models.values()) {
+      const group = model.group;
+      state.push(group.visible ? 1 : 0, ...group.position.toArray(), group.rotation.y, group.scale.x);
+      for (const batch of model.batches) geometryState(batch.mesh);
+    }
+    if (this.contextMesh) {
+      state.push(...this.contextMesh.position.toArray());
+      geometryState(this.contextMesh);
+    }
+    const previous = this.shadowState;
+    if (previous.length === state.length && previous.every((value, at) => value === state[at])) return;
+    this.renderer.shadowMap.needsUpdate = true;
+    this.shadowState = state;
+    this.shadowStateNow = previous;
+  }
+
+  /**
+   * Fit the sun's shadow camera round the visible models: square on to the
+   * sun, just deep enough to hold them. Every frame while shadows are on, so
+   * it follows models loaded, moved or hidden; the box changes only when they
+   * do, so the shadows do not shimmer as the camera moves.
+   */
+  private fitShadow() {
+    const box = this.shadowBox.makeEmpty();
+    for (const model of this.models.values()) {
+      if (!model.group.visible) continue;
+      for (const batch of model.batches) box.expandByObject(batch.mesh);
+    }
+    if (box.isEmpty()) return;
+    const centre = box.getCenter(new THREE.Vector3());
+    const radius = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 1);
+    this.sun.target.position.copy(centre);
+    this.sun.position.copy(centre).addScaledVector(this.sunDir, radius * 2);
+    this.sun.target.updateMatrixWorld();
+    this.sun.updateMatrixWorld();
+    const camera = this.sun.shadow.camera;
+    if (camera.right !== radius || camera.far !== radius * 3.5) {
+      camera.left = camera.bottom = -radius;
+      camera.right = camera.top = radius;
+      camera.near = radius * 0.5;
+      camera.far = radius * 3.5;
+      camera.updateProjectionMatrix();
     }
   }
 
@@ -1695,8 +2001,10 @@ export class ViewerRenderer {
   ) {
     const model = this.models.get(modelId);
     if (!model) return;
-    for (const batch of model.batches) batch.baseSurfaceLayers.fill(0);
+    for (const batch of model.batches) resetSurfaceLayers(batch);
     for (const [expressId, spans] of model.ranges) {
+      // An element with its own texture keeps it, on every part.
+      if (model.ownTextured.has(expressId)) continue;
       for (const span of spans) {
         const batch = model.batches[span.batch];
         if (batch.transparent || span.count === 0) continue;
@@ -1714,7 +2022,7 @@ export class ViewerRenderer {
   /** Plain IFC colours again, everywhere. */
   clearSurfaceTextures() {
     for (const model of this.models.values()) {
-      for (const batch of model.batches) batch.baseSurfaceLayers.fill(0);
+      for (const batch of model.batches) resetSurfaceLayers(batch);
     }
     this.surfaceUniforms.uSurfaceOn.value = 0;
     this.setSurfaceTextureLayers([]);
@@ -2786,6 +3094,9 @@ export class ViewerRenderer {
     mesh.position.set(offset[0], offset[1], offset[2]);
     // Behind the model in the depth sort, so the thing being checked wins.
     mesh.renderOrder = -1;
+    // Neighbouring buildings shade the model when the sun's shadows are on.
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
 
     this.contextMesh = mesh;
     this.scene.add(mesh);

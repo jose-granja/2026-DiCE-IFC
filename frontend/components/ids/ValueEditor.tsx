@@ -46,7 +46,6 @@ export function ValueEditor({
   onChange,
   onClear,
   suggestions = [],
-  placeholder,
   required,
 }: {
   label: string;
@@ -56,7 +55,6 @@ export function ValueEditor({
   onClear?: () => void;
   /** Values from the loaded model, offered as a datalist. */
   suggestions?: string[];
-  placeholder?: string;
   required?: boolean;
 }) {
   const t = useTranslations("idsCreate.valueEditor");
@@ -113,7 +111,6 @@ export function ValueEditor({
             value={current.value}
             list={suggestions.length > 0 ? listId : undefined}
             onChange={(event) => onChange(simple(event.target.value))}
-            placeholder={placeholder}
             aria-label={label}
             className="h-8 font-mono text-xs"
           />
@@ -242,7 +239,6 @@ function RestrictionEditor({
             <Input
               value={draft}
               list={suggestions.length > 0 ? `${label}-enum` : undefined}
-              placeholder={t("addAllowedValuePlaceholder")}
               aria-label={t("allowedValue", { label })}
               className="h-7 font-mono text-xs"
               onChange={(event) => setDraft(event.target.value)}
@@ -277,7 +273,6 @@ function RestrictionEditor({
           <Input
             value={value.pattern ?? ""}
             onChange={(event) => patch({ pattern: event.target.value })}
-            placeholder={t("patternPlaceholder")}
             aria-label={t("patternAriaLabel", { label })}
             className={cn(
               "h-7 font-mono text-xs",

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Texture library review</title>
+<style>
+  :root { color-scheme: light dark; font: 14px/1.4 system-ui, sans-serif; }
+  body { margin: 16px; }
+  h2 { margin: 24px 0 8px; font-size: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  figure { margin: 0; }
+  img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; display: block; }
+  figcaption { font-size: 12px; margin-top: 4px; }
+  .off { opacity: .35; }
+  .muted { opacity: .7; }
+</style>
+</head>
+<body>
+<h1>Texture library</h1>
+<p class="muted">Each kind of material, as the viewer would choose from it. Switch a texture off in the admin; change the list in <code>textures/selection.json</code>.</p>
+{% for family, textures in by_family %}
+<h2>{{ family }} <span class="muted">({{ textures|length }})</span></h2>
+<div class="grid">
+  {% for t in textures %}
+  <figure class="{% if not t.enabled %}off{% endif %}">
+    <img src="{{ files }}{{ t.thumb }}" alt="{{ t.name }}" loading="lazy">
+    <figcaption><a href="{{ t.source_url }}" target="_blank" rel="noopener">{{ t.name }}</a><br>
+      <span class="muted">{{ t.surface }} · {{ t.tile_width|floatformat:2 }} m · {{ t.source }}</span></figcaption>
+  </figure>
+  {% endfor %}
+</div>
+{% endfor %}
+</body>
+</html>

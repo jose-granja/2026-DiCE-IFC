@@ -7,18 +7,21 @@ import { getActiveRenderer } from "@/lib/viewer/active-renderer";
 import { getModelHandle } from "@/lib/viewer/loader";
 import { MAX_SURFACE_LAYERS } from "@/lib/viewer/renderer";
 import { applyRealisticMaterials, type RealisticModel } from "@/lib/viewer/realistic/apply";
-import { SOURCE_HOMES, SOURCE_NAMES, useRealisticStore } from "@/lib/viewer/realistic/store";
+import { LibraryUnavailableError } from "@/lib/viewer/realistic/library";
+import { forgetLegacySwitch, SOURCE_HOMES, SOURCE_NAMES, useRealisticStore } from "@/lib/viewer/realistic/store";
 import { useViewerStore } from "@/lib/viewer/store";
 
 /**
  * Keeps the scene's realistic materials in step with the switch and the
- * models: on, it searches and applies textures to every model with geometry,
+ * models: on, it chooses and applies textures to every model with geometry,
  * and again whenever one is added or rebuilt; off, it puts the IFC colours
- * back. Renders a credit naming the libraries whose textures are on screen
- * (Poly Haven's API terms ask for one; 360into's do not, but it is due) while textures
- * are on screen.
+ * back. While textures are on screen it credits the libraries they were taken
+ * from: CC0 asks for nothing, but it is due.
  */
 export function RealisticMaterials({ ready }: { ready: boolean }) {
+  // Off on every visit; an earlier version remembered the switch here.
+  useEffect(forgetLegacySwitch, []);
+
   const t = useTranslations("viewer.realistic");
   const on = useRealisticStore((s) => s.on);
   const status = useRealisticStore((s) => s.status);
@@ -73,7 +76,7 @@ export function RealisticMaterials({ ready }: { ready: boolean }) {
         if (controller.signal.aborted) return;
         renderer.clearSurfaceTextures();
         useRealisticStore.getState().update({
-          status: "failed",
+          status: error instanceof LibraryUnavailableError ? "unavailable" : "failed",
           progress: null,
           textured: 0,
           error: error instanceof Error ? error.message : String(error),

@@ -24,7 +24,21 @@ export type UnwrappedModel = {
   container: Uint8Array | null;
   /** Name of the entry the model came from, for display. */
   entryName: string | null;
+  /**
+   * The archive's images, by lower-case file name without its folder: what the
+   * model's `IfcImageTexture`s refer to (a relative name, usually beside the
+   * model). Empty for a plain `.ifc`.
+   */
+  images: Map<string, Uint8Array>;
 };
+
+/** Raster files a texture reference may name. */
+const IMAGE_ENTRY = /\.(png|jpe?g|webp|gif|bmp)$/i;
+
+/** The key an image is found by: its file name, lower-cased, without folders. */
+export function imageKey(path: string): string {
+  return (path.split(/[\\/]/).pop() ?? path).toLowerCase();
+}
 
 /** ZIP local file header, `PK\003\004`. */
 const ZIP_MAGIC = [0x50, 0x4b, 0x03, 0x04];
@@ -44,7 +58,7 @@ export function looksLikeZip(bytes: Uint8Array): boolean {
 export async function unwrapModel(file: File): Promise<UnwrappedModel> {
   const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
   if (!looksLikeZip(head)) {
-    return { file, container: null, entryName: null };
+    return { file, container: null, entryName: null, images: new Map() };
   }
 
   const container = new Uint8Array(await file.arrayBuffer());
@@ -77,7 +91,18 @@ export async function unwrapModel(file: File): Promise<UnwrappedModel> {
     }),
     container,
     entryName: found.name,
+    images: archiveImages(entries),
   };
+}
+
+function archiveImages(entries: Record<string, Uint8Array>): Map<string, Uint8Array> {
+  const images = new Map<string, Uint8Array>();
+  for (const [name, bytes] of Object.entries(entries)) {
+    if (name.startsWith("META-INF/") || !IMAGE_ENTRY.test(name)) continue;
+    // The first of two images with the same name wins, as it would on disk.
+    if (!images.has(imageKey(name))) images.set(imageKey(name), bytes);
+  }
+  return images;
 }
 
 /**

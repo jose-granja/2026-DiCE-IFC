@@ -1,0 +1,1194 @@
+[
+  {
+    "family": "roofTiles",
+    "source": "ambientcg",
+    "id": "RoofingTiles009",
+    "name": "Roofing Tiles 009",
+    "surface": "roof",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "roofTiles",
+    "source": "ambientcg",
+    "id": "RoofingTiles010",
+    "name": "Roofing Tiles 010",
+    "surface": "roof",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "roofTiles",
+    "source": "ambientcg",
+    "id": "RoofingTiles011C",
+    "name": "Roofing Tiles 011 C",
+    "surface": "roof",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "roofTiles",
+    "source": "ambientcg",
+    "id": "RoofingTiles012A",
+    "name": "Roofing Tiles 012 A",
+    "surface": "roof",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "roofTiles",
+    "source": "ambientcg",
+    "id": "RoofingTiles013D",
+    "name": "Roofing Tiles 013 D",
+    "surface": "roof",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "roofTiles",
+    "source": "ambientcg",
+    "id": "RoofingTiles015A",
+    "name": "Roofing Tiles 015 A",
+    "surface": "roof",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "roofTiles",
+    "source": "polyhaven",
+    "id": "clay_roof_tiles_02",
+    "name": "Clay Roof Tiles 02",
+    "surface": "roof",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "roofTiles",
+    "source": "polyhaven",
+    "id": "roof_tiles",
+    "name": "Roof Tiles",
+    "surface": "roof",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stoneMasonry",
+    "source": "ambientcg",
+    "id": "Rocks005",
+    "name": "Rocks 005",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stoneMasonry",
+    "source": "ambientcg",
+    "id": "Rocks021",
+    "name": "Rocks 021",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stoneMasonry",
+    "source": "polyhaven",
+    "id": "castle_wall_slates",
+    "name": "Castle Wall Slates",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stoneMasonry",
+    "source": "polyhaven",
+    "id": "defense_wall",
+    "name": "Defense Wall",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stoneMasonry",
+    "source": "polyhaven",
+    "id": "rock_wall_02",
+    "name": "Rock Wall 02",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stoneMasonry",
+    "source": "polyhaven",
+    "id": "rock_wall_16",
+    "name": "Rock Wall 16",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stoneMasonry",
+    "source": "polyhaven",
+    "id": "sandstone_blocks_04",
+    "name": "Sandstone Blocks 04",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stoneMasonry",
+    "source": "polyhaven",
+    "id": "wood_stone_pathway",
+    "name": "Wood Stone Pathway",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "ambientcg",
+    "id": "Bricks036",
+    "name": "Bricks 036",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "ambientcg",
+    "id": "Bricks080B",
+    "name": "Bricks 080 B",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "ambientcg",
+    "id": "Bricks081A",
+    "name": "Bricks 081 A",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "ambientcg",
+    "id": "Bricks104",
+    "name": "Bricks 104",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "ambientcg",
+    "id": "Bricks106B",
+    "name": "Bricks 106 B",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "ambientcg",
+    "id": "Bricks112A",
+    "name": "Bricks 112 A",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "ambientcg",
+    "id": "PaintedBricks001",
+    "name": "Painted Bricks 001",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "ambientcg",
+    "id": "PaintedBricks003",
+    "name": "Painted Bricks 003",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "ambientcg",
+    "id": "PaintedBricks004",
+    "name": "Painted Bricks 004",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "polyhaven",
+    "id": "brick_wall_07",
+    "name": "Brick Wall 07",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "polyhaven",
+    "id": "dark_brick_wall",
+    "name": "Dark Brick Wall",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "polyhaven",
+    "id": "exterior_wall_cladding",
+    "name": "Exterior Wall Cladding",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "polyhaven",
+    "id": "red_brick_pavers",
+    "name": "Red Brick Pavers",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "brick",
+    "source": "polyhaven",
+    "id": "square_pavers",
+    "name": "Square Pavers",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "block",
+    "source": "polyhaven",
+    "id": "concrete_block_wall",
+    "name": "Concrete Block Wall",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "block",
+    "source": "polyhaven",
+    "id": "concrete_pavers_02",
+    "name": "Concrete Pavers 02",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "block",
+    "source": "polyhaven",
+    "id": "concrete_tile_facade",
+    "name": "Concrete Tile Facade",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "block",
+    "source": "polyhaven",
+    "id": "hexagonal_concrete_paving",
+    "name": "Hexagonal Concrete Paving",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "block",
+    "source": "polyhaven",
+    "id": "large_square_pattern_01",
+    "name": "Large Square Pattern 01",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "block",
+    "source": "polyhaven",
+    "id": "rectangular_facade_tiles",
+    "name": "Rectangular Facade Tiles",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "ambientcg",
+    "id": "GlazedTerracotta001",
+    "name": "Glazed Terracotta 001",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "ambientcg",
+    "id": "GlazedTerracotta002",
+    "name": "Glazed Terracotta 002",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "ambientcg",
+    "id": "Tiles012",
+    "name": "Tiles 012",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "ambientcg",
+    "id": "Tiles031",
+    "name": "Tiles 031",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "ambientcg",
+    "id": "Tiles033",
+    "name": "Tiles 033",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "ambientcg",
+    "id": "Tiles037",
+    "name": "Tiles 037",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "ambientcg",
+    "id": "Tiles078",
+    "name": "Tiles 078",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "ambientcg",
+    "id": "Tiles100",
+    "name": "Tiles 100",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "ambientcg",
+    "id": "Tiles132A",
+    "name": "Tiles 132 A",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "ambientcg",
+    "id": "Tiles137A",
+    "name": "Tiles 137 A",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "polyhaven",
+    "id": "concrete_tiles_02",
+    "name": "Concrete Tiles 02",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "tiles",
+    "source": "polyhaven",
+    "id": "terracotta_floor_tiles",
+    "name": "Terracotta Floor Tiles",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stone",
+    "source": "ambientcg",
+    "id": "Marble021",
+    "name": "Marble 021",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stone",
+    "source": "ambientcg",
+    "id": "PavingStones012",
+    "name": "Paving Stones 012",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stone",
+    "source": "ambientcg",
+    "id": "PavingStones044",
+    "name": "Paving Stones 044",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stone",
+    "source": "ambientcg",
+    "id": "PavingStones084",
+    "name": "Paving Stones 084",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stone",
+    "source": "ambientcg",
+    "id": "Travertine010",
+    "name": "Travertine 010",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stone",
+    "source": "ambientcg",
+    "id": "Travertine011",
+    "name": "Travertine 011",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stone",
+    "source": "polyhaven",
+    "id": "granite_tile",
+    "name": "Granite Tile",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stone",
+    "source": "polyhaven",
+    "id": "sandstone_cracks",
+    "name": "Sandstone Cracks",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stone",
+    "source": "polyhaven",
+    "id": "slate_floor",
+    "name": "Slate Floor",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "stone",
+    "source": "polyhaven",
+    "id": "slate_floor_03",
+    "name": "Slate Floor 03",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "ambientcg",
+    "id": "Planks022",
+    "name": "Planks 022",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "ambientcg",
+    "id": "Planks028",
+    "name": "Planks 028",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "ambientcg",
+    "id": "Wood031",
+    "name": "Wood 031",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "ambientcg",
+    "id": "WoodFloor038",
+    "name": "Wood Floor 038",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "ambientcg",
+    "id": "WoodFloor042",
+    "name": "Wood Floor 042",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "ambientcg",
+    "id": "WoodFloor043",
+    "name": "Wood Floor 043",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "ambientcg",
+    "id": "WoodFloor068",
+    "name": "Wood Floor 068",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "polyhaven",
+    "id": "brown_planks_05",
+    "name": "Brown Planks 05",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "polyhaven",
+    "id": "flamed_black_veneer",
+    "name": "Flamed Black Veneer",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "polyhaven",
+    "id": "old_wooden_floor_03",
+    "name": "Old Wooden Floor 03",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "polyhaven",
+    "id": "olive_veneer",
+    "name": "Olive Veneer",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "polyhaven",
+    "id": "plank_flooring_02",
+    "name": "Plank Flooring 02",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "polyhaven",
+    "id": "rosewood_veneer1",
+    "name": "Rosewood Veneer1",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "polyhaven",
+    "id": "sapele_veneer",
+    "name": "Sapele Veneer",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "polyhaven",
+    "id": "wooden_panels",
+    "name": "Wooden Panels",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "wood",
+    "source": "polyhaven",
+    "id": "wooden_rough_planks",
+    "name": "Wooden Rough Planks",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "metal",
+    "source": "ambientcg",
+    "id": "CorrugatedSteel001",
+    "name": "Corrugated Steel 001",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "metal",
+    "source": "ambientcg",
+    "id": "Metal035",
+    "name": "Metal 035",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "metal",
+    "source": "ambientcg",
+    "id": "Metal060B",
+    "name": "Metal 060 B",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "metal",
+    "source": "ambientcg",
+    "id": "PaintedMetal004",
+    "name": "Painted Metal 004",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "metal",
+    "source": "ambientcg",
+    "id": "PaintedMetal005",
+    "name": "Painted Metal 005",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "metal",
+    "source": "ambientcg",
+    "id": "SheetMetal003",
+    "name": "Sheet Metal 003",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "metal",
+    "source": "polyhaven",
+    "id": "box_profile_metal_sheet",
+    "name": "Box Profile Metal Sheet",
+    "surface": "roof",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "metal",
+    "source": "polyhaven",
+    "id": "corrugated_iron_02",
+    "name": "Corrugated Iron 02",
+    "surface": "roof",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "metal",
+    "source": "polyhaven",
+    "id": "factory_wall",
+    "name": "Factory Wall",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "metal",
+    "source": "polyhaven",
+    "id": "worn_shutter",
+    "name": "Worn Shutter",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "ambientcg",
+    "id": "PaintedPlaster001",
+    "name": "Painted Plaster 001",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "ambientcg",
+    "id": "PaintedPlaster004",
+    "name": "Painted Plaster 004",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "beige_wall_001",
+    "name": "Beige Wall 001",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "beige_wall_002",
+    "name": "Beige Wall 002",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "blue_plaster_wall",
+    "name": "Blue Plaster Wall",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "clay_plaster",
+    "name": "Clay Plaster",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "concrete_wall_004",
+    "name": "Concrete Wall 004",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "plastered_wall_02",
+    "name": "Plastered Wall 02",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "plastered_wall_04",
+    "name": "Plastered Wall 04",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "plastered_wall_05",
+    "name": "Plastered Wall 05",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "white_plaster_rough_01",
+    "name": "White Plaster Rough 01",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "white_stucco",
+    "name": "White Stucco",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "white_stucco_02",
+    "name": "White Stucco 02",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "plaster",
+    "source": "polyhaven",
+    "id": "yellow_plaster_02",
+    "name": "Yellow Plaster 02",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "ambientcg",
+    "id": "Concrete016",
+    "name": "Concrete 016",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "ambientcg",
+    "id": "Concrete020",
+    "name": "Concrete 020",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "ambientcg",
+    "id": "Concrete046",
+    "name": "Concrete 046",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "ambientcg",
+    "id": "Concrete047A",
+    "name": "Concrete 047 A",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "polyhaven",
+    "id": "concrete_floor",
+    "name": "Concrete Floor",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "polyhaven",
+    "id": "concrete_wall_009",
+    "name": "Concrete Wall 009",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "polyhaven",
+    "id": "gravel_concrete_03",
+    "name": "Gravel Concrete 03",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "polyhaven",
+    "id": "gravel_embedded_concrete",
+    "name": "Gravel Embedded Concrete",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "polyhaven",
+    "id": "gravel_embedded_concrete_02",
+    "name": "Gravel Embedded Concrete 02",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "polyhaven",
+    "id": "grooved_concrete_driveway",
+    "name": "Grooved Concrete Driveway",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "polyhaven",
+    "id": "pebble_embedded_concrete",
+    "name": "Pebble Embedded Concrete",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "polyhaven",
+    "id": "rock_embedded_concrete",
+    "name": "Rock Embedded Concrete",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "polyhaven",
+    "id": "rock_embedded_tiles",
+    "name": "Rock Embedded Tiles",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "concrete",
+    "source": "polyhaven",
+    "id": "stone_embedded_concrete",
+    "name": "Stone Embedded Concrete",
+    "surface": "wall",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "asphalt",
+    "source": "ambientcg",
+    "id": "Asphalt006",
+    "name": "Asphalt 006",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "asphalt",
+    "source": "ambientcg",
+    "id": "Asphalt028A",
+    "name": "Asphalt 028 A",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "asphalt",
+    "source": "ambientcg",
+    "id": "Asphalt029A",
+    "name": "Asphalt 029 A",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "asphalt",
+    "source": "ambientcg",
+    "id": "Road010A",
+    "name": "Road 010 A",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "asphalt",
+    "source": "polyhaven",
+    "id": "worn_asphalt",
+    "name": "Worn Asphalt",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "gravel",
+    "source": "ambientcg",
+    "id": "Gravel023",
+    "name": "Gravel 023",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "gravel",
+    "source": "ambientcg",
+    "id": "Gravel025",
+    "name": "Gravel 025",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "gravel",
+    "source": "ambientcg",
+    "id": "Gravel027",
+    "name": "Gravel 027",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "gravel",
+    "source": "polyhaven",
+    "id": "floor_pebbles_01",
+    "name": "Floor Pebbles 01",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "gravel",
+    "source": "polyhaven",
+    "id": "gravel",
+    "name": "Gravel",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "soil",
+    "source": "ambientcg",
+    "id": "Ground066",
+    "name": "Ground 066",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "soil",
+    "source": "ambientcg",
+    "id": "Ground087",
+    "name": "Ground 087",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "soil",
+    "source": "ambientcg",
+    "id": "Ground101",
+    "name": "Ground 101",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "soil",
+    "source": "polyhaven",
+    "id": "brown_mud_02",
+    "name": "Brown Mud 02",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "soil",
+    "source": "polyhaven",
+    "id": "dense_sand",
+    "name": "Dense Sand",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "soil",
+    "source": "polyhaven",
+    "id": "red_mud_stones",
+    "name": "Red Mud Stones",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "grass",
+    "source": "ambientcg",
+    "id": "Grass001",
+    "name": "Grass 001",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "grass",
+    "source": "ambientcg",
+    "id": "Grass006",
+    "name": "Grass 006",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "grass",
+    "source": "polyhaven",
+    "id": "leafy_grass",
+    "name": "Leafy Grass",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "grass",
+    "source": "polyhaven",
+    "id": "sparse_grass",
+    "name": "Sparse Grass",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "grass",
+    "source": "polyhaven",
+    "id": "wood_chip_path",
+    "name": "Wood Chip Path",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "carpet",
+    "source": "ambientcg",
+    "id": "Carpet006",
+    "name": "Carpet 006",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "carpet",
+    "source": "ambientcg",
+    "id": "Carpet010",
+    "name": "Carpet 010",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "carpet",
+    "source": "ambientcg",
+    "id": "Carpet014",
+    "name": "Carpet 014",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "carpet",
+    "source": "ambientcg",
+    "id": "Carpet015",
+    "name": "Carpet 015",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "carpet",
+    "source": "polyhaven",
+    "id": "crepe_georgette",
+    "name": "Crepe Georgette",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "carpet",
+    "source": "polyhaven",
+    "id": "rough_linen",
+    "name": "Rough Linen",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "carpet",
+    "source": "polyhaven",
+    "id": "terlenka",
+    "name": "Terlenka",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "carpet",
+    "source": "polyhaven",
+    "id": "waffle_pique_cotton",
+    "name": "Waffle Pique Cotton",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "vinyl",
+    "source": "ambientcg",
+    "id": "Plastic004",
+    "name": "Plastic 004",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "vinyl",
+    "source": "ambientcg",
+    "id": "Plastic007",
+    "name": "Plastic 007",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "vinyl",
+    "source": "ambientcg",
+    "id": "Plastic008",
+    "name": "Plastic 008",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "vinyl",
+    "source": "ambientcg",
+    "id": "Plastic013A",
+    "name": "Plastic 013 A",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "vinyl",
+    "source": "ambientcg",
+    "id": "Plastic015A",
+    "name": "Plastic 015 A",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "vinyl",
+    "source": "ambientcg",
+    "id": "Plastic016B",
+    "name": "Plastic 016 B",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "vinyl",
+    "source": "ambientcg",
+    "id": "Plastic017B",
+    "name": "Plastic 017 B",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  },
+  {
+    "family": "vinyl",
+    "source": "polyhaven",
+    "id": "rubber_tiles",
+    "name": "Rubber Tiles",
+    "surface": "floor",
+    "note": "proposed by colour spread"
+  }
+]

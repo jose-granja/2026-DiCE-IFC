@@ -1,5 +1,6 @@
-# Development: the Next.js dev server on http://localhost:3000. There is no
-# backend and no database — see docker-compose.yml.
+# Development: the Next.js dev server on http://localhost:3000, and the
+# texture library's backend (ADR 016), which `next dev` forwards
+# /texture-library/ to — see docker-compose.yml.
 services:
   frontend:
     build:
@@ -7,6 +8,7 @@ services:
       dockerfile: Dockerfile
     environment:
       PORT: 3000
+      TEXTURE_LIBRARY_ORIGIN: http://backend:8000
     env_file:
       - ./.env.dev
     expose:
@@ -34,3 +36,25 @@ services:
     # `npm install` is a no-op when nothing changed, so this costs a second at
     # start and removes a whole class of confusing failure.
     command: sh -c "npm install --no-audit --no-fund && rm -rf .next/dev/cache/turbopack && npm run dev -- --hostname 0.0.0.0"
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DJANGO_DEBUG: "1"
+      DJANGO_ALLOWED_HOSTS: "*"
+      TEXTURE_SERVE_FILES: "1"
+      TEXTURE_LIBRARY_ADMIN: "1"
+    volumes:
+      - ./backend:/app
+      - texture-library:/srv/texture-library
+      - texture-cache:/srv/texture-cache
+      - texture-data:/srv/texture-data
+    ports:
+      - 8000:8000
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+
+volumes:
+  texture-library:
+  texture-cache:
+  texture-data:

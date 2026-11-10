@@ -79,6 +79,8 @@ import {
   type IdsPropertyView,
   type IdsSpecificationResultView,
   type IdsValidationOptions,
+  type MeshTextureView,
+  type MeshView,
   type ModelSummary,
   type PropertySetView,
   type QuantityQuery,
@@ -1587,6 +1589,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
     options.onProgress?.({ phase: "geometry", percent: 100 });
 
     const info = result.coordinateInfo;
+    const textures = new MeshTextureKeys();
     return {
       meshes: result.meshes
         // geometryClass 2 is an instanced *type template*: its occurrences are
@@ -1602,6 +1605,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
           normals: mesh.normals,
           indices: mesh.indices,
           color: mesh.color,
+          ...textures.of(mesh),
         })),
       coordinates: {
         originShift: resolveRenderOriginShift(info),
@@ -1962,4 +1966,58 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
 export function resetIfcLiteAdapter(): void {
   models.clear();
   nextModelSeq = 0;
+}
+
+/**
+ * The model's own textures, keyed so meshes that share an image share one copy.
+ * An `IfcImageTexture` is keyed by its `IfcSurfaceTexture`; pixels in the file
+ * come without an id, so they are keyed by what they are (size and a hash), and
+ * meshes with the same pixels are given the same array.
+ */
+type TexturePixels = NonNullable<MeshTextureView["pixels"]>;
+
+class MeshTextureKeys {
+  private byArray = new WeakMap<Uint8Array, TexturePixels & { key: string }>();
+  private byKey = new Map<string, TexturePixels>();
+
+  of(mesh: {
+    uvs?: Float32Array;
+    texture?: { rgba: Uint8Array; width: number; height: number; repeatS: boolean; repeatT: boolean };
+    textureRef?: { textureId: number; url: string; repeatS: boolean; repeatT: boolean };
+  }): Pick<MeshView, "uvs" | "texture"> {
+    if (!mesh.uvs || mesh.uvs.length === 0) return {};
+    if (mesh.textureRef) {
+      const ref = mesh.textureRef;
+      return {
+        uvs: mesh.uvs,
+        texture: { key: `ref:${ref.textureId}`, repeatS: ref.repeatS, repeatT: ref.repeatT, url: ref.url },
+      };
+    }
+    if (mesh.texture && mesh.texture.width > 0 && mesh.texture.height > 0) {
+      const { rgba, width, height, repeatS, repeatT } = mesh.texture;
+      let known = this.byArray.get(rgba);
+      if (!known) {
+        const key = `px:${width}x${height}:${fnv1a(rgba)}`;
+        const pixels = this.byKey.get(key) ?? { rgba, width, height };
+        this.byKey.set(key, pixels);
+        known = { ...pixels, key };
+        this.byArray.set(rgba, known);
+      }
+      return {
+        uvs: mesh.uvs,
+        texture: { key: known.key, repeatS, repeatT, pixels: { rgba: known.rgba, width, height } },
+      };
+    }
+    return {};
+  }
+}
+
+/** FNV-1a over every byte: textures in a file are small, and a key must not collide. */
+function fnv1a(bytes: Uint8Array): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i += 1) {
+    hash ^= bytes[i];
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `${bytes.length}-${(hash >>> 0).toString(16)}`;
 }

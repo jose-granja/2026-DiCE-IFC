@@ -151,6 +151,29 @@ export type MeshView = {
   indices: Uint32Array;
   /** Linear RGBA in 0–1, from IfcSurfaceStyleRendering when authored. */
   color: [number, number, number, number];
+  /**
+   * The model's own texture (`IfcSurfaceStyleWithTextures`), with `uvs`: two
+   * floats per vertex, 1:1 with `positions`, already flipped for images stored
+   * top row first. Both absent for an untextured mesh.
+   */
+  uvs?: Float32Array;
+  texture?: MeshTextureView;
+};
+
+/** A texture the model itself carries; see `MeshView.texture`. */
+export type MeshTextureView = {
+  /** The same key means the same image, within one model. */
+  key: string;
+  /** `IfcSurfaceTexture.RepeatS` / `RepeatT`: tile, or clamp at the edge. */
+  repeatS: boolean;
+  repeatT: boolean;
+  /** Pixels in the file itself (`IfcBlobTexture`, `IfcPixelTexture`), decoded: RGBA, top row first. */
+  pixels?: { rgba: Uint8Array; width: number; height: number };
+  /**
+   * `IfcImageTexture.URLReference`, as written: an image outside the model. Only
+   * a file inside the same `.ifczip` is ever read; a URL is never fetched.
+   */
+  url?: string;
 };
 
 /**

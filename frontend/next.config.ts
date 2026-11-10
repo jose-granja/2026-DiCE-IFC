@@ -41,6 +41,21 @@ const nextConfig: NextConfig = {
     ? { output: "standalone" as const }
     : {}),
 
+  /**
+   * The texture library (ADR 016) lives at `/texture-library/` on this origin.
+   * In production nginx sends it to the backend (`backend/`) and serves its
+   * files itself; under `next dev` and `next start` this forwards it to
+   * `TEXTURE_LIBRARY_ORIGIN` (the backend's `runserver`, by default), so the
+   * browser never talks to another origin either way. Unset in production
+   * builds, where nginx answers first.
+   */
+  async rewrites() {
+    const origin =
+      process.env.TEXTURE_LIBRARY_ORIGIN ??
+      (process.env.NODE_ENV === "development" ? "http://127.0.0.1:8000" : "");
+    return origin ? [{ source: "/texture-library/:path*", destination: `${origin}/texture-library/:path*` }] : [];
+  },
+
   async headers() {
     return [
       {

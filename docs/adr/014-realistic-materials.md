@@ -1,8 +1,9 @@
 # ADR 014 — Realistic materials: Poly Haven textures chosen in the browser
 
-- **Status:** Accepted. Off until the user turns it on, per visit. **Amended
+- **Status:** Accepted. **Its libraries are superseded by ADR 016** (2026-11-08): textures now come from a curated library this deployment hosts, and Poly Haven and 360into are no longer searched live. The matching, projection, relief and brightness decisions below stand. Off until the user turns it on, per visit. **Amended
   2026-11-06:** 360into added as a second library, and Poly Haven's colours
-  measured from flat previews; then relief and roughness maps (see the
+  measured from flat previews; then relief and roughness maps. **Amended
+  2026-11-07:** textures matched to the model's brightness (see the
   amendments at the end).
 - **Date:** 2026-11-06
 - **Related:** AGENTS.md §1 (what may cross the wire), ADR 003 (third-party tiles, opt-in), ADR 001 (the engine adapter)
@@ -75,7 +76,9 @@ source covers the common building materials.
    - The shader projects triplanar in model space, at each texture's real
      size (clamped 0.25–10 m).
    - It pulls the texture 60 % of the way toward the element's own colour,
-     so the nearest texture still reads as the model's colour.
+     so the nearest texture still reads as the model's colour. (Since
+     2026-11-07, its brightness all the way and its hue 60 %: see the last
+     amendment.)
    - Selection, highlights and lens colours paint over textures, as they do
      over colours. Translucent geometry (glass) is never textured.
    - Past 16 textures, the most used are kept and the rest keep their
@@ -250,3 +253,33 @@ source covers the common building materials.
   shader errors and no CSP violations.
 - **What the libraries see is unchanged** apart from the two extra map
   downloads per chosen Poly Haven texture, which name the same texture.
+
+## Amendment 2026-11-07: textures as light as the model
+
+Textured elements drew darker than the plain ones they replaced. On `3D.ifc`
+the textured pixels averaged 16 % darker than with realistic materials off,
+and a terracotta deck read nearly black.
+
+Two causes, both in how the texture was pulled toward the element's colour:
+
+- The target was the IFC colour decoded from sRGB (`pow 2.2`). But the plain
+  material draws the IFC value as it is, as linear, so the target was a far
+  darker colour than the one on screen: 0.7 became 0.45.
+- Only 60 % of the way, so a photograph's own darkness (most read about 0.2
+  linear, much darker than a model's light greys) stayed in.
+
+### Decision
+
+- The target is the colour the plain material draws: the vertex colour after
+  IFC Lite's finish, undecoded.
+- Brightness (luminance) is matched in full; only the hue keeps the 60 % pull.
+  The light rig and the tone curve are set for the model's colours, and a
+  photograph's own brightness is mostly how it happened to be lit.
+- `choose.ts` still reads the IFC colours as sRGB to pick the nearest texture:
+  that is about which texture looks like the colour, not how bright to draw it.
+
+### Consequences
+
+- On `3D.ifc` the textured pixels now average within 2 % of the plain model.
+- A black or near-black element (the model has some) draws a black texture.
+  That is its authored colour; the texture's pattern still shows faintly.

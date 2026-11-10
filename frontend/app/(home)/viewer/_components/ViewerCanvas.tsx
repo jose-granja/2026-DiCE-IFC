@@ -9,13 +9,14 @@ import { ViewerRenderer, detectWebGpu } from "@/lib/viewer/renderer";
 import { setActiveRenderer } from "@/lib/viewer/active-renderer";
 import { usePointClouds } from "./usePointClouds";
 import { usePointCloudStore } from "@/lib/viewer/pointcloud-store";
-import { getModelHandle } from "@/lib/viewer/loader";
+import { getModelHandle, getModelImages } from "@/lib/viewer/loader";
 import { isolationGhostKeys, useViewerStore } from "@/lib/viewer/store";
 import { hasAnySnapTarget } from "@/lib/viewer/tools";
 import MeasurementLabels from "./MeasurementLabels";
 import BcfMarkers from "./BcfMarkers";
 import GlobeGoogleLogo from "./GlobeGoogleLogo";
 import RealisticMaterials from "./RealisticMaterials";
+import { useSunPlaceSync } from "@/lib/viewer/use-sun-place";
 import OrbitPivotMarker from "./OrbitPivotMarker";
 import { Button } from "@/components/ui/button";
 import { Axis3D, Contrast, Maximize2 } from "lucide-react";
@@ -58,6 +59,8 @@ const CLICK_DRAG_THRESHOLD_PX = 5;
  * own; the tree is the alternative, not a convenience.
  */
 export function ViewerCanvas() {
+  // The sun follows the models' place on the earth, when they say where they are.
+  useSunPlaceSync();
   const contextSelection = useContextModelStore((s) => s.selectedFeature);
   const contextAppearance = useContextModelStore((s) => s.appearance);
   const contextAttribution = useContextModelStore((s) => s.visible ? s.loaded?.attribution : undefined);
@@ -250,9 +253,18 @@ export function ViewerCanvas() {
         .getGeometry()
         .then((geometry) => {
           if (!mounted.current) return;
-          renderer.setModelGeometry(modelId, geometry.meshes, {
+          const own = renderer.setModelGeometry(modelId, geometry.meshes, {
             originShift: geometry.coordinates.originShift,
+            images: getModelImages(modelId),
           });
+          // The model's own textures it could not show: never a URL (it is
+          // not fetched), and never a file that was not opened with it.
+          for (const [key, urls] of [["ownTexturesMissing", own.missing], ["ownTexturesRemote", own.remote]] as const) {
+            if (urls.length === 0) continue;
+            toast.warning(t(key, { model: model.summary.name, count: urls.length }), {
+              description: urls.slice(0, 3).join(", "),
+            });
+          }
           useViewerStore.getState().registerEntityTypes(
             modelId,
             geometry.meshes.map(({ expressId, type }) => ({ expressId, type })),
@@ -277,7 +289,7 @@ export function ViewerCanvas() {
           toast.error(`${model.summary.name}: ${message}`);
         });
     }
-  }, [models, ready]);
+  }, [models, ready, t]);
 
   // ---- the globe needs a model to stand on; with none left it goes too
   const modelCount = models.length;

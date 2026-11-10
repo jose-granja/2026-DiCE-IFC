@@ -1,0 +1,6 @@
+.venv
+__pycache__
+library
+cache
+data
+staticfiles

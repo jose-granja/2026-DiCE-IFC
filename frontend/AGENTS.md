@@ -19,8 +19,10 @@ Two things override everything else in this file:
 ## 1. The privacy line — non-negotiable
 
 Every byte of IFC, BCF and IDS data is parsed, validated, rendered, signed and
-zipped **in the browser**. There is no backend: the app is a Next.js front end, and
-its own server serves pages and the explicitly documented service proxies below.
+zipped **in the browser**. The app is a Next.js front end, whose own server serves
+pages and the explicitly documented service proxies below, and one small backend,
+`backend/` (Django + Django Ninja, ADR 016), which only lists and serves the
+texture library. Neither ever receives a model, an issue or a specification.
 
 **The boundary is the machine, not the tab.** Signing needs a smart card, and a
 browser cannot reach one, so a local companion runs alongside (`companion/`, ADR
@@ -42,9 +44,8 @@ else** — permission to send more is not a reason to.
   the top of the route's `page.tsx`): `/viewer`, `/ids/create`, `/sign/ifc`,
   `/sign/bcf`, `/sign/verify`.
 - **CSP forbids third-party origins** other than the configured map tile provider
-  (and, on `/human-check` only and only when it is on, Cloudflare Turnstile — ADR 013;
-  on `/viewer` only, the texture libraries for realistic materials: Poly Haven's
-  three hosts and `360into.com` — ADR 014).
+  (and, on `/human-check` only and only when it is on, Cloudflare Turnstile — ADR 013).
+  The texture library is this origin's own `/texture-library/` (ADR 016).
   Default tile provider is self-hosted Protomaps/PMTiles, i.e. same-origin. The
   policy lives in `proxy.ts`, which mints a per-request nonce — Next injects
   inline bootstrap scripts, and a `script-src` without a nonce blocks them, so
@@ -56,8 +57,7 @@ else** — permission to send more is not a reason to.
   bundled worker starts from `/_next/static/chunks/turbopack-worker-*.js`,
   which `proxy.ts` skips. So `next.config.ts` sets `workerCsp()` from
   `lib/http/csp.ts` on `/_next/static/*`. Browsers ignore it on ordinary
-  scripts. In a worker, `connect-src` is `'self'` and the texture libraries
-  only. Workers hold whole models, so they get no tile, ion, Turnstile or
+  scripts. In a worker, `connect-src` is `'self'` only. Workers hold whole models, so they get no tile, ion, Turnstile or
   **companion** origin. A worker that needs an origin gets it added there,
   with an ADR. Never add a nonce or `'strict-dynamic'` there: the bootstrap's
   `importScripts` of its own chunks would be refused. `blob:` workers started
@@ -75,15 +75,15 @@ else** — permission to send more is not a reason to.
 | Map tiles, 3D tiles | the configured provider (opt-in) | basemap and 3D context |
 | WFS/WMS service URL, layer, style and map bounds | user-selected public provider via `/api/ogc` (opt-in) | context features, map images and legends; ADR 010 |
 | SHA-256 of a `SignatureValue` + a nonce (opt-in, when a `TSA_URL` is configured) | `app/api/tsa/route.ts`, this app's own server, then the time-stamp authority | RFC 3161 time-stamps send no CORS headers and the paid ones need credentials (ADR 012) |
-| Poly Haven's texture catalogue, previews of the candidate textures for the material families in use, and the chosen textures by id (opt-in, per visit) | the browser to `api.polyhaven.com`, `cdn.polyhaven.com`, `dl.polyhaven.org`, with the site's origin as `Referer` | realistic materials in the viewer (ADR 014); chosen in the browser from the model's material names and colours, none of which is sent |
-| 360into's catalogue for the categories those families need, thumbnails of a shortlist of candidates, and the chosen textures (opt-in, per visit, with the row above) | the browser (a Web Worker for the thumbnails) to `360into.com`, no `Referer` | the second texture library for realistic materials (ADR 014, amended 2026-11-06) |
+| The texture library's manifest, then the chosen textures' files by id (while realistic materials is on) | `/texture-library/` on this origin: `backend/` (Django Ninja) for the manifest, nginx for the files | realistic materials in the viewer (ADR 016); chosen in the browser from the model's material names and colours, none of which is sent |
 | The Turnstile widget's own traffic, then its one-time token (opt-in, when `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set) | the browser to `challenges.cloudflare.com` on `/human-check` only; the token via `app/api/human-check/route.ts` to Cloudflare's `siteverify` | the human check in front of the site (ADR 013); before the app loads, so no user content exists yet |
 
-There is no account, no project database and no Django API any more. Anything
-that would need a server — an RFC 3161 timestamp, OCSP/CRL/TSL fetches for full
-signature validation, none of which send CORS headers — is a Next.js route
-handler like `app/api/bsdd/route.ts`, allow-listed the same way, not a new
-service.
+There is no account and no project database. The one backend, `backend/`, is
+the texture library (ADR 016): read-only for visitors, holding nothing a user
+made. Anything else that needs a server — an RFC 3161 timestamp, OCSP/CRL/TSL
+fetches for full signature validation, none of which send CORS headers — is a
+Next.js route handler like `app/api/bsdd/route.ts`, allow-listed the same way,
+not a new service, and not an endpoint on the backend.
 
 Nothing else *over the network*. Separately, and only on the same machine:
 
@@ -1219,61 +1219,132 @@ be duplicated.
   it is there. Projects from before the file carried `lenses.saved` inline;
   still read.
 
-## 8c-quater. Realistic materials (ADR 014)
+## 8c-quater. Textures: the model's own, then realistic materials (ADRs 014, 016)
 
-Display → "Realistic materials" textures the models from two libraries, Poly
-Haven and 360into. The code is in `lib/viewer/realistic/`, synced by
-`RealisticMaterials.tsx` in the canvas.
+Per element: the model's own texture, then a texture from the hosted library
+(Display → "Realistic materials"), then its colour.
 
-- **Choose in the browser, fetch only the libraries' data.** The model's
-  material names and colours never leave. A new source must keep that shape:
-  send the library's own vocabulary or ids, never the model's.
-- **A library is a `TextureSource`** (`source.ts`):
-  - `candidates(family)`, `previews`, `colourKey`, `load`.
-  - `measureAll`: Poly Haven's 64 px previews are cheap, so all of a family's
-    candidates are measured. 360into's thumbnails are 36 kB, so only the
-    `SHORTLIST` nearest by their words (`colourFromWords`) are.
-  - The shortlist ranks every candidate, measured or not; otherwise each
-    visit measures eight more.
-- **Measure Poly Haven from `asset_img/primary`, not `thumbnail_url`.** The
-  thumbnails are shaded spheres that read about 14 ΔE dark. Never add a
-  version parameter to preview URLs: each new URL is resized cold by the CDN.
-- **Colours are measured in `lib/workers/texture-colour.worker.ts`.** On the
-  main thread each step waits for a frame, and a heavy model made the first
-  search take minutes.
+### The model's own textures
+
+- **The engine reads them; `MeshView` carries them** (`uvs`, `texture`, from
+  the adapter's `MeshTextureKeys`). An `IfcImageTexture` is keyed `ref:<id>`;
+  pixels in the file (`IfcBlobTexture`, `IfcPixelTexture`) by size and hash, so
+  meshes sharing an image share one copy, transferred from the worker once.
+- **An `IfcImageTexture` is read only from what the user opened.**
+  `container.ts` keeps a `.ifczip`'s images by lower-case file name
+  (`imageKey`); a reference is matched by the file name it ends in, whatever its
+  path (`textures/x.png`, `C:\…\x.png`, `file:`). A network URL (`http:`,
+  `data:`…) is **never fetched** — it comes from the model's contents (§1).
+  Either way the element keeps its colour and the canvas says why.
+- **Batches split by texture** (`planBatches`), one material with a `map` each.
+  `aSurfaceLayer` = `OWN_TEXTURE_LAYER` (−1) draws it, so `repaintColours`
+  clears it under a lens, highlight or selection like a realistic texture.
+- **Its pixels are drawn as the model's colours are: raw, not decoded from
+  sRGB** (`NoColorSpace`), so a texture is as light as a colour of the same
+  value. The texture replaces the colour; `IfcSurfaceTexture.Mode` is not read.
+- **Always shown, never replaced:** realistic materials skips an element with
+  an own texture on any of its parts (`ownTextured`).
+- `fixtures/ifc/textured-blob-ifc4.ifc` and `textured-image-ifc4.ifczip` (a
+  4×4 red/blue checker, and a second panel linking to a URL) are what
+  `e2e/own-textures.spec.ts` counts pixels on.
+
+### Realistic materials: the hosted library
+
+The code is in `lib/viewer/realistic/`, synced by `RealisticMaterials.tsx`; the
+library is `backend/` (README, "Texture library").
+
+- **The browser reads the manifest and chooses.** `library.ts` fetches
+  `/texture-library/api/manifest` once (schema-checked; a file path must be a
+  plain relative path, the files base this origin). The model's names and
+  colours never leave; only the chosen textures' files are fetched.
+- **Colours come from the manifest**, measured when the library was built
+  (`backend/textures/colour.py` mirrors `choose.ts`'s Lab exactly). Nothing is
+  measured in the browser; there is no colour cache any more.
 - **Words decide the kind, colour decides the texture.** `classify.ts` is an
   ordered word list in English and Portuguese (plus a little Spanish and French).
   Order matters: "tijolo cerâmico" must hit brick before tiles. `NEVER` runs
-  first. Add words with a test in `__tests__/classify.test.ts`.
-  `INTO360_CATEGORIES` maps families to 360into's machine-assigned categories,
-  each with the surface it suits ("concrete plates" are mostly pavers, so floor).
+  first. Add words with a test in `__tests__/classify.test.ts`. The sixteen
+  family ids are also `backend/textures/families.py`'s; change both together.
+- **One texture per material** (by name, within its family, across every
+  model shown). The material asks once, with the colour most of its elements
+  show and the kind of surface most of them are (ties to the lowest key), so
+  a grey wall and a white slab of the same material draw the same texture. Do
+  not key the choice by element colour or IFC class again: the same material
+  then got two textures, which read as a bug.
+- **2K or 1K, for all layers at once.** Walls and floors are built at 2K and 1K,
+  roofs at 1K. Every layer of the array is one size, so 2K is used only when
+  `MAX_LARGE_LAYERS` (8) or fewer textures are needed (`layerSize`); past that,
+  everything is 1K. A 1K-only texture in a 2K array is scaled up.
 - **One `DataArrayTexture` for every model material**, indexed by the
   per-vertex `aSurfaceLayer` attribute (0 = none). That is why there is a
-  layer budget (`MAX_SURFACE_LAYERS`). Every layer is the same square size;
-  `metres` carries a non-square texture's proportions back.
-- **No UVs in IFC geometry:** the shader projects triplanar in object space.
-  It uses `abs()` of the normal, because IFC normals' sign is unreliable.
+  layer budget (`MAX_SURFACE_LAYERS`). `metres` carries a texture's real size.
+- **No UVs in most IFC geometry:** the shader projects triplanar in object
+  space. It uses `abs()` of the normal, because IFC normals' sign is unreliable.
 - **Relief is a second array beside the colour one** (`uSurfaceDetail`,
-  `relief.ts`): normal x/y (OpenGL convention), roughness, occlusion, at 512²
-  and never decoded as sRGB (`decodeImage(…, "data")`).
-  - Poly Haven's `nor_gl` and `arm` maps are packed into it. 360into has only
-    a photograph, so its relief is estimated from brightness (dark = deep) and
-    its roughness is `FAMILY_ROUGHNESS`; no occlusion, the photo has its shadows.
-  - A relief map that fails to load costs the relief, not the texture: it falls
-    back to the estimate.
+  `relief.ts`): normal x/y (OpenGL convention), roughness, occlusion, at half
+  the colour's size and never decoded as sRGB (`decodeImage(…, "data")`). Every
+  library texture has its `normal` and `arm` maps (ambientCG's DirectX normals
+  are flipped at build time); a map that will not load costs the relief, which
+  is then estimated from the photograph.
   - Per projection, the image's right and top run along X: +Z, +Y; Y: +X, −Z;
     Z: +X, +Y. Change the colour's projection and these must change with it, or
     bumps turn into dents.
 - **Anything that repaints a colour clears the texture under it** in
   `repaintColours` (lens, highlight, selection). A new kind of override must
   do the same, or the texture will hide it.
-- **Vertex colours are the IFC values unconverted.** The shader decodes them
-  (`pow 2.2`) before comparing with the texture's linear mean, and `choose.ts`
-  treats them as sRGB.
-- **Not saved in projects, not remembered across visits.** It is the one
-  display setting that reaches the network.
-- **Measured colours cache** under `localStorage["dice-realistic-colours-v2"]`,
-  keyed `source:id@version`. Bump the key if the measuring changes.
+- **Vertex colours are the IFC values unconverted, and drawn as linear.** The
+  shader matches a texture to the colour the plain material would draw (the
+  vertex colour, after IFC Lite's finish), not to a decoded copy: decoding it
+  again (`pow 2.2`) made every texture darker than the element it replaced.
+  Brightness is matched in full, so a textured model is as light as the plain
+  one, and the hue `SURFACE_COLOUR_PULL` of the way. `choose.ts` still reads
+  them as sRGB, to pick the nearest texture as the eye sees the colour.
+- **Off on every visit, saved in projects.** The switch is not remembered in
+  the browser (the user's call, 2026-11-10: the viewer opens with the model's
+  colours); a project saved with it on turns it on
+  (`viewer.realisticMaterials`). `dice-realistic-on`, where it was once
+  remembered, is removed on mount.
+- **No library is a state, not an error:** a 404 or an unreachable backend is
+  `unavailable` and the panel says the server has none; the model keeps its
+  colours.
+
+## 8c-quinquies. Light conditions and shadows
+
+Display → Lighting. The rigs are in `lib/viewer/lighting.ts`; the renderer's
+`setLighting` applies them, and `display-settings.ts` saves them in projects.
+
+- **`studio` is IFC Lite's own rig and the default.** Its second sun, opposite
+  the first, is what keeps faces turned away from being black; keep it there.
+  The outdoor presets (clear sky, overcast, golden hour) light by one sun and a
+  hemisphere sky instead, so faces away from the sun are darker on purpose.
+- **Intensities are IFC Lite's, × π** for three's Lambert, which divides by it.
+  Light intensity scales the whole rig.
+- **The sun comes from a date and time when the models say where they are**
+  (`sun.ts`, kept current by `useSunPlaceSync` in `ViewerCanvas`):
+  - Place: the federation's anchor model first. From its `IfcMapConversion`
+    (non-placeholder, known CRS), with true north = grid north turned by the
+    grid convergence; else from `IfcSite` latitude/longitude, with north from
+    `TrueNorth` (IFC's default: the model's +y). Then turned with the model's
+    `rotationY`. A CRS outside the bundled list waits for the full EPSG index.
+  - Time: the site's wall-clock date and time in an IANA zone (`sun-time.ts`),
+    so summer time is right. Position: NOAA's equations (`solarPosition`).
+  - Below the horizon the sun fades out over its last 3° and casts nothing;
+    only the sky lights the model.
+  - With no place, the sun is set by hand (direction and height, round the
+    viewer's own axes), and a preset brings its own height. With a place, a
+    preset changes only the light, not the sun.
+  - Both are saved in projects, so a project keeps its hand-set sun and its
+    date and time whichever applies when it is opened.
+- **Shadows are the sun's alone, and off by default.** The shadow camera fits
+  the visible models every frame (`fitShadow`).
+  - The map is redrawn only when what casts shadows changes (`updateShadows`
+    compares the sun, models, their indices, the context and the section
+    planes with the last draw). Anything new that changes the drawn geometry
+    must show up in that state, or its shadows go stale.
+  - Glass doesn't cast. `clipShadows` is on, so the sun reaches into a section.
+  - No normal bias: IFC normals often point the wrong way, and a bias along one
+    pushes a surface into its own shadow. The depth bias is in depth units, so
+    it scales with the model.
 
 ## 8d. Notices, attribution and disclaimers
 
@@ -1284,7 +1355,8 @@ flows live. Both are written in `messages/*.json` (no hard-coded prose).
   Row in `app/(home)/about/page.tsx` `DATA` plus `about.data.rows.<key>`, the line in
   `Globe#getAttribution` and, if it needs a link, `lib/viewer/attribution.ts`. ODbL,
   Cesium ion and Google (with its logo) make visible attribution a condition of use;
-  so does Poly Haven's API (the view's credit names each texture library in use — ADR 014).
+  the texture library's CC0 sources need none, but the view credits Poly Haven and ambientCG
+  while their textures are shown (ADR 016).
 - **Adding a dependency that ships to users needs nothing by hand:** the notices file
   (`public/third-party-licenses.txt`) is generated from the installed production
   dependency closure by `scripts/generate-licenses.mts`, run by `prebuild`/`predev`.

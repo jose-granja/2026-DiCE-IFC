@@ -350,7 +350,7 @@ test("restores the context model, measurements, filter ticks and display setting
       context: { path: "context/two-blocks.gml", name: "two-blocks.gml", clipEnabled: false },
       viewer: {
         panel: "classes",
-        display: { lightIntensity: 1.5, exposure: 1, edgesOn: false, edgeWidth: 2 },
+        display: { lightIntensity: 1.5, exposure: 1, edgesOn: false, edgeWidth: 2, lightPreset: "overcast", sunAzimuth: 200, sunElevation: 40, sunDate: "2026-06-21", sunTime: "17:30", sunTimeZone: "Europe/Lisbon", shadows: true },
       },
       filters: { facets: { classes: ["IfcSlab"] } },
       measurements: { distances: [{ id: "d", start: [0, 0, 0], end: [3, 4, 0] }], angles: [], areas: [], volumes: [] },
@@ -382,6 +382,12 @@ test("restores the context model, measurements, filter ticks and display setting
   await page.getByRole("button", { name: "Open display settings" }).click();
   await expect(page.getByRole("slider", { name: "Light intensity" })).toHaveAttribute("aria-valuenow", "1.5");
   await expect(page.getByRole("switch", { name: "Show edges" })).not.toBeChecked();
+  await expect(page.getByRole("combobox", { name: "Light conditions" })).toHaveValue("overcast");
+  // The wall says where it is, so its sun is set by the date and time.
+  await expect(page.locator("[data-sun-from='place']").getByLabel("Date")).toHaveValue("2026-06-21");
+  await expect(page.locator("[data-sun-from='place']")).toContainText("17:30");
+  await expect(page.getByRole("combobox", { name: "Time zone" })).toHaveValue("Europe/Lisbon");
+  await expect(page.getByRole("switch", { name: "Shadows" })).toBeChecked();
   await expect(page.getByRole("combobox", { name: "Decimal places" })).toHaveValue("3");
 });
 

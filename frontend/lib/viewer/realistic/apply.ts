@@ -6,55 +6,36 @@
  *
  * 1. The worker lists every element's materials and the renderer every
  *    element's authored colours.
- * 2. Each element's showing material is put in a family (`classify.ts`), and
- *    each (family, kind of surface, colour) asks for one texture.
- * 3. Every source (Poly Haven, 360into) offers its candidates for the
- *    families in use. Their colours are measured: all of Poly Haven's (tiny
- *    previews), and of 360into's only those whose own words put them nearest
- *    the colours wanted. The nearest wins, whichever library it is from
- *    (`choose.ts`).
+ * 2. Each element's showing material is put in a family (`classify.ts`).
+ *    **One texture per material**: each material asks once, with the colour
+ *    and the kind of surface most of its elements have, so every element of a
+ *    material draws the same texture whatever its own colour or IFC class.
+ * 3. The texture library's manifest (`library.ts`, this app's own server)
+ *    offers the family's textures with their measured colours; the nearest
+ *    wins (`choose.ts`).
  * 4. The winners are downloaded and drawn, at most `MAX_SURFACE_LAYERS` of
- *    them, the most used first.
+ *    them, the most used first: at 2K when few enough, else 1K.
  *
- * Nothing about the model leaves the browser. The libraries are asked for
- * their own categories and then for texture ids.
+ * Nothing about the model leaves the browser: the manifest is read whole, and
+ * only the chosen textures' files are asked for.
  */
 
 import type { SurfaceMaterialEntry } from "@/lib/ifc/types";
 
 import { surfaceMaterial, surfaceUseFor, type SurfaceUse, type TextureFamily, type TextureFamilyId } from "./classify";
-import { chooseTexture, deltaE, srgbToLab, type Lab } from "./choose";
-import { into360 } from "./into360";
-import { polyHaven } from "./polyhaven";
-import { measureColoursInWorker } from "@/lib/workers/texture-colour-client";
+import { chooseTexture, srgbToLab, type Lab } from "./choose";
+import { fetchManifest, loadLibraryTexture, type LibraryManifest, type LibrarySourceId, type LibraryTexture } from "./library";
+import { mapLimit, TEXTURE_SIZE, type LoadedTexture } from "./source";
 
-import {
-  cachedColour,
-  mapLimit,
-  rememberColour,
-  type ColourJob,
-  type LoadedTexture,
-  type SourceCandidate,
-  type TextureSource,
-  type TextureSourceId,
-} from "./source";
+/** Layers drawn at 2K when this few are needed, else every layer at 1K: 2K costs four times the memory. */
+export const MAX_LARGE_LAYERS = 8;
+export const LARGE_SIZE = 2048;
 
-/** How preview colours get measured: in a worker by default (`texture-colour-client.ts`). */
-export type MeasureColours = (
-  jobs: ColourJob[],
-  concurrency: number,
-  onDone: (count: number) => void,
-  signal?: AbortSignal,
-) => Promise<Array<Lab | null>>;
-
-/** Both libraries, asked together. */
-export const TEXTURE_SOURCES: TextureSource[] = [polyHaven, into360];
-
-/**
- * How many of a source's unmeasured candidates are measured per colour wanted,
- * nearest guess first, when the source does not measure them all.
- */
-export const SHORTLIST = 8;
+/** The size every layer is drawn at, for `count` textures. */
+export function layerSize(textures: LibraryTexture[]): number {
+  const large = textures.some((texture) => texture.sizes[String(LARGE_SIZE)]);
+  return large && textures.length <= MAX_LARGE_LAYERS ? LARGE_SIZE : TEXTURE_SIZE;
+}
 
 /** The part of the renderer this needs (`ViewerRenderer`). */
 export type RealisticTarget = {
@@ -73,12 +54,13 @@ export type RealisticModel = {
 export type AppliedTexture = {
   material: string;
   family: TextureFamilyId;
-  source: TextureSourceId;
+  /** The library the texture was taken from, for the credit. */
+  source: LibrarySourceId;
   textureId: string;
   textureName: string;
   /** The texture's page in its library. */
   page: string;
-  /** The library's own relief and roughness maps, or estimated from the photograph. */
+  /** The library's own relief and roughness maps, or estimated when they would not load. */
   relief: LoadedTexture["relief"];
   elements: number;
 };
@@ -89,25 +71,46 @@ export type RealisticResult = {
   applied: AppliedTexture[];
   /** Elements drawing at least one texture. */
   texturedElements: number;
-  /** Colours of a material that got no texture: past the layer budget, or the download failed. */
+  /** Materials that got no texture: past the layer budget, or the download failed. */
   skipped: number;
   /** Elements with materials none of which has a family (glass, insulation, unknown words). */
   unmatched: number;
-  /** Libraries that could not be reached; the others were used without them. */
-  unreachable: TextureSourceId[];
+  /** The size the layers were drawn at: 2048 or 1024. */
+  size: number;
 };
 
-/** Colours closer than this share one search — a rounding step in sRGB. */
+/** Colours closer than this count as one when finding a material's usual colour — a rounding step. */
 const COLOUR_STEP = 1 / 64;
 const quantise = (rgb: [number, number, number]) => rgb.map((c) => Math.round(c / COLOUR_STEP)).join(",");
 
+/** A material is one name within one family, across every model shown. */
+const materialKey = (family: TextureFamily, name: string) => `${family.id}|${name}`;
+
+/** One material's search: what most of its elements look like. */
 type Request = {
   family: TextureFamily;
+  material: string;
   surface: SurfaceUse | null;
   lab: Lab;
-  /** Material name → the elements (`modelId#expressId`) asking, for the list of what was applied. */
-  materials: Map<string, Set<string>>;
+  /** The elements (`modelId#expressId`) drawing it. */
+  elements: Set<string>;
 };
+
+/** What a material's elements bring, before the most common is taken. */
+type Tally = {
+  family: TextureFamily;
+  material: string;
+  /** Quantised colour → its sRGB and the elements showing it. */
+  colours: Map<string, { rgb: [number, number, number]; elements: Set<string> }>;
+  /** Kind of surface (`""` for none) → the elements of it. */
+  surfaces: Map<string, Set<string>>;
+  elements: Set<string>;
+};
+
+/** The entry most elements share; ties to the lowest key, so the choice never depends on order. */
+function mostCommon<T>(entries: Map<string, T>, count: (value: T) => number): [string, T] {
+  return [...entries].sort((a, b) => count(b[1]) - count(a[1]) || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))[0];
+}
 
 export async function applyRealisticMaterials(
   target: RealisticTarget,
@@ -116,167 +119,108 @@ export async function applyRealisticMaterials(
     signal?: AbortSignal;
     maxLayers: number;
     onProgress?: (progress: RealisticProgress) => void;
-    sources?: TextureSource[];
-    measure?: MeasureColours;
+    /** Test seams. */
+    manifest?: () => Promise<LibraryManifest>;
+    load?: (files: string, texture: LibraryTexture, size: number) => Promise<LoadedTexture>;
   },
 ): Promise<RealisticResult> {
-  const { signal, maxLayers, onProgress, sources = TEXTURE_SOURCES, measure = measureColoursInWorker } = options;
+  const { signal, maxLayers, onProgress, manifest = fetchManifest, load = loadLibraryTexture } = options;
   const abortIfAsked = () => {
     if (signal?.aborted) throw new DOMException("Realistic materials were turned off.", "AbortError");
   };
 
-  // 1–2. What each element asks for.
-  const requests = new Map<string, Request>();
-  /** modelId → expressId → the element's family and surface. */
-  const elements = new Map<string, Map<number, { family: TextureFamily; surface: SurfaceUse | null }>>();
+  // 1–2. Each element's material, and what each material's elements look like.
+  const tallies = new Map<string, Tally>();
+  /** modelId → expressId → the element's material. */
+  const elements = new Map<string, Map<number, string>>();
   let unmatched = 0;
   for (const model of models) {
     const entries = await model.getSurfaceMaterials();
     abortIfAsked();
     const colours = target.surfaceColours(model.modelId);
-    const byElement = new Map<number, { family: TextureFamily; surface: SurfaceUse | null }>();
+    const byElement = new Map<number, string>();
     for (const entry of entries) {
       const showing = surfaceMaterial(entry.materials);
       if (!showing) {
         unmatched += 1;
         continue;
       }
-      const surface = surfaceUseFor(entry.type);
-      byElement.set(entry.expressId, { family: showing.family, surface });
-      for (const rgb of colours.get(entry.expressId) ?? []) {
-        const key = `${showing.family.id}|${surface ?? ""}|${quantise(rgb)}`;
-        const request = requests.get(key) ?? {
-          family: showing.family,
-          surface,
-          lab: srgbToLab(rgb),
-          materials: new Map<string, Set<string>>(),
-        };
-        const users = request.materials.get(showing.material.name) ?? new Set<string>();
-        users.add(`${model.modelId}#${entry.expressId}`);
-        request.materials.set(showing.material.name, users);
-        requests.set(key, request);
+      const key = materialKey(showing.family, showing.material.name);
+      byElement.set(entry.expressId, key);
+      const element = `${model.modelId}#${entry.expressId}`;
+      const tally = tallies.get(key) ?? {
+        family: showing.family,
+        material: showing.material.name,
+        colours: new Map(),
+        surfaces: new Map(),
+        elements: new Set<string>(),
+      };
+      tallies.set(key, tally);
+      const own = colours.get(entry.expressId) ?? [];
+      // Translucent only (glass in a frame's material): nothing drawn to texture.
+      if (own.length === 0) continue;
+      tally.elements.add(element);
+      const surface = surfaceUseFor(entry.type) ?? "";
+      tally.surfaces.set(surface, (tally.surfaces.get(surface) ?? new Set<string>()).add(element));
+      for (const rgb of own) {
+        const shade = tally.colours.get(quantise(rgb)) ?? { rgb, elements: new Set<string>() };
+        shade.elements.add(element);
+        tally.colours.set(quantise(rgb), shade);
       }
     }
     elements.set(model.modelId, byElement);
   }
 
+  const requests = new Map<string, Request>();
+  for (const [key, tally] of tallies) {
+    if (tally.elements.size === 0) continue;
+    const [, colour] = mostCommon(tally.colours, (shade) => shade.elements.size);
+    const [surface] = mostCommon(tally.surfaces, (users) => users.size);
+    requests.set(key, {
+      family: tally.family,
+      material: tally.material,
+      surface: (surface || null) as SurfaceUse | null,
+      lab: srgbToLab(colour.rgb),
+      elements: tally.elements,
+    });
+  }
+
   if (requests.size === 0) {
     target.clearSurfaceTextures();
-    return { applied: [], texturedElements: 0, skipped: 0, unmatched, unreachable: [] };
+    return { applied: [], texturedElements: 0, skipped: 0, unmatched, size: TEXTURE_SIZE };
   }
 
-  // 3. Candidates from every source, for the families asked for only. A
-  // library that cannot be reached is left out; with none, this fails.
-  const families = new Map<TextureFamilyId, TextureFamily>();
-  for (const request of requests.values()) families.set(request.family.id, request.family);
-  const candidatesBy = new Map<TextureFamilyId, SourceCandidate[]>();
-  const unreachable: TextureSourceId[] = [];
-  let firstError: unknown = null;
-  // Every source and family at once; a source that fails for any family is
-  // left out altogether, since a half-asked library would skew the choice.
-  const offers = await Promise.all(
-    sources.map((source) =>
-      Promise.all([...families.values()].map(async (family) => [family.id, await source.candidates(family)] as const))
-        .then((lists) => ({ source, lists, error: null as unknown }))
-        .catch((error: unknown) => ({ source, lists: [] as Array<readonly [TextureFamilyId, SourceCandidate[]]>, error })),
-    ),
-  );
+  // 3. The library's textures, by family, with the colours measured when it was built.
+  const library = await manifest();
   abortIfAsked();
-  for (const { source, lists, error } of offers) {
-    if (error) {
-      unreachable.push(source.id);
-      firstError ??= error;
-      continue;
-    }
-    for (const [family, list] of lists) candidatesBy.set(family, [...(candidatesBy.get(family) ?? []), ...list]);
-  }
-  if (unreachable.length === sources.length) throw firstError ?? new Error("No texture library could be reached.");
-
-  // Which colours to measure: everything from a source that measures all,
-  // and from the others, per colour wanted, the nearest guesses by name.
-  const sourceOf = new Map(sources.map((source) => [source.id, source]));
-  const toMeasure = new Map<string, SourceCandidate>();
-  for (const request of requests.values()) {
-    const shortlists = new Map<TextureSourceId, SourceCandidate[]>();
-    for (const candidate of candidatesBy.get(request.family.id) ?? []) {
-      const source = sourceOf.get(candidate.source)!;
-      // Colours already measured cost nothing, so they always take part.
-      if (source.measureAll || cachedColour(source.colourKey(candidate))) toMeasure.set(candidate.key, candidate);
-      // The shortlist ranks every candidate, measured or not, so the same
-      // search asks for the same few and a second visit measures nothing new.
-      if (!source.measureAll) shortlists.set(candidate.source, [...(shortlists.get(candidate.source) ?? []), candidate]);
-    }
-    for (const list of shortlists.values()) {
-      const guess = (c: SourceCandidate) => (c.estimate ? deltaE(c.estimate, request.lab) : 30);
-      for (const candidate of [...list].sort((a, b) => guess(a) - guess(b) || a.key.localeCompare(b.key)).slice(0, SHORTLIST)) {
-        toMeasure.set(candidate.key, candidate);
-      }
-    }
-  }
-
-  let done = 0;
-  const total = toMeasure.size + Math.min(maxLayers, requests.size);
-  const tick = () => {
-    done += 1;
-    onProgress?.({ done: Math.min(done, total), total });
-  };
-  onProgress?.({ done, total });
-
-  // Colours measured before are read from this browser; the rest are
-  // measured, per source at that source's pace, all sources at once.
-  const labs = new Map<string, Lab>();
-  await Promise.all(
-    sources.map(async (source) => {
-      const fresh: SourceCandidate[] = [];
-      for (const candidate of toMeasure.values()) {
-        if (candidate.source !== source.id) continue;
-        const known = cachedColour(source.colourKey(candidate));
-        if (known) {
-          labs.set(candidate.key, known);
-          tick();
-        } else fresh.push(candidate);
-      }
-      const measured = await measure(
-        fresh.map((candidate) => ({ previews: source.previews(candidate), referrer: source.referrer })),
-        source.concurrency,
-        (count) => {
-          for (let i = 0; i < count; i += 1) tick();
-        },
-        signal,
-      );
-      measured.forEach((lab, index) => {
-        if (lab) labs.set(fresh[index].key, rememberColour(source.colourKey(fresh[index]), lab));
-      });
-    }),
-  );
-  abortIfAsked();
-
-  const candidateByKey = new Map<string, SourceCandidate>();
-  for (const list of candidatesBy.values()) for (const candidate of list) candidateByKey.set(candidate.key, candidate);
-  const measuredOf = (family: TextureFamilyId) =>
-    (candidatesBy.get(family) ?? [])
-      .filter((candidate) => labs.has(candidate.key))
-      .map((candidate) => ({
-        id: candidate.key,
-        lab: labs.get(candidate.key)!,
-        surfaceUse: candidate.surfaceUse,
-        condition: candidate.condition,
-      }));
+  const byId = new Map(library.textures.map((texture) => [texture.id, texture]));
+  const byFamily = new Map<TextureFamilyId, LibraryTexture[]>();
+  for (const texture of library.textures) byFamily.set(texture.family, [...(byFamily.get(texture.family) ?? []), texture]);
 
   // Each request's texture, then the layer budget: the most used first.
   const chosen = new Map<string, string>();
   const usage = new Map<string, Set<string>>();
   for (const [key, request] of requests) {
-    const pick = chooseTexture(measuredOf(request.family.id), request.lab, request.surface);
+    const candidates = (byFamily.get(request.family.id) ?? []).map((texture) => ({
+      id: texture.id,
+      lab: texture.lab,
+      surfaceUse: texture.surface,
+    }));
+    const pick = chooseTexture(candidates, request.lab, request.surface);
     if (!pick) continue;
     chosen.set(key, pick.id);
     const users = usage.get(pick.id) ?? new Set<string>();
-    for (const asking of request.materials.values()) for (const element of asking) users.add(element);
+    for (const element of request.elements) users.add(element);
     usage.set(pick.id, users);
   }
   const ranked = [...usage.entries()].sort((a, b) => b[1].size - a[1].size || a[0].localeCompare(b[0]));
+  const wanted = ranked.slice(0, maxLayers).map(([id]) => byId.get(id)!);
+  const size = layerSize(wanted);
 
   // 4. Download, in that order, until the budget is full.
+  let done = 0;
+  const total = wanted.length;
+  onProgress?.({ done, total });
   const loaded: Array<{ id: string; texture: LoadedTexture }> = [];
   let cursor = 0;
   // A failed download frees its place for the next texture in line.
@@ -285,9 +229,9 @@ export async function applyRealisticMaterials(
     cursor += batch.length;
     const textures = await mapLimit(batch, 4, async ([id]) => {
       abortIfAsked();
-      const candidate = candidateByKey.get(id)!;
-      const texture = await sourceOf.get(candidate.source)!.load(candidate).catch(() => null);
-      tick();
+      const texture = await load(library.files, byId.get(id)!, size).catch(() => null);
+      done += 1;
+      onProgress?.({ done: Math.min(done, total), total });
       return texture ? { id, texture } : null;
     });
     for (const texture of textures) if (texture) loaded.push(texture);
@@ -299,16 +243,15 @@ export async function applyRealisticMaterials(
   target.setSurfaceTextureLayers(loaded.map(({ texture }) => texture));
   for (const model of models) {
     const byElement = elements.get(model.modelId);
-    target.setSurfaceTextures(model.modelId, (expressId, rgb) => {
-      const element = byElement?.get(expressId);
-      if (!element) return -1;
-      const id = chosen.get(`${element.family.id}|${element.surface ?? ""}|${quantise(rgb)}`);
+    target.setSurfaceTextures(model.modelId, (expressId) => {
+      const material = byElement?.get(expressId);
+      const id = material === undefined ? undefined : chosen.get(material);
       return id === undefined ? -1 : (layerOf.get(id) ?? -1);
     });
   }
 
-  // What was applied, per material name and texture.
-  const lines = new Map<string, AppliedTexture>();
+  // What was applied: one line per material.
+  const applied: AppliedTexture[] = [];
   const textured = new Set<string>();
   let skipped = 0;
   for (const [key, request] of requests) {
@@ -317,31 +260,25 @@ export async function applyRealisticMaterials(
       skipped += 1;
       continue;
     }
-    for (const [material, asking] of request.materials) {
-      for (const element of asking) textured.add(element);
-      const lineKey = `${material}|${id}`;
-      const candidate = candidateByKey.get(id)!;
-      const line = lines.get(lineKey) ?? {
-        material,
-        family: request.family.id,
-        source: candidate.source,
-        textureId: candidate.id,
-        textureName: candidate.name,
-        page: candidate.page,
-        relief: reliefOf.get(id) ?? "estimated",
-        elements: 0,
-      };
-      line.elements += asking.size;
-      lines.set(lineKey, line);
-    }
+    const texture = byId.get(id)!;
+    for (const element of request.elements) textured.add(element);
+    applied.push({
+      material: request.material,
+      family: request.family.id,
+      source: texture.source,
+      textureId: texture.id,
+      textureName: texture.name,
+      page: texture.sourceUrl,
+      relief: reliefOf.get(id) ?? "estimated",
+      elements: request.elements.size,
+    });
   }
   onProgress?.({ done: total, total });
   return {
-    applied: [...lines.values()].sort((a, b) => b.elements - a.elements || a.material.localeCompare(b.material)),
+    applied: applied.sort((a, b) => b.elements - a.elements || a.material.localeCompare(b.material)),
     texturedElements: textured.size,
     skipped,
     unmatched,
-    unreachable,
+    size: loaded[0]?.texture.size ?? size,
   };
 }
-

@@ -1,0 +1,23 @@
+[project]
+name = "dice-texture-library"
+version = "0.1.0"
+description = "DiCE-IFC's texture library: the curated CC0 textures realistic materials draws (ADR 016)"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2",
+    "django-ninja>=1.4",
+    "pillow>=11",
+    "requests>=2.32",
+    "gunicorn>=23",
+    "whitenoise>=6.8",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-django>=4.9"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "texlib.test_settings"
+python_files = ["test_*.py"]
+
+[tool.uv]
+package = false

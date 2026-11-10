@@ -18,13 +18,13 @@ import { expect, test, type Page, type Worker } from "@playwright/test";
 const IFC4 = path.resolve(__dirname, "../fixtures/ifc/georeferenced-wall-ifc4.ifc");
 
 const FOREIGN = "https://csp-probe.example/leak";
-/** On the worker allow-list (a texture library, ADR 014). */
-const ALLOWED = "https://360into.com/csp-probe";
+/** This origin: the only one on the worker allow-list. Answered at the same path on whatever port the server is on. */
+const ALLOWED = "/texture-library/csp-probe";
 /** The signing companion: on the page's list, deliberately not on a worker's. */
 const COMPANION = "http://127.0.0.1:8765/csp-probe";
 
 async function answerProbes(page: Page) {
-  for (const url of [FOREIGN, ALLOWED, COMPANION]) {
+  for (const url of [FOREIGN, `**${ALLOWED}`, COMPANION]) {
     await page.route(url, (route) =>
       route.fulfill({ status: 200, body: "reached", headers: { "access-control-allow-origin": "*" } }),
     );
@@ -71,7 +71,7 @@ test("the worker bootstrap carries the worker policy, not the page's", async ({ 
   const response = await page.request.get(worker.url());
   const csp = response.headers()["content-security-policy"];
   expect(csp).toContain("default-src 'none'");
-  expect(csp).toMatch(/connect-src 'self' [^;]*https:\/\/360into\.com/);
+  expect(csp).toContain("connect-src 'self' blob: data:");
   expect(csp).not.toContain("127.0.0.1");
   expect(csp).not.toContain("nonce-");
 });

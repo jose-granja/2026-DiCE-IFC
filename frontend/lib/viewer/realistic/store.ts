@@ -3,26 +3,22 @@
 /**
  * Realistic materials' switch and what it last did.
  *
- * Not part of the display settings a project saves: turning it on sends
- * requests to Poly Haven, and opening someone's project folder must not do
- * that on its own. Off on every visit for the same reason.
+ * Off on every visit: the viewer opens with the model's own colours, and
+ * textures only when asked for, or when a project saved with them on is
+ * opened (`viewer.realisticMaterials`).
  */
 
 import { create } from "zustand";
 
 import type { AppliedTexture, RealisticProgress } from "./apply";
-import type { TextureSourceId } from "./source";
 
-/** Libraries by their own names, for credits and the list of what was applied. */
-export const SOURCE_NAMES: Record<TextureSourceId, string> = { polyhaven: "Poly Haven", "360into": "360into" };
+export { SOURCE_HOMES, SOURCE_NAMES } from "./library";
 
-/** Their texture libraries' front pages, for the credit. */
-export const SOURCE_HOMES: Record<TextureSourceId, string> = {
-  polyhaven: "https://polyhaven.com/textures",
-  "360into": "https://360into.com/",
-};
+/** `unavailable`: this server has no texture library (none installed, or the service is down). */
+export type RealisticStatus = "off" | "searching" | "ready" | "failed" | "unavailable";
 
-export type RealisticStatus = "off" | "searching" | "ready" | "failed";
+/** Where an earlier version remembered the switch; cleared, no longer read. */
+export const LEGACY_REALISTIC_KEY = "dice-realistic-on";
 
 type RealisticState = {
   on: boolean;
@@ -32,13 +28,23 @@ type RealisticState = {
   texturedElements: number;
   skipped: number;
   unmatched: number;
-  unreachable: TextureSourceId[];
+  /** The size the layers were drawn at. */
+  size: number;
   /** Vertices drawing a texture, for the tests (`data-surface-textured`). */
   textured: number;
   error: string | null;
   setOn: (on: boolean) => void;
   update: (patch: Partial<Omit<RealisticState, "setOn" | "update">>) => void;
 };
+
+/** Drop what an earlier version left in this browser. */
+export function forgetLegacySwitch() {
+  try {
+    localStorage.removeItem(LEGACY_REALISTIC_KEY);
+  } catch {
+    // Storage blocked: nothing was stored either.
+  }
+}
 
 export const useRealisticStore = create<RealisticState>((set) => ({
   on: false,
@@ -48,12 +54,13 @@ export const useRealisticStore = create<RealisticState>((set) => ({
   texturedElements: 0,
   skipped: 0,
   unmatched: 0,
-  unreachable: [],
+  size: 1024,
   textured: 0,
   error: null,
-  setOn: (on) =>
+  setOn: (on) => {
     set(on
       ? { on, status: "searching", progress: null, error: null }
-      : { on, status: "off", progress: null, applied: [], texturedElements: 0, skipped: 0, unmatched: 0, unreachable: [], textured: 0, error: null }),
+      : { on, status: "off", progress: null, applied: [], texturedElements: 0, skipped: 0, unmatched: 0, textured: 0, error: null });
+  },
   update: (patch) => set(patch),
 }));

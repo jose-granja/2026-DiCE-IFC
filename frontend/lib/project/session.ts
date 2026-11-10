@@ -31,6 +31,7 @@ import { parseLensFile } from "@/lib/lens/file";
 import { builtinLens } from "@/lib/lens/presets";
 import { useLensStore } from "@/lib/lens/store";
 import type { Lens } from "@/lib/lens/types";
+import { useRealisticStore } from "@/lib/viewer/realistic/store";
 import {
   applyDisplaySettings,
   displaySettingsValues,
@@ -142,6 +143,7 @@ export function snapshotSession(): SessionSnapshot {
     areaMode: viewer.areaMode,
     volumeMode: viewer.volumeMode,
     pointCloudEdgeShading: usePointCloudStore.getState().edgeShading,
+    realisticMaterials: useRealisticStore.getState().on,
     globe: (() => {
       const globe = useGlobeStore.getState();
       return { on: globe.on, layer: globe.layer, assetId: globe.assetId, url: globe.url, imagery: globe.imagery };
@@ -495,6 +497,9 @@ export async function restoreProject(
 
   if (viewer.pointCloudEdgeShading !== undefined) {
     usePointCloudStore.getState().setEdgeShading(viewer.pointCloudEdgeShading);
+  }
+  if (viewer.realisticMaterials !== undefined && viewer.realisticMaterials !== useRealisticStore.getState().on) {
+    useRealisticStore.getState().setOn(viewer.realisticMaterials);
   }
   if (viewer.display) {
     useDisplaySettingsStore.getState().set(viewer.display);

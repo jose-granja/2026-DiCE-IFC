@@ -36,16 +36,10 @@
         "why": "To show the model on its real site: terrain, OSM buildings and a road map or satellite imagery underneath. Tile requests reveal roughly where you are looking — that is, where the building is — and are tied to this deployment's ion token. The Google map is requested through ion, so Google is not contacted directly for it; choosing “No map” leaves only terrain. ion's and Google's credits, with Google's logo, stay on screen while their data is shown. No model geometry, property or file is sent."
       },
       {
-        "what": "Requests for Poly Haven's texture list and for the thumbnails and textures of the kinds of material a model uses (concrete, wood… in Poly Haven's own categories). They show those kinds, never a material name, a colour or anything else from the model",
-        "when": "Only when you turn on Realistic materials in the viewer's Display settings. Off on every visit, and never turned on by opening a project",
-        "where": "Poly Haven (api.polyhaven.com, cdn.polyhaven.com, dl.polyhaven.org), with this site's address as the referrer, as Poly Haven's API terms ask",
-        "why": "To show the model with real textures. The app reads Poly Haven's texture list, measures the colour of the candidate textures from their flat previews (kept in this browser afterwards), and chooses one for each material in the browser, by its name and the colour the model gives it. Only then does it download the chosen textures, each with its relief (normal) and roughness maps. From what is downloaded, Poly Haven can tell which kinds of material and which textures were wanted, but not the model, its names or its colours. A “Textures: Poly Haven” credit stays on the view while textures are shown."
-      },
-      {
-        "what": "Requests for 360into's texture list (for the categories of material a model uses, such as “Concrete” or “Wood”) and for thumbnails and textures from it. They show those categories, never a material name, a colour or anything else from the model",
-        "when": "Together with the Poly Haven row above: only when you turn on Realistic materials, off on every visit",
-        "where": "360into (360into.com), without a referrer",
-        "why": "360into is the second texture library, strong in finished building materials (paint, facing brick, stone tiles, precast concrete) where Poly Haven has little. The app measures the colour of a short list of candidates from their thumbnails (kept in this browser afterwards) and uses whichever library has the nearer texture. From what is downloaded, 360into can tell which categories and textures were wanted, but not the model."
+        "what": "A request for the texture library's list, then for the textures chosen for the model's materials, by their ids. They show which textures were wanted, never a material name, a colour or anything else from the model",
+        "when": "Only while Realistic materials is on in the viewer's Display settings (off whenever the viewer opens; on again when a project saved with it on is opened)",
+        "where": "This site's own server (/texture-library/), which hosts the textures; no third party",
+        "why": "To show the model with real textures. The library is a curated set of CC0 textures from Poly Haven and ambientCG, prepared and hosted by this deployment. The app reads its list, chooses a texture for each material in the browser by the material's name and the colour the model gives it, and only then downloads the chosen textures with their relief and roughness maps. The server sees which textures were asked for, as for any file it serves, but not the model."
       },
       {
         "what": "The SHA-256 hash of a signature's own value (never a file) and a random number",
@@ -635,6 +629,26 @@
       "title": "Display",
       "reset": "Reset",
       "lightingHeading": "Lighting",
+      "lightConditionsLabel": "Light conditions",
+      "lightPresets": {
+        "studio": "Studio",
+        "clearSky": "Clear sky",
+        "overcast": "Overcast",
+        "goldenHour": "Golden hour"
+      },
+      "lightConditionsHint": "Studio lights every face evenly. The others light the model as outdoors, by the sun and the sky.",
+      "sunPlaceMapConversion": "The sun is where it is at the model's place ({latitude}°, {longitude}°, from its map conversion) on this date and time.",
+      "sunPlaceSite": "The sun is where it is at the model's place ({latitude}°, {longitude}°, from its site) on this date and time.",
+      "sunDateLabel": "Date",
+      "sunTimeLabel": "Time",
+      "sunTimeZoneLabel": "Time zone",
+      "sunPosition": "Sun at {azimuth}° from north, {elevation}° high",
+      "sunDown": "The sun is below the horizon: only the sky lights the model.",
+      "sunByHandHint": "The models don't say where they are on the earth, so the sun is set by hand.",
+      "sunDirectionLabel": "Sun direction",
+      "sunHeightLabel": "Sun height",
+      "shadowsToggle": "Shadows",
+      "shadowsHint": "Shadows cast by the sun. They draw the model a second time, so large models may move more slowly.",
       "lightIntensityLabel": "Light intensity",
       "brightnessLabel": "Exposure",
       "edgesHeading": "Edges",
@@ -645,15 +659,15 @@
       "decimalPlacesHint": "Round property and quantity values with units, and the QTO results, to this many decimal places.",
       "realisticHeading": "Realistic materials",
       "realisticToggle": "Realistic materials",
-      "realisticHint": "Textures from Poly Haven and 360into, chosen for each material by its kind (concrete, brick, timber…) and then by the colour the model gives it, from whichever library has the closer one. Poly Haven textures bring their own relief and roughness maps; for 360into’s photographs both are estimated from the photograph. Turning this on fetches the libraries’ texture lists and the chosen textures from polyhaven.com and 360into.com; nothing about the model is sent.",
-      "realisticSearching": "Searching the texture libraries…",
-      "realisticSearchingProgress": "Searching the texture libraries… {done} of {total}",
+      "realisticHint": "Textures from this site's texture library (CC0, from Poly Haven and ambientCG), chosen for each material by its kind (concrete, brick, timber…) and then by the colour the model gives it, each with its relief and roughness maps. Elements with their own textures in the model keep them. Nothing about the model is sent.",
+      "realisticSearching": "Choosing textures…",
+      "realisticSearchingProgress": "Loading textures… {done} of {total}",
       "realisticApplied": "{textures, plural, one {# texture} other {# textures}} on {elements, plural, one {# element} other {# elements}}",
-      "realisticNone": "No material in the open models has a kind the texture libraries have textures for. Glass and insulation are never textured.",
-      "realisticFailed": "Neither Poly Haven nor 360into could be reached. The model keeps its own colours.",
-      "realisticUnreachable": "{sources} could not be reached; textures from the other library only.",
+      "realisticNone": "No material in the open models has a kind the texture library has textures for. Glass and insulation are never textured.",
+      "realisticFailed": "The texture library could not be read. The model keeps its own colours.",
       "realisticReliefMaps": "relief and roughness maps from the library",
-      "realisticReliefEstimated": "relief and roughness estimated from the photograph"
+      "realisticReliefEstimated": "relief and roughness estimated from the photograph (the library's maps could not be read)",
+      "realisticUnavailable": "This server has no texture library installed, so the model keeps its own colours."
     },
     "filterPanel": {
       "dimensions": {
@@ -941,7 +955,9 @@
         "probeFailed": "WebGPU probe failed; rendering uses WebGL."
       },
       "edgeShadingOn": "Turn on point-cloud edge shading",
-      "edgeShadingOff": "Turn off point-cloud edge shading"
+      "edgeShadingOff": "Turn off point-cloud edge shading",
+      "ownTexturesMissing": "{model}: {count, plural, one {# texture refers} other {# textures refer}} to an image that is not inside the model, so {count, plural, one {it is} other {they are}} shown as plain colours. Open the model as the .ifczip it came in to see them.",
+      "ownTexturesRemote": "{model}: {count, plural, one {# texture is} other {# textures are}} on the internet, so {count, plural, one {it is} other {they are}} shown as plain colours. The viewer never downloads what a model links to."
     },
     "measureLabels": {
       "plan": "Plan",
@@ -1795,12 +1811,9 @@
     "documentTitleLabel": "Document title *",
     "descriptionLabel": "Description",
     "authorLabel": "Author",
-    "authorPlaceholder": "you@example.com",
     "versionLabel": "Version",
-    "versionPlaceholder": "1.0.0",
     "dateLabel": "Date",
     "milestoneLabel": "Milestone",
-    "milestonePlaceholder": "Stage 4",
     "purposeLabel": "Purpose",
     "copyrightLabel": "Copyright",
     "noSpecificationSelected": "No specification selected.",
@@ -1968,13 +1981,10 @@
     },
     "specEditor": {
       "nameLabel": "Name *",
-      "namePlaceholder": "Load-bearing walls carry a fire rating",
       "identifierLabel": "Identifier",
-      "identifierPlaceholder": "SPEC-001",
       "ifcSchemas": "IFC schemas *",
       "descriptionLabel": "Description",
       "instructionsLabel": "Instructions",
-      "instructionsPlaceholder": "How to satisfy this specification as a whole",
       "requirementTypeLabel": "Requirement type",
       "requirementTypeHint": "The specification's own cardinality: how many entities matching the filters there must be. New requirements start with this type; each requirement keeps its own cardinality below. Entity and Part of cannot be optional.",
       "filters": "Filters",
@@ -2020,9 +2030,7 @@
       "material": "Material",
       "materialHint": "Leave empty to require any material at all.",
       "instructionsLabel": "Instructions",
-      "requirementInstructionsPlaceholder": "How to satisfy this requirement",
       "uri": "URI",
-      "uriPlaceholder": "https://identifier.buildingsmart.org/uri/…",
       "addUri": "+ URI",
       "clear": "Clear",
       "bsddUri": "bSDD URI"
@@ -2039,10 +2047,8 @@
       },
       "baseType": "{label} base type",
       "allowedValue": "{label} allowed value",
-      "addAllowedValuePlaceholder": "Add an allowed value",
       "removeValue": "Remove {value}",
       "patternAriaLabel": "{label} pattern",
-      "patternPlaceholder": "EF_25_10(_\\d+)?",
       "invalidRegex": "Not a valid regular expression.",
       "regexHint": "XSD regex. It is anchored to the whole value — no need for ^ or $.",
       "boundsMinInclusive": "Min (≥)",
@@ -2631,12 +2637,8 @@
           "text": "The road map and satellite imagery under the terrain (through Cesium ion), and Google Photorealistic 3D when selected. Provided by Google and subject to the Google Maps Platform terms of service, including their logo, attribution and usage conditions."
         },
         "polyhaven": {
-          "name": "Poly Haven",
-          "text": "Textures for Realistic materials in the viewer, released under CC0 by Poly Haven and fetched from their public API when you turn it on. Credited on the view while its textures are shown."
-        },
-        "into360": {
-          "name": "360into",
-          "text": "Textures for Realistic materials in the viewer, free for commercial use, fetched from 360into's public API when you turn it on. 360into states that textures it imported keep their original open licence; it does not say per texture which one. Credited on the view while its textures are shown."
+          "name": "Poly Haven and ambientCG",
+          "text": "The textures of Realistic materials in the viewer: a curated set from Poly Haven and ambientCG, both released under CC0 (public domain), prepared and hosted by this deployment. Credited on the view while they are shown."
         },
         "egm96": {
           "name": "EGM96 geoid",

@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+# Built files, downloads and the database: rebuilt from textures/selection.json.
+library/
+cache/
+data/
+staticfiles/

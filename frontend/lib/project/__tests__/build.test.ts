@@ -74,6 +74,7 @@ function session(over: Partial<SessionSnapshot> = {}): SessionSnapshot {
     areaMode: "face",
     volumeMode: "box",
     pointCloudEdgeShading: false,
+    realisticMaterials: true,
     lenses: {
       saved: [{ id: "lens-1", name: "Slabs", kind: "auto", source: { kind: "class" }, unmatched: "ghost" }],
       activeId: "lens-1",
@@ -161,6 +162,7 @@ describe("saving a session", () => {
 
   it("records whether the point clouds were edge-shaded", () => {
     expect(buildProject(session()).manifest.viewer.pointCloudEdgeShading).toBe(false);
+    expect(buildProject(session()).manifest.viewer.realisticMaterials).toBe(true);
   });
 
   it("records the BCF file with whether its 3D markers were shown", () => {

@@ -17,32 +17,15 @@
  */
 
 /**
- * The texture libraries for the viewer's realistic materials (ADR 014):
- * - Poly Haven: catalogue (`api`), previews (`cdn`), textures (`dl`).
- * - 360into: catalogue, thumbnails and textures, all on its one host.
- *
- * Kept in step with `POLYHAVEN_ORIGINS` and `INTO360_ORIGIN` in
- * `lib/viewer/realistic/`; `lib/http/__tests__/csp.test.ts` fails if they drift.
- */
-export const TEXTURE_LIBRARY_ORIGINS = [
-  "https://api.polyhaven.com",
-  "https://cdn.polyhaven.com",
-  "https://dl.polyhaven.org",
-  "https://360into.com",
-] as const;
-
-/**
  * The policy for every script under `/_next/static/` — in effect, for the
  * Web Workers, because a browser ignores a CSP header on a classic `<script>`
  * or a module script response and enforces it only on a document or a worker.
  *
  * Narrower than the page's, on purpose (ADR 015):
- * - `connect-src` is `'self'` and the texture libraries, nothing else. The
- *   map tile and Cesium ion origins, the signing companion and Turnstile are
- *   reached from the page only; no worker has any reason to call them. The
- *   texture libraries are allowed on every page here, not just the viewer,
- *   because a worker's policy cannot know which page started it — only the
- *   viewer starts the worker that uses them.
+ * - `connect-src` is `'self'`, nothing else. The map tile and Cesium ion
+ *   origins, the signing companion and Turnstile are reached from the page
+ *   only; no worker has any reason to call them. (The texture library is this
+ *   origin's own, ADR 016, so it needs no entry.)
  * - `script-src 'self' 'wasm-unsafe-eval'`: the bootstrap `importScripts` its
  *   chunks from this origin, and the IFC parser, geometry kernel, xmllint,
  *   SQLite and laz-perf are WebAssembly. No nonce — a worker has no inline
@@ -61,7 +44,7 @@ export function workerCsp({ isDev }: { isDev: boolean }): string {
     `default-src 'none'`,
     `script-src 'self' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
     `worker-src 'self' blob:`,
-    `connect-src 'self' ${TEXTURE_LIBRARY_ORIGINS.join(" ")} blob: data:`,
+    `connect-src 'self' blob: data:`,
     ...(isDev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 }

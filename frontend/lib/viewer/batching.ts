@@ -36,7 +36,18 @@ export type MergedBatch = {
   edgeMask?: Uint8Array;
   /** expressId → its vertex spans. An entity can contribute several meshes. */
   spans: Map<number, VertexSpan[]>;
+  /**
+   * The model's own texture, when the batch is textured (`planBatches` keeps
+   * one texture per batch), and its coordinates: two floats per vertex.
+   */
+  texture?: MeshView["texture"];
+  uvs?: Float32Array;
 };
+
+/** The texture a mesh draws, when it has both a texture and coordinates for it. */
+export function meshTextureKey(mesh: MeshView): string | null {
+  return mesh.texture && mesh.uvs && mesh.uvs.length > 0 ? mesh.texture.key : null;
+}
 
 /**
  * Split meshes into groups that each fit in one batch.
@@ -53,23 +64,34 @@ export function planBatches(
   // IFC Lite renders opaque and translucent geometry in separate passes. Keep
   // the same split here: one transparent pane must not force a whole building
   // batch through alpha blending and disable its depth writes.
+  //
+  // A batch is drawn with one material, so the model's own textures split it
+  // too: one batch per texture, after the untextured ones.
+  const keys: Array<string | null> = [null];
+  for (const mesh of meshes) {
+    const key = meshTextureKey(mesh);
+    if (key !== null && !keys.includes(key)) keys.push(key);
+  }
   for (const transparent of [false, true]) {
-    let current: MeshView[] = [];
-    let vertices = 0;
+    for (const key of keys) {
+      let current: MeshView[] = [];
+      let vertices = 0;
 
-    for (const mesh of meshes) {
-      if ((mesh.color[3] < 0.99) !== transparent) continue;
+      for (const mesh of meshes) {
+        if ((mesh.color[3] < 0.99) !== transparent) continue;
+        if (meshTextureKey(mesh) !== key) continue;
 
-      const meshVertices = mesh.positions.length / 3;
-      if (current.length > 0 && vertices + meshVertices > maxVertices) {
-        groups.push(current);
-        current = [];
-        vertices = 0;
+        const meshVertices = mesh.positions.length / 3;
+        if (current.length > 0 && vertices + meshVertices > maxVertices) {
+          groups.push(current);
+          current = [];
+          vertices = 0;
+        }
+        current.push(mesh);
+        vertices += meshVertices;
       }
-      current.push(mesh);
-      vertices += meshVertices;
+      if (current.length > 0) groups.push(current);
     }
-    if (current.length > 0) groups.push(current);
   }
 
   return groups;
@@ -109,6 +131,9 @@ export function mergeMeshes(
   const indices = new Uint32Array(indexCount);
   const spans = new Map<number, VertexSpan[]>();
   const edgeMask = edges ? new Uint8Array(vertexCount) : undefined;
+  // `planBatches` gives a textured batch one texture; its coordinates come along.
+  const textured = meshes.length > 0 && meshTextureKey(meshes[0]) !== null ? meshes[0].texture : undefined;
+  const uvs = textured ? new Float32Array(vertexCount * 2) : undefined;
 
   const tint = options.tint;
   const amount = options.tintAmount ?? 0;
@@ -132,6 +157,10 @@ export function mergeMeshes(
         normals[dst + 1] = mesh.normals[src + 1];
         normals[dst + 2] = mesh.normals[src + 2];
         edgeMask[vertexOffset + k] = masks[Math.floor(k / 3)];
+        if (uvs && mesh.uvs) {
+          uvs[(vertexOffset + k) * 2] = mesh.uvs[mesh.indices[k] * 2];
+          uvs[(vertexOffset + k) * 2 + 1] = mesh.uvs[mesh.indices[k] * 2 + 1];
+        }
       }
     } else {
       // `positions` are element-local; world position is `origin + positions`.
@@ -144,6 +173,7 @@ export function mergeMeshes(
         positions[dst + 2] = mesh.positions[src + 2] + mesh.origin[2];
       }
       normals.set(mesh.normals, vertexOffset * 3);
+      if (uvs && mesh.uvs) uvs.set(mesh.uvs.subarray(0, meshVertices * 2), vertexOffset * 2);
     }
 
     const [r, g, b] = mesh.color;
@@ -184,6 +214,7 @@ export function mergeMeshes(
     indices,
     edgeMask,
     spans,
+    ...(textured && uvs ? { texture: textured, uvs } : {}),
   };
 }
 
