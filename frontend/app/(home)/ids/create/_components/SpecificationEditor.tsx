@@ -117,7 +117,7 @@ export function SpecificationEditor({
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="spec-identifier" className="text-xs font-medium">
               {t("identifierLabel")}
@@ -160,23 +160,44 @@ export function SpecificationEditor({
               ))}
             </div>
           </fieldset>
+                      <div className="space-y-1.5">
+                      <Label htmlFor="spec-requirement-type" className="text-xs font-medium">
+                        {t("requirementTypeLabel")}
+                      </Label>
+                      <Select
+                        value={requirementType}
+                        onValueChange={(value) => setRequirementType(id, value as Cardinality)}
+                      >
+                        <SelectTrigger id="spec-requirement-type" className="h-8 w-full text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CONDITIONAL_CARDINALITIES.map((cardinality) => (
+                            <SelectItem key={cardinality} value={cardinality}>
+                              {CARDINALITY_LABELS[cardinality]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
         </div>
 
-        <div className="space-y-1.5">
+      <div className="flex flex-row items-center gap-2 w-full">
+        <div className="space-y-1.5 w-full">
           <Label htmlFor="spec-description" className="text-xs font-medium">
             {t("descriptionLabel")}
           </Label>
-          <Input
+          <Textarea
             id="spec-description"
             value={specification.description ?? ""}
             onChange={(event) =>
               update(id, { description: event.target.value || undefined })
             }
-            className="h-8 text-xs"
+            className="min-h-14 text-xs"
           />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 w-full">
           <Label htmlFor="spec-instructions" className="text-xs font-medium">
             {t("instructionsLabel")}
           </Label>
@@ -189,30 +210,9 @@ export function SpecificationEditor({
             className="min-h-14 text-xs"
           />
         </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="spec-requirement-type" className="text-xs font-medium">
-            {t("requirementTypeLabel")}
-          </Label>
-          <Select
-            value={requirementType}
-            onValueChange={(value) => setRequirementType(id, value as Cardinality)}
-          >
-            <SelectTrigger id="spec-requirement-type" className="h-8 w-full text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CONDITIONAL_CARDINALITIES.map((cardinality) => (
-                <SelectItem key={cardinality} value={cardinality}>
-                  {CARDINALITY_LABELS[cardinality]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-muted-foreground text-[11px]">
-            {t("requirementTypeHint")}
-          </p>
         </div>
+
+        
       </section>
 
       <FacetBlock
@@ -305,7 +305,7 @@ function FacetBlock({
     <Collapsible open={open} onOpenChange={setOpen} asChild>
       <section className="space-y-2" data-facet-block>
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
+          <div className="min-w-0 flex flex-row items-center gap-2">
             <h3>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="h-7 max-w-full gap-1.5 px-1 text-sm font-medium" aria-label={title}>
@@ -315,6 +315,7 @@ function FacetBlock({
                 </Button>
               </CollapsibleTrigger>
             </h3>
+          <p className="text-muted-foreground text-[11px]">{hint}</p>
           </div>
 
           <DropdownMenu>
@@ -335,7 +336,6 @@ function FacetBlock({
         </div>
 
         <CollapsibleContent forceMount className="space-y-2 data-[state=closed]:hidden">
-          <p className="text-muted-foreground text-[11px]">{hint}</p>
           {facets.length > 1 && (
             <div className="flex flex-wrap justify-end gap-1">
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]"

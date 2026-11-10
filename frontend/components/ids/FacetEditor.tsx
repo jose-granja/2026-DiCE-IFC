@@ -205,7 +205,7 @@ export function FacetEditor({
       <CollapsibleContent forceMount className="space-y-3 pt-3 data-[state=closed]:hidden">
       <div className="w-full flex justify-between items-center gap-1">
 
-        <p className="text-muted-foreground text-[11px]">{tFacetHints(facet.kind)}</p>
+        {/* <p className="text-muted-foreground text-[11px]">{tFacetHints(facet.kind)}</p> */}
         {cardinality && onCardinalityChange && (
             <Select
               value={cardinality}
