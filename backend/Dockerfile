@@ -19,7 +19,8 @@ COPY . .
 # The admin's own files, served by whitenoise.
 RUN DJANGO_DEBUG=1 python manage.py collectstatic --noinput >/dev/null
 
-RUN useradd --system --uid 10001 texlib \
+# A home of its own: gunicorn keeps its control socket there.
+RUN useradd --system --create-home --uid 10001 texlib \
     && mkdir -p /srv/texture-library /srv/texture-cache /srv/texture-data \
     && chown -R texlib /srv
 USER texlib

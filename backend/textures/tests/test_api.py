@@ -46,6 +46,21 @@ def test_the_manifest_lists_every_enabled_texture_with_its_files():
 
 
 @pytest.mark.django_db
+def test_no_library_built_is_no_library():
+    make(enabled=False)
+    response = Client().get("/texture-library/api/manifest")
+    assert response.status_code == 404
+    assert "max-age" not in response.get("Cache-Control", "")
+
+
+@pytest.mark.django_db
+def test_any_host_nginx_sends_is_backend():
+    # nginx/nginx.conf always sends `Host: backend`; a visitor's domain would be refused.
+    make()
+    assert Client(HTTP_HOST="backend").get("/texture-library/api/manifest").status_code == 200
+
+
+@pytest.mark.django_db
 def test_one_texture_and_a_missing_one():
     make()
     assert Client().get("/texture-library/api/textures/polyhaven-red_brick").json()["name"] == "Red Brick"

@@ -11,6 +11,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.cache import patch_cache_control
 from ninja import NinjaAPI, Schema
+from ninja.errors import HttpError
 
 from .models import Texture
 
@@ -82,12 +83,13 @@ def texture_out(texture: Texture) -> TextureOut:
 def manifest(request: HttpRequest, response: HttpResponse) -> ManifestOut:
     # Short: a rebuilt library shows within minutes. The files themselves are
     # content-addressed and cached for good (nginx).
+    textures = [texture_out(t) for t in Texture.objects.filter(enabled=True)]
+    # Not built yet (`build_texture_library`): no library, which the viewer
+    # says in so many words, rather than an empty one that matches nothing.
+    if not textures:
+        raise HttpError(404, "No texture library is installed on this server.")
     patch_cache_control(response, public=True, max_age=300)
-    return ManifestOut(
-        version=1,
-        files=settings.TEXTURE_FILES_URL,
-        textures=[texture_out(t) for t in Texture.objects.filter(enabled=True)],
-    )
+    return ManifestOut(version=1, files=settings.TEXTURE_FILES_URL, textures=textures)
 
 
 @api.get("/textures/{slug}", response=TextureOut, summary="One texture")

@@ -30,10 +30,10 @@ services:
   backend:
     build:
       context: ./backend
+    # nginx addresses it as `backend` (nginx/nginx.conf), which the default
+    # DJANGO_ALLOWED_HOSTS accepts: no domain to configure here.
     env_file:
       - stack.env
-    environment:
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,backend}
     volumes:
       - texture-library:/srv/texture-library
       - texture-cache:/srv/texture-cache
