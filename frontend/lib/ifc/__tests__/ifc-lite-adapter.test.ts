@@ -512,3 +512,23 @@ describe("quantity queries filtered by classification", () => {
     }
   });
 });
+
+describe("getElementInfo predefinedType", () => {
+  it("takes it from the type when the occurrence leaves it unset, and from the occurrence when it has no type", async () => {
+    const typed = await ifcLiteAdapter.loadModel(await load("facets-ifc4.ifc"));
+    const own = await ifcLiteAdapter.loadModel(await load("classified-wall-ifc4.ifc"));
+    try {
+      // #100 IFCWALL(…,$) typed by #120 IFCWALLTYPE(…,.STANDARD.)
+      expect((await ifcLiteAdapter.getElementInfo(typed.id, 100)).predefinedType).toEqual({
+        value: "STANDARD",
+        enumValue: "STANDARD",
+        source: "type",
+      });
+      // #71 IFCWALL(…,.STANDARD.), no type
+      expect((await ifcLiteAdapter.getElementInfo(own.id, 71)).predefinedType).toMatchObject({ value: "STANDARD", source: "occurrence" });
+    } finally {
+      await ifcLiteAdapter.unloadModel(typed.id);
+      await ifcLiteAdapter.unloadModel(own.id);
+    }
+  });
+});

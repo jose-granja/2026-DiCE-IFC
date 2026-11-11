@@ -24,7 +24,7 @@ beforeEach(() => {
     setImagery: vi.fn().mockResolvedValue(undefined),
     sampleDepthProxy: vi.fn().mockResolvedValue(null),
     getLoadingState: vi.fn().mockReturnValue({ loading: false, pending: 0 }),
-    sync: vi.fn(), setSectionPlanes: vi.fn(), getAttribution: () => "", isReady: () => true, dispose: vi.fn(),
+    sync: vi.fn(), setSectionPlanes: vi.fn(), setSun: vi.fn(), getAttribution: () => "", isReady: () => true, dispose: vi.fn(),
   };
   vi.mocked(createGlobe).mockResolvedValue(globe);
 });

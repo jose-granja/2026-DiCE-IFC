@@ -1050,6 +1050,59 @@ type SectionGizmoDrag = {
  * fixed set `Material.copy()` knows about, so a clone would silently fall
  * back to a flat, pattern-less fill.
  */
+/**
+ * How far the sun's shadow camera reaches past the models, in metres, toward
+ * the sun (for neighbours that shade them) and away from it (for the ground,
+ * terrain and city their shadows fall on). A 50 m building's shadow at 5°
+ * above the horizon is about 570 m long.
+ */
+const SHADOW_REACH = 1500;
+/**
+ * How far from the models the shadow camera spreads sideways to take in the
+ * context model, so its buildings shade the ground, each other and the model:
+ * 500 m across on a 4096 map is 12 cm a texel. Context beyond casts no shadow.
+ */
+const CONTEXT_SHADOW_RADIUS = 250;
+/** The shadow camera's depth bias, as a share of the models' radius: the old fixed bias at its old depth range. */
+const SHADOW_BIAS_PER_RADIUS = 0.0015;
+/** How dark a shadow lands on what is drawn unlit (the globe, map images): black at this opacity, times the rig's strength. */
+const SHADOW_CATCHER_OPACITY = 0.55;
+
+/**
+ * A surface that paints only the shadow falling on it: transparent where lit,
+ * black at `SHADOW_CATCHER_OPACITY` where in shadow. What lets the model's
+ * shadow land on things drawn unlit or on another canvas.
+ *
+ * `standIn`: it stands in for the globe, which Cesium draws on its own canvas.
+ * Drawn in the opaque pass before everything (so the coarser depth occluder
+ * cannot hide it) and writing depth, with the blending a transparent material
+ * would have, so a shadow over the globe darkens it through the canvas's alpha.
+ * Otherwise an overlay on a surface drawn in this scene, just in front of it.
+ */
+function createShadowCatcherMaterial(clippingPlanes: THREE.Plane[], standIn: boolean): THREE.ShadowMaterial {
+  const material = new THREE.ShadowMaterial({
+    opacity: SHADOW_CATCHER_OPACITY,
+    side: THREE.DoubleSide,
+    clippingPlanes,
+  });
+  if (standIn) {
+    material.transparent = false;
+    material.blending = THREE.CustomBlending;
+    material.blendEquation = THREE.AddEquation;
+    material.blendSrc = THREE.SrcAlphaFactor;
+    material.blendDst = THREE.OneMinusSrcAlphaFactor;
+    material.blendSrcAlpha = THREE.OneFactor;
+    material.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
+    material.depthWrite = true;
+  } else {
+    material.depthWrite = false;
+    material.polygonOffset = true;
+    material.polygonOffsetFactor = -1;
+    material.polygonOffsetUnits = -1;
+  }
+  return material;
+}
+
 function createCapFillMaterial(getStyle: () => SectionCapStyle): THREE.MeshBasicMaterial {
   const material = new THREE.MeshBasicMaterial({
     color: getStyle().fillColour,
@@ -1196,6 +1249,8 @@ export class ViewerRenderer {
   private pointIndexes = new Map<string, PointIndex>();
   private globe: Globe | null = null;
   private depthProxy: THREE.Mesh | null = null;
+  /** A finer copy of the globe's surface round the models that the sun's shadows fall on; see `setGlobeShadowCatcher`. */
+  private globeShadowCatcher: THREE.Mesh | null = null;
   private globeOrigin: WgsPoint | null = null;
   /** Grid convergence at `globeOrigin`, radians — see `lib/georef/transform.ts`. */
   private globeNorthCorrection = 0;
@@ -1726,6 +1781,17 @@ export class ViewerRenderer {
     this.sun.shadow.intensity = rig.shadowStrength;
     // Drawn afresh when they are next switched on.
     if (!this.sun.castShadow) this.shadowState.length = 0;
+    this.applyGlobeSun();
+  }
+
+  /** The same sun for the globe's own shadows (3D Tiles, terrain), as dark as ours on it. */
+  private applyGlobeSun() {
+    this.globe?.setSun(this.sun.castShadow
+      ? {
+          direction: this.sunDir.toArray() as [number, number, number],
+          darkness: 1 - SHADOW_CATCHER_OPACITY * this.sun.shadow.intensity,
+        }
+      : null);
   }
 
   /**
@@ -1752,7 +1818,8 @@ export class ViewerRenderer {
       const index = mesh.geometry.index;
       state.push(id(mesh), mesh.visible ? 1 : 0, index ? id(index) : 0, index?.version ?? 0, mesh.geometry.drawRange.count);
     };
-    state.push(...this.sun.position.toArray(), ...this.sun.target.position.toArray(), this.sun.shadow.camera.right);
+    const shadowCamera = this.sun.shadow.camera;
+    state.push(...this.sun.position.toArray(), ...this.sun.target.position.toArray(), shadowCamera.right, shadowCamera.near, shadowCamera.far);
     for (const plane of this.clipPlanes) state.push(plane.normal.x, plane.normal.y, plane.normal.z, plane.constant);
     for (const model of this.models.values()) {
       const group = model.group;
@@ -1763,6 +1830,7 @@ export class ViewerRenderer {
       state.push(...this.contextMesh.position.toArray());
       geometryState(this.contextMesh);
     }
+    if (this.globeShadowCatcher) geometryState(this.globeShadowCatcher);
     const previous = this.shadowState;
     if (previous.length === state.length && previous.every((value, at) => value === state[at])) return;
     this.renderer.shadowMap.needsUpdate = true;
@@ -1772,9 +1840,16 @@ export class ViewerRenderer {
 
   /**
    * Fit the sun's shadow camera round the visible models: square on to the
-   * sun, just deep enough to hold them. Every frame while shadows are on, so
-   * it follows models loaded, moved or hidden; the box changes only when they
-   * do, so the shadows do not shimmer as the camera moves.
+   * sun, as wide as they are. Every frame while shadows are on, so it follows
+   * models loaded, moved or hidden; the box changes only when they do, so the
+   * shadows do not shimmer as the camera moves.
+   *
+   * As wide as the models is wide enough: a shadow falls straight down the
+   * sun's direction, so anything shading the models, and anywhere their
+   * shadow lands, is in the same column. Deep enough, though, to reach along
+   * that column to the context model and the globe's surface, toward the sun
+   * (a taller neighbour) and away from it (the ground the long shadow of a low
+   * sun lands on), up to `SHADOW_REACH`.
    */
   private fitShadow() {
     const box = this.shadowBox.makeEmpty();
@@ -1785,18 +1860,54 @@ export class ViewerRenderer {
     if (box.isEmpty()) return;
     const centre = box.getCenter(new THREE.Vector3());
     const radius = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 1);
+
+    let towardSun = radius;
+    let awayFromSun = radius;
+    let width = radius;
+    const corner = new THREE.Vector3();
+    const reach = new THREE.Box3();
+    for (const receiver of [this.contextMesh, this.globeShadowCatcher]) {
+      if (!receiver?.visible) continue;
+      reach.setFromObject(receiver);
+      if (reach.isEmpty()) continue;
+      for (let index = 0; index < 8; index += 1) {
+        corner.set(
+          index & 1 ? reach.max.x : reach.min.x,
+          index & 2 ? reach.max.y : reach.min.y,
+          index & 4 ? reach.max.z : reach.min.z,
+        ).sub(centre);
+        const along = corner.dot(this.sunDir);
+        towardSun = Math.max(towardSun, Math.min(along, SHADOW_REACH));
+        awayFromSun = Math.max(awayFromSun, Math.min(-along, SHADOW_REACH));
+        // The context's own 3D data casts too, so the camera widens to it
+        // (within `CONTEXT_SHADOW_RADIUS`); the globe's copy only receives.
+        if (receiver === this.contextMesh) width = Math.max(width, Math.min(corner.length(), CONTEXT_SHADOW_RADIUS));
+      }
+    }
+
+    const distance = towardSun + radius * 0.5;
     this.sun.target.position.copy(centre);
-    this.sun.position.copy(centre).addScaledVector(this.sunDir, radius * 2);
+    this.sun.position.copy(centre).addScaledVector(this.sunDir, distance);
     this.sun.target.updateMatrixWorld();
     this.sun.updateMatrixWorld();
     const camera = this.sun.shadow.camera;
-    if (camera.right !== radius || camera.far !== radius * 3.5) {
-      camera.left = camera.bottom = -radius;
-      camera.right = camera.top = radius;
-      camera.near = radius * 0.5;
-      camera.far = radius * 3.5;
+    const near = radius * 0.25;
+    const far = distance + awayFromSun + radius * 0.5;
+    if (camera.right !== width || camera.near !== near || camera.far !== far) {
+      camera.left = camera.bottom = -width;
+      camera.right = camera.top = width;
+      camera.near = near;
+      camera.far = far;
       camera.updateProjectionMatrix();
     }
+    // A distance in the world, set in the camera's depth range. At least the
+    // old one; and as a low sun grazes the ground, its depth changes by a
+    // texel's width over the sun's slope from one texel to the next, so the
+    // bias must cover that or the ground shades itself in rings (acne).
+    const texel = (2 * width) / this.sun.shadow.mapSize.x;
+    const slope = Math.max(this.sunDir.y, 0.035) / Math.sqrt(Math.max(1 - this.sunDir.y ** 2, 1e-6));
+    const bias = Math.max(SHADOW_BIAS_PER_RADIUS * radius, (1.5 * texel) / slope);
+    this.sun.shadow.bias = -bias / (far - near);
   }
 
   getLightIntensityScale(): number {
@@ -2909,6 +3020,7 @@ export class ViewerRenderer {
    */
   setGlobe(globe: Globe | null, origin: WgsPoint | null, northCorrection = 0) {
     this.globe = globe;
+    this.applyGlobeSun();
     this.globeOrigin = origin;
     this.globeNorthCorrection = northCorrection;
     globe?.setSectionPlanes(
@@ -2919,7 +3031,10 @@ export class ViewerRenderer {
     );
     // The proxy stands in for terrain that is no longer drawn; leaving it would
     // punch an invisible hole in the model.
-    if (!globe) this.setDepthProxy(null);
+    if (!globe) {
+      this.setDepthProxy(null);
+      this.setGlobeShadowCatcher(null);
+    }
 
     // An opaque scene background would hide the globe completely, and a
     // permanently transparent one would give BCF snapshots a hole where the sky
@@ -3028,6 +3143,86 @@ export class ViewerRenderer {
   }
 
   /**
+   * How much of the globe's surface round the models their shadows can fall
+   * on, in metres across, for `setGlobeShadowCatcher`; 0 with no model.
+   * The globe's sampling is centred on the anchor (render 0, 0), so the square
+   * reaches from there past the farthest model by three times its height above
+   * the ground, the length of a shadow with the sun 18° up; lower suns'
+   * shadows are cut there. The ground is the depth occluder's, already
+   * sampled: a model whose file puts it above the terrain casts from there.
+   */
+  shadowCatcherMetres(): number {
+    const box = new THREE.Box3();
+    for (const model of this.models.values()) {
+      for (const batch of model.batches) box.expandByObject(batch.mesh);
+    }
+    if (box.isEmpty()) return 0;
+    const out = Math.max(Math.abs(box.min.x), Math.abs(box.max.x), Math.abs(box.min.z), Math.abs(box.max.z));
+    const ground = Math.min(box.min.y, this.groundBelow((box.min.x + box.max.x) / 2, (box.min.z + box.max.z) / 2) ?? box.min.y);
+    const height = box.max.y - ground;
+    return Math.min(Math.max(2 * (out + 3 * height), 100), 1000);
+  }
+
+  /** The depth occluder's height at its sample nearest a render-space x, z: the globe's ground there, or null without one. */
+  private groundBelow(x: number, z: number): number | null {
+    const positions = this.depthProxy?.geometry.getAttribute("position");
+    if (!positions) return null;
+    let best = Infinity;
+    let height: number | null = null;
+    for (let index = 0; index < positions.count; index += 1) {
+      const distance = (positions.getX(index) - x) ** 2 + (positions.getZ(index) - z) ** 2;
+      if (distance < best) {
+        best = distance;
+        height = positions.getY(index);
+      }
+    }
+    return height;
+  }
+
+  /**
+   * The globe's surface round the models, finely sampled, for the sun's
+   * shadows to fall on: terrain and 3D Tiles are drawn by Cesium on its own
+   * canvas, which no light in this scene reaches. It paints only shadow
+   * (`createShadowCatcherMaterial`), on this canvas over Cesium's, so a shadow
+   * on a hillside or a street of 3D Tiles darkens it where it lands.
+   *
+   * Like the depth occluder, a sampled copy: shadows land on the copy, so on
+   * the walls and roofs of 3D Tiles they are as good as its grid (a metre or
+   * two round a small model, up to about ten). It only receives; a surface
+   * sampled from photogrammetry would cast whatever stands on the site today
+   * onto the model that replaces it.
+   */
+  setGlobeShadowCatcher(surface: { positions: Float32Array; indices: Uint32Array } | null) {
+    if (this.globeShadowCatcher) {
+      this.scene.remove(this.globeShadowCatcher);
+      this.globeShadowCatcher.geometry.dispose();
+      (this.globeShadowCatcher.material as THREE.Material).dispose();
+      this.globeShadowCatcher = null;
+    }
+    document.querySelector("[data-globe-shadow-catcher]")?.remove();
+    if (!surface || surface.positions.length === 0) return;
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(surface.positions, 3));
+    geometry.setIndex(new THREE.BufferAttribute(surface.indices, 1));
+    geometry.computeVertexNormals();
+    const mesh = new THREE.Mesh(geometry, createShadowCatcherMaterial(this.clipPlanes, true));
+    mesh.receiveShadow = true;
+    mesh.castShadow = false;
+    // Before the depth occluder (-1000), which is coarser and could stand in front of it.
+    mesh.renderOrder = -1001;
+    this.globeShadowCatcher = mesh;
+    this.scene.add(mesh);
+
+    const marker = this.canvas.parentElement?.appendChild(document.createElement("div"));
+    if (marker) {
+      marker.setAttribute("data-globe-shadow-catcher", "true");
+      marker.dataset.triangles = String(surface.indices.length / 3);
+      marker.style.display = "none";
+    }
+  }
+
+  /**
    * A CityJSON context model — the neighbours, the terrain, the street.
    *
    * Separate from `setModelGeometry` on purpose. This is not a model under
@@ -3044,6 +3239,10 @@ export class ViewerRenderer {
       this.scene.remove(this.contextMesh);
       this.contextMesh.geometry.dispose();
       (this.contextMesh.material as THREE.Material).dispose();
+      // The shadow overlay on a map image shares the geometry; only its material is its own.
+      for (const child of this.contextMesh.children) {
+        if (child instanceof THREE.Mesh) (child.material as THREE.Material).dispose();
+      }
       this.contextMesh = null;
     }
     this.contextTexture?.dispose();
@@ -3094,9 +3293,18 @@ export class ViewerRenderer {
     mesh.position.set(offset[0], offset[1], offset[2]);
     // Behind the model in the depth sort, so the thing being checked wins.
     mesh.renderOrder = -1;
-    // Neighbouring buildings shade the model when the sun's shadows are on.
-    mesh.castShadow = true;
+    // Neighbouring buildings shade the model when the sun's shadows are on,
+    // and the model's shadow falls on them and on the ground.
+    mesh.castShadow = !this.contextTexture;
     mesh.receiveShadow = true;
+    if (this.contextTexture) {
+      // A map image is drawn unlit, so no shadow would show on it: an overlay
+      // on the same geometry (and so the same filters) paints it on instead.
+      const shadow = new THREE.Mesh(geometry, createShadowCatcherMaterial(this.clipPlanes, false));
+      shadow.receiveShadow = true;
+      shadow.renderOrder = mesh.renderOrder + 1;
+      mesh.add(shadow);
+    }
 
     this.contextMesh = mesh;
     this.scene.add(mesh);

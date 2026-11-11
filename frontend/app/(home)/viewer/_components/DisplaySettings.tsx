@@ -179,8 +179,8 @@ export function DisplaySettings() {
                 </p>
               </div>
             ) : (
-              <>
-                {/* <p className="text-muted-foreground text-xs" data-sun-from="hand">{t("sunByHandHint")}</p> */}
+              <div className="space-y-3" data-sun-from="hand">
+                {/* <p className="text-muted-foreground text-xs">{t("sunByHandHint")}</p> */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">{t("sunDirectionLabel")}</span>
@@ -210,7 +210,7 @@ export function DisplaySettings() {
                     onValueChange={([value]) => change({ sunElevation: value })}
                   />
                 </div>
-              </>
+              </div>
             )}
 
             <div className="space-y-1">

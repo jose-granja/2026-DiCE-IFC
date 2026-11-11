@@ -10,6 +10,8 @@ export type PropertyTableRow = {
   name: string;
   value: string;
   details?: string[];
+  /** A short label beside the name, e.g. "from type", with what it means on hover. */
+  badge?: { label: string; hint?: string };
   mono?: boolean;
   unavailable?: boolean;
   idsProperty?: string;
@@ -51,6 +53,15 @@ export function PropertyTable({ rows = [], groups, empty }: { rows?: PropertyTab
               <tr key={row.id} className="border-b align-top" data-ids-property={row.idsProperty}>
                 <th scope="row" className="wrap-break-word py-2 px-2 font-normal">
                   <span className="font-medium">{row.name}</span>
+                  {row.badge && (
+                    <span
+                      className="bg-muted text-muted-foreground ml-1.5 inline-block rounded px-1 py-px align-middle text-[10px] font-normal"
+                      title={row.badge.hint}
+                      data-row-badge
+                    >
+                      {row.badge.label}
+                    </span>
+                  )}
                   {row.details?.filter(Boolean).map((detail, index) => (
                     <span key={index} className="text-muted-foreground block text-[10px]">{detail}</span>
                   ))}

@@ -1,0 +1,1640 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ids xmlns="http://standards.buildingsmart.org/IDS" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://standards.buildingsmart.org/IDS http://standards.buildingsmart.org/IDS/1.0/ids.xsd">
+    <info>
+        <title>Predefined type cases 2</title>
+    </info>
+    <specifications>
+        <specification name="C01|enum[USERDEFINED]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C01</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="USERDEFINED" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C01|enum[X,STANDARD]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C01</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="X" />
+                            <xs:enumeration value="STANDARD" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C01|pattern[USER.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C01</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="USER.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C01|pattern[Basic.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C01</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="Basic.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C01|pattern[[A-Z]+]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C01</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="[A-Z]+" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C02|enum[USERDEFINED]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C02</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="USERDEFINED" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C02|enum[X,STANDARD]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C02</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="X" />
+                            <xs:enumeration value="STANDARD" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C02|pattern[USER.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C02</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="USER.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C02|pattern[Basic.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C02</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="Basic.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C02|pattern[[A-Z]+]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C02</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="[A-Z]+" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C03|enum[USERDEFINED]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C03</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="USERDEFINED" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C03|enum[X,STANDARD]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C03</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="X" />
+                            <xs:enumeration value="STANDARD" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C03|pattern[USER.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C03</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="USER.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C03|pattern[Basic.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C03</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="Basic.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C03|pattern[[A-Z]+]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C03</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="[A-Z]+" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C05|enum[USERDEFINED]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C05</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="USERDEFINED" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C05|enum[X,STANDARD]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C05</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="X" />
+                            <xs:enumeration value="STANDARD" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C05|pattern[USER.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C05</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="USER.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C05|pattern[Basic.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C05</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="Basic.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C05|pattern[[A-Z]+]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C05</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="[A-Z]+" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C06|enum[USERDEFINED]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCFURNITURE</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C06</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCFURNITURE</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="USERDEFINED" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C06|enum[X,STANDARD]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCFURNITURE</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C06</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCFURNITURE</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="X" />
+                            <xs:enumeration value="STANDARD" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C06|pattern[USER.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCFURNITURE</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C06</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCFURNITURE</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="USER.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C06|pattern[Basic.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCFURNITURE</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C06</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCFURNITURE</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="Basic.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C06|pattern[[A-Z]+]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCFURNITURE</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C06</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCFURNITURE</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="[A-Z]+" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C07|enum[USERDEFINED]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C07</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="USERDEFINED" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C07|enum[X,STANDARD]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C07</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="X" />
+                            <xs:enumeration value="STANDARD" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C07|pattern[USER.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C07</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="USER.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C07|pattern[Basic.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C07</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="Basic.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C07|pattern[[A-Z]+]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C07</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="[A-Z]+" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C09|enum[USERDEFINED]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C09</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="USERDEFINED" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C09|enum[X,STANDARD]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C09</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="X" />
+                            <xs:enumeration value="STANDARD" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C09|pattern[USER.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C09</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="USER.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C09|pattern[Basic.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C09</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="Basic.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C09|pattern[[A-Z]+]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C09</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="[A-Z]+" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C13|enum[USERDEFINED]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C13</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="USERDEFINED" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C13|enum[X,STANDARD]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C13</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="X" />
+                            <xs:enumeration value="STANDARD" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C13|pattern[USER.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C13</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="USER.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C13|pattern[Basic.*]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C13</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="Basic.*" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="C13|pattern[[A-Z]+]" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>C13</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <entity>
+                    <name>
+                        <simpleValue>IFCWALL</simpleValue>
+                    </name>
+                    <predefinedType>
+                        <xs:restriction base="xs:string">
+                            <xs:pattern value="[A-Z]+" />
+                        </xs:restriction>
+                    </predefinedType>
+                </entity>
+            </requirements>
+        </specification>
+        <specification name="P1|partOf TRUSS" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P1</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>TRUSS</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P1|partOf USERDEFINED" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P1</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>USERDEFINED</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P1|partOf Frame" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P1</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>Frame</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P1|partOf NOTDEFINED" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P1</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>NOTDEFINED</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P2|partOf TRUSS" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P2</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>TRUSS</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P2|partOf USERDEFINED" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P2</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>USERDEFINED</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P2|partOf Frame" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P2</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>Frame</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P2|partOf NOTDEFINED" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P2</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>NOTDEFINED</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P3|partOf TRUSS" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P3</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>TRUSS</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P3|partOf USERDEFINED" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P3</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>USERDEFINED</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P3|partOf Frame" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P3</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>Frame</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P3|partOf NOTDEFINED" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P3</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>NOTDEFINED</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P4|partOf TRUSS" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P4</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>TRUSS</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P4|partOf USERDEFINED" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P4</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>USERDEFINED</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P4|partOf Frame" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P4</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>Frame</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+        <specification name="P4|partOf NOTDEFINED" ifcVersion="IFC4">
+            <applicability minOccurs="0" maxOccurs="unbounded">
+                <entity>
+                    <name>
+                        <simpleValue>IFCMEMBER</simpleValue>
+                    </name>
+                </entity>
+                <attribute>
+                    <name>
+                        <simpleValue>Name</simpleValue>
+                    </name>
+                    <value>
+                        <simpleValue>P4</simpleValue>
+                    </value>
+                </attribute>
+            </applicability>
+            <requirements>
+                <partOf relation="IFCRELAGGREGATES" cardinality="required">
+                    <entity>
+                        <name>
+                            <simpleValue>IFCELEMENTASSEMBLY</simpleValue>
+                        </name>
+                        <predefinedType>
+                            <simpleValue>NOTDEFINED</simpleValue>
+                        </predefinedType>
+                    </entity>
+                </partOf>
+            </requirements>
+        </specification>
+    </specifications>
+</ids>

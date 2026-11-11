@@ -67,6 +67,14 @@ type GlobeState = GlobeSettings & {
 
 /** The live globe. Outside the store: a Cesium viewer is not state to diff. */
 let globe: Globe | null = null;
+/**
+ * Grid cells across the globe's shadow catcher; see
+ * `ViewerRenderer#setGlobeShadowCatcher`. Terrain is read from its provider,
+ * cheaply; on 3D Tiles every sample is a ray-pick through the rendered tiles,
+ * so there it is no finer than the occluder's (96² picks froze a page).
+ */
+const SHADOW_CATCHER_STEPS = { terrain: 96, tiles: 48 };
+
 /** Bumped on every switch, so a slow earlier one cannot land after a later one. */
 let generation = 0;
 
@@ -166,6 +174,22 @@ export const useGlobeStore = create<GlobeState>((set, get) => ({
         if (isCurrent()) renderer.setDepthProxy(proxy);
       } catch {
         if (isCurrent()) renderer.setDepthProxy(null);
+      }
+      /*
+        And a finer copy round the models for the sun's shadows to fall on
+        (`setGlobeShadowCatcher`): at most a kilometre across, a metre or two
+        a cell round a small model on terrain. Built whether or not shadows
+        are on, so switching them on needs no network, but not waited for: on
+        3D Tiles it is as many ray-picks again as the occluder, and the globe
+        is ready without it. A failure costs the shadows on the globe only.
+      */
+      const across = renderer.shadowCatcherMetres?.() ?? 0;
+      if (across > 0) {
+        const steps = layer === "terrain" ? SHADOW_CATCHER_STEPS.terrain : SHADOW_CATCHER_STEPS.tiles;
+        void active.sampleDepthProxy(origin, across, northCorrection, steps).then(
+          (surface) => { if (isCurrent()) renderer.setGlobeShadowCatcher?.(surface); },
+          () => { if (isCurrent()) renderer.setGlobeShadowCatcher?.(null); },
+        );
       }
       return { ok: true };
     } catch (error) {

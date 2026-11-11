@@ -64,6 +64,21 @@ async function selectEmbedded(page: Page) {
   await page.getByRole("option", { name: "Inside IFC file", exact: true }).click();
 }
 
+/** "Inside IFC file" is the default; the IFCZIP tests ask for the container. */
+async function selectIfczip(page: Page) {
+  await page.getByRole("combobox", { name: "Output format" }).click();
+  await page.getByRole("option", { name: "IFCZIP container", exact: true }).click();
+}
+
+/**
+ * Follow the link and wait for the verify page: the link navigates in the app,
+ * and a file set before it lands would go to the signing page's input.
+ */
+async function openVerifyFromLink(page: Page) {
+  await page.getByRole("link", { name: "Verify signatures", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Verify a signature", level: 1 })).toBeVisible();
+}
+
 async function openEmbedded(page: Page) {
   await page.goto("/sign/ifc");
   await expect(page.getByRole("heading", { name: "Sign IFC", exact: true })).toBeVisible();
@@ -91,7 +106,7 @@ test("redirects the former embedded page to the unified signing page", async ({ 
   await page.goto("/sign/ifc-embedded");
   await expect(page).toHaveURL(/\/sign\/ifc$/);
   await expect(page.getByRole("heading", { name: "Sign IFC", exact: true })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Output format" })).toContainText("IFCZIP container");
+  await expect(page.getByRole("combobox", { name: "Output format" })).toContainText("Inside IFC file");
 });
 
 for (const keyType of ["RSA", "EC"] as const) {
@@ -116,7 +131,7 @@ for (const keyType of ["RSA", "EC"] as const) {
     expect(signed.name).toBe("georeferenced-wall-ifc4-signed.ifc");
     expect(signed.bytes.subarray(0, original.length)).toEqual(original);
     expect(signed.bytes.toString()).toContain("/*\nSIGNATURE;");
-    await page.getByRole("link", { name: "Verify signatures", exact: true }).click();
+    await openVerifyFromLink(page);
     await page.setInputFiles('input[type="file"]', signed.path);
     await expect(page.locator("[data-embedded-verification]")).toContainText("Signature integrity verified");
     await openEmbedded(page);
@@ -151,7 +166,7 @@ test("signs multiple IFC files, downloads one archive and verifies each result",
   for (const bytes of Object.values(files)) expect(Buffer.from(bytes).subarray(0, original.length)).toEqual(original);
   await page.getByRole("button", { name: "Clear files" }).click();
   await expect(page.locator("[data-sign-output]")).toHaveCount(0);
-  await page.getByRole("link", { name: "Verify signatures", exact: true }).click();
+  await openVerifyFromLink(page);
   await page.setInputFiles('input[type="file"]', Object.entries(files).map(([name, bytes]) => ({
     name, mimeType: "application/octet-stream", buffer: Buffer.from(bytes),
   })));
@@ -176,6 +191,8 @@ test("keeps completed files when a later PIN request is cancelled and stops the 
 
 test("appends files, refuses duplicate names and retains the queue when switching formats", async ({ page }) => {
   await page.goto("/sign/ifc");
+  // IFCZIP takes any IFC file, so the .ifcxml is queued before switching to "Inside IFC file".
+  await selectIfczip(page);
   await page.setInputFiles('input[type="file"]', model("first.ifc"));
   await page.setInputFiles('input[type="file"]', [model("first.ifc"), model("second.ifcxml")]);
   await expect(page.getByRole("cell", { name: "first.ifc", exact: true })).toHaveCount(1);
@@ -193,10 +210,12 @@ for (const mode of ["combined", "per-file"] as const) {
   test(`signs multiple files in IFCZIP ${mode} mode and verifies downloaded containers`, async ({ page }, testInfo) => {
     const requests = await companion(page, "RSA");
     await page.goto("/sign/ifc");
-    if (mode === "per-file") {
-      await page.getByRole("combobox", { name: "Signature mode" }).click();
-      await page.getByRole("option", { name: "One signature per file", exact: true }).click();
-    }
+    await selectIfczip(page);
+    await page.getByRole("combobox", { name: "Signature mode" }).click();
+    await page.getByRole("option", {
+      name: mode === "combined" ? "One signature over all files" : "One signature per file",
+      exact: true,
+    }).click();
     await page.setInputFiles('input[type="file"]', [model("first.ifc"), model("second.ifc")]);
     await page.getByRole("button", { name: "Sign", exact: true }).click();
     const count = mode === "combined" ? 1 : 2;
@@ -255,7 +274,7 @@ test("rejects invalid input before contacting the card, and is translated in Por
   await page.goto("/sign/ifc");
   await expect(page.getByRole("heading", { name: "Assinar IFC", exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: /formato/i }).click();
-  await page.getByRole("option").nth(1).click();
+  await page.getByRole("option", { name: "Dentro do ficheiro IFC", exact: true }).click();
   await page.setInputFiles('input[type="file"]', { name: "bad.ifc", mimeType: "application/octet-stream", buffer: Buffer.from("not IFC") });
   await page.getByRole("button", { name: "Assinar", exact: true }).click();
   await expect(page.locator('[data-sign-errors] p[role="alert"]')).toContainText("não é um ficheiro IFC STEP suportado");

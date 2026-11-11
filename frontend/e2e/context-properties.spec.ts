@@ -46,9 +46,13 @@ test("inspects and highlights context, filters metadata, and switches back to IF
   await panel(page).getByRole("textbox").fill("missing field");
   await expect(panel(page)).toContainText("No properties match your search.");
 
-  // Context has no IFC hide/isolate/class actions, even on right click.
+  // Context has no IFC hide/isolate/class actions, even on right click: like
+  // empty space, it gets only Show all, and keeps its feature inspected.
   await clickAt(page, 0.08, 0.5, "right");
-  await expect(page.locator("[data-viewer-context-menu]")).toHaveCount(0);
+  const menu = page.locator("[data-viewer-context-menu]");
+  await expect(menu.getByRole("menuitem")).toHaveText(["Show all"]);
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
   await expect(panel(page)).toBeVisible();
 
   // The IFC is above the map at the centre; nearest visible geometry wins.

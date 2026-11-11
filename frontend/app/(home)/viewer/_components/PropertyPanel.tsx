@@ -58,7 +58,7 @@ import { useViewerStore } from "@/lib/viewer/store";
 import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import { ContextPropertyPanel } from "./ContextPropertyPanel";
 import { IdsProperties } from "./IdsProperties";
-import { PropertyTable, type PropertyTableGroup } from "./PropertyTable";
+import { PropertyTable, type PropertyTableGroup, type PropertyTableRow } from "./PropertyTable";
 import { formatPropertyValue } from "@/lib/viewer/property-format";
 import { useDisplaySettingsStore } from "@/lib/viewer/display-settings";
 import { GisAreaReport } from "./GisAreaReport";
@@ -138,18 +138,41 @@ function IfcPropertyPanel() {
 
   // What each tab shows, worked out once so its heading can count it — what is
   // listed, so the count agrees with the filter above.
-  const attributeRows = info
+  const predefined = info?.predefinedType;
+  // PredefinedType by buildingSMART's rules (lib/ifc/predefined-type.ts): the
+  // type's when it has one, marked so, else the element's own.
+  const predefinedRow: PropertyTableRow | null = predefined
+    ? {
+        id: "PredefinedType",
+        name: "PredefinedType",
+        value: predefined.value,
+        ...(predefined.source === "type" && info?.typeObject
+          ? { badge: { label: t("fromType"), hint: t("fromTypeHint", { type: info.typeObject.type }) } }
+          : {}),
+        details: [
+          predefined.userDefinedIn
+            ? t(predefined.value === predefined.enumValue ? "predefinedUserDefinedMissing" : "predefinedUserDefined", { attribute: predefined.userDefinedIn })
+            : "",
+          predefined.overridden ? t("predefinedOverridden", { value: predefined.overridden }) : "",
+        ].filter(Boolean),
+      }
+    : null;
+  const attributeRows: PropertyTableRow[] = info
     ? [
-        ["Name", info.attributes?.name, false],
-        ["GlobalId", info.attributes?.globalId, true],
-        ["Description", info.attributes?.description, false],
-        ["ObjectType", info.attributes?.objectType, false],
-        ["Tag", info.attributes?.tag, false],
-      ]
-        .filter(([label, value]) => Boolean(value) && matches(String(label), String(value ?? "")))
-        .map(([label, value, mono]) => ({
-          id: String(label), name: String(label), value: String(value), mono: Boolean(mono),
-        }))
+        ...[
+          ["Name", info.attributes?.name, false],
+          ["GlobalId", info.attributes?.globalId, true],
+          ["Description", info.attributes?.description, false],
+          ["ObjectType", info.attributes?.objectType, false],
+          ["Tag", info.attributes?.tag, false],
+        ]
+          .filter(([, value]) => Boolean(value))
+          .map(([label, value, mono]) => ({
+            id: String(label), name: String(label), value: String(value), mono: Boolean(mono),
+          })),
+        // Last, as in the schema.
+        ...(predefinedRow ? [predefinedRow] : []),
+      ].filter((row) => matches(row.name, row.value))
     : [];
   const shownPropertySets = info ? visibleSets(info.propertySets) : [];
   const shownQuantities = info ? visibleSets(info.quantities) : [];
@@ -342,9 +365,9 @@ function IfcPropertyPanel() {
               <SectionTitle icon={Component} title={t("headings.type")} count={typeGroupCount} />
               {/* Worth its own tab: these are shared by every occurrence of
                   the type, so editing one is not a local change. */}
-              <p className="text-muted-foreground mb-3 text-xs">
+              {/* <p className="text-muted-foreground mb-3 text-xs">
                 {t("fromItsTypeHint")}
-              </p>
+              </p> */}
               <PropertySetList
                 lead={info.typeObject && typeAttributeRows.length
                   ? { id: "type-attributes", name: t("typeAttributes", { type: info.typeObject.type }), rows: typeAttributeRows }

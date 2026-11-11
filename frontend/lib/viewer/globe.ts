@@ -72,6 +72,16 @@ export type DepthProxy = {
   indices: Uint32Array;
 };
 
+/**
+ * The viewer's sun, for the globe's own shadows (3D Tiles and terrain): its
+ * direction in render space, toward the sun, and how bright a shadow leaves
+ * the ground (Cesium's `ShadowMap.darkness`). Null: no shadows on the globe.
+ */
+export type GlobeSun = {
+  direction: [number, number, number];
+  darkness: number;
+} | null;
+
 /** A section plane in the viewer's render coordinate frame. */
 export type GlobeSectionPlane = {
   normal: [number, number, number];
@@ -89,6 +99,8 @@ export type Globe = {
     origin: WgsPoint,
     metresAcross: number,
     northCorrection?: number,
+    /** Grid cells along each side: 48 for the occluder, more for the finer shadow catcher. */
+    steps?: number,
   ) => Promise<DepthProxy | null>;
   /** Keep Cesium's camera on the three.js one. Called every frame. */
   sync: (
@@ -98,6 +110,12 @@ export type Globe = {
   ) => void;
   /** Apply the viewer's render-space section planes to terrain and 3D Tiles. */
   setSectionPlanes: (planes: GlobeSectionPlane[]) => void;
+  /**
+   * Cast the globe's own shadows from the viewer's sun: 3D Tiles on each other
+   * and on the terrain. Cesium draws them; the viewer's model and context are
+   * on another canvas and are shaded there.
+   */
+  setSun: (sun: GlobeSun) => void;
   /** Swap what is drawn. Rejects with a message fit to show the user. */
   setLayer: (layer: GlobeLayer) => Promise<void>;
   /** Swap the map draped over the terrain (Google Maps 2D through ion), or take it away. */
@@ -381,6 +399,15 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
   let layerKind: GlobeLayer["kind"] = "terrain";
   let sectionPlanes: GlobeSectionPlane[] = [];
   let renderToEcefForClipping: InstanceType<typeof Cesium.Matrix4> | null = null;
+  /**
+   * The viewer's sun while the globe casts shadows, as a light of Cesium's own:
+   * its shadow map is aimed along `scene.light` when that is a directional
+   * light. Turned into Cesium's frame on every `sync`, which knows where the
+   * model is; Cesium's real-time sun comes back when shadows go off.
+   */
+  let sun: GlobeSun = null;
+  const cesiumSun = scene.light;
+  const sunLight = new Cesium.DirectionalLight({ direction: new Cesium.Cartesian3(0, 0, -1) });
 
   const removeCurrent = () => {
     loading.setTileset(null);
@@ -555,6 +582,12 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
         frustum.far = camera.far;
       }
 
+      if (sun) {
+        // From the sun, as Cesium wants a light's direction; rotation only.
+        const from = new THREE.Vector3(...sun.direction).applyMatrix3(rotation).normalize().negate();
+        sunLight.direction = new Cesium.Cartesian3(from.x, from.y, from.z);
+      }
+
       // No `scene.render()` here: the widget runs its own loop. Calling it
       // as well renders the frame twice and fights the widget's own timing.
 
@@ -562,6 +595,21 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
 
 
       ready = true;
+    },
+
+    setSun(next) {
+      sun = next;
+      scene.shadowMap.enabled = Boolean(next);
+      // The terrain only receives (Cesium's default): casting too, it shades
+      // itself in stripes under a low sun (acne), with no public bias to tune.
+      scene.globe.shadows = Cesium.ShadowMode.RECEIVE_ONLY;
+      if (next) {
+        scene.shadowMap.darkness = next.darkness;
+        scene.shadowMap.softShadows = true;
+        scene.light = sunLight;
+      } else {
+        scene.light = cesiumSun;
+      }
     },
 
     setSectionPlanes(planes) {
@@ -649,7 +697,7 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
       }
     },
 
-    async sampleDepthProxy(origin, metresAcross, northCorrection = 0) {
+    async sampleDepthProxy(origin, metresAcross, northCorrection = 0, steps = 48) {
       /*
         Why this exists.
 
@@ -678,8 +726,9 @@ export async function createGlobe(container: HTMLElement): Promise<Globe> {
         Coarse on purpose: this is an occluder, not the picture. A 48×48 grid
         over the visible ground is a few thousand triangles and resolves the
         "behind that hill/building" question, which is the one being asked.
+        The shadow catcher asks for a finer grid over a smaller square
+        (`steps`), since a shadow's edge is seen where it lands.
       */
-      const steps = 48;
       const half = metresAcross / 2;
 
       // Degrees per metre at this latitude — good enough over a few kilometres,

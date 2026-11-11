@@ -398,6 +398,21 @@ only.
 `placed-products.test.ts` on `fixtures/ifc/alignment-referenced-ifc4x3.ifc`
 pins both halves.
 
+**An element's PredefinedType is the type's when the type has one**
+(`lib/ifc/predefined-type.ts`, buildingSMART's rule): a type's value other
+than NOTDEFINED applies to every occurrence and overrides the occurrence's
+own; otherwise the occurrence's. USERDEFINED is named by the occurrence's
+`ObjectType`, or the type's `ElementType` (`ProcessType`, `ResourceType`).
+`ElementInfo.predefinedType` carries the result; the Attributes tab marks one
+from the type "from type". Filters, lenses and quantities still read the
+occurrence's own value. **IDS validation reads it as ifctester does**
+(`ifctesterPredefinedType`, wired into the engine's accessor by
+`idsAccessor` in the adapter), which is more lenient: an ObjectType or a
+type's ElementType with no PredefinedType counts as user-defined, and a
+USERDEFINED type naming nothing falls back to the occurrence.
+`lib/ids/__tests__/predefined-type-ifctester.test.ts` holds it to
+ifctester's recorded answers on 182 specifications.
+
 **`lib/ifc/ids-document.ts` is the second — and only other — file allowed to
 import the engine.** The engine's IDS parser needs `DOMParser`, which a Web
 Worker does not have, so `parseIDS` must run on the main thread and the parsed
@@ -1343,8 +1358,42 @@ Display → Lighting. The rigs are in `lib/viewer/lighting.ts`; the renderer's
     must show up in that state, or its shadows go stale.
   - Glass doesn't cast. `clipShadows` is on, so the sun reaches into a section.
   - No normal bias: IFC normals often point the wrong way, and a bias along one
-    pushes a surface into its own shadow. The depth bias is in depth units, so
-    it scales with the model.
+    pushes a surface into its own shadow. The depth bias is a distance in the
+    world, set in the camera's depth units: at least the models' old one, and
+    more as a low sun grazes the ground (a texel's width over the sun's slope),
+    or the ground shades itself in rings.
+- **Shadows reach the GIS data, and its 3D data casts them.** The shadow
+  camera is centred on the models and reaches along the sun up to
+  `SHADOW_REACH` (1.5 km) to the context model and the globe's surface, so a
+  shadow cast onto ground below a model lands (it used to stop at the models'
+  own size). Sideways it is as wide as the models, or the context model up to
+  `CONTEXT_SHADOW_RADIUS` (250 m, 12 cm a texel), so the context's buildings
+  shade the ground, each other and the model; beyond that they cast nothing.
+  - The context's vector surfaces receive and cast as any mesh. A map image
+    (WMS, rasters) is drawn unlit, so a `ShadowMaterial` overlay on the same
+    geometry paints the shadow on it (`createShadowCatcherMaterial`).
+  - Terrain and 3D Tiles are Cesium's, on another canvas. **The models' shadow
+    on them**: a finer copy of their surface round the models
+    (`setGlobeShadowCatcher`, sampled by `sampleDepthProxy`, sized from the
+    models' height above the occluder's ground, at most 1 km) paints only
+    shadow on this canvas over Cesium's. It is drawn in the opaque pass before
+    the coarser occluder, with transparent blending, so the occluder cannot
+    hide it, and it only receives: cast from photogrammetry, it would shade
+    the model with whatever stands on the site today. 96 × 96 cells on
+    terrain; 48 × 48 on 3D Tiles, where every sample is a ray-pick (96² froze
+    a page), and sampled after the globe is ready, not waited for.
+  - **Their own shadows**: Cesium's shadow map, aimed along the viewer's sun
+    (`Globe#setSun`: a `DirectionalLight` set from the render-space sun on
+    every `sync`; Cesium's real-time sun comes back when shadows go off).
+    3D Tiles cast on the terrain and each other. The terrain only receives:
+    casting, it shades itself in stripes under a low sun (acne), and Cesium
+    has no public bias for it. 3D Tiles do not shade the model (another
+    canvas, and photogrammetry again).
+  - `e2e/gis-shadows.spec.ts`: a shadow lands on context ground 10 m below
+    the model, and a context building 60 m away casts its own (each fails at
+    the old camera). `globe-occlusion.spec.ts` (needs the Cesium ion token):
+    the model's shadow lands on terrain, and bare terrain stays clean. 3D Tiles
+    casting is untested: their occluder's ray-picks take minutes headless.
 
 ## 8d. Notices, attribution and disclaimers
 

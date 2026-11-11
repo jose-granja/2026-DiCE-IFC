@@ -86,3 +86,125 @@ test("switching the globe off takes the occluder with it", async ({ page }) => {
   await toggle.click({ force: true });
   await expect(page.locator("[data-depth-proxy]")).toHaveCount(0);
 });
+
+/**
+ * The sun's shadows land on the globe through a finer copy of its surface
+ * round the model, which paints only shadow, over Cesium's canvas.
+ */
+test("the model's shadow is painted on the terrain, and only while shadows are on", async ({ page }) => {
+  test.setTimeout(120_000);
+  const toggle = await showGlobe(page);
+  const catcher = page.locator("[data-globe-shadow-catcher]");
+  await expect(catcher).toBeAttached({ timeout: 60_000 });
+  // 96 × 96 cells, two triangles each: finer than the occluder's 48 × 48.
+  expect(Number(await catcher.getAttribute("data-triangles"))).toBe(96 * 96 * 2);
+
+  /** Pixels the model's canvas paints part-way: a shadow over the globe, not the model (opaque) or nothing (clear). */
+  const translucent = () => page.evaluate(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const canvas = document.querySelector<HTMLCanvasElement>("[data-model-canvas]")!;
+    const scratch = document.createElement("canvas");
+    scratch.width = canvas.width;
+    scratch.height = canvas.height;
+    const context = scratch.getContext("2d")!;
+    context.drawImage(canvas, 0, 0);
+    const { data } = context.getImageData(0, 0, scratch.width, scratch.height);
+    let count = 0;
+    for (let i = 3; i < data.length; i += 4) if (data[i] > 30 && data[i] < 230) count += 1;
+    return count;
+  });
+
+  // A winter noon, from above: the fixture stands some 50 m above the terrain
+  // here, so its shadow lands on the ground a hundred metres north.
+  await page.getByRole("button", { name: "Top view", exact: true }).press("Enter");
+  const display = page.getByRole("button", { name: "Display" });
+  await display.click();
+  await page.locator("[data-sun-from='place']").getByLabel("Date").fill("2026-12-21");
+  await page.getByRole("combobox", { name: "Time zone" }).selectOption("Europe/Lisbon");
+  const time = page.getByRole("slider", { name: "Time", exact: true });
+  await time.focus();
+  await page.keyboard.press("Home");
+  for (let step = 0; step < 150; step += 1) await page.keyboard.press("ArrowRight"); // 12:30, ~25° up
+  await page.keyboard.press("Escape");
+  const box = (await page.locator("[data-model-canvas]").boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  for (let tick = 0; tick < 18; tick += 1) await page.mouse.wheel(0, 400);
+
+  const without = await translucent();
+  await display.click();
+  await page.getByRole("switch", { name: "Shadows" }).click();
+  await page.keyboard.press("Escape");
+  const withShadows = await translucent();
+  await page.locator("[data-model-canvas]").screenshot({ path: test.info().outputPath("globe-shadow.png") });
+  // The shadow, as a darkening over the terrain: the 7 m model's, seen from
+  // high enough to take in the ~100 m to where it lands, so a small patch.
+  expect(withShadows - without).toBeGreaterThan(30);
+
+  await toggle.click({ force: true });
+  await expect(catcher).toHaveCount(0);
+});
+
+/**
+ * The globe's own shadows are Cesium's shadow map, aimed along the viewer's
+ * sun: 3D Tiles cast them on the terrain and on each other. The terrain only
+ * receives; casting too, under a low sun it shaded itself in stripes (acne)
+ * all over, which is what this checks is gone. (3D Tiles casting is not tested
+ * here: on them every sample of the occluder is a ray-pick, which a
+ * software-rendered headless browser takes minutes over.)
+ */
+test("shadows on leave bare terrain clean under a low sun", async ({ page }) => {
+  test.setTimeout(150_000);
+  await showGlobe(page);
+  await expect(page.locator("[data-globe-shadow-catcher]")).toBeAttached({ timeout: 60_000 });
+
+  const display = page.getByRole("button", { name: "Display" });
+  await display.click();
+  await page.locator("[data-sun-from='place']").getByLabel("Date").fill("2026-12-21");
+  await page.getByRole("combobox", { name: "Time zone" }).selectOption("Europe/Lisbon");
+  const time = page.getByRole("slider", { name: "Time", exact: true });
+  await time.focus();
+  await page.keyboard.press("Home");
+  for (let step = 0; step < 105; step += 1) await page.keyboard.press("ArrowRight"); // 08:45, a few degrees up
+  await page.keyboard.press("Escape");
+  const box = (await page.locator("[data-model-canvas]").boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  for (let tick = 0; tick < 16; tick += 1) await page.mouse.wheel(0, 400);
+
+  /** The globe canvas's brightness per pixel, kept in the page under `name`. */
+  const globeFrame = (name: string) => page.evaluate(async (name) => {
+    await new Promise((resolve) => setTimeout(resolve, 4_000));
+    const canvas = document.querySelector<HTMLCanvasElement>("[data-globe-canvas] canvas")!;
+    const scratch = document.createElement("canvas");
+    scratch.width = canvas.width;
+    scratch.height = canvas.height;
+    const context = scratch.getContext("2d")!;
+    context.drawImage(canvas, 0, 0);
+    const { data } = context.getImageData(0, 0, scratch.width, scratch.height);
+    const luma = new Float32Array(data.length / 4);
+    for (let at = 0; at < luma.length; at += 1) {
+      luma[at] = 0.2126 * data[at * 4] + 0.7152 * data[at * 4 + 1] + 0.0722 * data[at * 4 + 2];
+    }
+    const frames = ((window as unknown as { __globeFrames?: Record<string, Float32Array> }).__globeFrames ??= {});
+    frames[name] = luma;
+  }, name);
+
+  await globeFrame("lit");
+  await display.click();
+  await page.getByRole("switch", { name: "Shadows" }).click();
+  await page.keyboard.press("Escape");
+  await globeFrame("shaded");
+  await page.locator("[data-globe-canvas] canvas").screenshot({ path: test.info().outputPath("globe-own-shadows.png") });
+
+  // Cesium's own canvas (the model's, with the model's shadow, is not read):
+  // with nothing on the terrain to cast, it hardly changes. The stripes
+  // darkened a third of it.
+  const share = await page.evaluate(() => {
+    const frames = (window as unknown as { __globeFrames: Record<string, Float32Array> }).__globeFrames;
+    let count = 0;
+    for (let at = 0; at < frames.lit.length; at += 1) if (frames.lit[at] - frames.shaded[at] >= 10) count += 1;
+    return count / frames.lit.length;
+  });
+  test.info().annotations.push({ type: "globe darkened", description: share.toFixed(4) });
+  expect(share).toBeLessThan(0.01);
+});

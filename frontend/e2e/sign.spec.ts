@@ -88,16 +88,20 @@ test("explains what each signature mode guarantees", async ({ page }) => {
   // The difference between the modes is a guarantee the user is entitled to
   // understand, not an implementation detail.
   await openSign(page);
+  // The modes are the IFCZIP container's; "Inside IFC file" (the default) has none.
+  await page.getByRole("combobox", { name: "Output format" }).click();
+  await page.getByRole("option", { name: "IFCZIP container", exact: true }).click();
   await page.setInputFiles('input[type="file"]', [IFC4]);
+
+  // One signature per file is the default.
+  await expect(page.getByText(/One PIN entry per file\./)).toBeVisible();
+  await expect(page.getByText(/entirely on its own/)).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Signature mode" }).click();
+  await page.getByRole("option", { name: "One signature over all files" }).click();
 
   await expect(page.getByText(/One PIN entry\./)).toBeVisible();
   await expect(page.getByText(/no longer independently verifiable/)).toBeVisible();
-
-  await page.getByRole("combobox", { name: "Signature mode" }).click();
-  await page.getByRole("option", { name: "One signature per file" }).click();
-
-  await expect(page.getByText(/One PIN entry per file\./)).toBeVisible();
-  await expect(page.getByText(/entirely on its own/)).toBeVisible();
 });
 
 test("removes a queued file", async ({ page }) => {

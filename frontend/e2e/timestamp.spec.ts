@@ -1,5 +1,5 @@
 import http from "node:http";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { checkTimestampToken } from "../lib/signing/timestamp";
 import { fakeTimestampResponse } from "../lib/signing/__tests__/fake-tsa";
@@ -67,8 +67,15 @@ test("the route will not take anything but a hash", async ({ request }) => {
   expect(received.length).toBe(before);
 });
 
-test("the signing page offers a time-stamp when the deployment has an authority", async ({ page }) => {
+/** The time-stamp is offered for the IFCZIP container; "Inside IFC file", the default, only notes why not. */
+async function openIfczip(page: Page, format = "IFCZIP container") {
   await page.goto("/sign/ifc");
+  await page.getByRole("combobox", { name: /output format|formato de saída/i }).click();
+  await page.getByRole("option", { name: format, exact: true }).click();
+}
+
+test("the signing page offers a time-stamp when the deployment has an authority", async ({ page }) => {
+  await openIfczip(page);
   const option = page.locator("[data-timestamp-option]");
   await expect(option).toHaveAttribute("data-configured", "true");
   await expect(option.getByLabel("Add a time-stamp from Test time-stamp authority")).toBeChecked();
@@ -87,18 +94,17 @@ test("the signing page says so when the deployment has none", async ({ page }) =
       ? route.fulfill({ json: { configured: false } })
       : route.continue(),
   );
-  await page.goto("/sign/ifc");
-  const option = page.locator("[data-timestamp-option]");
-  await expect(option).toHaveAttribute("data-configured", "false");
-  await expect(option).toContainText("no time-stamp authority");
-  await expect(option.getByRole("checkbox")).toHaveCount(0);
+  await openIfczip(page);
+  // Nothing to offer, and no note saying so either.
+  await expect(page.locator("[data-timestamp-option]")).toHaveCount(0);
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
 });
 
 test("the signing page reads in Portuguese", async ({ page, context }) => {
   await context.addCookies([
     { name: "dice-locale", value: "pt", url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT ?? "3000"}` },
   ]);
-  await page.goto("/sign/ifc");
+  await openIfczip(page, "Contentor IFCZIP");
   await expect(page.locator("[data-timestamp-option]")).toContainText("Acrescentar um selo temporal de Test time-stamp authority");
 });
 

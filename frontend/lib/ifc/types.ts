@@ -11,6 +11,7 @@ export type IfcSchemaVersion = "IFC2X3" | "IFC4" | "IFC4X3" | "IFC5";
 
 /** Opaque per-session model identifier minted by the adapter on load. */
 import type { EngineIdsDocument } from "./ids-document";
+import type { PredefinedTypeView } from "./predefined-type";
 
 export type ModelId = string;
 
@@ -476,6 +477,12 @@ export type ElementInfo = {
    * a type with attributes but no property sets is common, and is still a type.
    */
   typeObject: TypeObjectView | null;
+  /**
+   * The PredefinedType that applies, by buildingSMART's rules: the type's
+   * when it has one other than NOTDEFINED, else the occurrence's own
+   * (`predefined-type.ts`). Null when neither has one.
+   */
+  predefinedType: PredefinedTypeView | null;
   materials: MaterialRef[];
   classifications: Array<{ system: string; code: string; name: string }>;
 };
@@ -614,9 +621,11 @@ export type GeoreferenceView = {
   hasGeoreference: boolean;
   /**
    * Where the information came from. `siteLocation` alone is LoGeoRef 20/30;
-   * `ePSetMapConversion` is the IFC2x3 property-set fallback.
+   * `ePSetMapConversion` is the IFC2x3 property-set fallback;
+   * `rigidOperation` is IFC 4.3's pure shift to a projected CRS, read into
+   * `mapConversion` with no rotation and a scale of 1.
    */
-  source?: "mapConversion" | "ePSetMapConversion" | "siteLocation";
+  source?: "mapConversion" | "rigidOperation" | "ePSetMapConversion" | "siteLocation";
   mapConversion?: MapConversionView;
   projectedCRS?: ProjectedCrsView;
   site?: SiteLocationView;

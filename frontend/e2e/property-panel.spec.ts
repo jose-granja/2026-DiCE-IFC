@@ -71,6 +71,18 @@ test("shows attributes, materials and property sets on their own tabs", async ({
   await expect(page.locator('[data-section="Quantities"]').getByRole("cell", { name: "12.5 m²", exact: true })).toBeVisible();
 });
 
+test("shows the type's PredefinedType among the element's attributes, marked from type", async ({ page }) => {
+  // buildingSMART: a type's PredefinedType (other than NOTDEFINED) applies to
+  // every occurrence. The fixture's walls leave theirs unset; their
+  // IfcWallType says STANDARD.
+  await selectWall(page);
+  await page.getByRole("tab", { name: "Attributes", exact: true }).click();
+  const row = page.locator('[data-section="Attributes"] tr', { has: page.getByRole("rowheader", { name: /PredefinedType/ }) });
+  await expect(row.getByRole("cell")).toHaveText("STANDARD");
+  await expect(row.locator("[data-row-badge]")).toHaveText("from type");
+  await expect(row.locator("[data-row-badge]")).toHaveAttribute("title", /IfcWallType/);
+});
+
 test("separates what the type defines from what the occurrence does", async ({
   page,
 }) => {
@@ -80,7 +92,6 @@ test("separates what the type defines from what the occurrence does", async ({
   await selectWall(page);
   await page.getByRole("tab", { name: "Type", exact: true }).click();
   await expect(page.locator('[data-section="Type"]')).toBeVisible();
-  await expect(page.getByText(/shared by every occurrence/i)).toBeVisible();
   await expect(page.locator('[data-section="Type"]').getByRole("columnheader", { name: "Current value" })).toBeVisible();
 
   // The type object's own attributes come first, ahead of its property sets.

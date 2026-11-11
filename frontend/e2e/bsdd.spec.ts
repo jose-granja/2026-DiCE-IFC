@@ -113,6 +113,9 @@ test("debounces IFC class typing and suggests its predefined types", async ({
 test("the default IFC dictionary suggests classes, property sets and values", async ({
   page,
 }) => {
+  // Two waits of up to 45 s on the live dictionary: the default 30 s would end
+  // the test before either could.
+  test.setTimeout(120_000);
   await page.goto("/ids/create");
   await expect(page.getByText(/^IFC 4\.3/)).toBeVisible();
 

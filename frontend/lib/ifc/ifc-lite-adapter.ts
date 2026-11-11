@@ -36,6 +36,7 @@ import {
 } from "@ifc-lite/parser";
 import {
   IfcTypeEnum,
+  isEntitySubtypeOf,
   RelationshipType,
   type IfcAttributeValue,
   type SpatialNode,
@@ -45,7 +46,7 @@ import type { AABB as IfcLiteAabb, Vec3 as IfcLiteVec3 } from "@ifc-lite/geometr
 import { MutablePropertyView, StoreEditor } from "@ifc-lite/mutations";
 import { StepExporter } from "@ifc-lite/export";
 import { checkFacet, matchConstraint, formatConstraint, createTranslationService, validateIDS, type IDSConstraint, type IDSDocument } from "@ifc-lite/ids";
-import { createDataAccessor, resolveEntityMeasureScales } from "@ifc-lite/ids/bridge";
+import { createDataAccessor, narrowSchemaVersion, resolveEntityMeasureScales } from "@ifc-lite/ids/bridge";
 
 import type { EngineIdsDocument } from "./ids-document";
 import {
@@ -93,6 +94,7 @@ import {
   type Vec3,
   type VocabularyOptions,
 } from "./types";
+import { effectivePredefinedType, ifctesterPredefinedType } from "./predefined-type";
 import {
   asFiniteNumber,
   compileQuantityExpression,
@@ -309,6 +311,77 @@ const QUANTITY_KIND_MEASURE = [
  * GlobalId (with the references), so that is read from the root attributes
  * and put first, as on the occurrence's own Attributes tab.
  */
+/** Raw STEP tokens (`IFCWALLTYPE`) of the classes in the model that are type objects, per store. */
+const typeObjectClassCache = new WeakMap<IfcDataStore, Promise<Set<string>>>();
+function typeObjectClasses(store: IfcDataStore): Promise<Set<string>> {
+  let classes = typeObjectClassCache.get(store);
+  if (!classes) {
+    const version = narrowSchemaVersion(store.schemaVersion);
+    classes = Promise.all(
+      [...store.entityIndex.byType.keys()].map(async (token) =>
+        (await isEntitySubtypeOf(version, token, "IfcTypeObject")) ? token : null,
+      ),
+    ).then((tokens) => new Set(tokens.filter((token): token is string => token !== null)));
+    typeObjectClassCache.set(store, classes);
+  }
+  return classes;
+}
+
+/**
+ * The engine's IDS accessor, reading PredefinedType as ifctester does
+ * (`ifctesterPredefinedType`). The engine's own reading follows the schema's
+ * prose and fails what ifctester passes: an ObjectType with no
+ * PredefinedType, an ElementType with no PredefinedType, and a USERDEFINED
+ * type naming nothing. Its two methods are replaced on the object itself,
+ * because the engine's partOf facet calls them through it.
+ *
+ * The engine matches a predefinedType against the enumeration value or the
+ * user-defined name (`matchPredefinedType`), so a user-defined one is handed
+ * over as `USERDEFINED` and its name, which passes "USERDEFINED" as
+ * ifctester's `is_userdefined_type` does, and the name as its
+ * `get_predefined_type` does.
+ *
+ * One ifctester quirk is not copied: it takes any requirement that accepts
+ * the word "USERDEFINED" (a pattern like `[A-Z]+`) as asking for a
+ * user-defined type, so such a pattern fails every STANDARD wall. Here it
+ * matches the value.
+ */
+async function idsAccessor(store: IfcDataStore): Promise<ReturnType<typeof createDataAccessor>> {
+  const accessor = createDataAccessor(store);
+  const typeClasses = await typeObjectClasses(store);
+  const cache = new Map<number, ReturnType<typeof ifctesterPredefinedType>>();
+  const resolve = (expressId: number) => {
+    let found = cache.get(expressId);
+    if (!found) {
+      const own = extractAllEntityAttributes(store, expressId);
+      const token = store.getEntity(expressId)?.type ?? "";
+      const typeId = typeClasses.has(token)
+        ? expressId
+        : store.relationships?.getRelated(expressId, RelationshipType.DefinesByType, "inverse")[0];
+      const type = typeId === undefined ? null : typeId === expressId ? own : extractAllEntityAttributes(store, typeId);
+      found = ifctesterPredefinedType(own, type);
+      cache.set(expressId, found);
+    }
+    return found;
+  };
+  accessor.getPredefinedTypeRaw = (expressId) => {
+    const { value, userDefined } = resolve(expressId);
+    return userDefined ? "USERDEFINED" : value;
+  };
+  accessor.getObjectType = (expressId) => resolve(expressId).value;
+  // partOf compares a parent's `get_predefined_type` alone, with no USERDEFINED
+  // shortcut: a parent named "Frame" is "Frame", not "USERDEFINED".
+  const ancestors = accessor.getAncestors?.bind(accessor);
+  if (ancestors) {
+    accessor.getAncestors = (expressId, relationType) =>
+      ancestors(expressId, relationType).map((parent) => {
+        const { value } = resolve(parent.expressId);
+        return { ...parent, predefinedType: value, objectType: value };
+      });
+  }
+  return accessor;
+}
+
 function typeObjectFor(store: IfcDataStore, expressId: number): TypeObjectView | null {
   const typeId = store.relationships?.getRelated(expressId, RelationshipType.DefinesByType, "inverse")[0];
   if (typeId === undefined) return null;
@@ -617,11 +690,14 @@ type EngineRequirementResult = Awaited<
 >["specificationResults"][number]["entityResults"][number]["requirementResults"][number];
 
 /**
- * The engine reports an element that has property sets, none of them the one
- * required, with `field: "propertySet"` — the word, not the set's name — and its
- * sentence prints `field` first, so the user read `Property set "propertySet" not
- * found`. The name is in `expected`. Put it where it belongs and say the sentence
- * again with the engine's own words. (Fixed here, not in the package: patching an
+ * A missing property set, said with the engine's translation service, which
+ * names the sets the element does have ("… not found. Available: …"), so a
+ * near miss shows. The validator's own sentence leaves that list out.
+ *
+ * Up to @ifc-lite/ids 3.4.0 the engine also put the word `"propertySet"` in
+ * `field`, where the set's name belongs (it is in `expected`), and the user
+ * read `Property set "propertySet" not found`; 3.4.4 fixed that, and an
+ * older answer is still repaired. (Fixed here, not in the package: patching an
  * MPL file means publishing it — AGENTS.md §8d.)
  */
 export function namePropertySet(
@@ -629,8 +705,10 @@ export function namePropertySet(
   describe: { describeFailure: (result: EngineRequirementResult) => string },
 ): EngineRequirementResult {
   const failure = requirement.failure;
-  if (failure?.type !== "PSET_MISSING" || failure.field !== "propertySet" || !failure.expected) return requirement;
-  const repaired = { ...requirement, failure: { ...failure, field: failure.expected } };
+  if (failure?.type !== "PSET_MISSING") return requirement;
+  const repaired = failure.field === "propertySet" && failure.expected
+    ? { ...requirement, failure: { ...failure, field: failure.expected } }
+    : requirement;
   return { ...repaired, failureReason: describe.describeFailure(repaired) };
 }
 
@@ -899,6 +977,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
     // Type properties come back as one object with nested sets, or null when
     // the occurrence has no `IfcRelDefinesByType`.
     const type = extractTypePropertiesOnDemand(store, expressId);
+    const typeObject = typeObjectFor(store, expressId);
 
     return {
       attributes: entity
@@ -954,7 +1033,9 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
           )
         : [],
 
-      typeObject: typeObjectFor(store, expressId),
+      typeObject,
+
+      predefinedType: effectivePredefinedType(extractAllEntityAttributes(store, expressId), typeObject),
 
       materials: materialRefsFor(store, expressId),
 
@@ -1637,7 +1718,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
    */
   async getIdsProperties(modelId, expressId, document): Promise<IdsPropertyView[]> {
     const model = must(modelId);
-    const accessor = createDataAccessor(model.store);
+    const accessor = await idsAccessor(model.store);
     const entityType = accessor.getEntityType(expressId);
     if (!entityType) return [];
     const rows = new Map<string, IdsPropertyView>();
@@ -1736,7 +1817,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
 
     const report = await validateIDS(
       document_,
-      createDataAccessor(model.store),
+      await idsAccessor(model.store),
       {
         modelId,
         // The exact FILE_SCHEMA token when the file carried one: the engine
@@ -1834,8 +1915,14 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
     const site = readSiteLocation(store);
     const context = readRepresentationContext(store);
     const lengthUnitScale = store.lengthUnitScale ?? 1;
+    // An IfcRigidOperation (IFC 4.3, read since @ifc-lite/parser 9.9) to a
+    // geographic CRS offsets the model in degrees of longitude and latitude.
+    // Everything here reads a map conversion as projected map coordinates,
+    // so that one stays unread, as it was before; to a projected CRS it is a
+    // plain shift, which is a map conversion without rotation or scale.
+    const geographicShift = info?.source === "rigidOperation" && info.projectedCRS?.kind === "geographic";
 
-    if (!info?.hasGeoreference) {
+    if (!info?.hasGeoreference || geographicShift) {
       return {
         // A WorldCoordinateSystem offset or a TrueNorth is georeferencing of a
         // sort (LoGeoRef 20/30); reporting "none" would hide it from the grader.
