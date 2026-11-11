@@ -121,7 +121,7 @@ export function DisplaySettings() {
                 ))}
               </select>
             </label>
-            <p className="text-muted-foreground text-xs">{t("lightConditionsHint")}</p>
+            {/* <p className="text-muted-foreground text-xs">{t("lightConditionsHint")}</p> */}
 
             {place ? (
               <div className="space-y-3" data-sun-from="place">
@@ -180,7 +180,7 @@ export function DisplaySettings() {
               </div>
             ) : (
               <>
-                <p className="text-muted-foreground text-xs" data-sun-from="hand">{t("sunByHandHint")}</p>
+                {/* <p className="text-muted-foreground text-xs" data-sun-from="hand">{t("sunByHandHint")}</p> */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">{t("sunDirectionLabel")}</span>
@@ -222,7 +222,7 @@ export function DisplaySettings() {
                   onCheckedChange={(on) => change({ shadows: on })}
                 />
               </div>
-              <p className="text-muted-foreground text-xs">{t("shadowsHint")}</p>
+              {/* <p className="text-muted-foreground text-xs">{t("shadowsHint")}</p> */}
             </div>
 
             <div className="space-y-1.5">
@@ -305,7 +305,7 @@ export function DisplaySettings() {
                 onCheckedChange={realistic.setOn}
               />
             </div>
-            <p className="text-muted-foreground text-xs">{t("realisticHint")}</p>
+            {/* <p className="text-muted-foreground text-xs">{t("realisticHint")}</p> */}
             <p className="text-xs" role="status" data-realistic-summary>
               {realistic.status === "searching" &&
                 (realistic.progress
@@ -362,7 +362,7 @@ export function DisplaySettings() {
                 {Array.from({ length: MAX_PROPERTY_DECIMALS + 1 }, (_, digits) => <option key={digits} value={digits}>{digits}</option>)}
               </select>
             </label>
-            <p className="text-muted-foreground text-xs">{t("decimalPlacesHint")}</p>
+            {/* <p className="text-muted-foreground text-xs">{t("decimalPlacesHint")}</p> */}
           </div>
         </div>
       </PopoverContent>
