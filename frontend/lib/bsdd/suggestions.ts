@@ -19,11 +19,12 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 
 import {
   getClassPredefinedTypes,
   getClassProperties,
+  getPropertyAllowedValues,
   searchClasses,
   type BsddProperty,
 } from "./client";
@@ -193,6 +194,29 @@ export function useBsddSuggestions(
     detailFor: (propertySet: string, property: string) =>
       find(properties, propertySet, property),
   };
+}
+
+/**
+ * The values bSDD says `property` accepts: the class listing's own, else its
+ * dictionary-level definition's.
+ *
+ * IFC 4.3's class listing in bSDD stopped carrying allowed values — `Status`
+ * on `IfcWall` lists none — while `.../prop/Status` still has NEW, EXISTING,
+ * DEMOLISH… So when the class has none, the one property the facet names is
+ * asked for, once, and only then.
+ */
+export function useBsddPropertyValues(property: BsddProperty | undefined): string[] {
+  const own = property?.allowedValues ?? [];
+  const uri = own.length === 0 ? property?.propertyUri : undefined;
+  const { data } = useQuery({
+    queryKey: ["bsdd-property-values", uri],
+    enabled: Boolean(uri),
+    staleTime: Infinity,
+    retry: false,
+    queryFn: ({ signal }) => getPropertyAllowedValues(uri!, signal),
+  });
+  const values = own.length > 0 ? own : (uri ? (data ?? []) : []);
+  return values.map((value) => value.value || value.code);
 }
 
 /**

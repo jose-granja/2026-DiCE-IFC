@@ -42,6 +42,12 @@
         "why": "Para mostrar o modelo com texturas reais. A biblioteca é um conjunto selecionado de texturas CC0 da Poly Haven e da ambientCG, preparado e alojado por esta instalação. A aplicação lê a lista, escolhe no navegador uma textura para cada material pelo seu nome e pela cor que o modelo lhe dá, e só então descarrega as texturas escolhidas com os seus mapas de relevo e rugosidade. O servidor vê que texturas foram pedidas, como para qualquer ficheiro que sirva, mas não o modelo."
       },
       {
+        "what": "Um pedido dos nomes das propriedades IFC na língua da interface: indica a língua (pt-PT) e mais nada",
+        "when": "Uma vez por visita, quando o painel de propriedades é mostrado em português",
+        "where": "O servidor desta aplicação (/api/bsdd/property-names), que os pede ao Dicionário de Dados da buildingSMART (bSDD) no máximo uma vez por dia",
+        "why": "Para identificar cada propriedade IFC normalizada (FireRating) com o seu nome em português no bSDD (Classe de Resistência ao Fogo). O bSDD não envia cabeçalhos CORS, por isso é o servidor desta aplicação que lho pede, enviando o endereço do dicionário IFC e a língua; o bSDD vê o endereço desta instalação e não o seu. Não é enviado nenhum modelo, elemento ou valor de propriedade, e com o bSDD inacessível os nomes IFC são mostrados como sempre."
+      },
+      {
         "what": "O resumo SHA-256 do valor da própria assinatura (nunca um ficheiro) e um número aleatório",
         "when": "Apenas quando assina com “Acrescentar um selo temporal” assinalado, e só se esta instalação tiver uma autoridade de selos temporais configurada",
         "where": "O servidor desta aplicação, que o reencaminha para a autoridade de selos temporais configurada (/api/tsa)",
@@ -891,6 +897,7 @@
       "fromItsTypeHint": "Definido uma vez no tipo e partilhado por todas as ocorrências.",
       "fromType": "do tipo",
       "fromTypeHint": "Definido no seu {type}. Pela regra da buildingSMART, o PredefinedType de um tipo aplica-se a todas as suas ocorrências.",
+      "translationHint": "Nome desta propriedade no Dicionário de Dados da buildingSMART (bSDD). A propriedade mantém o seu nome IFC.",
       "predefinedUserDefined": "USERDEFINED, indicado em {attribute}",
       "predefinedUserDefinedMissing": "USERDEFINED, sem {attribute} que o indique",
       "predefinedOverridden": "O valor do próprio elemento, {value}, não se aplica: aplica-se o do tipo.",

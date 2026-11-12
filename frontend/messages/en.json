@@ -42,6 +42,12 @@
         "why": "To show the model with real textures. The library is a curated set of CC0 textures from Poly Haven and ambientCG, prepared and hosted by this deployment. The app reads its list, chooses a texture for each material in the browser by the material's name and the colour the model gives it, and only then downloads the chosen textures with their relief and roughness maps. The server sees which textures were asked for, as for any file it serves, but not the model."
       },
       {
+        "what": "A request for the IFC property names in the interface's language: it names the language (pt-PT), and nothing else",
+        "when": "Once per visit, when the properties panel is shown in Portuguese",
+        "where": "This app's own server (/api/bsdd/property-names), which asks the buildingSMART Data Dictionary (bSDD) for them at most once a day",
+        "why": "To label each standard IFC property (FireRating) with its Portuguese name from bSDD (Classe de Resistência ao Fogo). bSDD sends no CORS headers, so this app's server asks it, sending the IFC dictionary's address and the language; bSDD sees this deployment's address rather than yours. No model, element or property value is sent, and with bSDD unreachable the IFC names are shown as always."
+      },
+      {
         "what": "The SHA-256 hash of a signature's own value (never a file) and a random number",
         "when": "Only when you sign with “Add a time-stamp” ticked, and only if this deployment has a time-stamp authority configured",
         "where": "This app's own server, which forwards it to the configured time-stamp authority (/api/tsa)",
@@ -891,6 +897,7 @@
       "fromItsTypeHint": "Defined once on the type and shared by every occurrence.",
       "fromType": "from type",
       "fromTypeHint": "Set on its {type}. By buildingSMART's rule, a type's PredefinedType applies to every occurrence of it.",
+      "translationHint": "The name of this property in the buildingSMART Data Dictionary (bSDD). The property itself keeps its IFC name.",
       "predefinedUserDefined": "USERDEFINED, named in {attribute}",
       "predefinedUserDefinedMissing": "USERDEFINED, with no {attribute} to name it",
       "predefinedOverridden": "The element's own value, {value}, does not apply: the type's does.",

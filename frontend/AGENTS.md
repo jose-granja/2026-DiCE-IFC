@@ -22,7 +22,7 @@ Every byte of IFC, BCF and IDS data is parsed, validated, rendered, signed and
 zipped **in the browser**. The app is a Next.js front end, whose own server serves
 pages and the explicitly documented service proxies below, and one small backend,
 `backend/` (Django + Django Ninja, ADR 016), which only lists and serves the
-texture library. Neither ever receives a model, an issue or a specification.
+texture library and the IFC property names in Portuguese (ADR 017). Neither ever receives a model, an issue or a specification.
 
 **The boundary is the machine, not the tab.** Signing needs a smart card, and a
 browser cannot reach one, so a local companion runs alongside (`companion/`, ADR
@@ -76,11 +76,13 @@ else** — permission to send more is not a reason to.
 | WFS/WMS service URL, layer, style and map bounds | user-selected public provider via `/api/ogc` (opt-in) | context features, map images and legends; ADR 010 |
 | SHA-256 of a `SignatureValue` + a nonce (opt-in, when a `TSA_URL` is configured) | `app/api/tsa/route.ts`, this app's own server, then the time-stamp authority | RFC 3161 time-stamps send no CORS headers and the paid ones need credentials (ADR 012) |
 | The texture library's manifest, then the chosen textures' files by id (while realistic materials is on) | `/texture-library/` on this origin: `backend/` (Django Ninja) for the manifest, nginx for the files | realistic materials in the viewer (ADR 016); chosen in the browser from the model's material names and colours, none of which is sent |
+| The IFC property names in the interface's language: the request names the language (`pt-PT`), nothing else (Portuguese only) | `app/api/bsdd/property-names/route.ts`, this app's own server, then bSDD (the IFC dictionary's URI and the language, at most once a day per server) | labels in the properties panel (ADR 017); bSDD sends no CORS headers |
 | The Turnstile widget's own traffic, then its one-time token (opt-in, when `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set) | the browser to `challenges.cloudflare.com` on `/human-check` only; the token via `app/api/human-check/route.ts` to Cloudflare's `siteverify` | the human check in front of the site (ADR 013); before the app loads, so no user content exists yet |
 
 There is no account and no project database. The one backend, `backend/`, is
 the texture library (ADR 016): read-only for visitors, holding nothing a user
-made. Anything else that needs a server — an RFC 3161 timestamp, OCSP/CRL/TSL
+made. Its property-name table (`backend/dictionary/`) is kept but no longer
+read by the viewer (ADR 017). Anything else that needs a server — an RFC 3161 timestamp, OCSP/CRL/TSL
 fetches for full signature validation, none of which send CORS headers — is a
 Next.js route handler like `app/api/bsdd/route.ts`, allow-listed the same way,
 not a new service, and not an endpoint on the backend.
@@ -1488,7 +1490,7 @@ The IDS editor offers vocabulary from two sources: the **loaded model** and the
 
 - **bSDD sends no CORS headers.** Measured, both on a `GET` with an `Origin`
   header and on the preflight. It cannot be called from the tab — every request
-  goes through `app/api/bsdd/route.ts`, which allow-lists three endpoints and
+  goes through `app/api/bsdd/route.ts`, which allow-lists five endpoints and
   400s anything else. Because that proxy is same-origin, `connect-src 'self'`
   covers it and **the CSP does not change**.
 - **The model's vocabulary is listed first.** `merge()` in
@@ -1517,6 +1519,26 @@ The IDS editor offers vocabulary from two sources: the **loaded model** and the
   author every time they clear the field. `onPropertyName` writes only fields
   that are still empty, once, on the edit that names the property; when the
   lookup resolves later the editor offers a button instead of writing.
+- **A property's name in Portuguese is a label, never its name** (ADR 017,
+  `lib/bsdd/property-names.ts`, `use-property-names.ts`). The properties panel
+  shows bSDD's pt-PT name under the IFC one (`PropertyTable`'s `translation`,
+  `data-property-translation`), and its filter finds it; the IFC name is still
+  what everything matches on. Only in `Pset_*`/`Qto_*` sets, which IFC
+  reserves for buildingSMART's own. The table is keyed by property code, since
+  bSDD names a property once for the whole dictionary. It is read live from
+  bSDD by `app/api/bsdd/property-names/route.ts` (`lib/bsdd/dictionary-names.ts`):
+  the dictionary's listing in English and in pt-PT, three pages each, keeping
+  only names that differ from the English and the code. A listing that comes
+  back short is an error, not a partial table. Built at most once a day per
+  server; a failed rebuild serves the previous table and retries in ten
+  minutes, and with no previous table a failure is not cached. With bSDD unreachable there are no labels
+  and nothing else changes. Only in Portuguese: in English nothing is asked.
+  (`backend/dictionary/`, the admin-updated table, is kept but unused.)
+- **Allowed values: the class's, else the property's.** bSDD's IFC 4.3 class
+  listing no longer carries `allowedValues` (`IfcWall`'s 233 properties list
+  none); the dictionary-level property (`/api/Property/v4`, `.../prop/Status`)
+  still does. `useBsddPropertyValues` asks for it only when the class has none,
+  for the one property the facet names.
 - **Use the class-scoped property `uri`** (`.../class/IfcWall/prop/Pset_WallCommon/Status`),
   not `propertyUri` (`.../prop/Status`). The facet constrains a property in a
   set on a class, and the dictionary-level URI is true of every class that uses

@@ -1,8 +1,10 @@
 """
-Settings for DiCE-IFC's texture library (ADR 016).
+Settings for DiCE-IFC's backend: the texture library (ADR 016) and the IFC
+property names from bSDD (ADR 017).
 
 A small, read-mostly service: it lists the curated CC0 textures realistic
-materials draws and, in development, serves their files. It never receives
+materials draws and, in development, serves their files; and it keeps the IFC
+property names in the viewer's other languages. It never receives
 anything from a model — the browser chooses textures itself and only reads
 from here (frontend/AGENTS.md §1). Everything a deployment sets is an
 environment variable.
@@ -45,6 +47,16 @@ TEXTURE_SELECTION = Path(os.environ.get("TEXTURE_SELECTION", BASE_DIR / "texture
 # The admin and the review page, for curating; off unless asked for.
 TEXTURE_ADMIN = env_flag("TEXTURE_LIBRARY_ADMIN", default=DEBUG)
 
+# The IFC property names in other languages, from the buildingSMART Data
+# Dictionary (ADR 017): read again when an admin presses "Update from bSDD" or
+# runs `refresh_property_names`. The viewer ships a copy, used until then.
+BSDD_API = os.environ.get("BSDD_API", "https://api.bsdd.buildingsmart.org")
+BSDD_IFC_DICTIONARY = os.environ.get("BSDD_IFC_DICTIONARY", "https://identifier.buildingsmart.org/uri/buildingsmart/ifc/4.3")
+# The viewer's languages other than English, in bSDD's codes: Portuguese is Portugal's.
+PROPERTY_NAME_LANGUAGES = [c.strip() for c in os.environ.get("PROPERTY_NAME_LANGUAGES", "pt-PT").split(",") if c.strip()]
+# The admin's button answers at once and the update runs on a thread of its own.
+PROPERTY_NAME_REFRESH_IN_BACKGROUND = env_flag("PROPERTY_NAME_REFRESH_IN_BACKGROUND", default=True)
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -53,6 +65,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "textures",
+    "dictionary",
 ]
 
 MIDDLEWARE = [

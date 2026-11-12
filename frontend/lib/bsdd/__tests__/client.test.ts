@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getClassPredefinedTypes,
   getClassProperties,
+  getPropertyAllowedValues,
   idsDataType,
   isUnmappedNumeric,
 } from "../client";
@@ -118,5 +119,28 @@ describe("getClassPredefinedTypes", () => {
       "true",
     );
     expect(requestUrl.searchParams.has("IncludeClassProperties")).toBe(false);
+  });
+});
+
+describe("getPropertyAllowedValues", () => {
+  it("reads a property's values from its dictionary-level definition", async () => {
+    const fetchMock = vi.fn(async () => Response.json({
+      code: "Status",
+      allowedValues: [
+        { code: "NEW", value: "NEW" },
+        { code: "EXISTING", value: "EXISTING" },
+        { code: "", value: "" },
+      ],
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const uri = "https://identifier.buildingsmart.org/uri/buildingsmart/ifc/4.3/prop/Status";
+    const values = await getPropertyAllowedValues(uri);
+
+    expect(values.map((value) => value.code)).toEqual(["NEW", "EXISTING"]);
+    const requested = new URL(String((fetchMock.mock.calls[0] as unknown[])[0]), "http://localhost");
+    expect(requested.pathname).toBe("/api/bsdd");
+    expect(requested.searchParams.get("path")).toBe("/api/Property/v4");
+    expect(requested.searchParams.get("uri")).toBe(uri);
   });
 });

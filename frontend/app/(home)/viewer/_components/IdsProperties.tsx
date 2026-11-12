@@ -10,11 +10,13 @@ import type { EntityRef } from "@/lib/viewer/store";
 import { PropertyTable } from "./PropertyTable";
 import { formatPropertyValue } from "@/lib/viewer/property-format";
 import { useDisplaySettingsStore } from "@/lib/viewer/display-settings";
+import { usePropertyTranslation } from "@/lib/bsdd/use-property-names";
 
 /** Mounted only when its tab is open. No validation run is needed. */
 export function IdsProperties({ entity, filter }: { entity: EntityRef; filter: string }) {
   const t = useTranslations("viewer.propertyPanel");
   const decimalPlaces = useDisplaySettingsStore((s) => s.propertyDecimalPlaces);
+  const translate = usePropertyTranslation();
   const xml = useValidateStore((s) => s.idsXml);
   const title = useValidateStore((s) => s.idsTitle);
   const { data, isPending, isError, refetch } = useQuery({
@@ -43,9 +45,10 @@ export function IdsProperties({ entity, filter }: { entity: EntityRef; filter: s
   const term = filter.trim().toLowerCase();
   const rows = (data ?? []).map((row) => ({
     ...row,
+    translation: translate(row.propertySet, row.name),
     value: row.state === "missing" ? t("ids.missing") : row.state === "empty" ? t("emptyValue")
       : row.values.map((value) => formatPropertyValue(value, t("yes"), t("no"), row.unit, decimalPlaces)).join("; "),
-  })).filter((row) => !term || [row.name, row.propertySet ?? t("attributes"), row.value, ...row.specifications]
+  })).filter((row) => !term || [row.name, row.translation?.text ?? "", row.propertySet ?? t("attributes"), row.value, ...row.specifications]
     .some((value) => value.toLowerCase().includes(term)));
 
   return (

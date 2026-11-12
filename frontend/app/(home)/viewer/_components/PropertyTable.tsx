@@ -12,6 +12,11 @@ export type PropertyTableRow = {
   details?: string[];
   /** A short label beside the name, e.g. "from type", with what it means on hover. */
   badge?: { label: string; hint?: string };
+  /**
+   * The property's name in the interface's language (bSDD, ADR 017), shown
+   * under `name` as a label. `name` stays what it is: the IFC name.
+   */
+  translation?: { text: string; language: string; hint?: string };
   mono?: boolean;
   unavailable?: boolean;
   idsProperty?: string;
@@ -60,6 +65,16 @@ export function PropertyTable({ rows = [], groups, empty }: { rows?: PropertyTab
                       data-row-badge
                     >
                       {row.badge.label}
+                    </span>
+                  )}
+                  {row.translation && (
+                    <span
+                      lang={row.translation.language}
+                      title={row.translation.hint}
+                      className="text-muted-foreground block text-[11px]"
+                      data-property-translation
+                    >
+                      {row.translation.text}
                     </span>
                   )}
                   {row.details?.filter(Boolean).map((detail, index) => (

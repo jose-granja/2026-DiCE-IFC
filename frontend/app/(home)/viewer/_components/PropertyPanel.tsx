@@ -59,6 +59,7 @@ import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import { ContextPropertyPanel } from "./ContextPropertyPanel";
 import { IdsProperties } from "./IdsProperties";
 import { PropertyTable, type PropertyTableGroup, type PropertyTableRow } from "./PropertyTable";
+import { usePropertyTranslation, type PropertyTranslation } from "@/lib/bsdd/use-property-names";
 import { formatPropertyValue } from "@/lib/viewer/property-format";
 import { useDisplaySettingsStore } from "@/lib/viewer/display-settings";
 import { GisAreaReport } from "./GisAreaReport";
@@ -84,6 +85,7 @@ export function PropertyPanel() {
 function IfcPropertyPanel() {
   const t = useTranslations("viewer.propertyPanel");
   const decimalPlaces = useDisplaySettingsStore((s) => s.propertyDecimalPlaces);
+  const translate = usePropertyTranslation();
   const selection = useViewerStore((s) => s.selection);
   const models = useViewerStore((s) => s.models);
   const ref = selection[selection.length - 1] ?? null;
@@ -129,7 +131,8 @@ function IfcPropertyPanel() {
         ...set,
         properties: set.properties.filter((property) =>
           matches(set.name, "") || matches(
-            property.name,
+            // The bSDD label too: "resistência" finds FireRating.
+            [property.name, translate(set.name, property.name)?.text].filter(Boolean).join(" "),
             formatProperty(property, t("yes"), t("no"), decimalPlaces),
           ),
         ),
@@ -419,6 +422,7 @@ function MaterialAccordionItem({
 }) {
   const t = useTranslations("viewer.propertyPanel");
   const decimalPlaces = useDisplaySettingsStore((s) => s.propertyDecimalPlaces);
+  const translate = usePropertyTranslation();
 
   const { data: info, isPending } = useQuery({
     queryKey: ["material-info", modelId, material.expressId],
@@ -449,7 +453,7 @@ function MaterialAccordionItem({
                 ...(info.category ? [{ id: "category", name: t("category"), value: info.category }] : []),
                 ...(info.description ? [{ id: "description", name: t("description"), value: info.description }] : []),
               ] },
-              ...propertySetGroups(info.propertySets, t("yes"), t("no"), decimalPlaces),
+              ...propertySetGroups(info.propertySets, t("yes"), t("no"), decimalPlaces, translate),
             ]} />
             {info.propertySets.length === 0 && <p className="text-muted-foreground mt-3 text-xs">{t("noMaterialProperties")}</p>}
           </>
@@ -463,17 +467,25 @@ function MaterialAccordionItem({
 function PropertySetList({ sets, empty, lead }: { sets: PropertySetView[]; empty: string; lead?: PropertyTableGroup }) {
   const t = useTranslations("viewer.propertyPanel");
   const decimalPlaces = useDisplaySettingsStore((s) => s.propertyDecimalPlaces);
-  const groups = propertySetGroups(sets, t("yes"), t("no"), decimalPlaces);
+  const translate = usePropertyTranslation();
+  const groups = propertySetGroups(sets, t("yes"), t("no"), decimalPlaces, translate);
   return <PropertyTable groups={lead ? [lead, ...groups] : groups} empty={empty} />;
 }
 
-function propertySetGroups(sets: PropertySetView[], yes: string, no: string, decimalPlaces: number): PropertyTableGroup[] {
+function propertySetGroups(
+  sets: PropertySetView[],
+  yes: string,
+  no: string,
+  decimalPlaces: number,
+  translate: (set: string, property: string) => PropertyTranslation | undefined,
+): PropertyTableGroup[] {
   return sets.map((set, setIndex) => ({
     id: `set:${setIndex}`,
     name: set.name,
     rows: set.properties.map((property, propertyIndex) => ({
       id: `property:${propertyIndex}`,
       name: property.name,
+      translation: translate(set.name, property.name),
       value: formatProperty(property, yes, no, decimalPlaces),
     })),
   }));

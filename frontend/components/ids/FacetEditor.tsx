@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ValueEditor from "./ValueEditor";
-import { merge, type BsddSuggestions } from "@/lib/bsdd/suggestions";
+import { merge, useBsddPropertyValues, type BsddSuggestions } from "@/lib/bsdd/suggestions";
 import { idsDataType, isUnmappedNumeric } from "@/lib/bsdd/client";
 import { useSpecificationLanguage } from "@/lib/ids/use-natural-language";
 
@@ -107,6 +107,12 @@ export function FacetEditor({
     return merge(fromModel, bsdd?.propertiesFor(setName) ?? []);
   })();
 
+  /** The bSDD property this facet names, when it names one bSDD knows. */
+  const detail =
+    facet.kind === "property" && facet.baseName.kind === "simple"
+      ? bsdd?.detailFor(setName, facet.baseName.value)
+      : undefined;
+
   /**
    * The values bSDD says this property accepts.
    *
@@ -114,16 +120,7 @@ export function FacetEditor({
    * like `Status` has a fixed vocabulary — NEW, EXISTING, DEMOLISH — and typing
    * one of them from memory is how a specification ends up matching nothing.
    */
-  const propertyValues =
-    facet.kind === "property" && facet.baseName.kind === "simple"
-      ? (bsdd?.valuesFor(setName, facet.baseName.value) ?? [])
-      : [];
-
-  /** The bSDD property this facet names, when it names one bSDD knows. */
-  const detail =
-    facet.kind === "property" && facet.baseName.kind === "simple"
-      ? bsdd?.detailFor(setName, facet.baseName.value)
-      : undefined;
+  const propertyValues = useBsddPropertyValues(detail);
 
   /**
    * What bSDD contributes to the two fields an author cannot guess.

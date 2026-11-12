@@ -35,6 +35,7 @@ const ALLOWED = new Set([
   "/api/Class/Search/v1",
   "/api/Class/v1",
   "/api/Class/Properties/v1",
+  "/api/Property/v4",
 ]);
 
 /** bSDD data changes on the order of months; an hour is conservative. */

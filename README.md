@@ -105,7 +105,7 @@ viewer panel.
 
 Only what the user switches on, and never model, issue or specification content:
 basemap tiles and 3D tiles from the configured provider, textures from this
-site's own texture library for realistic materials, WFS/WMS services the user adds, bSDD lookups (through the app's own `/api/bsdd` proxy), and signature
+site's own texture library for realistic materials, WFS/WMS services the user adds, bSDD lookups and the IFC property names in Portuguese (both through the app's own `/api/bsdd`), and signature
 time-stamps (through `/api/tsa`). A deployment can also put a **human check**
 (Cloudflare Turnstile) in front of the site to keep bots out: visitors pass it
 once and get a pass cookie for a day (ADR 013). The full list, with what each request
@@ -122,7 +122,7 @@ nginx/      Reverse proxy for production
 ```
 
 The front end's own server serves the pages and three small same-origin
-proxies: `app/api/bsdd` (dictionary lookups), `app/api/ogc` (WFS/WMS) and
+proxies: `app/api/bsdd` (dictionary lookups and property names), `app/api/ogc` (WFS/WMS) and
 `app/api/tsa` (time-stamps). The one backend, `backend/`, is the texture
 library; it never receives anything from a model.
 
@@ -226,6 +226,17 @@ spread over each kind's colours. With `TEXTURE_LIBRARY_ADMIN=1` (on in
 development), `/texture-library/review/` shows every texture by kind and
 `/texture-library/admin/` switches textures off. Without a built library, the
 viewer says the server has none and keeps the model's colours.
+
+### IFC property names in Portuguese
+
+The properties panel labels each standard property (`Pset_*`, `Qto_*`) with its
+name in the buildingSMART Data Dictionary, in Portuguese, under the IFC name
+(ADR 017). The front end's server reads the names live from bSDD at
+`/api/bsdd/property-names?language=pt-PT`, at most once a day; nothing needs
+setting up. With bSDD unreachable the panel shows the IFC names alone.
+
+The backend's `dictionary` app (an admin-updated copy of the table, with
+overrides) is still there but no longer read by the viewer.
 
 nginx must not set its own `Content-Security-Policy`: `proxy.ts` mints one per
 request with a nonce, and two CSP headers are enforced as their intersection —

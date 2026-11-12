@@ -3,10 +3,13 @@ from django.contrib import admin
 from django.urls import path, re_path
 from django.views.static import serve
 
+from dictionary.api import router as property_names
 from textures.api import api
 from textures.views import review
 
 P = settings.URL_PREFIX
+
+api.add_router("/property-names", property_names)
 
 urlpatterns = [path(f"{P}api/", api.urls)]
 

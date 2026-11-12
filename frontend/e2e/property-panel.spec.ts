@@ -382,3 +382,65 @@ test("each tab's content starts with its title, counting what it lists", async (
   await panel.getByLabel("Filter properties").fill("GlobalId");
   await expect(title).toHaveText("Attributes · 1");
 });
+
+// ADR 017: a standard property's name in the interface's language, from bSDD,
+// is a label under the IFC name — never in its place. bSDD itself is stood in
+// for here: this app's server reads it live, which `dictionary-names.test.ts`
+// covers.
+const PORTUGUESE_NAMES = {
+  version: 1,
+  language: "pt-PT",
+  dictionary: "https://identifier.buildingsmart.org/uri/buildingsmart/ifc/4.3",
+  updatedAt: "2026-11-12T09:00:00Z",
+  names: { FireRating: "Classe de Resistência ao Fogo", LoadBearing: "Capacidade de Carga" },
+};
+
+test("labels standard properties with their Portuguese name from bSDD, keeping the IFC name", async ({ page }) => {
+  const asked: URL[] = [];
+  await page.route("**/api/bsdd/property-names?*", (route) => {
+    asked.push(new URL(route.request().url()));
+    return route.fulfill({ contentType: "application/json", body: JSON.stringify(PORTUGUESE_NAMES) });
+  });
+  await selectWall(page, "pt");
+  await page.getByRole("tab", { name: "Propriedades", exact: true }).click();
+  const section = page.locator('[data-section="Propriedades"]');
+  const fire = section.locator("tr", { has: page.getByRole("rowheader", { name: /FireRating/ }) });
+
+  const label = fire.locator("[data-property-translation]");
+  await expect(label).toHaveText("Classe de Resistência ao Fogo");
+  await expect(label).toHaveAttribute("lang", "pt-PT");
+  await expect(fire.getByText("FireRating", { exact: true })).toBeVisible();
+  await expect(fire.getByRole("cell", { name: "REI 60" })).toBeVisible();
+  // The request names a language, and nothing else.
+  expect(asked.length).toBeGreaterThan(0);
+  expect(asked.every((url) => url.pathname === "/api/bsdd/property-names" && url.search === "?language=pt-PT")).toBe(true);
+
+  // The label is searchable: "resistência" finds FireRating, and only it.
+  await page.getByLabel("Filtrar propriedades").fill("resistência");
+  await expect(fire).toBeVisible();
+  await expect(section.getByText("LoadBearing", { exact: true })).toHaveCount(0);
+});
+
+test("in English the IFC names stand alone, and bSDD is not asked", async ({ page }) => {
+  const asked: string[] = [];
+  page.on("request", (request) => { if (request.url().includes("/property-names")) asked.push(request.url()); });
+  await selectWall(page);
+  await page.getByRole("tab", { name: "Properties", exact: true }).click();
+  await expect(page.getByText("REI 60")).toBeVisible();
+  await expect(page.locator("[data-property-translation]")).toHaveCount(0);
+  expect(asked).toEqual([]);
+});
+
+test("with bSDD unreachable the IFC names are shown as always", async ({ page }) => {
+  await page.route("**/api/bsdd/property-names?*", (route) => route.fulfill({
+    status: 502,
+    contentType: "application/json",
+    body: JSON.stringify({ error: "bSDD could not be reached." }),
+  }));
+  await selectWall(page, "pt");
+  await page.getByRole("tab", { name: "Propriedades", exact: true }).click();
+  const section = page.locator('[data-section="Propriedades"]');
+  await expect(section.getByText("FireRating", { exact: true })).toBeVisible();
+  await expect(section.getByText("REI 60")).toBeVisible();
+  await expect(page.locator("[data-property-translation]")).toHaveCount(0);
+});

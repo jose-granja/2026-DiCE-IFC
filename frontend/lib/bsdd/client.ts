@@ -136,6 +136,27 @@ export async function getClassProperties(
   return (data.classProperties ?? []).filter((property) => property.propertyCode);
 }
 
+/**
+ * The values a property accepts, from its dictionary-level definition
+ * (`.../prop/Status`).
+ *
+ * bSDD's class listing carried them once; it no longer does for IFC 4.3
+ * (`IfcWall`'s 233 properties list none), but the property itself still has
+ * them. Asked only when the class listing has none, for the one property a
+ * facet names.
+ */
+export async function getPropertyAllowedValues(
+  propertyUri: string,
+  signal?: AbortSignal,
+): Promise<BsddAllowedValue[]> {
+  const data = await get<{ allowedValues?: BsddAllowedValue[] }>(
+    "/api/Property/v4",
+    { uri: propertyUri },
+    signal,
+  );
+  return (data.allowedValues ?? []).filter((value) => value.code || value.value);
+}
+
 /** Standard IFC predefined types represented as child classes in bSDD. */
 export async function getClassPredefinedTypes(
   uri: string,
