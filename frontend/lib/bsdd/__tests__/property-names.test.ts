@@ -29,7 +29,7 @@ describe("loadPropertyNames", () => {
     const found = await loadPropertyNames("pt-PT");
     expect(found?.names.get("FireRating")).toBe("Classe de Resistência ao Fogo");
     expect(propertyNamesUrl("pt-PT")).toBe("/api/bsdd/property-names?language=pt-PT");
-    expect(fetchMock).toHaveBeenCalledWith(propertyNamesUrl("pt-PT"), expect.objectContaining({ credentials: "omit" }));
+    expect(fetchMock).toHaveBeenCalledWith(propertyNamesUrl("pt-PT"), expect.objectContaining({ credentials: "same-origin" }));
   });
 
   it.each([

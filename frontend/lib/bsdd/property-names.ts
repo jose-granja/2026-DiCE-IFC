@@ -41,8 +41,10 @@ export function propertyNameLanguage(locale: string): string | null {
 async function fromBsdd(language: string): Promise<PropertyNameTable | null> {
   try {
     // Building the table can take bSDD a few seconds when this server has not
-    // read it today.
-    const response = await fetch(propertyNamesUrl(language), { credentials: "omit", signal: AbortSignal.timeout(45_000) });
+    // read it today. The cookies go with it (the default, same origin): with
+    // the human check on (ADR 013) the proxy refuses an API call without its
+    // pass cookie, and `credentials: "omit"` made that a 403 in production.
+    const response = await fetch(propertyNamesUrl(language), { credentials: "same-origin", signal: AbortSignal.timeout(45_000) });
     if (!response.ok) return null;
     const parsed = tableSchema.safeParse(await response.json());
     if (!parsed.success || parsed.data.language !== language) return null;
