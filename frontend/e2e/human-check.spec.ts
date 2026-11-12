@@ -92,6 +92,36 @@ test("a valid pass opens the site, and nothing from Cloudflare loads there", asy
   expect((await request.get(`${BASE}/viewer`, { headers: { Cookie: `${PASS_COOKIE}=${expired}` }, maxRedirects: 0 })).status()).toBe(307);
 });
 
+test("the viewer's own API calls carry the pass: bSDD's Portuguese names are asked for and not refused", async ({ page }) => {
+  // Not mocked: a mocked route answers before the proxy, which is how a fetch
+  // sent without cookies (and so refused with a 403 in production) passed
+  // every other test.
+  test.setTimeout(150_000);
+  const pass = await issuePass(SECRET, 600);
+  await page.context().addCookies([
+    { name: PASS_COOKIE, value: pass, url: BASE },
+    { name: "dice-locale", value: "pt", url: BASE },
+  ]);
+  await page.goto(`${BASE}/viewer`);
+  await page.setInputFiles('input[type="file"]', [path.resolve(__dirname, "../fixtures/ifc/facets-ifc4.ifc")]);
+  await expect(page.locator('[data-geometry-ready="true"]')).toBeAttached({ timeout: 90_000 });
+
+  const answered = page.waitForResponse((response) => response.url().includes("/api/bsdd/property-names?"), { timeout: 45_000 });
+  await page.getByRole("tab", { name: "Estrutura" }).click();
+  const storey = page.getByRole("treeitem", { name: /Level 0/ }).first();
+  await storey.getByRole("button", { name: "Expandir" }).first().click();
+  await page.getByRole("treeitem", { name: "Wall A" }).first().click();
+  await page.getByRole("tab", { name: "Propriedades", exact: true }).click();
+
+  const response = await answered;
+  expect(await response.request().headerValue("cookie")).toContain(`${PASS_COOKIE}=`);
+  // 200 with bSDD reachable, 502 without it; never the gate's 403.
+  expect([200, 502]).toContain(response.status());
+  if (response.status() === 200) {
+    await expect(page.locator("[data-property-translation]").first()).toBeVisible();
+  }
+});
+
 test("a visitor passes the real widget and lands on the page they asked for", async ({ page }) => {
   test.setTimeout(60_000);
   const reachable = await fetch("https://challenges.cloudflare.com/turnstile/v0/api.js", {

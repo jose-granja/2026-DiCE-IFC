@@ -958,6 +958,15 @@
           "left": "LEFT",
           "back": "BACK",
           "bottom": "BTM"
+        },
+        "zone": "View from {faces}",
+        "faces": {
+          "front": "Front",
+          "back": "Back",
+          "top": "Top",
+          "bottom": "Bottom",
+          "left": "Left",
+          "right": "Right"
         }
       },
       "webgpu": {

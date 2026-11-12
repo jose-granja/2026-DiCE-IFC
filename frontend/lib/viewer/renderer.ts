@@ -62,6 +62,7 @@ import { buildPointIndex, pickPointOnRay, type PointIndex } from "./point-pick";
 import { DEFAULT_POINT_SIZE } from "./pointcloud-store";
 import { ifcToRender } from "./federation";
 import { imageKey } from "./container";
+import { anchorAtTargetDepth, scaleAbout, wheelZoomFactor } from "./cursor-zoom";
 import { globeShadowCaster, type Footprint } from "./globe-shadow-caster";
 import {
   DEFAULT_LIGHT_PRESET,
@@ -1363,6 +1364,10 @@ export class ViewerRenderer {
     // Correct the orbit before other camera listeners read its final pose.
     this.orbitPivot = new OrbitPivot(this.controls);
     this.controls.addEventListener("change", this.notifyCameraRotation);
+    // Ahead of OrbitControls' own wheel zoom, which dollies towards the middle
+    // of the screen (`zoomAtCursor`). On the window in the capture phase, so it
+    // runs first whatever order the browser calls a target's listeners in.
+    window.addEventListener("wheel", this.onWheel, { capture: true, passive: false });
 
     // The lights. Their colours, strengths and the sun's direction come from
     // the light conditions (`lighting.ts`), applied by `applyLighting`.
@@ -3122,10 +3127,103 @@ export class ViewerRenderer {
     this.orbitPivot.update();
   }
 
+  private onWheel = (event: WheelEvent) => {
+    if (event.target !== this.canvas || !this.controls.enabled || !this.controls.enableZoom) return;
+    const factor = wheelZoomFactor(event, this.controls.zoomSpeed);
+    if (factor === 1) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const rect = this.canvas.getBoundingClientRect();
+    this.zoomAtCursor(event.clientX - rect.left, event.clientY - rect.top, factor);
+  };
+
+  /** The last wheel's anchor: picked once per gesture, not once per event. */
+  private wheelAnchor: { x: number; y: number; at: number; point: THREE.Vector3 } | null = null;
+
+  /**
+   * Zoom by `factor` (the camera's distance is multiplied by it) about the
+   * point under (`offsetX`, `offsetY`), which stays where it is on screen
+   * (`cursor-zoom.ts`). In perspective that point is the surface under the
+   * cursor — model, context or scan — or, over empty space, the point on the
+   * cursor's ray as deep as the orbit target; the camera slows as it nears it
+   * and never passes through it. In orthographic, the scale changes and the
+   * view slides so the cursor's point stays put.
+   */
+  zoomAtCursor(offsetX: number, offsetY: number, factor: number) {
+    if (!(factor > 0) || factor === 1) return;
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const ndc = new THREE.Vector2((offsetX / rect.width) * 2 - 1, -(offsetY / rect.height) * 2 + 1);
+    const camera = this.camera;
+    const target = this.controls.target;
+
+    if (camera instanceof THREE.OrthographicCamera) {
+      const before = new THREE.Vector3(ndc.x, ndc.y, 0).unproject(camera);
+      camera.zoom = Math.min(Math.max(camera.zoom / factor, this.controls.minZoom), this.controls.maxZoom);
+      camera.updateProjectionMatrix();
+      camera.updateMatrixWorld();
+      const shift = before.sub(new THREE.Vector3(ndc.x, ndc.y, 0).unproject(camera));
+      camera.position.add(shift);
+      target.add(shift);
+    } else {
+      const anchor = this.zoomAnchor(offsetX, offsetY, ndc);
+      if (!anchor) return;
+      const distance = camera.position.distanceTo(anchor);
+      // At the surface already: closer would put it inside the near plane.
+      if (factor < 1 && distance * factor < camera.near * 2) return;
+      const scaled = (point: THREE.Vector3) =>
+        point.set(...scaleAbout(point.toArray() as Vec3, anchor.toArray() as Vec3, factor));
+      scaled(camera.position);
+      scaled(target);
+    }
+    camera.updateMatrixWorld();
+    this.controls.dispatchEvent({ type: "start" });
+    // Emits `change`, so the cube, the basemap and the globe follow.
+    this.orbitPivot.update();
+    this.controls.dispatchEvent({ type: "end" });
+  }
+
+  private zoomAnchor(offsetX: number, offsetY: number, ndc: THREE.Vector2): THREE.Vector3 | null {
+    const now = performance.now();
+    const last = this.wheelAnchor;
+    // Scaling about the anchor keeps it under the cursor, so while the cursor
+    // stays put the next wheel event zooms about the same point unpicked.
+    if (last && Math.abs(last.x - offsetX) <= 2 && Math.abs(last.y - offsetY) <= 2 && now - last.at < 400) {
+      last.at = now;
+      return last.point;
+    }
+    const hit = this.pickPoint(offsetX, offsetY, { corner: false, edgeMidpoint: false, edge: false });
+    let point: THREE.Vector3 | null = hit ? new THREE.Vector3(...hit.point) : null;
+    if (!point) {
+      const ray = new THREE.Vector3(ndc.x, ndc.y, 0.5).unproject(this.camera).sub(this.camera.position).normalize();
+      const forward = this.camera.getWorldDirection(new THREE.Vector3());
+      const fallback = anchorAtTargetDepth(
+        this.camera.position.toArray() as Vec3,
+        ray.toArray() as Vec3,
+        forward.toArray() as Vec3,
+        this.controls.target.toArray() as Vec3,
+      );
+      point = fallback ? new THREE.Vector3(...fallback) : this.controls.target.clone();
+    }
+    this.wheelAnchor = { x: offsetX, y: offsetY, at: now, point };
+    return point;
+  }
+
   /** Move to a named building view without changing zoom or orbit target. */
   setStandardView(view: StandardView) {
+    this.setViewDirection(standardViewDirection(view));
+  }
+
+  /**
+   * Look from `from` (where the camera stands relative to its target, need not
+   * be unit length) without changing zoom or orbit target: the view cube's
+   * edges and corners, as well as its faces.
+   */
+  setViewDirection(from: Vec3) {
+    const direction = new THREE.Vector3(...from);
+    if (direction.lengthSq() === 0) return;
+    direction.normalize();
     this.orbitPivot.set(null);
-    const direction = new THREE.Vector3(...standardViewDirection(view)).normalize();
     const distance = Math.max(
       this.camera.position.distanceTo(this.controls.target),
       0.001,
@@ -4844,6 +4942,7 @@ export class ViewerRenderer {
     this.setGlobe(null, null);
     this.setContextGeometry(null);
     this.controls.removeEventListener("change", this.notifyCameraRotation);
+    window.removeEventListener("wheel", this.onWheel, { capture: true });
     this.cameraRotationListeners.clear();
     this.projectionListeners.clear();
     this.orbitPivot.dispose();

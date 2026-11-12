@@ -251,6 +251,26 @@ panels in dark, a soft `#e0e6f0` page with translucent white panels in light,
   what its tab says. A new panel uses it, empty state included; it does not
   draw its own title row. An icon-only action still needs an `aria-label`: a
   tooltip does not name a button.
+- **The view cube is ifclite.com's** (`ViewCube.tsx`, `lib/viewer/view-cube-zones.ts`):
+  each face a 3 × 3 grid, middle = the face, sides and corners = the cube's
+  edges and corners, 26 views; an edge or corner calls
+  `renderer.setViewDirection`. Hovering lights a zone on every face that shows
+  it. Our own code, not a copy of theirs (their files are MPL-2.0). The
+  rotation is written to the DOM at once, never deferred to an animation
+  frame: a deferred frame cancelled by React's development double effect run
+  and still remembered as scheduled froze the cube (`view-cube.test.tsx`).
+- **The wheel zooms towards the cursor** (`renderer.zoomAtCursor`,
+  `lib/viewer/cursor-zoom.ts`), ahead of OrbitControls' own wheel zoom, which
+  dollies to the middle of the screen. The view is scaled about the surface
+  under the cursor (or, over empty space, the point on its ray as deep as the
+  orbit target), so that point stays put and the camera slows as it nears it,
+  stopping at twice the near plane rather than passing through. Not three's
+  `zoomToCursor`: it steps by the distance to the target, so it goes through a
+  near wall, and its middle-button dolly reads the cursor's x as its y. Pinch
+  and middle-button dolly still go to the middle. A wheel event's coordinates
+  are whole pixels and a pointer event's are not: `e2e/cursor-zoom.spec.ts`
+  puts the cursor on a whole pixel, or its probe and the zoom pick different
+  points.
 - **`.panel-tabs` collapses labels to icons** by container query when a panel is
   narrow. The label is *visually* hidden, never `display: none` — that would
   drop the word from the accessibility tree and leave the tab named only by an

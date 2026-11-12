@@ -958,6 +958,15 @@
           "left": "ESQ",
           "back": "TRÁS",
           "bottom": "INF"
+        },
+        "zone": "Vista de {faces}",
+        "faces": {
+          "front": "Frente",
+          "back": "Trás",
+          "top": "Cima",
+          "bottom": "Baixo",
+          "left": "Esquerda",
+          "right": "Direita"
         }
       },
       "webgpu": {

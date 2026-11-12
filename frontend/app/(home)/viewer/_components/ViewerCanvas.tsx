@@ -845,6 +845,7 @@ export function ViewerCanvas() {
           rendererRef.current?.setProjection(nextProjection)
         }
         onViewChange={(view) => rendererRef.current?.setStandardView(view)}
+        onDirectionChange={(direction) => rendererRef.current?.setViewDirection(direction)}
         onDrag={(deltaX, deltaY) => rendererRef.current?.orbit(deltaX, deltaY)}
       />
 
