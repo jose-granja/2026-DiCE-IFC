@@ -190,14 +190,14 @@ export default function ViewerPage() {
         actions={
           <>
             <AddModelsButton />
-            <DisplaySettings />
-            <TypeVisibilitySettings />
             <VisibilityActions />
             <WorkspaceActions />
             {/* After "Add models", not before: its hidden folder and .zip
                 inputs must not become the page's first file input, which is
                 the model picker and what the e2e suite targets. */}
             <ProjectActions />
+                <TypeVisibilitySettings />
+                <DisplaySettings />
           </>
         }
       />

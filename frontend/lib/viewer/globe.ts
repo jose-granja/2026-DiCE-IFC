@@ -112,8 +112,9 @@ export type Globe = {
   setSectionPlanes: (planes: GlobeSectionPlane[]) => void;
   /**
    * Cast the globe's own shadows from the viewer's sun: 3D Tiles on each other
-   * and on the terrain. Cesium draws them; the viewer's model and context are
-   * on another canvas and are shaded there.
+   * and on the terrain. Cesium draws them. On the viewer's model and context,
+   * on another canvas, the globe's sampled surface casts instead
+   * (`ViewerRenderer#refreshGlobeCasters`).
    */
   setSun: (sun: GlobeSun) => void;
   /** Swap what is drawn. Rejects with a message fit to show the user. */

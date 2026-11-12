@@ -102,7 +102,14 @@ export const ViewCube = forwardRef<ViewCubeRef, ViewCubeProps>(
 
     useEffect(
       () => () => {
+        // Forget the frame as well as cancelling it. The refs outlive this
+        // cleanup whenever the effect runs again on the same instance (React's
+        // development double run, a page kept alive while away): a cancelled
+        // frame left in `frameRef` reads as "already scheduled", and every
+        // later update returns early, freezing the cube.
         if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+        pendingRef.current = null;
       },
       [],
     );

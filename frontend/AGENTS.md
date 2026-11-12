@@ -1,7 +1,11 @@
 <!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
 <!-- END:nextjs-agent-rules -->
 
 # DiCE-IFC — frontend agent rules
@@ -1380,22 +1384,44 @@ Display → Lighting. The rigs are in `lib/viewer/lighting.ts`; the renderer's
     models' height above the occluder's ground, at most 1 km) paints only
     shadow on this canvas over Cesium's. It is drawn in the opaque pass before
     the coarser occluder, with transparent blending, so the occluder cannot
-    hide it, and it only receives: cast from photogrammetry, it would shade
-    the model with whatever stands on the site today. 96 × 96 cells on
-    terrain; 48 × 48 on 3D Tiles, where every sample is a ray-pick (96² froze
-    a page), and sampled after the globe is ready, not waited for.
-  - **Their own shadows**: Cesium's shadow map, aimed along the viewer's sun
+    hide it. 96 × 96 cells on terrain; 48 × 48 on 3D Tiles, where every
+    sample is a ray-pick (96² froze a page), and sampled after the globe is
+    ready, not waited for.
+  - **Their shadows on the model and the context**: a copy of the depth
+    occluder (the visible ground, coarse, for hills) and of the catcher (round
+    the models, finer, for the 3D Tiles' buildings) casts into the sun's
+    shadow map (`refreshGlobeCasters`, `globe-shadow-caster.ts`). Lowered by
+    15% of a cell (at least 1.5 m), or the stand-in shades the ground it lies
+    under; with each model's footprint (+2 m) cut out, or today's building in
+    the photogrammetry shades the one replacing it; and the coarse copy not
+    where the fine one casts (its triangles span valleys as chords). Drawn
+    only into the sun's map: its draw range is empty except in
+    `onBeforeShadow` for the sun's camera. **Not a layer:** three picks shadow
+    casters by the *view* camera's layers, so a caster on its own layer never
+    casts.
+  - **The catcher must not paint the globe's own shadows** (Cesium does, and
+    twice is darker and stops at the catcher's edge). So it reads the
+    `catcherSun`'s map alone: the sun again, of no strength, from the same
+    place through the same box, whose map the globe's copies are not drawn
+    into; it casts only while they do. `shadowFromOneLight` patches a
+    `ShadowMaterial` to read one directional shadow: the catcher the last
+    (the catcher's sun), a map image's overlay the first (the sun, globe
+    included). Three orders shadow-casting lights as they are in the scene,
+    so the sun is added before the catcher's sun; a new shadow-casting light
+    breaks that.
+  - **Cesium's own shadows**: its shadow map, aimed along the viewer's sun
     (`Globe#setSun`: a `DirectionalLight` set from the render-space sun on
     every `sync`; Cesium's real-time sun comes back when shadows go off).
     3D Tiles cast on the terrain and each other. The terrain only receives:
     casting, it shades itself in stripes under a low sun (acne), and Cesium
-    has no public bias for it. 3D Tiles do not shade the model (another
-    canvas, and photogrammetry again).
+    has no public bias for it.
   - `e2e/gis-shadows.spec.ts`: a shadow lands on context ground 10 m below
     the model, and a context building 60 m away casts its own (each fails at
     the old camera). `globe-occlusion.spec.ts` (needs the Cesium ion token):
-    the model's shadow lands on terrain, and bare terrain stays clean. 3D Tiles
-    casting is untested: their occluder's ray-picks take minutes headless.
+    the model's shadow lands on terrain, and bare terrain stays clean. The
+    globe's surface shading the model was checked by hand with a synthetic
+    ridge (no test hook reaches the renderer); 3D Tiles casting is untested
+    end to end: their occluder's ray-picks take minutes headless.
 
 ## 8d. Notices, attribution and disclaimers
 

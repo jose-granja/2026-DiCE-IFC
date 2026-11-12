@@ -62,6 +62,7 @@ import { buildPointIndex, pickPointOnRay, type PointIndex } from "./point-pick";
 import { DEFAULT_POINT_SIZE } from "./pointcloud-store";
 import { ifcToRender } from "./federation";
 import { imageKey } from "./container";
+import { globeShadowCaster, type Footprint } from "./globe-shadow-caster";
 import {
   DEFAULT_LIGHT_PRESET,
   DEFAULT_SUN_AZIMUTH,
@@ -1067,6 +1068,32 @@ const CONTEXT_SHADOW_RADIUS = 250;
 const SHADOW_BIAS_PER_RADIUS = 0.0015;
 /** How dark a shadow lands on what is drawn unlit (the globe, map images): black at this opacity, times the rig's strength. */
 const SHADOW_CATCHER_OPACITY = 0.55;
+/**
+ * Make a `ShadowMaterial` read one light's shadow map rather than all of them
+ * multiplied. There are two: the sun's (index 0), which the globe's surface
+ * casts into, and, while the globe casts, the catcher's sun's (the last),
+ * which it does not (`catcherSun`). Three orders the shadow-casting
+ * directional lights as they are in the scene, and the sun is added first.
+ */
+function shadowFromOneLight(material: THREE.ShadowMaterial, light: "sun" | "catcherSun") {
+  const index = light === "sun" ? "0" : "( NUM_DIR_LIGHT_SHADOWS - 1 )";
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "#include <shadowmask_pars_fragment>",
+      /* glsl */ `
+float getShadowMask() {
+  float shadow = 1.0;
+  #if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS > 0
+  DirectionalLightShadow directionalLight = directionalLightShadows[ ${index} ];
+  shadow = receiveShadow ? getShadow( directionalShadowMap[ ${index} ], directionalLight.shadowMapSize, directionalLight.shadowIntensity, directionalLight.shadowBias, directionalLight.shadowRadius, vDirectionalShadowCoord[ ${index} ] ) : 1.0;
+  #endif
+  return shadow;
+}
+`,
+    );
+  };
+  material.customProgramCacheKey = () => `shadow-from-${light}`;
+}
 
 /**
  * A surface that paints only the shadow falling on it: transparent where lit,
@@ -1085,6 +1112,10 @@ function createShadowCatcherMaterial(clippingPlanes: THREE.Plane[], standIn: boo
     side: THREE.DoubleSide,
     clippingPlanes,
   });
+  // Over the globe, only the shadows Cesium cannot draw: the models' and the
+  // context's. The globe's own on itself are Cesium's, and painted here too
+  // they would be twice as dark (and cut off at the catcher's edge).
+  shadowFromOneLight(material, standIn ? "catcherSun" : "sun");
   if (standIn) {
     material.transparent = false;
     material.blending = THREE.CustomBlending;
@@ -1263,6 +1294,13 @@ export class ViewerRenderer {
   private hemisphereLight = new THREE.HemisphereLight();
   private ambientLight = new THREE.AmbientLight();
   private sun = new THREE.DirectionalLight();
+  /**
+   * The sun again, of no strength, for the globe's shadow catcher alone: its
+   * shadow map is the sun's without the globe's casters, so the catcher paints
+   * the models' and the context's shadows on Cesium's terrain and 3D Tiles but
+   * not the globe's own, which Cesium draws. Casts only while they do.
+   */
+  private catcherSun = new THREE.DirectionalLight(0xffffff, 0);
   private counterSun = new THREE.DirectionalLight();
   private fillLight = new THREE.DirectionalLight();
   private counterFillLight = new THREE.DirectionalLight();
@@ -1277,6 +1315,9 @@ export class ViewerRenderer {
   /** Toward the sun, unit length. */
   private sunDir = new THREE.Vector3();
   private shadowBox = new THREE.Box3();
+  /** The globe's surface casting into the sun's shadow map; see `refreshGlobeCasters`. */
+  private globeCasters: THREE.Mesh[] = [];
+  private globeCasterKey = "";
   /** What the shadow map was last drawn from, and this frame's; see `updateShadows`. */
   private shadowState: number[] = [];
   private shadowStateNow: number[] = [];
@@ -1342,6 +1383,12 @@ export class ViewerRenderer {
     // along one would push the surface into its own shadow.
     this.sun.shadow.bias = -0.0005;
     this.sun.shadow.normalBias = 0;
+    // After the sun, so its shadow map is the last (`shadowFromOneLight`).
+    this.catcherSun.target = this.sun.target;
+    this.catcherSun.shadow.mapSize.set(shadowSize, shadowSize);
+    this.catcherSun.shadow.normalBias = 0;
+    this.catcherSun.visible = false;
+    this.scene.add(this.catcherSun);
     this.applyLighting();
 
     this.measurementGroup.renderOrder = 999;
@@ -1781,6 +1828,7 @@ export class ViewerRenderer {
     this.sun.shadow.intensity = rig.shadowStrength;
     // Drawn afresh when they are next switched on.
     if (!this.sun.castShadow) this.shadowState.length = 0;
+    this.applyCatcherSun();
     this.applyGlobeSun();
   }
 
@@ -1792,6 +1840,99 @@ export class ViewerRenderer {
           darkness: 1 - SHADOW_CATCHER_OPACITY * this.sun.shadow.intensity,
         }
       : null);
+  }
+
+  /** The catcher's sun casts while the sun does and the globe's surface casts too; see `catcherSun`. */
+  private applyCatcherSun() {
+    const on = this.sun.castShadow && this.globeCasters.length > 0;
+    this.catcherSun.castShadow = on;
+    this.catcherSun.visible = on;
+    this.catcherSun.shadow.intensity = this.sun.shadow.intensity;
+  }
+
+  /** Each visible model's extent on the ground, where the globe's surface does not cast. */
+  private modelFootprints(): Footprint[] {
+    const footprints: Footprint[] = [];
+    const box = new THREE.Box3();
+    for (const model of this.models.values()) {
+      if (!model.group.visible) continue;
+      box.makeEmpty();
+      for (const batch of model.batches) box.expandByObject(batch.mesh);
+      if (!box.isEmpty()) footprints.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z });
+    }
+    return footprints;
+  }
+
+  /**
+   * The globe's surface as a shadow caster: a copy of the depth occluder (the
+   * visible ground, coarse, for hills) and of the shadow catcher (round the
+   * models, finer, for the 3D Tiles' buildings), lowered and with the models'
+   * footprints cut out (`globeShadowCaster`). Drawn only into the sun's shadow
+   * map: its draw range is empty except while that map is drawn (three picks
+   * shadow casters by the view camera's layers, so a layer cannot do it), so
+   * it is not seen, and not in the catcher's sun's map. So terrain
+   * and 3D Tiles shade the model and the context, which Cesium, on its own
+   * canvas, cannot. Rebuilt when the surface or the models' footprints change.
+   */
+  private refreshGlobeCasters() {
+    const sources = [this.depthProxy, this.globeShadowCatcher].filter((mesh): mesh is THREE.Mesh => mesh !== null);
+    const footprints = this.modelFootprints();
+    const key = JSON.stringify([
+      sources.map((mesh) => this.shadowIds.get(mesh.geometry) ?? 0),
+      footprints.map((footprint) => [footprint.minX, footprint.maxX, footprint.minZ, footprint.maxZ].map((value) => Math.round(value * 10))),
+    ]);
+    if (key === this.globeCasterKey) return;
+    this.globeCasterKey = key;
+
+    for (const caster of this.globeCasters) {
+      this.scene.remove(caster);
+      caster.geometry.dispose();
+      (caster.material as THREE.Material).dispose();
+    }
+    this.globeCasters = [];
+    // Where the catcher's finer grid casts, the occluder's coarse one does not.
+    const catcherBox = this.globeShadowCatcher ? new THREE.Box3().setFromObject(this.globeShadowCatcher) : null;
+    const covered = catcherBox && !catcherBox.isEmpty()
+      ? { minX: catcherBox.min.x, maxX: catcherBox.max.x, minZ: catcherBox.min.z, maxZ: catcherBox.max.z }
+      : undefined;
+    for (const source of sources) {
+      const positions = source.geometry.getAttribute("position");
+      const index = source.geometry.index;
+      if (!(positions?.array instanceof Float32Array) || !index) continue;
+      const caster = globeShadowCaster(
+        { positions: positions.array, indices: Uint32Array.from(index.array as ArrayLike<number>) },
+        footprints,
+        source === this.depthProxy ? covered : undefined,
+      );
+      if (!caster) continue;
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(caster.positions, 3));
+      geometry.setIndex(new THREE.BufferAttribute(caster.indices, 1));
+      const mesh = new THREE.Mesh(
+        geometry,
+        new THREE.MeshBasicMaterial({
+          colorWrite: false,
+          // A surface, not a solid, and wound however Cesium's samples fell.
+          side: THREE.DoubleSide,
+          // Sections cut the globe too (`Globe#setSectionPlanes`).
+          clippingPlanes: this.clipPlanes,
+          clipShadows: true,
+        }),
+      );
+      geometry.setDrawRange(0, 0);
+      const sunCamera = this.sun.shadow.camera;
+      mesh.onBeforeShadow = (_renderer, _object, _camera, shadowCamera, drawn) => {
+        drawn.drawRange.count = shadowCamera === sunCamera ? Infinity : 0;
+      };
+      mesh.onAfterShadow = (_renderer, _object, _camera, _shadowCamera, drawn) => {
+        drawn.drawRange.count = 0;
+      };
+      mesh.castShadow = true;
+      mesh.receiveShadow = false;
+      this.globeCasters.push(mesh);
+      this.scene.add(mesh);
+    }
+    this.applyCatcherSun();
   }
 
   /**
@@ -1831,8 +1972,12 @@ export class ViewerRenderer {
       geometryState(this.contextMesh);
     }
     if (this.globeShadowCatcher) geometryState(this.globeShadowCatcher);
+    if (this.depthProxy) geometryState(this.depthProxy);
     const previous = this.shadowState;
     if (previous.length === state.length && previous.every((value, at) => value === state[at])) return;
+    // Ids for the surfaces, so the casters' key can tell a new one from the last.
+    for (const source of [this.depthProxy, this.globeShadowCatcher]) if (source) id(source.geometry);
+    this.refreshGlobeCasters();
     this.renderer.shadowMap.needsUpdate = true;
     this.shadowState = state;
     this.shadowStateNow = previous;
@@ -1866,7 +2011,10 @@ export class ViewerRenderer {
     let width = radius;
     const corner = new THREE.Vector3();
     const reach = new THREE.Box3();
-    for (const receiver of [this.contextMesh, this.globeShadowCatcher]) {
+    // The context and the globe's surface (the catcher round the models, the
+    // occluder over the visible ground) receive and, now, cast: a hill or a
+    // 3D Tiles block toward the sun shades the model.
+    for (const receiver of [this.contextMesh, this.globeShadowCatcher, this.depthProxy]) {
       if (!receiver?.visible) continue;
       reach.setFromObject(receiver);
       if (reach.isEmpty()) continue;
@@ -1879,8 +2027,9 @@ export class ViewerRenderer {
         const along = corner.dot(this.sunDir);
         towardSun = Math.max(towardSun, Math.min(along, SHADOW_REACH));
         awayFromSun = Math.max(awayFromSun, Math.min(-along, SHADOW_REACH));
-        // The context's own 3D data casts too, so the camera widens to it
-        // (within `CONTEXT_SHADOW_RADIUS`); the globe's copy only receives.
+        // The context's own 3D data casts round it too, so the camera widens
+        // to it (within `CONTEXT_SHADOW_RADIUS`). The globe's surface casts
+        // only within the models' column, which is as wide as they are.
         if (receiver === this.contextMesh) width = Math.max(width, Math.min(corner.length(), CONTEXT_SHADOW_RADIUS));
       }
     }
@@ -1908,6 +2057,19 @@ export class ViewerRenderer {
     const slope = Math.max(this.sunDir.y, 0.035) / Math.sqrt(Math.max(1 - this.sunDir.y ** 2, 1e-6));
     const bias = Math.max(SHADOW_BIAS_PER_RADIUS * radius, (1.5 * texel) / slope);
     this.sun.shadow.bias = -bias / (far - near);
+
+    // The catcher's sun, from the same place through the same box.
+    this.catcherSun.position.copy(this.sun.position);
+    this.catcherSun.updateMatrixWorld();
+    const catcherCamera = this.catcherSun.shadow.camera;
+    if (catcherCamera.right !== width || catcherCamera.near !== near || catcherCamera.far !== far) {
+      catcherCamera.left = catcherCamera.bottom = -width;
+      catcherCamera.right = catcherCamera.top = width;
+      catcherCamera.near = near;
+      catcherCamera.far = far;
+      catcherCamera.updateProjectionMatrix();
+    }
+    this.catcherSun.shadow.bias = this.sun.shadow.bias;
   }
 
   getLightIntensityScale(): number {
@@ -3188,9 +3350,10 @@ export class ViewerRenderer {
    *
    * Like the depth occluder, a sampled copy: shadows land on the copy, so on
    * the walls and roofs of 3D Tiles they are as good as its grid (a metre or
-   * two round a small model, up to about ten). It only receives; a surface
-   * sampled from photogrammetry would cast whatever stands on the site today
-   * onto the model that replaces it.
+   * two round a small model, up to about ten). It receives through the
+   * catcher's sun (`catcherSun`), so the globe's own shadows, which Cesium
+   * draws, are not painted again. A lowered copy with the models' footprints
+   * cut out casts (`refreshGlobeCasters`).
    */
   setGlobeShadowCatcher(surface: { positions: Float32Array; indices: Uint32Array } | null) {
     if (this.globeShadowCatcher) {
