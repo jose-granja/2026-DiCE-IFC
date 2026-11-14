@@ -30,6 +30,7 @@ import {
 } from "@/lib/viewer/display-settings";
 import type { CameraProjection } from "@/lib/viewer/camera";
 import ViewCube, { type ViewCubeRef } from "./ViewCube";
+import ExampleModelButton from "./ExampleModelButton";
 import ViewerContextMenu, { type ViewerContextMenuState } from "./ViewerContextMenu";
 import {
   Tooltip,
@@ -833,8 +834,12 @@ export function ViewerCanvas() {
       <ViewerContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
 
       {models.length === 0 && cloudCount === 0 && (
-        <div className="text-muted-foreground pointer-events-none absolute inset-0 flex items-center justify-center p-6 text-center text-sm">
-          {t("dropHint")}
+        <div className="text-muted-foreground pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm">
+          <p>{t("dropHint")}</p>
+          {/* The hint lets clicks through to the canvas; the button must not. */}
+          <div className="pointer-events-auto">
+            <ExampleModelButton />
+          </div>
         </div>
       )}
 

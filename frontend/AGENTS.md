@@ -271,6 +271,14 @@ panels in dark, a soft `#e0e6f0` page with translucent white panels in light,
   are whole pixels and a pointer event's are not: `e2e/cursor-zoom.spec.ts`
   puts the cursor on a whole pixel, or its probe and the zoom pick different
   points.
+- **The empty viewer offers an example model** (`ExampleModelButton.tsx`,
+  `lib/viewer/example-model.ts`): `public/examples/VNGaia_example.ifc` (6.9 MB,
+  IFC4, georeferenced in PT-TM06; the author's name in its `IfcPerson` blanked,
+  nothing else changed), fetched from this origin and handed to
+  `loadModelFiles` as a picked `File`. Nothing is sent; the request names a
+  file every visitor gets the same. Its WFS/WMS counterpart is
+  `OGC_EXAMPLE_URL` (Gaia's open data GeoServer, which covers its site),
+  offered under the GIS tab's service URL: choosing it only fills the field.
 - **`.panel-tabs` collapses labels to icons** by container query when a panel is
   narrow. The label is *visually* hidden, never `display: none` — that would
   drop the word from the accessibility tree and leave the tab named only by an

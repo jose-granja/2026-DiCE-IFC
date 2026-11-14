@@ -1401,7 +1401,8 @@
           "invalidMapFile": "This file is not a valid saved context map.",
           "invalidFeatureFile": "This file is not a valid saved WFS layer.",
           "invalidCertificate": "The service’s HTTPS certificate could not be verified. Use an endpoint with a valid certificate."
-        }
+        },
+        "example": "Example (WFS and WMS, Vila Nova de Gaia):"
       }
     },
     "idsPanel": {
@@ -1771,6 +1772,11 @@
     },
     "realistic": {
       "credit": "Textures:"
+    },
+    "example": {
+      "open": "Open the example model",
+      "opening": "Opening the example model…",
+      "failed": "The example model could not be opened: {error}"
     }
   },
   "idsCreate": {

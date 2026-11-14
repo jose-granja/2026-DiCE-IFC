@@ -237,3 +237,20 @@ test("cancels a service load and releases the context file picker",async({page})
   release();
   await expect(page.locator("[data-context-model]")).toHaveCount(0);
 });
+
+test("offers Vila Nova de Gaia's open data service as an example, contacting it only on Read layers",async({page})=>{
+  const requests:URL[]=[];
+  await page.route("**/api/ogc?**",async(route)=>{
+    requests.push(new URL(new URL(route.request().url()).searchParams.get("url")!));
+    await route.fulfill({contentType:"application/xml",body:wfs});
+  });
+  await open(page);
+  await page.getByRole("button",{name:"Add WFS / WMS service"}).click();
+  await page.locator("[data-ogc-example]").click();
+  await expect(page.getByRole("textbox",{name:"Service URL"})).toHaveValue("https://opendata.gaiurb.pt/geoserver/ows");
+  expect(requests).toHaveLength(0);
+  await page.getByRole("button",{name:"Read layers"}).click();
+  await expect(page.getByRole("combobox",{name:"Service layer"})).toContainText("Survey plots");
+  expect(requests.map((url)=>`${url.origin}${url.pathname} ${url.searchParams.get("SERVICE")} ${url.searchParams.get("REQUEST")}`))
+    .toEqual(["https://opendata.gaiurb.pt/geoserver/ows WFS GetCapabilities"]);
+});

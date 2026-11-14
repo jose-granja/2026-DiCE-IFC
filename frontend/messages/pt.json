@@ -1401,7 +1401,8 @@
           "invalidMapFile": "Este ficheiro não é um mapa de contexto guardado válido.",
           "invalidFeatureFile": "Este ficheiro não é uma camada WFS guardada válida.",
           "invalidCertificate": "Não foi possível verificar o certificado HTTPS do serviço. Utilize um endereço com um certificado válido."
-        }
+        },
+        "example": "Exemplo (WFS e WMS, Vila Nova de Gaia):"
       }
     },
     "idsPanel": {
@@ -1771,6 +1772,11 @@
     },
     "realistic": {
       "credit": "Texturas:"
+    },
+    "example": {
+      "open": "Abrir o modelo de exemplo",
+      "opening": "A abrir o modelo de exemplo…",
+      "failed": "Não foi possível abrir o modelo de exemplo: {error}"
     }
   },
   "idsCreate": {

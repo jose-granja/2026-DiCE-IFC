@@ -3,6 +3,14 @@ import { mapToWgs84, wgs84ToMap, type WgsPoint } from "./transform";
 import { transformClipBox, type ClipBox } from "./vector-context";
 
 export type OgcKind = "WFS" | "WMS";
+
+/**
+ * Offered under the service URL as an example: Vila Nova de Gaia's open data
+ * GeoServer, whose one OWS endpoint answers both WFS and WMS, and which covers
+ * the example model's site (`lib/viewer/example-model.ts`). Choosing it only
+ * fills the field; nothing is asked of it until "Read layers".
+ */
+export const OGC_EXAMPLE_URL = "https://opendata.gaiurb.pt/geoserver/ows";
 export type OgcLayer = { name: string; title: string; crs: string[]; attribution: string; attributionUrl?: string; style?: string; legendUrl?: string };
 export type OgcService = { kind: OgcKind; version: string; title: string; url: string; formats: string[]; layers: OgcLayer[] };
 export class OgcError extends Error {

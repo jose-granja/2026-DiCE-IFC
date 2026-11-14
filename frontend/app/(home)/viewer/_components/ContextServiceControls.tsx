@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { capabilitiesUrl, fetchOgc, layerRequest, OgcError, readCapabilities, type OgcKind, type OgcService } from "@/lib/georef/ogc-service";
+import { capabilitiesUrl, fetchOgc, layerRequest, OGC_EXAMPLE_URL, OgcError, readCapabilities, type OgcKind, type OgcService } from "@/lib/georef/ogc-service";
 import { checkFeatureResponse, featureSnapshotFile } from "@/lib/georef/context-features";
 import { readMapLegend, saveMapSnapshot } from "@/lib/georef/context-map";
 import type { ContextLegend } from "@/lib/georef/context-geometry";
@@ -78,6 +78,10 @@ export default function ContextServiceControls({ service, setService, placement,
         </Select>
         <Input aria-label={t("url")} placeholder="https://…" value={url} onChange={(e)=>setUrl(e.target.value)} disabled={disabled||busy} className="h-7 min-w-0 text-xs" />
       </div>
+      <p className="text-muted-foreground text-[11px]">
+        {t("example")}{" "}
+        <button type="button" className="text-primary underline underline-offset-2 disabled:opacity-50" disabled={disabled||busy} title={OGC_EXAMPLE_URL} data-ogc-example onClick={()=>{setUrl(OGC_EXAMPLE_URL);setService(null);setError("");}}>{new URL(OGC_EXAMPLE_URL).host}</button>
+      </p>
       <p className="text-muted-foreground text-[11px]">{t("privacy")}</p>
       <div className="flex flex-wrap gap-1">
         <Button size="sm" variant="outline" className="h-7 text-xs" disabled={!url.trim()||busy||disabled} onClick={connect}>{t("connect")}</Button>
