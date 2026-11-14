@@ -268,7 +268,7 @@
         "add": "Adicionar grupo",
         "empty": "Ainda sem grupos. Um grupo é um conjunto de elementos escolhido por filtros; a matriz indica que grupos são testados entre si.",
         "name": "Nome do grupo",
-        "discipline": "Disciplina",
+        "discipline": "Especialidade",
         "duplicate": "Duplicar grupo",
         "remove": "Remover grupo",
         "noFilter": "Ainda sem filtro — este grupo não seleciona nada.",
@@ -316,8 +316,8 @@
         "checkInside": "Verificar interior (um elemento dentro de outro)",
         "checkDuplicate": "Verificar duplicados",
         "ignoreSameModel": "Ignorar elementos do mesmo modelo",
-        "ignoreSameDiscipline": "Ignorar elementos da mesma disciplina",
-        "ignoreSameDisciplineHint": "Nenhum modelo aberto está classificado por disciplina, por isso isto não muda nada. Classifique-os no separador Grupos.",
+        "ignoreSameDiscipline": "Ignorar elementos da mesma especialidade",
+        "ignoreSameDisciplineHint": "Nenhum modelo aberto está classificado por especialidade, por isso isto não muda nada. Classifique-os no separador Grupos.",
         "maxClashes": "Parar após este número de conflitos"
       },
       "matrix": {
@@ -436,7 +436,7 @@
         "hint": "Todos os grupos e a matriz completa, com espaço para os ler. Escolha um grupo para o editar à direita; execute a partir daqui e leia os resultados no painel junto ao modelo.",
         "editingThere": "Os grupos e a matriz estão abertos na janela de colisões.",
         "showResults": "Mostrar resultados",
-        "search": "Procurar nome, disciplina ou nota",
+        "search": "Procurar nome, especialidade ou nota",
         "count": "{shown, number} de {total, number}",
         "noMatch": "Nenhum grupo corresponde à pesquisa.",
         "selects": "Seleciona",
@@ -448,11 +448,11 @@
         "conditions": "{count, plural, one {# condição de propriedade} other {# condições de propriedade}}"
       },
       "disciplines": {
-        "title": "Modelos por disciplina",
+        "title": "Modelos por especialidade",
         "summary": "{classified, number} de {total, number} classificados",
-        "hint": "Indique a disciplina de cada modelo aberto. Um grupo com disciplina passa a escolher elementos apenas dos modelos dessa disciplina — as paredes da arquitetura, não as da estrutura. Um modelo em branco é testado por todos os grupos.",
+        "hint": "Indique a especialidade de cada modelo aberto. Um grupo com especialidade passa a escolher elementos apenas dos modelos dessa especialidade — as paredes da arquitetura, não as da estrutura. Um modelo em branco é testado por todos os grupos.",
         "unclassified": "Sem classificação",
-        "modelLabel": "Disciplina de {name}",
+        "modelLabel": "Especialidade de {name}",
         "unmatched": "Nenhum modelo aberto está classificado como {list}, por isso esses grupos escolhem apenas dos modelos sem classificação."
       }
     },
