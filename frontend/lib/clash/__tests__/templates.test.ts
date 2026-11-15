@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { findRule, sanitiseMatrix } from "../matrix";
+import { EIR_DISCIPLINES, eirDiscipline, eirDisciplineCode } from "../disciplines";
 import { GROUPS_NEEDING_SETUP, buildTemplate, residentialMatrix } from "../templates";
 import { createClashWorkbook, readClashWorkbook } from "../workbook";
 import { compileElementFilter, matchesClass, matchesElementFilter } from "@/lib/ifc/element-filter";
@@ -16,16 +17,29 @@ describe("the residential template", () => {
   const rule = (a: string, b: string) => findRule(matrix, `tpl-${a}`, `tpl-${b}`);
   const toleranceOf = (a: string, b: string) => rule(a, b)?.toleranceId.replace("tpl-", "");
 
-  it("has the coordination workbook's 26 groups across ten disciplines", () => {
+  it("has the coordination workbook's 26 groups, each with a discipline of the EIR's Table A.2", () => {
     expect(matrix.groups).toHaveLength(26);
-    expect(new Set(matrix.groups.map((g) => g.discipline)).size).toBe(10);
+    const names = new Set(EIR_DISCIPLINES.map((d) => d.name));
+    for (const g of matrix.groups) expect(names.has(g.discipline!), `${g.id}: ${g.discipline}`).toBe(true);
+    expect(new Set(matrix.groups.map((g) => g.discipline)).size).toBe(11);
+    expect(group("a01").discipline).toBe("Arquitetura");
+    expect(group("s02").discipline).toBe("Engenharia de estruturas");
+    expect(group("h01").discipline).toBe("Engenharia mecânica - avac");
+    expect(group("z01").discipline).toBe("Multidisciplinar");
+    // The same words in either language: they are the EIR's, not translations.
+    expect(residentialMatrix((key) => `other:${key}`).groups.map((g) => g.discipline)).toEqual(matrix.groups.map((g) => g.discipline));
   });
 
-  it("has the 172 tests the workbook enables, and leaves its 31 disabled ones empty", () => {
-    expect(matrix.rules).toHaveLength(172);
-    // Walls resting on floors, and a door in its wall, are how a building is made.
-    expect(rule("a01", "a02")).toBeUndefined();
-    expect(rule("a03", "a01")).toBeUndefined();
+  it("has the workbook's 172 tests and the project's 34 between architecture and structure: 206", () => {
+    expect(matrix.rules).toHaveLength(206);
+    // The project's revision (2026-11-15): architecture and structure against
+    // each other, and a group against itself, all hard at 10 mm.
+    for (const [a, b] of [["a01", "a01"], ["a01", "a02"], ["a03", "a01"], ["s01", "s02"], ["s03", "a05"], ["s01", "a06"]]) {
+      expect(toleranceOf(a, b), `${a}|${b}`).toBe("hard10");
+    }
+    // Still not tested: e.g. doors against doors, and plant zones against each other.
+    expect(rule("a03", "a03")).toBeUndefined();
+    expect(rule("z01", "z02")).toBeUndefined();
   });
 
   it("carries the workbook's tolerances: 5, 10 and 25 mm hard, 50 mm to 600 mm clearance", () => {
@@ -128,11 +142,27 @@ describe("the residential template", () => {
     expect(back.groups.find((g) => g.name === "groups.a06")?.filter.predefinedTypes).toEqual(["CEILING"]);
     expect(back.groups.find((g) => g.name === "groups.p01")?.note).toBe("notes.p01");
     expect(back.groups.find((g) => g.name === "groups.a03")?.note).toBeUndefined();
-    expect(back.rules).toHaveLength(172);
+    expect(back.rules).toHaveLength(206);
     expect(back.tolerances.map((t) => t.name)).toEqual(matrix.tolerances.map((t) => t.name));
   });
 
   it("is reachable by id", () => {
     expect(buildTemplate("residential", label).groups).toHaveLength(26);
+  });
+});
+
+describe("the EIR's disciplines", () => {
+  it("are Table A.2: 59 codes, each once, in the EIR's order", () => {
+    expect(EIR_DISCIPLINES).toHaveLength(59);
+    expect(new Set(EIR_DISCIPLINES.map((d) => d.code)).size).toBe(59);
+    expect(EIR_DISCIPLINES[0]).toEqual({ code: "ACS", name: "Acessibilidades" });
+    expect(EIR_DISCIPLINES.at(-1)).toEqual({ code: "ZZZ", name: "Multidisciplinar" });
+  });
+
+  it("go from code to description and back, ignoring case", () => {
+    expect(eirDiscipline("HDR")).toBe("Engenharia hidráulica - drenagem (pluviais e residuais)");
+    expect(eirDisciplineCode(" arquitetura ")).toBe("ARQ");
+    expect(eirDisciplineCode("Architecture")).toBeUndefined();
+    expect(() => eirDiscipline("NOPE")).toThrow();
   });
 });

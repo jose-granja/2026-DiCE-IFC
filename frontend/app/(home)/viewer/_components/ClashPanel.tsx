@@ -45,6 +45,7 @@ import { showClash } from "@/lib/clash/highlight";
 import { findRule, modelDiscipline } from "@/lib/clash/matrix";
 import { useClashStore } from "@/lib/clash/store";
 import { buildTemplate } from "@/lib/clash/templates";
+import { EIR_DISCIPLINES } from "@/lib/clash/disciplines";
 import type { ClashGroup, ClashKind, ClashResultItem, ClashTolerance } from "@/lib/clash/types";
 import type { ElementFilter } from "@/lib/ifc/types";
 import { createClashWorkbook, readClashWorkbook } from "@/lib/clash/workbook";
@@ -493,23 +494,24 @@ export function ClashPanel() {
 /** One datalist for every discipline field — models' and groups' — so the words match. */
 const disciplineListId = "clash-discipline-options";
 
-/** The disciplines to offer: the template's, then any a group or model already uses. */
-function useDisciplineSuggestions(): string[] {
-  const templateT = useTranslations("viewer.clash.template.disciplines");
+/**
+ * The disciplines to offer: the EIR's Table A.2, word for word and with its
+ * code (`lib/clash/disciplines.ts`), then any other a group or model already uses.
+ */
+function useDisciplineSuggestions(): Array<{ value: string; code?: string }> {
   const groups = useClashStore((s) => s.matrix.groups);
   const modelDisciplines = useClashStore((s) => s.matrix.modelDisciplines);
   return useMemo(() => {
-    const keys = ["architecture", "structure", "hvac", "plumbing", "electrical", "fire", "elv", "transport", "civil"];
-    const out = new Map<string, string>();
-    const add = (value: string | undefined) => {
+    const out = new Map<string, { value: string; code?: string }>();
+    const add = (value: string | undefined, code?: string) => {
       const text = (value ?? "").trim();
-      if (text && !out.has(text.toLocaleLowerCase())) out.set(text.toLocaleLowerCase(), text);
+      if (text && !out.has(text.toLocaleLowerCase())) out.set(text.toLocaleLowerCase(), { value: text, code });
     };
-    keys.forEach((key) => add(templateT(key as never)));
+    EIR_DISCIPLINES.forEach((discipline) => add(discipline.name, discipline.code));
     groups.forEach((group) => add(group.discipline));
-    Object.values(modelDisciplines ?? {}).forEach(add);
+    Object.values(modelDisciplines ?? {}).forEach((value) => add(value));
     return [...out.values()];
-  }, [templateT, groups, modelDisciplines]);
+  }, [groups, modelDisciplines]);
 }
 
 /**
@@ -578,8 +580,8 @@ function ModelDisciplines({ defaultOpen = false }: { defaultOpen?: boolean }) {
         )}
       </CollapsibleContent>
       <datalist id={disciplineListId}>
-        {suggestions.map((value) => (
-          <option key={value} value={value} />
+        {suggestions.map(({ value, code }) => (
+          <option key={value} value={value} label={code} />
         ))}
       </datalist>
     </Collapsible>

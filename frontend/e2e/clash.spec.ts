@@ -117,6 +117,9 @@ test("an empty group is refused instead of selecting the whole model", async ({ 
 });
 
 test("the residential template fills an empty matrix and finds the duct through the wall", async ({ page }) => {
+  // Its waits add up to more than the default 30 s (a 60 s model load, a 60 s
+  // run): under parallel load the run alone outlasted the test.
+  test.setTimeout(150_000);
   // No stored matrix: this is what someone sees the first time.
   await page.goto("/viewer?panel=clash");
   await page.setInputFiles('input[type="file"]', [FIXTURE]);
@@ -359,11 +362,18 @@ test("models classified by discipline keep each group to its own discipline's mo
   await page.getByRole("tab", { name: /^Groups/ }).click();
   await expect(section).toContainText("0 of 1 classified");
   await section.getByRole("button", { name: /Models by discipline/ }).click();
-  // The template's disciplines and the groups' own are offered.
+  // The EIR's disciplines (Table A.2, with their codes) and the groups' own are offered.
   const options = await discipline.evaluate((input: HTMLInputElement) =>
-    [...(input.list?.options ?? [])].map((option) => option.value),
+    [...(input.list?.options ?? [])].map((option) => [option.value, option.label]),
   );
-  expect(options).toEqual(expect.arrayContaining(["Architecture", "Structure", "Architectural", "MEP"]));
+  expect(options).toEqual(expect.arrayContaining([
+    ["Arquitetura", "ARQ"],
+    ["Engenharia de estruturas", "EST"],
+    ["Engenharia mecânica - avac", "MAC"],
+  ]));
+  // All 59 of the table first, then the groups' own (no code beside them).
+  expect(options.slice(0, 59).at(-1)).toEqual(["Multidisciplinar", "ZZZ"]);
+  expect(options.slice(59).map(([value]) => value)).toEqual(expect.arrayContaining(["Architectural", "MEP"]));
 
   // As an MEP model, the architectural Walls group picks nothing from it.
   await discipline.fill("mep");

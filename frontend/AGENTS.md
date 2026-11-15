@@ -273,10 +273,28 @@ panels in dark, a soft `#e0e6f0` page with translucent white panels in light,
   points.
 - **The empty viewer offers an example model** (`ExampleModelButton.tsx`,
   `lib/viewer/example-model.ts`): `public/examples/VNGaia_example.ifc` (6.9 MB,
-  IFC4, georeferenced in PT-TM06; the author's name in its `IfcPerson` blanked,
-  nothing else changed), fetched from this origin and handed to
+  IFC4, georeferenced in PT-TM06), fetched from this origin and handed to
   `loadModelFiles` as a picked `File`. Nothing is sent; the request names a
-  file every visitor gets the same. Its WFS/WMS counterpart is
+  file every visitor gets the same. Edited from Revit's export, line by line
+  (everything else byte for byte): the author's name in its `IfcPerson`
+  blanked, and buildingSMART's validator brought from 949 errors to none —
+  the toposolid, exported as a second `IfcSite` inside a storey, made an
+  `IfcGeographicElement` (TERRAIN) with an `IfcGeographicElementType`; each
+  storey's two `Pset_BuildingStoreyCommon` merged (the real `AboveGround`
+  kept); an `IfcVirtualElement` for each of the 276 virtual space boundaries,
+  contained in its space's storey (SPS005/SPS007: an element is contained once);
+  `()` for empty `InnerBoundaries`; `ElementType` on the two user-defined
+  space types. Then its normative rules (ifc-gherkin-rules) to none:
+  `MethodOfMeasurement = 'BaseQuantities'` on the `Qto_` sets (QTY001);
+  the wall types' deprecated STANDARD → NOTDEFINED (IFC102); a typed
+  occurrence's PredefinedType, a door's OperationType and a window's
+  PartitioningType left to the type that states them (OJT001, BLT001/002 —
+  each equal to the type's, so nothing lost); Revit's misapplied sets removed
+  (`Pset_SpaceHeaterTypeCommon` on spaces, a copy of `Pset_SpaceCommon`'s
+  Reference; the proxy, storey and system sets on the building) and storey
+  `AboveGround` as `IfcLogical` (PSE001); repeated points dropped from 18
+  polylines (GEM111). Re-check with ifcopenshell's validator
+  (`express_rules`) and the rules above after any change. Its WFS/WMS counterpart is
   `OGC_EXAMPLE_URL` (Gaia's open data GeoServer, which covers its site),
   offered under the GIS tab's service URL: choosing it only fills the field.
 - **`.panel-tabs` collapses labels to icons** by container query when a panel is
@@ -1152,7 +1170,12 @@ empty one. The first workspace format (`workspaces/current` + handles keyed
   discipline, compared ignoring case (`disciplineAllows`); an unclassified model
   is tested by every group, so classifying nothing changes nothing. Loading the
   template, or importing a workbook without a `Models` sheet, keeps the
-  classification: it describes the models, not the matrix. `settings.ignoreSameDiscipline` (Matrix tab; the General sheet's "Ignore in the Same Discipline" row, absent from Solibri's, reads as off) skips a pair whose two models share a discipline — including two elements of one classified model; unclassified models are never skipped. The engine compares `ClashElementGeometry.discipline`, filled by `run.ts` with `disciplineKey`.
+  classification: it describes the models, not the matrix. **The disciplines are
+  the EIR's** (buildingSMART Portugal, Table A.2, `lib/clash/disciplines.ts`):
+  the template's groups carry its descriptions word for word ("Arquitetura",
+  "Engenharia mecânica - avac"…) in both languages, and the discipline fields
+  offer all 59, with their codes, before any other a group or model uses.
+  Matching is by that text, so do not translate it. `settings.ignoreSameDiscipline` (Matrix tab; the General sheet's "Ignore in the Same Discipline" row, absent from Solibri's, reads as off) skips a pair whose two models share a discipline — including two elements of one classified model; unclassified models are never skipped. The engine compares `ClashElementGeometry.discipline`, filled by `run.ts` with `disciplineKey`.
 - **The quantity list is a hierarchy** (`lib/spreadsheets/quantity-hierarchy.ts`):
   each line has a `level` (1–9, the workbook's **Level** column; absent reads as
   1), and order says what is under what. A line with **no filter and no

@@ -362,22 +362,10 @@
       },
       "template": {
         "title": "Modelo de edifício residencial",
-        "hint": "Uma base de coordenação para uma moradia ou prédio de habitação: arquitetura, estruturas, AVAC, águas e esgotos, eletricidade, proteção contra incêndio, ELV, elevadores, infraestruturas exteriores e zonas de folga, com 172 testes e as respetivas tolerâncias. Alguns grupos partilham classes IFC e trazem uma nota sobre o que filtrar. Substitui a matriz atual; todos os grupos, tolerâncias e células continuam editáveis.",
+        "hint": "Uma base de coordenação para uma moradia ou prédio de habitação: arquitetura, estruturas, AVAC, águas e esgotos, eletricidade, proteção contra incêndio, ELV, elevadores, infraestruturas exteriores e zonas de folga, com 206 testes e as respetivas tolerâncias. Alguns grupos partilham classes IFC e trazem uma nota sobre o que filtrar. Substitui a matriz atual; todos os grupos, tolerâncias e células continuam editáveis.",
         "use": "Usar modelo residencial",
         "download": "Descarregar em Excel",
         "applied": "Modelo residencial carregado — {groups, plural, one {# grupo} other {# grupos}}, {cells, plural, one {# célula} other {# células}}.",
-        "disciplines": {
-          "architecture": "Arquitetura",
-          "structure": "Estruturas",
-          "hvac": "AVAC",
-          "plumbing": "Águas e esgotos",
-          "electrical": "Eletricidade",
-          "fire": "Proteção contra incêndio",
-          "elv": "ELV / segurança",
-          "transport": "Transporte vertical",
-          "civil": "Obras exteriores",
-          "zones": "Zonas de folga"
-        },
         "groups": {
           "a01": "Paredes e divisórias",
           "a02": "Pavimentos e coberturas",

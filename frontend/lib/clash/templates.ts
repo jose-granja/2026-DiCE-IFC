@@ -10,7 +10,11 @@
  *
  * It comes from a residential coordination workbook (its Test Register, Filters,
  * Tolerances and General Requirements sheets): the 172 tests that workbook
- * enables are the cells here, and the 31 it leaves disabled are left empty.
+ * enables are cells here, and the 31 it leaves disabled are left empty. Then 34
+ * more (2026-11-15, the project's own revision of the matrix): the architecture
+ * and structure groups against each other and themselves — walls, floors,
+ * doors, windows, stairs, ceilings, joinery, structural slabs and walls,
+ * columns and foundations — all hard at 10 mm. 206 in all.
  * What the workbook also carries — priority, run stage, reviewer, intent and
  * permitted exceptions per test — is a coordination register and has no place in
  * a matrix, so it is not here.
@@ -21,11 +25,13 @@
  * system. Those groups carry a note saying so, and they need a filter before
  * the results mean anything. Every group, tolerance and cell stays editable.
  *
- * The words (discipline, group, tolerance and note text) are passed in so the
- * matrix reads in the user's language; the structure is the same in both.
+ * The words (group, tolerance and note text) are passed in so the matrix reads
+ * in the user's language; the structure is the same in both. Disciplines are
+ * the EIR's (`disciplines.ts`), word for word, in either language.
  */
 
 import { EMPTY_ELEMENT_FILTER } from "@/lib/ifc/types";
+import { eirDiscipline } from "./disciplines";
 import { ruleKey } from "./matrix";
 import {
   DEFAULT_CLASH_SETTINGS,
@@ -45,17 +51,15 @@ export type TemplateLabel = (key: string) => string;
 type GroupSpec = {
   /** The workbook's own code (A01, S02, H03…), lower-cased. */
   key: string;
-  discipline:
-    | "architecture"
-    | "structure"
-    | "hvac"
-    | "plumbing"
-    | "electrical"
-    | "fire"
-    | "elv"
-    | "transport"
-    | "civil"
-    | "zones";
+  /**
+   * Its Especialidade code in the EIR's Table A.2 (`disciplines.ts`); the
+   * group's discipline is that code's description, the same in both languages.
+   * Pipework for fixtures and pumps (p03) and outside utilities (c01) serves
+   * both supply and drainage, so it is the table's plain "Engenharia
+   * hidráulica"; the ELV / security devices are ITED's; lifts are
+   * electromechanical; clearance zones belong to no one discipline.
+   */
+  discipline: "ARQ" | "EST" | "MAC" | "HAB" | "HDR" | "HID" | "EEL" | "SCI" | "EIT" | "ELM" | "ZZZ";
   classes: string[];
   predefinedTypes?: string[];
   names?: string[];
@@ -71,32 +75,32 @@ type GroupSpec = {
  * purpose.
  */
 const GROUPS: GroupSpec[] = [
-  { key: "a01", discipline: "architecture", classes: ["IfcWall*", "IfcCurtainWall"] }, // Walls & partitions
-  { key: "a02", discipline: "architecture", classes: ["IfcSlab*", "IfcRoof*"] }, // Floors & roofs
-  { key: "a03", discipline: "architecture", classes: ["IfcDoor*"] }, // Doors
-  { key: "a04", discipline: "architecture", classes: ["IfcWindow*"] }, // Windows & glazing
-  { key: "a05", discipline: "architecture", classes: ["IfcStair*", "IfcRamp*", "IfcRailing*"] }, // Stairs, ramps & railings
-  { key: "a06", discipline: "architecture", classes: ["IfcCovering*"], predefinedTypes: ["CEILING"] }, // Suspended ceilings
-  { key: "a07", discipline: "architecture", classes: ["IfcFurnishingElement*", "IfcSystemFurnitureElement*", "IfcBuildingElementProxy*"] }, // Fixed joinery
-  { key: "s01", discipline: "structure", classes: ["IfcWall*", "IfcSlab*"] }, // Structural slabs & walls
-  { key: "s02", discipline: "structure", classes: ["IfcColumn*", "IfcBeam*", "IfcMember*"] }, // Columns & beams
-  { key: "s03", discipline: "structure", classes: ["IfcFooting*", "IfcPile*"] }, // Foundations & piles
-  { key: "h01", discipline: "hvac", classes: ["IfcDuctSegment*", "IfcDuctFitting*"] }, // HVAC ducts
-  { key: "h02", discipline: "hvac", classes: ["IfcAirTerminal*", "IfcAirTerminalBox*", "IfcFan*", "IfcDamper*", "IfcUnitaryEquipment*", "IfcEnergyConversionDevice*"] }, // Air terminals & HVAC plant
-  { key: "h03", discipline: "hvac", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Heating / cooling pipes
-  { key: "p01", discipline: "plumbing", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Domestic water pipes
-  { key: "p02", discipline: "plumbing", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Waste / rainwater pipes
-  { key: "p03", discipline: "plumbing", classes: ["IfcSanitaryTerminal*", "IfcWasteTerminal*", "IfcTank*", "IfcPump*"] }, // Plumbing fixtures & pumps
-  { key: "e01", discipline: "electrical", classes: ["IfcCableCarrierSegment*", "IfcCableCarrierFitting*"] }, // Cable trays & conduits
-  { key: "e02", discipline: "electrical", classes: ["IfcElectricDistributionBoard*", "IfcTransformer*", "IfcSwitchingDevice*", "IfcProtectiveDevice*"] }, // Boards & electrical plant
-  { key: "e03", discipline: "electrical", classes: ["IfcLightFixture*", "IfcOutlet*", "IfcJunctionBox*"] }, // Lighting & power devices
-  { key: "f01", discipline: "fire", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Sprinkler pipework
-  { key: "f02", discipline: "fire", classes: ["IfcFireSuppressionTerminal*", "IfcAlarm*", "IfcSensor*"] }, // Sprinkler heads & fire devices
-  { key: "l01", discipline: "elv", classes: ["IfcCommunicationsAppliance*", "IfcAlarm*", "IfcSensor*", "IfcAudioVisualAppliance*"] }, // ELV / security devices
-  { key: "v01", discipline: "transport", classes: ["IfcTransportElement*"] }, // Lifts & transport
-  { key: "c01", discipline: "civil", classes: ["IfcPipeSegment*", "IfcPipeFitting*", "IfcDistributionChamberElement*"] }, // External utilities
-  { key: "z01", discipline: "zones", classes: ["IfcSpace*", "IfcBuildingElementProxy*"], names: ["CLZ_MAINT_*"] }, // Plant maintenance zones
-  { key: "z02", discipline: "zones", classes: ["IfcSpace*", "IfcBuildingElementProxy*"], names: ["CLZ_EGRESS_*"] }, // Egress / door swing zones
+  { key: "a01", discipline: "ARQ", classes: ["IfcWall*", "IfcCurtainWall"] }, // Walls & partitions
+  { key: "a02", discipline: "ARQ", classes: ["IfcSlab*", "IfcRoof*"] }, // Floors & roofs
+  { key: "a03", discipline: "ARQ", classes: ["IfcDoor*"] }, // Doors
+  { key: "a04", discipline: "ARQ", classes: ["IfcWindow*"] }, // Windows & glazing
+  { key: "a05", discipline: "ARQ", classes: ["IfcStair*", "IfcRamp*", "IfcRailing*"] }, // Stairs, ramps & railings
+  { key: "a06", discipline: "ARQ", classes: ["IfcCovering*"], predefinedTypes: ["CEILING"] }, // Suspended ceilings
+  { key: "a07", discipline: "ARQ", classes: ["IfcFurnishingElement*", "IfcSystemFurnitureElement*", "IfcBuildingElementProxy*"] }, // Fixed joinery
+  { key: "s01", discipline: "EST", classes: ["IfcWall*", "IfcSlab*"] }, // Structural slabs & walls
+  { key: "s02", discipline: "EST", classes: ["IfcColumn*", "IfcBeam*", "IfcMember*"] }, // Columns & beams
+  { key: "s03", discipline: "EST", classes: ["IfcFooting*", "IfcPile*"] }, // Foundations & piles
+  { key: "h01", discipline: "MAC", classes: ["IfcDuctSegment*", "IfcDuctFitting*"] }, // HVAC ducts
+  { key: "h02", discipline: "MAC", classes: ["IfcAirTerminal*", "IfcAirTerminalBox*", "IfcFan*", "IfcDamper*", "IfcUnitaryEquipment*", "IfcEnergyConversionDevice*"] }, // Air terminals & HVAC plant
+  { key: "h03", discipline: "MAC", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Heating / cooling pipes
+  { key: "p01", discipline: "HAB", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Domestic water pipes
+  { key: "p02", discipline: "HDR", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Waste / rainwater pipes
+  { key: "p03", discipline: "HID", classes: ["IfcSanitaryTerminal*", "IfcWasteTerminal*", "IfcTank*", "IfcPump*"] }, // Plumbing fixtures & pumps
+  { key: "e01", discipline: "EEL", classes: ["IfcCableCarrierSegment*", "IfcCableCarrierFitting*"] }, // Cable trays & conduits
+  { key: "e02", discipline: "EEL", classes: ["IfcElectricDistributionBoard*", "IfcTransformer*", "IfcSwitchingDevice*", "IfcProtectiveDevice*"] }, // Boards & electrical plant
+  { key: "e03", discipline: "EEL", classes: ["IfcLightFixture*", "IfcOutlet*", "IfcJunctionBox*"] }, // Lighting & power devices
+  { key: "f01", discipline: "SCI", classes: ["IfcPipeSegment*", "IfcPipeFitting*"] }, // Sprinkler pipework
+  { key: "f02", discipline: "SCI", classes: ["IfcFireSuppressionTerminal*", "IfcAlarm*", "IfcSensor*"] }, // Sprinkler heads & fire devices
+  { key: "l01", discipline: "EIT", classes: ["IfcCommunicationsAppliance*", "IfcAlarm*", "IfcSensor*", "IfcAudioVisualAppliance*"] }, // ELV / security devices
+  { key: "v01", discipline: "ELM", classes: ["IfcTransportElement*"] }, // Lifts & transport
+  { key: "c01", discipline: "HID", classes: ["IfcPipeSegment*", "IfcPipeFitting*", "IfcDistributionChamberElement*"] }, // External utilities
+  { key: "z01", discipline: "ZZZ", classes: ["IfcSpace*", "IfcBuildingElementProxy*"], names: ["CLZ_MAINT_*"] }, // Plant maintenance zones
+  { key: "z02", discipline: "ZZZ", classes: ["IfcSpace*", "IfcBuildingElementProxy*"], names: ["CLZ_EGRESS_*"] }, // Egress / door swing zones
 ];
 
 /** The groups that need the project to say which of the same-class elements they mean. */
@@ -117,38 +121,63 @@ const TOLERANCES: Array<Omit<ClashTolerance, "name"> & { key: string }> = [
 type Cell = [a: string, b: string, tolerance: string];
 
 /**
- * The enabled tests. A pair not listed is not tested: walls resting on a slab,
- * or a door in its wall, is how a building is made rather than a clash.
+ * The enabled tests; a pair not listed is not tested. Ordered by column, then
+ * row, the later group first; a group against itself is a cell too.
  */
 const RULES: Cell[] = [
+  ["a01", "a01", "hard10"],
+  ["a02", "a01", "hard10"],
+  ["a03", "a01", "hard10"],
+  ["a04", "a01", "hard10"],
+  ["a05", "a01", "hard10"],
+  ["a06", "a01", "hard10"],
+  ["a07", "a01", "hard10"],
+  ["s01", "a01", "hard10"],
   ["s02", "a01", "hard10"],
+  ["s03", "a01", "hard10"],
   ["h01", "a01", "hard10"],
   ["p02", "a01", "hard10"],
   ["f01", "a01", "hard10"],
   ["z01", "a01", "hard5"],
   ["z02", "a01", "hard5"],
+  ["a02", "a02", "hard10"],
+  ["a03", "a02", "hard10"],
+  ["a04", "a02", "hard10"],
+  ["a05", "a02", "hard10"],
+  ["a06", "a02", "hard10"],
+  ["a07", "a02", "hard10"],
+  ["s01", "a02", "hard10"],
+  ["s02", "a02", "hard10"],
+  ["s03", "a02", "hard10"],
   ["h01", "a02", "hard10"],
   ["h03", "a02", "hard10"],
   ["p01", "a02", "hard10"],
   ["p02", "a02", "hard10"],
   ["e01", "a02", "hard10"],
   ["f01", "a02", "hard10"],
+  ["a04", "a03", "hard10"],
   ["a05", "a03", "hard10"],
+  ["a06", "a03", "hard10"],
   ["a07", "a03", "hard10"],
   ["s01", "a03", "hard10"],
   ["s02", "a03", "hard10"],
+  ["s03", "a03", "hard10"],
   ["h01", "a03", "hard10"],
   ["e02", "a03", "hard10"],
   ["z01", "a03", "hard5"],
   ["a05", "a04", "hard10"],
+  ["a06", "a04", "hard10"],
+  ["a07", "a04", "hard10"],
   ["s01", "a04", "hard10"],
   ["s02", "a04", "hard10"],
+  ["s03", "a04", "hard10"],
   ["h01", "a04", "hard10"],
   ["e02", "a04", "hard10"],
   ["a06", "a05", "hard10"],
   ["a07", "a05", "hard10"],
   ["s01", "a05", "hard10"],
   ["s02", "a05", "hard10"],
+  ["s03", "a05", "hard10"],
   ["h01", "a05", "hard10"],
   ["h02", "a05", "hard10"],
   ["p02", "a05", "hard10"],
@@ -156,17 +185,25 @@ const RULES: Cell[] = [
   ["f01", "a05", "hard10"],
   ["z01", "a05", "hard5"],
   ["z02", "a05", "hard5"],
+  ["a07", "a06", "hard10"],
+  ["s01", "a06", "hard10"],
   ["s02", "a06", "hard10"],
+  ["s03", "a06", "hard10"],
   ["h01", "a06", "hard10"],
   ["h02", "a06", "hard10"],
   ["h03", "a06", "hard10"],
   ["p02", "a06", "hard10"],
   ["e01", "a06", "hard10"],
   ["f01", "a06", "hard10"],
+  ["s01", "a07", "hard10"],
+  ["s02", "a07", "hard10"],
+  ["s03", "a07", "hard10"],
   ["h02", "a07", "hard10"],
   ["e02", "a07", "hard10"],
   ["z01", "a07", "hard5"],
   ["z02", "a07", "hard5"],
+  ["s02", "s01", "hard10"],
+  ["s03", "s01", "hard10"],
   ["h01", "s01", "hard10"],
   ["h02", "s01", "hard10"],
   ["h03", "s01", "hard5"],
@@ -183,6 +220,7 @@ const RULES: Cell[] = [
   ["c01", "s01", "hard10"],
   ["z01", "s01", "hard5"],
   ["z02", "s01", "hard5"],
+  ["s03", "s02", "hard10"],
   ["h01", "s02", "hard10"],
   ["h02", "s02", "hard10"],
   ["h03", "s02", "hard5"],
@@ -300,7 +338,7 @@ export function residentialMatrix(label: TemplateLabel): ClashMatrix {
   const groups: ClashGroup[] = GROUPS.map((spec) => ({
     id: `tpl-${spec.key}`,
     name: label(`groups.${spec.key}`),
-    discipline: label(`disciplines.${spec.discipline}`),
+    discipline: eirDiscipline(spec.discipline),
     filter: {
       ...EMPTY_ELEMENT_FILTER,
       classes: [...spec.classes],

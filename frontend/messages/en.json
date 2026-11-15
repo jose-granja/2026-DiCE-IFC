@@ -362,22 +362,10 @@
       },
       "template": {
         "title": "Residential building template",
-        "hint": "A coordination baseline for a house or apartment block: architecture, structure, HVAC, plumbing, electrical, fire protection, ELV, lifts, site utilities and clearance zones, with 172 tests and their tolerances. Some groups share IFC classes and carry a note on what to filter. Replaces the current matrix; every group, tolerance and cell stays editable.",
+        "hint": "A coordination baseline for a house or apartment block: architecture, structure, HVAC, plumbing, electrical, fire protection, ELV, lifts, site utilities and clearance zones, with 206 tests and their tolerances. Some groups share IFC classes and carry a note on what to filter. Replaces the current matrix; every group, tolerance and cell stays editable.",
         "use": "Use residential template",
         "download": "Download as Excel",
         "applied": "Residential template loaded — {groups, plural, one {# group} other {# groups}}, {cells, plural, one {# cell} other {# cells}}.",
-        "disciplines": {
-          "architecture": "Architecture",
-          "structure": "Structure",
-          "hvac": "HVAC",
-          "plumbing": "Plumbing",
-          "electrical": "Electrical",
-          "fire": "Fire protection",
-          "elv": "ELV / security",
-          "transport": "Vertical transport",
-          "civil": "Civil / site",
-          "zones": "Clearance zones"
-        },
         "groups": {
           "a01": "Walls & partitions",
           "a02": "Floors & roofs",
