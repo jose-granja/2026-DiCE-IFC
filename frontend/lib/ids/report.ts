@@ -16,6 +16,11 @@
  * specification report green because the discipline that owns it was not
  * loaded.
  *
+ * A specification the engine could not evaluate in some model (its `error`,
+ * most often a refused `xs:pattern`) fails, whatever the counts say: it comes
+ * back with no applicable element, and counted as such it read "satisfied"
+ * when nothing had been checked.
+ *
  * Pure and engine-free, so it is testable without a WASM parser.
  */
 
@@ -55,7 +60,12 @@ export type PerModelResult = {
   applicableCount: number;
   passedCount: number;
   failedCount: number;
+  /** Why the engine could not evaluate the specification on this model. */
+  error?: string;
 };
+
+/** A model on which a specification could not be evaluated, and why. */
+export type EvaluationError = { message: string; modelName: string };
 
 /**
  * One requirement of a specification, across the federation: what it checks,
@@ -86,6 +96,8 @@ export type AggregatedSpecification = {
   requirements: RequirementBreakdown[];
   perModel: PerModelResult[];
   cardinality?: { passed: boolean; message: string; modelName: string };
+  /** Models on which the engine could not evaluate it. Any one makes it fail. */
+  errors: EvaluationError[];
 };
 
 export type ValidationRun = {
@@ -176,6 +188,7 @@ function blank(specification: IdsSpecificationResultView): AggregatedSpecificati
       failures: [],
     })),
     perModel: [],
+    errors: [],
   };
 }
 
@@ -217,8 +230,12 @@ function merge(
         applicableCount: specification.applicableCount,
         passedCount: specification.passedCount,
         failedCount: specification.failedCount,
+        ...(specification.error ? { error: specification.error } : {}),
       },
     ],
+    errors: specification.error
+      ? [...aggregated.errors, { message: specification.error, modelName }]
+      : aggregated.errors,
     // A cardinality failure in any model is the one worth showing.
     cardinality:
       aggregated.cardinality?.passed === false
@@ -231,9 +248,13 @@ function merge(
 
 function finalise(specification: AggregatedSpecification) {
   const cardinalityFailed = specification.cardinality?.passed === false;
+  // Checked first: an unevaluated specification has no applicable element, and
+  // would otherwise be "not applicable" — shown as satisfied.
+  const unevaluated = specification.errors.length > 0;
 
-  specification.status =
-    specification.applicableCount === 0 && !cardinalityFailed
+  specification.status = unevaluated
+    ? "fail"
+    : specification.applicableCount === 0 && !cardinalityFailed
       ? "not_applicable"
       : specification.failedCount > 0 || cardinalityFailed
         ? "fail"
@@ -241,7 +262,9 @@ function finalise(specification: AggregatedSpecification) {
 
   specification.passRate =
     specification.applicableCount === 0
-      ? 100
+      ? unevaluated
+        ? 0
+        : 100
       : (specification.passedCount / specification.applicableCount) * 100;
 
   // Regroup the failing elements by requirement. Every applicable element is

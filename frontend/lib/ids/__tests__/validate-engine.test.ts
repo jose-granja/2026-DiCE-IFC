@@ -56,7 +56,14 @@ afterAll(() => {
 describe("fixtures", () => {
   it("are schema-valid IDS 1.0", async () => {
     // A malformed fixture would make every test below meaningless.
-    for (const name of ["wall-fire-rating.ids", "all-pass.ids", "not-applicable.ids", "wall-several-requirements.ids"]) {
+    for (const name of [
+      "wall-fire-rating.ids",
+      "all-pass.ids",
+      "not-applicable.ids",
+      "wall-several-requirements.ids",
+      "exact-repeat-pattern.ids",
+      "unevaluable-pattern.ids",
+    ]) {
       const { document } = parseIds(await readFile(path.join(IDS, name), "utf8"));
       const result = await validateAgainstSchema(document);
       expect(result.errors, `${name}: ${JSON.stringify(result.errors)}`).toEqual([]);
@@ -140,6 +147,42 @@ describe("validateIds", () => {
     expect(run.specifications[0].status).toBe("not_applicable");
     expect(run.summary.passed).toBe(0);
     expect(run.summary.notApplicable).toBe(1);
+  });
+
+  it("evaluates a pattern with an exact repeat inside a repeated group", async () => {
+    // `(W[a-z]{3} [AB]){1,2}` cannot backtrack catastrophically, but the
+    // engine's regex guard counts the `{3}` as an open quantifier and refused
+    // it: the specification came back unevaluated, and was shown as satisfied
+    // with no elements. Written out (`[a-z][a-z][a-z]`), it is evaluated.
+    const report = await ifcLiteAdapter.validateIds(model.id, await ids("exact-repeat-pattern.ids"));
+    const [specification] = report.specifications;
+
+    expect(specification.error).toBeUndefined();
+    expect(specification.applicableCount).toBe(2);
+    expect(specification.passedCount).toBe(2);
+    expect(specification.status).toBe("pass");
+  });
+
+  it("fails a specification the engine cannot evaluate, with its reason", async () => {
+    // A genuinely catastrophic pattern is still refused. The engine reports the
+    // specification as failed with no applicable element; counted, that read
+    // "not applicable", and the panel said every specification was satisfied.
+    const report = await ifcLiteAdapter.validateIds(model.id, await ids("unevaluable-pattern.ids"));
+    const [specification] = report.specifications;
+
+    expect(specification.applicableCount).toBe(0);
+    expect(specification.error).toMatch(/could not be evaluated/i);
+
+    const run = aggregate([report], [{ modelId: model.id, name: model.name }], {
+      idsTitle: "Walls",
+      startedAt: "2026-09-04T09:00:00.000Z",
+      finishedAt: "2026-09-04T09:00:01.000Z",
+    });
+    expect(run.specifications[0].status).toBe("fail");
+    expect(run.specifications[0].errors).toEqual([{ message: specification.error, modelName: model.name }]);
+    expect(run.summary.failed).toBe(1);
+    expect(run.summary.notApplicable).toBe(0);
+    expect(renderHtmlReport(run)).toContain("could not be evaluated");
   });
 
   it("omits passing entities by default", async () => {

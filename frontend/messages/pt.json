@@ -1451,6 +1451,8 @@
         "failed": "{count, number} reprovados",
         "countFailed": "Falhou no número de elementos correspondentes",
         "countFailureTitle": "A contagem exigida pela especificação não é cumprida",
+        "evaluationFailed": "Não foi possível avaliar",
+        "evaluationFailedTitle": "Não foi possível avaliar a especificação",
         "byRequirement": "Requisitos",
         "byElement": "Por elemento",
         "failingElements": "{count, plural, one {# elemento reprovado} other {# elementos reprovados}}",

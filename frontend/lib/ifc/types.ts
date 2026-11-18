@@ -733,6 +733,13 @@ export type IdsSpecificationResultView = {
     actualCount: number;
     message: string;
   };
+  /**
+   * Set when the engine could not evaluate the specification at all — most
+   * often an `xs:pattern` its regex guard refused. The specification then has
+   * no applicable elements, and must read as failed with this reason, not as
+   * one that matched nothing.
+   */
+  error?: string;
 };
 
 /** One model's results. Federation aggregation happens in `lib/ids/report.ts`. */

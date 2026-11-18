@@ -145,6 +145,47 @@ describe("aggregate", () => {
     expect(run.specifications[0].status).toBe("fail");
   });
 
+  it("fails a specification the engine could not evaluate, instead of calling it not applicable", () => {
+    // The engine returns such a specification with no applicable element and
+    // an `error`; counted alone, it read "not applicable" and the panel said
+    // every specification was satisfied.
+    const error = "Specification could not be evaluated: unsafe regex pattern rejected";
+    const run = aggregate([report("m1", [specification(0, { status: "fail", error })])], MODELS, META);
+
+    const [aggregated] = run.specifications;
+    expect(aggregated.status).toBe("fail");
+    expect(aggregated.errors).toEqual([{ message: error, modelName: "architecture.ifc" }]);
+    expect(aggregated.passRate).toBe(0);
+    expect(aggregated.perModel[0].error).toBe(error);
+    expect(run.summary.failed).toBe(1);
+    expect(run.summary.notApplicable).toBe(0);
+  });
+
+  it("fails it even when another model evaluated it and passed", () => {
+    // Unevaluated on the model that owns the elements, passed on another:
+    // the project has not been shown to satisfy it.
+    const error = "Specification could not be evaluated: unsafe regex pattern rejected";
+    const run = aggregate(
+      [
+        report("m1", [specification(0, { status: "fail", error })]),
+        report("m2", [specification(0, { entities: [entity(1, true)] })]),
+      ],
+      MODELS,
+      META,
+    );
+
+    expect(run.specifications[0].status).toBe("fail");
+    expect(run.specifications[0].errors).toHaveLength(1);
+    expect(run.specifications[0].passedCount).toBe(1);
+  });
+
+  it("carries no error for a specification that was evaluated", () => {
+    const run = aggregate([report("m1", [specification(0, { entities: [entity(1, true)] })])], MODELS, META);
+
+    expect(run.specifications[0].errors).toEqual([]);
+    expect(run.specifications[0].perModel[0]).not.toHaveProperty("error");
+  });
+
   it("fails a specification whose cardinality was not met", () => {
     const run = aggregate(
       [

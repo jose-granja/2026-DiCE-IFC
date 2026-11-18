@@ -1875,6 +1875,10 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
               message: result.cardinalityResult.message,
             }
           : undefined,
+        // The engine's reason for a specification it could not evaluate; it
+        // reports one as failed with no applicable element, which the
+        // aggregation would otherwise read as "nothing applied".
+        error: result.error,
         entities: result.entityResults.map((entity) => ({
           expressId: entity.expressId,
           type: entity.entityType,

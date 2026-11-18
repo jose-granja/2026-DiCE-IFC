@@ -1451,6 +1451,8 @@
         "failed": "{count, number} failed",
         "countFailed": "Failed on the number of matching elements",
         "countFailureTitle": "The specification’s count is not met",
+        "evaluationFailed": "Could not be evaluated",
+        "evaluationFailedTitle": "The specification could not be evaluated",
         "byRequirement": "Requirements",
         "byElement": "By element",
         "failingElements": "{count, plural, one {# failing element} other {# failing elements}}",

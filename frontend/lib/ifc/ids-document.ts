@@ -26,6 +26,8 @@
 
 import { parseIDS } from "@ifc-lite/ids";
 
+import { adaptPatternsForEngine } from "./ids-patterns";
+
 /** A parsed IDS document, meaningful only to the engine. */
 export type EngineIdsDocument = { readonly __engineIdsDocument: unique symbol };
 
@@ -37,8 +39,9 @@ export class IdsDocumentParseError extends Error {
 }
 
 export function parseIdsForEngine(xml: string): EngineIdsDocument {
+  let document: ReturnType<typeof parseIDS>;
   try {
-    return parseIDS(xml) as unknown as EngineIdsDocument;
+    document = parseIDS(xml);
   } catch (error) {
     throw new IdsDocumentParseError(
       error instanceof Error
@@ -46,4 +49,8 @@ export function parseIdsForEngine(xml: string): EngineIdsDocument {
         : "That IDS could not be read.",
     );
   }
+  // An exact repeat inside a repeated group (`(_\d{2}){1,3}`) is written out,
+  // which the engine's regex guard would otherwise refuse. See ids-patterns.ts.
+  adaptPatternsForEngine(document);
+  return document as unknown as EngineIdsDocument;
 }
