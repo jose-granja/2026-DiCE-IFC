@@ -79,6 +79,8 @@ const eslintConfig = defineConfig([
     "public/cesium/**",
     "public/sqlite/**",
     "public/laz-perf/**",
+    // Built by scripts/build-validator-assets.mts (ADR 018): Pyodide and its files.
+    "public/validator/**",
   ]),
 ]);
 

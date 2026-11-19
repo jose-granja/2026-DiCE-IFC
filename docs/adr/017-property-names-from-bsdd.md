@@ -30,8 +30,9 @@ bSDD's translations are its own, and not all are good: `LoadBearing` is
 IDS, filters, quantities, lenses and exports match on it. The panel shows the
 Portuguese name under it, smaller and muted (`PropertyTable`'s `translation`),
 with `lang="pt-PT"`, and the panel's filter finds a property by its label
-too. In English nothing is added: bSDD's English names are the IFC ones with
-spaces.
+too. In English the label is bSDD's English name instead (`lang="en"`,
+amended 2026-11-19): mostly the IFC name with spaces, but read more easily
+("Fire Rating"). One label, in the interface's language, never both.
 
 **Only buildingSMART's own sets.** A property is labelled only in a set whose
 name starts with `Pset_` or `Qto_`, which IFC reserves for them. A company's
@@ -46,7 +47,9 @@ comes back short is an error, not a partial table. The table is built at most
 once a day per server process and concurrent asks share one build. When a
 rebuild fails the previous table is served and bSDD asked again ten minutes
 later; with no previous table nothing is kept, so the next ask tries again. The viewer asks
-`/api/bsdd/property-names?language=pt-PT` once per page, in Portuguese only.
+`/api/bsdd/property-names?language=pt-PT` in Portuguese, or `?language=en` in
+English, once per page; the `en` table is the English listing alone, keeping
+the names that differ from the code (2 361).
 With bSDD unreachable there are no labels, and nothing else changes.
 
 This replaces the first version of this decision (same day), where the backend

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- (W[a-z]+ [AB])+ is a genuine catastrophic-backtracking shape: the engine
+     refuses it, so the specification cannot be evaluated. It must read as
+     failed with the reason, never as "nothing applied". -->
+<ids xmlns="http://standards.buildingsmart.org/IDS" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://standards.buildingsmart.org/IDS http://standards.buildingsmart.org/IDS/1.0/ids.xsd">
+  <info>
+    <title>Walls named with a refused pattern</title>
+  </info>
+  <specifications>
+    <specification name="Wall names follow a refused pattern" ifcVersion="IFC4">
+      <applicability minOccurs="0" maxOccurs="unbounded">
+        <entity>
+          <name><simpleValue>IFCWALL</simpleValue></name>
+        </entity>
+      </applicability>
+      <requirements>
+        <attribute cardinality="required">
+          <name><simpleValue>Name</simpleValue></name>
+          <value>
+            <xs:restriction base="xs:string">
+              <xs:pattern value="(W[a-z]+ [AB])+"/>
+            </xs:restriction>
+          </value>
+        </attribute>
+      </requirements>
+    </specification>
+  </specifications>
+</ids>

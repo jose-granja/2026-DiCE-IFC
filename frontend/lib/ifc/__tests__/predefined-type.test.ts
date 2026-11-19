@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { effectivePredefinedType, ifctesterPredefinedType, userDefinedAttributeOfType } from "../predefined-type";
+import {
+  effectivePredefinedType,
+  effectiveTypeDrivenAttributes,
+  ifctesterPredefinedType,
+  userDefinedAttributeOfType,
+} from "../predefined-type";
 
 const attrs = (values: Record<string, string>) => Object.entries(values).map(([name, value]) => ({ name, value }));
 const wallType = (values: Record<string, string>) => ({ type: "IfcWallType", attributes: attrs(values) });
@@ -89,5 +94,57 @@ describe("ifctesterPredefinedType", () => {
     expect(ifctesterPredefinedType(attrs({ PredefinedType: "USERDEFINED", ObjectType: "Y" }), attrs({ PredefinedType: "SOLIDWALL" }))).toEqual({ value: "SOLIDWALL", userDefined: false });
     // A class without ElementType names it by ProcessType.
     expect(ifctesterPredefinedType(attrs({}), attrs({ PredefinedType: "USERDEFINED", ProcessType: "Curing" }))).toEqual({ value: "Curing", userDefined: true });
+  });
+});
+
+describe("effectiveTypeDrivenAttributes", () => {
+  const doorType = (values: Record<string, string>) => ({ type: "IfcDoorType", attributes: attrs(values) });
+  const windowType = (values: Record<string, string>) => ({ type: "IfcWindowType", attributes: attrs(values) });
+
+  it("shows a door's OperationType from its type when the door leaves it empty (BLT001)", () => {
+    expect(effectiveTypeDrivenAttributes("IfcDoor", attrs({}), doorType({ OperationType: "SINGLE_SWING_RIGHT" }))).toEqual([
+      { name: "OperationType", value: "SINGLE_SWING_RIGHT", enumValue: "SINGLE_SWING_RIGHT", source: "type" },
+    ]);
+  });
+
+  it("shows a window's PartitioningType from its type, NOTDEFINED included (BLT002)", () => {
+    expect(effectiveTypeDrivenAttributes("IfcWindow", attrs({}), windowType({ PartitioningType: "NOTDEFINED" }))).toEqual([
+      { name: "PartitioningType", value: "NOTDEFINED", enumValue: "NOTDEFINED", source: "type" },
+    ]);
+  });
+
+  it("lets the type dictate, noting the occurrence's own value that does not apply", () => {
+    expect(
+      effectiveTypeDrivenAttributes("IfcDoor", attrs({ OperationType: "DOUBLE_DOOR_SINGLE_SWING" }), doorType({ OperationType: "SINGLE_SWING_LEFT" })),
+    ).toEqual([
+      {
+        name: "OperationType",
+        value: "SINGLE_SWING_LEFT",
+        enumValue: "SINGLE_SWING_LEFT",
+        source: "type",
+        overridden: "DOUBLE_DOOR_SINGLE_SWING",
+      },
+    ]);
+  });
+
+  it("names USERDEFINED by UserDefined…, on the type and on an untyped occurrence", () => {
+    expect(
+      effectiveTypeDrivenAttributes("IfcDoor", attrs({}), doorType({ OperationType: "USERDEFINED", UserDefinedOperationType: "Pivot" }))[0],
+    ).toMatchObject({ value: "Pivot", enumValue: "USERDEFINED", source: "type", userDefinedIn: "UserDefinedOperationType" });
+    expect(
+      effectiveTypeDrivenAttributes("IfcWindow", attrs({ PartitioningType: "USERDEFINED", UserDefinedPartitioningType: "Bay" }), null)[0],
+    ).toMatchObject({ value: "Bay", enumValue: "USERDEFINED", source: "occurrence", userDefinedIn: "UserDefinedPartitioningType" });
+  });
+
+  it("keeps the occurrence's own when the type says only NOTDEFINED", () => {
+    expect(effectiveTypeDrivenAttributes("IfcWindow", attrs({ PartitioningType: "DOUBLE_PANEL_VERTICAL" }), windowType({ PartitioningType: "NOTDEFINED" }))).toEqual([
+      { name: "PartitioningType", value: "DOUBLE_PANEL_VERTICAL", enumValue: "DOUBLE_PANEL_VERTICAL", source: "occurrence" },
+    ]);
+  });
+
+  it("is empty for other classes, and when neither says anything", () => {
+    expect(effectiveTypeDrivenAttributes("IfcWall", attrs({ OperationType: "X" }), null)).toEqual([]);
+    expect(effectiveTypeDrivenAttributes("IfcDoor", attrs({}), doorType({}))).toEqual([]);
+    expect(effectiveTypeDrivenAttributes("IfcDoor", attrs({}), null)).toEqual([]);
   });
 });

@@ -52,3 +52,7 @@ next-env.d.ts
 /public/sqlite/
 /public/laz-perf/
 /public/third-party-licenses.txt
+# In-browser IFC validation (ADR 018): built by scripts/build-validator-assets.mts
+/public/validator/
+/public/validator.tmp/
+/.cache/validator/

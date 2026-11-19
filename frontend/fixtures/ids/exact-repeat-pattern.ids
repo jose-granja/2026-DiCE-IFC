@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Both walls are named "Wall A" / "Wall B", which the pattern accepts. Its exact
+     repeat inside a repeated group, (…[a-z]{3}…){1,2}, is safe but is refused by
+     the engine's regex guard unless it is written out first (lib/ifc/ids-patterns.ts). -->
+<ids xmlns="http://standards.buildingsmart.org/IDS" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://standards.buildingsmart.org/IDS http://standards.buildingsmart.org/IDS/1.0/ids.xsd">
+  <info>
+    <title>Walls are named by letter</title>
+  </info>
+  <specifications>
+    <specification name="Wall names follow the pattern" ifcVersion="IFC4">
+      <applicability minOccurs="0" maxOccurs="unbounded">
+        <entity>
+          <name><simpleValue>IFCWALL</simpleValue></name>
+        </entity>
+      </applicability>
+      <requirements>
+        <attribute cardinality="required">
+          <name><simpleValue>Name</simpleValue></name>
+          <value>
+            <xs:restriction base="xs:string">
+              <xs:pattern value="(W[a-z]{3} [AB]){1,2}"/>
+            </xs:restriction>
+          </value>
+        </attribute>
+      </requirements>
+    </specification>
+  </specifications>
+</ids>

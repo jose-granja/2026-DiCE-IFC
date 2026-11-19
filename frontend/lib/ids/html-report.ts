@@ -223,6 +223,9 @@ function failureSection(
       ? `<p class="cardinality">${escapeHtml(specification.cardinality.message)} (${escapeHtml(specification.cardinality.modelName)})</p>`
       : ""
   }
+  ${specification.errors
+    .map((error) => `<p class="cardinality">${escapeHtml(error.message)} (${escapeHtml(error.modelName)})</p>`)
+    .join("")}
   <table>
     <thead>
       <tr><th>${escapeHtml(t("elementCol"))}</th><th>${escapeHtml(t("classCol"))}</th><th>${escapeHtml(t("modelCol"))}</th><th>${escapeHtml(t("whyFailedCol"))}</th></tr>

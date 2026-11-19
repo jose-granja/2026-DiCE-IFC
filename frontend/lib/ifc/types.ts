@@ -11,7 +11,7 @@ export type IfcSchemaVersion = "IFC2X3" | "IFC4" | "IFC4X3" | "IFC5";
 
 /** Opaque per-session model identifier minted by the adapter on load. */
 import type { EngineIdsDocument } from "./ids-document";
-import type { PredefinedTypeView } from "./predefined-type";
+import type { PredefinedTypeView, TypeDrivenAttributeView } from "./predefined-type";
 
 export type ModelId = string;
 
@@ -483,6 +483,12 @@ export type ElementInfo = {
    * (`predefined-type.ts`). Null when neither has one.
    */
   predefinedType: PredefinedTypeView | null;
+  /**
+   * The other enumerations the type dictates, read the same way: a door's
+   * OperationType, a window's PartitioningType (BLT001/BLT002). Empty for
+   * other classes or when neither the element nor its type has one.
+   */
+  typeDrivenAttributes: TypeDrivenAttributeView[];
   materials: MaterialRef[];
   classifications: Array<{ system: string; code: string; name: string }>;
 };
@@ -733,6 +739,13 @@ export type IdsSpecificationResultView = {
     actualCount: number;
     message: string;
   };
+  /**
+   * Set when the engine could not evaluate the specification at all — most
+   * often an `xs:pattern` its regex guard refused. The specification then has
+   * no applicable elements, and must read as failed with this reason, not as
+   * one that matched nothing.
+   */
+  error?: string;
 };
 
 /** One model's results. Federation aggregation happens in `lib/ids/report.ts`. */

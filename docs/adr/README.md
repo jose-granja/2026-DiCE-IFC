@@ -19,6 +19,7 @@
 | [015](015-worker-csp.md) | A CSP for the Web Workers, narrower than the page's | Accepted |
 | [016](016-hosted-texture-library.md) | Textures: the model's own first, then a library we host (Django Ninja backend) | Accepted, built; supersedes 014's choice of libraries |
 | [017](017-property-names-from-bsdd.md) | IFC property names in Portuguese, from bSDD, as a label (read live through the app's server) | Accepted, built |
+| [018](018-in-browser-ifc-validation.md) | buildingSMART's IFC validation (syntax, header, schema, normative rules), run in the browser on Pyodide with the service's own code | Accepted, built (first version) |
 
 ## Open questions from the build brief
 

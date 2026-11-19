@@ -16,6 +16,7 @@ import {
   MessagesSquare,
   Ruler,
   Scissors,
+  ShieldCheck,
   Sigma,
   type LucideIcon,
 } from "lucide-react";
@@ -31,6 +32,7 @@ export type ToolTab =
   | "section"
   | "measure"
   | "ids"
+  | "validation"
   | "clash"
   | "bcf";
 
@@ -45,6 +47,7 @@ export const TOOL_TAB_ICONS: Record<ToolTab, LucideIcon> = {
   section: Scissors,
   measure: Ruler,
   ids: ClipboardCheck,
+  validation: ShieldCheck,
   clash: Crosshair,
   bcf: MessagesSquare,
 };

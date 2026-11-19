@@ -1,9 +1,10 @@
 /**
  * IFC property names in one language, live from bSDD (ADR 017).
  *
- * `GET /api/bsdd/property-names?language=pt-PT`. The browser cannot ask bSDD
- * itself (no CORS headers, see `../route.ts`), so this server reads the IFC
- * dictionary's listings and answers with only the translated names. It sends
+ * `GET /api/bsdd/property-names?language=pt-PT` (or `en`). The browser cannot
+ * ask bSDD itself (no CORS headers, see `../route.ts`), so this server reads
+ * the IFC dictionary's listings and answers with only the names that differ
+ * from the IFC code. It sends
  * bSDD the dictionary's URI and the language: nothing from a model.
  */
 

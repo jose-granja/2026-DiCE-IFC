@@ -1,0 +1,2585 @@
+[
+ {
+  "stage": "header_syntax",
+  "status": "valid",
+  "outcomes": [
+   {
+    "severity": "PASSED",
+    "outcome_code": "P00010"
+   }
+  ],
+  "info": {
+   "seconds": 0.12
+  }
+ },
+ {
+  "stage": "header",
+  "status": "invalid",
+  "outcomes": [
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "feature": "originating_system",
+    "observed": "DiCE-IFC",
+    "doc": "https://github.com/buildingSMART/IFC4.x-IF/tree/main/docs/IFC-file-header"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "feature": "company_name",
+    "observed": null,
+    "doc": "https://github.com/buildingSMART/IFC4.x-IF/tree/main/docs/IFC-file-header",
+    "source": "DiCE-IFC"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "feature": "application_name",
+    "observed": null,
+    "doc": "https://github.com/buildingSMART/IFC4.x-IF/tree/main/docs/IFC-file-header",
+    "source": "DiCE-IFC"
+   }
+  ],
+  "info": {
+   "header": {
+    "validation_errors": [
+     "originating_system",
+     "company_name",
+     "application_name"
+    ],
+    "description": null,
+    "implementation": null,
+    "name": "georeferenced-wall-ifc4.ifc",
+    "time_stamp": "2026-01-01T00:00:00",
+    "author": [
+     "DiCE-IFC"
+    ],
+    "organization": [
+     "UMinho"
+    ],
+    "preprocessor_version": "DiCE-IFC fixtures",
+    "originating_system": "DiCE-IFC",
+    "authorization": "",
+    "company_name": null,
+    "application_name": null,
+    "schema_identifier": "IFC4",
+    "version": null,
+    "mvd": "ReferenceView_V1.2",
+    "comments": []
+   },
+   "seconds": 0.59
+  }
+ },
+ {
+  "stage": "syntax",
+  "status": "valid",
+  "outcomes": [
+   {
+    "severity": "PASSED",
+    "outcome_code": "P00010"
+   }
+  ],
+  "info": {
+   "seconds": 0.17
+  }
+ },
+ {
+  "stage": "prerequisites",
+  "status": "valid",
+  "outcomes": [
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "IFC101 - Only official IFC versions allowed",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "IFC101",
+    "title": "IFC101 - Only official IFC versions allowed",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/IFC101_Only-official-ifc-versions-allowed.html",
+    "description": "The rule verifies that the IFC model has a schema identifier corresponding to any of the official versions released by buildingSMART. Specifically, IFC2x3 TC1 (version 2.3.0.1), IFC4 ADD2 TC1 (version 4.0.2.1), or IFC4.3 ADD2 (version 4.3.2.0).",
+    "tags": [
+     "critical",
+     "version1"
+    ]
+   }
+  ],
+  "info": {
+   "rules": 104,
+   "crashed": [],
+   "seconds": 1.79
+  }
+ },
+ {
+  "stage": "schema",
+  "status": "invalid",
+  "outcomes": [
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "On instance:\n    #71=IfcWall('7YvctVUKr0kugbFTf53O9L',#5,'Wall A','External wall',$,#70,#108,'WALL-A',.STANDARD.)\n                ^^^^^^^^^^^^^^^^^^^^^^^^                                                            \nIfcGloballyUniqueId base64 validation:\n    The attribute GlobalId should be valid base64 encoded 128-bit number.\nViolated by:\n    Guid first character must be either a 0, 1, 2, or 3.\n",
+    "feature": "{\"type\": \"schema\", \"attribute\": null}",
+    "inst": 71,
+    "entity": "IfcWall",
+    "attribute": null,
+    "type": "schema",
+    "title": "IfcGloballyUniqueId base64 validation",
+    "explanation": "The attribute GlobalId should be valid base64 encoded 128-bit number.",
+    "detail": "Guid first character must be either a 0, 1, 2, or 3.",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcgloballyuniqueid.htm",
+    "schema": "IFC4"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "On instance:\n    #73=IfcWall('8YvctVUKr0kugbFTf53O9L',#5,'Wall B','Internal wall',$,#72,$,'WALL-B',.STANDARD.)\n                ^^^^^^^^^^^^^^^^^^^^^^^^                                                         \nIfcGloballyUniqueId base64 validation:\n    The attribute GlobalId should be valid base64 encoded 128-bit number.\nViolated by:\n    Guid first character must be either a 0, 1, 2, or 3.\n",
+    "feature": "{\"type\": \"schema\", \"attribute\": null}",
+    "inst": 73,
+    "entity": "IfcWall",
+    "attribute": null,
+    "type": "schema",
+    "title": "IfcGloballyUniqueId base64 validation",
+    "explanation": "The attribute GlobalId should be valid base64 encoded 128-bit number.",
+    "detail": "Guid first character must be either a 0, 1, 2, or 3.",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcgloballyuniqueid.htm",
+    "schema": "IFC4"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "On instance:\n    #75=IfcSlab('9YvctVUKr0kugbFTf53O9L',#5,'Slab A',$,$,#74,#118,'SLAB-A',.FLOOR.)\n                ^^^^^^^^^^^^^^^^^^^^^^^^                                           \nIfcGloballyUniqueId base64 validation:\n    The attribute GlobalId should be valid base64 encoded 128-bit number.\nViolated by:\n    Guid first character must be either a 0, 1, 2, or 3.\n",
+    "feature": "{\"type\": \"schema\", \"attribute\": null}",
+    "inst": 75,
+    "entity": "IfcSlab",
+    "attribute": null,
+    "type": "schema",
+    "title": "IfcGloballyUniqueId base64 validation",
+    "explanation": "The attribute GlobalId should be valid base64 encoded 128-bit number.",
+    "detail": "Guid first character must be either a 0, 1, 2, or 3.",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcgloballyuniqueid.htm",
+    "schema": "IFC4"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "On instance:\n    #76=IfcRelContainedInSpatialStructure('AYvctVUKr0kugbFTf53O9L',#5,$,$,(#71,#73,#75),#54)\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^                          \nIfcGloballyUniqueId base64 validation:\n    The attribute GlobalId should be valid base64 encoded 128-bit number.\nViolated by:\n    Guid first character must be either a 0, 1, 2, or 3.\n",
+    "feature": "{\"type\": \"schema\", \"attribute\": null}",
+    "inst": 76,
+    "entity": "IfcRelContainedInSpatialStructure",
+    "attribute": null,
+    "type": "schema",
+    "title": "IfcGloballyUniqueId base64 validation",
+    "explanation": "The attribute GlobalId should be valid base64 encoded 128-bit number.",
+    "detail": "Guid first character must be either a 0, 1, 2, or 3.",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcgloballyuniqueid.htm",
+    "schema": "IFC4"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "On instance:\n    #83=IfcPropertySet('BYvctVUKr0kugbFTf53O9L',#5,'Pset_WallCommon',$,(#80,#81,#82))\n                       ^^^^^^^^^^^^^^^^^^^^^^^^                                      \nIfcGloballyUniqueId base64 validation:\n    The attribute GlobalId should be valid base64 encoded 128-bit number.\nViolated by:\n    Guid first character must be either a 0, 1, 2, or 3.\n",
+    "feature": "{\"type\": \"schema\", \"attribute\": null}",
+    "inst": 83,
+    "entity": "IfcPropertySet",
+    "attribute": null,
+    "type": "schema",
+    "title": "IfcGloballyUniqueId base64 validation",
+    "explanation": "The attribute GlobalId should be valid base64 encoded 128-bit number.",
+    "detail": "Guid first character must be either a 0, 1, 2, or 3.",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcgloballyuniqueid.htm",
+    "schema": "IFC4"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "On instance:\n    #84=IfcRelDefinesByProperties('CYvctVUKr0kugbFTf53O9L',#5,$,$,(#71),#83)\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^                  \nIfcGloballyUniqueId base64 validation:\n    The attribute GlobalId should be valid base64 encoded 128-bit number.\nViolated by:\n    Guid first character must be either a 0, 1, 2, or 3.\n",
+    "feature": "{\"type\": \"schema\", \"attribute\": null}",
+    "inst": 84,
+    "entity": "IfcRelDefinesByProperties",
+    "attribute": null,
+    "type": "schema",
+    "title": "IfcGloballyUniqueId base64 validation",
+    "explanation": "The attribute GlobalId should be valid base64 encoded 128-bit number.",
+    "detail": "Guid first character must be either a 0, 1, 2, or 3.",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcgloballyuniqueid.htm",
+    "schema": "IFC4"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "On instance:\n    #86=IfcPropertySet('DYvctVUKr0kugbFTf53O9L',#5,'Pset_WallCommon',$,(#85))\n                       ^^^^^^^^^^^^^^^^^^^^^^^^                              \nIfcGloballyUniqueId base64 validation:\n    The attribute GlobalId should be valid base64 encoded 128-bit number.\nViolated by:\n    Guid first character must be either a 0, 1, 2, or 3.\n",
+    "feature": "{\"type\": \"schema\", \"attribute\": null}",
+    "inst": 86,
+    "entity": "IfcPropertySet",
+    "attribute": null,
+    "type": "schema",
+    "title": "IfcGloballyUniqueId base64 validation",
+    "explanation": "The attribute GlobalId should be valid base64 encoded 128-bit number.",
+    "detail": "Guid first character must be either a 0, 1, 2, or 3.",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcgloballyuniqueid.htm",
+    "schema": "IFC4"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "On instance:\n    #87=IfcRelDefinesByProperties('EYvctVUKr0kugbFTf53O9L',#5,$,$,(#73),#86)\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^                  \nIfcGloballyUniqueId base64 validation:\n    The attribute GlobalId should be valid base64 encoded 128-bit number.\nViolated by:\n    Guid first character must be either a 0, 1, 2, or 3.\n",
+    "feature": "{\"type\": \"schema\", \"attribute\": null}",
+    "inst": 87,
+    "entity": "IfcRelDefinesByProperties",
+    "attribute": null,
+    "type": "schema",
+    "title": "IfcGloballyUniqueId base64 validation",
+    "explanation": "The attribute GlobalId should be valid base64 encoded 128-bit number.",
+    "detail": "Guid first character must be either a 0, 1, 2, or 3.",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcgloballyuniqueid.htm",
+    "schema": "IFC4"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "On instance:\n    #60=IfcRelAggregates('4YvctVUKr0kugbFTf53O9L',#5,$,$,#30,(#50))\n                         ^^^^^^^^^^^^^^^^^^^^^^^^                  \nIfcGloballyUniqueId base64 validation:\n    The attribute GlobalId should be valid base64 encoded 128-bit number.\nViolated by:\n    Guid first character must be either a 0, 1, 2, or 3.\n",
+    "feature": "{\"type\": \"schema\", \"attribute\": null}",
+    "inst": 60,
+    "entity": "IfcRelAggregates",
+    "attribute": null,
+    "type": "schema",
+    "title": "IfcGloballyUniqueId base64 validation",
+    "explanation": "The attribute GlobalId should be valid base64 encoded 128-bit number.",
+    "detail": "Guid first character must be either a 0, 1, 2, or 3.",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcgloballyuniqueid.htm",
+    "schema": "IFC4"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "On instance:\n    #61=IfcRelAggregates('5YvctVUKr0kugbFTf53O9L',#5,$,$,#50,(#52))\n                         ^^^^^^^^^^^^^^^^^^^^^^^^                  \nIfcGloballyUniqueId base64 validation:\n    The attribute GlobalId should be valid base64 encoded 128-bit number.\nViolated by:\n    Guid first character must be either a 0, 1, 2, or 3.\n",
+    "feature": "{\"type\": \"schema\", \"attribute\": null}",
+    "inst": 61,
+    "entity": "IfcRelAggregates",
+    "attribute": null,
+    "type": "schema",
+    "title": "IfcGloballyUniqueId base64 validation",
+    "explanation": "The attribute GlobalId should be valid base64 encoded 128-bit number.",
+    "detail": "Guid first character must be either a 0, 1, 2, or 3.",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcgloballyuniqueid.htm",
+    "schema": "IFC4"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "On instance:\n    #62=IfcRelAggregates('6YvctVUKr0kugbFTf53O9L',#5,$,$,#52,(#54))\n                         ^^^^^^^^^^^^^^^^^^^^^^^^                  \nIfcGloballyUniqueId base64 validation:\n    The attribute GlobalId should be valid base64 encoded 128-bit number.\nViolated by:\n    Guid first character must be either a 0, 1, 2, or 3.\n",
+    "feature": "{\"type\": \"schema\", \"attribute\": null}",
+    "inst": 62,
+    "entity": "IfcRelAggregates",
+    "attribute": null,
+    "type": "schema",
+    "title": "IfcGloballyUniqueId base64 validation",
+    "explanation": "The attribute GlobalId should be valid base64 encoded 128-bit number.",
+    "detail": "Guid first character must be either a 0, 1, 2, or 3.",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcgloballyuniqueid.htm",
+    "schema": "IFC4"
+   },
+   {
+    "severity": "ERROR",
+    "outcome_code": "E00002",
+    "observed": "(exists(lastmodifieddate) or (not exists(lastmodifieddate) and (not exists(changeaction))) or (not exists(lastmodifieddate) and exists(changeaction) and (changeaction == IfcChangeActionEnum.NOTDEFINED or changeaction == IfcChangeActionEnum.NOCHANGE)))\n\nViolated by:\n    ((False or (not False and not True) or (not False and True and ('ADDED' == 'NOTDEFINED' or 'ADDED' == 'NOCHANGE'))))\n     +  where False = exists(<indeterminate_type object at 0x7f823e0>)\n     +  and   False = exists(<indeterminate_type object at 0x7f823e0>)\n     +  and   True = exists('ADDED')\n     +  and   False = exists(<indeterminate_type object at 0x7f823e0>)\n     +  and   True = exists('ADDED')\n     +  and   'NOTDEFINED' = IfcChangeActionEnum.NOTDEFINED\n     +  and   'NOCHANGE' = IfcChangeActionEnum.NOCHANGE\n\nOn instance:\n    #5=IfcOwnerHistory(#3,#4,$,.ADDED.,$,$,$,0)\n",
+    "feature": "{\"type\": \"entity_rule\", \"attribute\": \"IfcOwnerHistory.CorrectChangeAction\"}",
+    "inst": 5,
+    "entity": "IfcOwnerHistory",
+    "attribute": "IfcOwnerHistory.CorrectChangeAction",
+    "type": "entity_rule",
+    "expression": "(exists(lastmodifieddate) or (not exists(lastmodifieddate) and (not exists(changeaction))) or (not exists(lastmodifieddate) and exists(changeaction) and (changeaction == IfcChangeActionEnum.NOTDEFINED or changeaction == IfcChangeActionEnum.NOCHANGE)))",
+    "detail": "((False or (not False and not True) or (not False and True and ('ADDED' == 'NOTDEFINED' or 'ADDED' == 'NOCHANGE'))))\n+  where False = exists(<indeterminate_type object at 0x7f823e0>)\n+  and   False = exists(<indeterminate_type object at 0x7f823e0>)\n+  and   True = exists('ADDED')\n+  and   False = exists(<indeterminate_type object at 0x7f823e0>)\n+  and   True = exists('ADDED')\n+  and   'NOTDEFINED' = IfcChangeActionEnum.NOTDEFINED\n+  and   'NOCHANGE' = IfcChangeActionEnum.NOCHANGE\nOn instance:\n#5=IfcOwnerHistory(#3,#4,$,.ADDED.,$,$,$,0)",
+    "doc": "https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/link/ifcownerhistory.htm",
+    "schema": "IFC4"
+   }
+  ],
+  "info": {
+   "seconds": 2.86
+  }
+ },
+ {
+  "stage": "normative_ia",
+  "status": "invalid",
+  "outcomes": [
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB000 - Alignment layout",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB000",
+    "title": "ALB000 - Alignment layout",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB000_Alignment-layout.html",
+    "description": "The rule verifies the presence of IFC entities used to define the business logic, or layout, of an alignment. IfcAlignment can be nested by instances of IfcAlignmentHorizontal, IfcAlignmentVertical, IfcAlignmentCant, IfcReferent, or \"child\" instances of IfcAlignment. However, IfcAlignmentHorizontal is always present in any definition of an alignment layout, regardless of the presence or absence of other related entities.",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB002 - Alignment Layout Relationships",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB002",
+    "title": "ALB002 - Alignment Layout Relationships",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB002_Alignment-layout-relationships.html",
+    "description": "The rule verifies that nesting and decomposition relationships are used correctly with alignment layouts.",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB003 - Alignment Nesting",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB003",
+    "title": "ALB003 - Alignment Nesting",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB003_Alignment-nesting.html",
+    "description": "The rule verifies that an Alignment has a nesting relationship with its components (i.e., Horizontal, Vertical, Cant layouts) or with Referents (e.g., mileage markers). And not with any other entity.",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB004 - Alignment in spatial structure relationships",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB004",
+    "title": "ALB004 - Alignment in spatial structure relationships",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB004_Alignment-in-spatial-structure-relationships.html",
+    "description": "The rule verifies that each IfcAlignment must be related to IfcProject using the IfcRelAggregates relationship - either directly or indirectly. The indirect case is when a child alignment is aggregated to a parent alignment. In this case, only the parent alignment shall be related to the project.",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB012 - Alignment vertical segment radius of curvature",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB012",
+    "title": "ALB012 - Alignment vertical segment radius of curvature",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB012_Alignment-vertical-segment-radius-of-curvature.html",
+    "description": "The rule verifies the 'RadiusOfCurvature' design parameter for vertical alignment segments. Where specified, an absolute tolerance value in the length unit of the model is used for the comparison.",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB015 - Alignment business logic zero length final segment",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB015",
+    "title": "ALB015 - Alignment business logic zero length final segment",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB015_Alignment-business-logic-zero-length-final-segment.html",
+    "description": "The rule verifies that each layout (horizontal, vertical, cant) of the alignment business logic ends with a segment of length = 0.",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB021 - Alignment overall agreement of business logic and geometry",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB021",
+    "title": "ALB021 - Alignment overall agreement of business logic and geometry",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB021_Alignment-overall-agreement-of-business-logic-and-geometry.html",
+    "description": "The rule verifies that when an Alignment has both business logic and geometry (representation), the representation entity type must correspond to the layouts present in the business logic.",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB022 - Alignment agreement on number of segments",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB022",
+    "title": "ALB022 - Alignment agreement on number of segments",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB022_Alignment-agreement-on-number-of-segments.html",
+    "description": "The rule verifies that when an Alignment has both business logic and geometry (representation), the number of segments in the representation must correspond to the number of segments indicated by the business logic.",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB023 - Alignment same segment types in business logic and geometry",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB023",
+    "title": "ALB023 - Alignment same segment types in business logic and geometry",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB023_Alignment-same-segment-types-in-business-logic-and-geometry.html",
+    "description": "The rule verifies that when an Alignment has both business logic and geometry (representation), the geometry type of each segments in the business logic must be the same as its corresponding segment in the representation.",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB030 - Alignment local placement",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB030",
+    "title": "ALB030 - Alignment local placement",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB030_Alignment-local-placement.html",
+    "description": "The rule verifies that the ObjectPlacement attribute of every instance of IfcAlignment is of type IfcLocalPlacement. While the schema allows other placement types (Grid or Linear), this rule ensures that IfcLocalPlacement is used for all alignments.",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB031 - Alignment Layouts Default Case",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB031",
+    "title": "ALB031 - Alignment Layouts Default Case",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB031_Alignment-layouts-default-case.html",
+    "description": "The rule verifies that alignments are nested in accordance with Concept Template 4.1.4.4.1.1 which represents the default case for nesting alignment layouts. Alignment layouts are abbreviated as follows: horiz = IfcAlignmentHorizontal, vert = IfcAlignmentVertical, and cant = IfcAlignmentCant",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB032 - Alignment Layouts Reusing Horizontal",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB032",
+    "title": "ALB032 - Alignment Layouts Reusing Horizontal",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB032_Alignment-layouts-reusing-horizontal.html",
+    "description": "The rule verifies that alignments are nested in accordance with Concept Template 4.1.4.4.1.2 which represents the case of a horizontal layout being reused by vertical layouts. Alignment layouts are abbreviated as follows: horiz = IfcAlignmentHorizontal, vert = IfcAlignmentVertical, and cant = IfcAlignmentCant",
+    "tags": [
+     "implementer-agreement",
+     "ALB",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS000 - Alignment Geometry",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS000",
+    "title": "ALS000 - Alignment Geometry",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS000_Alignment-geometry.html",
+    "description": "The rule verifies the presence of IFC entities used to represent the geometry of an alignment. Concept template 4.1.7.1.1 illustrates that alignment geometry is exchanged via shape representation(s).",
+    "tags": [
+     "implementer-agreement",
+     "ALS",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS004 - Alignment segment shape representation",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS004",
+    "title": "ALS004 - Alignment segment shape representation",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS004_Alignment-segment-shape-representation.html",
+    "description": "The rule verifies that each IfcAlignmentSegment uses correct representation.",
+    "tags": [
+     "implementer-agreement",
+     "ALS",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS005 - Alignment shape representation",
+    "feature_version": 3,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS005",
+    "title": "ALS005 - Alignment shape representation",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS005_Alignment-shape-representation.html",
+    "description": "The rule verifies that each IfcAlignment uses correct representation. Checks for entity types are based upon the supported shape representations of IfcAlignment listed in 5.4.3.1.",
+    "tags": [
+     "implementer-agreement",
+     "ALS",
+     "version3"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS006 - Alignment horizontal shape representation",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS006",
+    "title": "ALS006 - Alignment horizontal shape representation",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS006_Alignment-horizontal-shape-representation.html",
+    "description": "The rule verifies that IfcAlignmentHorizontal is represented correctly with representation type Curve2D and representation item either IfcCompositeCurve or IfcIndexedPolycurve or IfcPolyline.",
+    "tags": [
+     "implementer-agreement",
+     "ALS",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS007 - Alignment vertical shape representation",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS007",
+    "title": "ALS007 - Alignment vertical shape representation",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS007_Alignment-vertical-shape-representation.html",
+    "description": "The rule verifies that IfcAlignmentVertical is represented correctly with representation type Curve3D and representation item IfcGradientCurve.",
+    "tags": [
+     "implementer-agreement",
+     "ALS",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS008 - Alignment cant shape representation",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS008",
+    "title": "ALS008 - Alignment cant shape representation",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS008_Alignment-cant-shape-representation.html",
+    "description": "The rule verifies that IfcAlignmentCant is represented correctly with representation type Curve3D and representation item IfcSegmentedReferenceCurve.",
+    "tags": [
+     "implementer-agreement",
+     "ALS",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS010 - Alignment segment shape representation has the correct number of items",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS010",
+    "title": "ALS010 - Alignment segment shape representation has the correct number of items",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS010_Alignment-segment-shape-representation-has-the-correct-number-of-items.html",
+    "description": "The rule verifies that a shape representation of IfcAlignmentSegment has the correct number of items",
+    "tags": [
+     "implementer-agreement",
+     "ALS",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS011 - Alignment segment entity type consistency",
+    "feature_version": 3,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS011",
+    "title": "ALS011 - Alignment segment entity type consistency",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS011_Alignment-segment-entity-type-consistency.html",
+    "description": "The rule verifies that the same entity type is used for all segments and that IfcCurveSegment is used with IfcSegmentedReferenceCurve and IfcGradientCurve The rule is similar to GEM011, except that it requires the presence of an IfcAlignment.",
+    "tags": [
+     "implementer-agreement",
+     "ALS",
+     "version3"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS015 - Alignment representation zero length final segment",
+    "feature_version": 3,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS015",
+    "title": "ALS015 - Alignment representation zero length final segment",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS015_Alignment-representation-zero-length-final-segment.html",
+    "description": "The rule verifies that the alignment geometry (representation) curve ends with a discontinuous segment with length = 0.",
+    "tags": [
+     "implementer-agreement",
+     "ALS",
+     "version3"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ANN000 - Annotations",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ANN000",
+    "title": "ANN000 - Annotations",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ANN000_Annotations.html",
+    "description": "The rule verifies the presence of IFC entities used to add annotations to elements and spaces, such as labels, notes, and dimensions. In IFC, annotations are also used to represent survey elements (i.e., points, lines, areas) https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Product_Shape/Product_Geometric_Representation/Annotation_Geometry/content.html",
+    "tags": [
+     "implementer-agreement",
+     "ANN",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ASM000 - Composed elements",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ASM000",
+    "title": "ASM000 - Composed elements",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ASM000_Composed-elements.html",
+    "description": "The rule verifies the presence of IFC entities used to model elements composed of / constructed by other elements. For example, a roof might be assembled from a series of prefabricated truss components. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Object_Composition/Aggregation/Element_Composition/content.html",
+    "tags": [
+     "implementer-agreement",
+     "ASM",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "AXG000 - Axis Geometry",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "AXG000",
+    "title": "AXG000 - Axis Geometry",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/AXG000_Axis-Geometry.html",
+    "description": "The rule verifies the presence of IFC entities used to representing the geometry using a set of axes, where each axis consists of a position in 3D space and a direction vector. This can be useful for representing geometry that follows a certain pattern or direction, such as walls, beams, columns, or other elements. In IFC, axis geometry can be represented using the IfcCartesianPoint and IfcDirection classes, which define the position and direction of the axes, respectively.",
+    "tags": [
+     "implementer-agreement",
+     "AXG",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "BBX000 - Bounding Box",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "BBX000",
+    "title": "BBX000 - Bounding Box",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/BBX000_Bounding-box.html",
+    "description": "The rule verifies the presence of IFC entities used to define an orthogonal box, oriented parallel to the axes of the object coordinate system which defines the spatial extent of the latter.",
+    "tags": [
+     "implementer-agreement",
+     "BBX",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "BBX001 - Bounding Box Shape Representation",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "BBX001",
+    "title": "BBX001 - Bounding Box Shape Representation",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/BBX001_Bounding-box-shape-representation.html",
+    "description": "The rule verifies the correct use of Bounding Box as shape representation.",
+    "tags": [
+     "implementer-agreement",
+     "BBX",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "BLT000 - Built Elements",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "BLT000",
+    "title": "BLT000 - Built Elements",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/BLT000_Built-elements.html",
+    "description": "The rule verifies the presence of IFC entities used to represent various building and infrastructure elements, including walls, floors, roofs, stairs, doors, windows, columns, road pavements, bridge decks, railway track elements, etc.",
+    "tags": [
+     "implementer-agreement",
+     "BLT",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "BLT001 - Correct use of operation type attributes for doors",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "BLT001",
+    "title": "BLT001 - Correct use of operation type attributes for doors",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/BLT001_Correct-use-of-operation-type-attributes-for-doors.html",
+    "description": "The rule verifies that attribute UserDefinedOperationType is provided only when the value of the attribute OperationType is set to USERDEFINED. Additionally, when an IfcDoor is assigned an IfcDoorType, the type should dictate the OperationType, and the instance should not override it.",
+    "tags": [
+     "implementer-agreement",
+     "BLT",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "BLT002 - Correct use of partitioning type attributes for windows",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "BLT002",
+    "title": "BLT002 - Correct use of partitioning type attributes for windows",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/BLT002_Correct-use-of-partitioning-type-attributes-for-windows.html",
+    "description": "The rule verifies that attribute UserDefinedPartitioningType is provided only when the value of the attribute PartitioningType is set to USERDEFINED. Additionally, when an IfcWindow is assigned an IfcWindowType, the type should dictate the PartitioningType, and the instance should not override it.",
+    "tags": [
+     "implementer-agreement",
+     "BLT",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "CLS000 - Classification Association",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "CLS000",
+    "title": "CLS000 - Classification Association",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/CLS000_Classification-association.html",
+    "description": "The rule verifies the presence of IFC entities used to classify elements, materials, and systems according to various classification systems, such as the UNIFORMAT or Omniclass classification systems. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Object_Association/Classification_Association/content.html",
+    "tags": [
+     "implementer-agreement",
+     "CLS",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "CTX000 - Presentation colours and textures",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "CTX000",
+    "title": "CTX000 - Presentation colours and textures",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/CTX000_Presentation-colours-and-textures.html",
+    "description": "The rule verifies the presence of IFC entities used to assign colour, texture and other presentation appearance information to objects. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Product_Shape/Product_Geometry_Colour/content.html",
+    "tags": [
+     "implementer-agreement",
+     "CTX",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "DOC000 - Document information",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "DOC000",
+    "title": "DOC000 - Document information",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/DOC000_Document-information.html",
+    "description": "The rule verifies the presence of IFC entities used to define external documents, which may be used to attach arbitrary information to objects. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Project_Context/Project_Document_Information/content.html",
+    "tags": [
+     "implementer-agreement",
+     "DOC",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GDP000 - Grid Placement",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GDP000",
+    "title": "GDP000 - Grid Placement",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GDP000_Grid-placement.html",
+    "description": "The rule verifies the presence of IFC entities used to define the placement of a product in relation to a design grid.",
+    "tags": [
+     "implementer-agreement",
+     "GDP",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GEM011 - Curve segments consistency",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GEM011",
+    "title": "GEM011 - Curve segments consistency",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GEM011_Curve-segments-consistency.html",
+    "description": "The rule verifies that the same entity type is used for all segments and that IfcCurveSegment is used with IfcSegmentedReferenceCurve and IfcGradientCurve The rule is identical to ALS011, except that it does not require the presence of an IfcAlignment.",
+    "tags": [
+     "implementer-agreement",
+     "GEM",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GEM111 - No duplicated points within a polyloop or polyline",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GEM111",
+    "title": "GEM111 - No duplicated points within a polyloop or polyline",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GEM111_No-duplicated-points-within-a-polyloop-or-polyline.html",
+    "description": "The rule verifies, that all the polyloops and polylines will have no duplicate points, unless it's the first and last point of a closed polyline. In that case, it must be identical by reference (referencing the same instance), not just having the same coordinates. Two points are considered to be duplicates if the distance between them is less than the Precision factor of the applicable geometric context.",
+    "tags": [
+     "implementer-agreement",
+     "GEM",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GEM112 - No duplicated points within an indexed poly curve",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GEM112",
+    "title": "GEM112 - No duplicated points within an indexed poly curve",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GEM112_No-duplicated-points-within-an-indexed-poly-curve.html",
+    "description": "The rule verifies that all indexed poly curves will have no duplicate points. Two points are considered to be duplicates if the distance between them is less than the Precision factor of the applicable geometric context.",
+    "tags": [
+     "implementer-agreement",
+     "GEM",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GEM113 - Indexed poly curve arcs must not be defined using colinear points",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GEM113",
+    "title": "GEM113 - Indexed poly curve arcs must not be defined using colinear points",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GEM113_Indexed-poly-curve-arcs-must-not-be-defined-using-colinear-points.html",
+    "description": "The rule verifies that all the three points of any IfcArcIndex segment of an IfcIndexedPolyCurve are not colinear after taking the Precision factor into account",
+    "tags": [
+     "implementer-agreement",
+     "GEM",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GRF000 - Georeferencing",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "GRF000",
+    "title": "GRF000 - Georeferencing",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GRF000_Georeferencing.html",
+    "description": "The rule verifies the presence of IFC entities used to define the geographic location and orientation of the model relative to a coordinate reference system. The simple attributes on IfcSite: RefLatitude, RefLongitude and RefElevation are not considered proper georeferencing in the context of this rule.",
+    "tags": [
+     "implementer-agreement",
+     "GRF",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GRF001 - Identical coordinate operations",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GRF001",
+    "title": "GRF001 - Identical coordinate operations",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GRF001_Identical-coordinate-operations.html",
+    "description": "The rule verifies that if multiple instances of IfcGeometricRepresentationContext are provided to the IfcProject, all contexts must share an identical instance of IfcCoordinateOperation, each referring to the same instance of IfcCoordinateReferenceSystem. Additionally, the schema allows the attribute for coordinate operations within the context to be empty. Currently, for GRF001, this is only permitted if (1) there is a single context or (2) the attribute is empty across all contexts within the file.",
+    "tags": [
+     "implementer-agreement",
+     "GRF",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GRF004 - Valid EPSG prefix in coordinate reference system",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "GRF004",
+    "title": "GRF004 - Valid EPSG prefix in coordinate reference system",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GRF004_Valid-EPSG-prefix-in-coordinate-reference-system.html",
+    "description": "The rule verifies that if the name of a CRS starts with \"EPSG:\", it must refer to a valid code from the official EPSG geodetic parameter dataset. EPSG code validation is performed using the pyproj library, which includes a local copy of the official EPSG dataset (https://epsg.org) maintained by IOGP. For reference: https://pyproj4.github.io/pyproj/stable/api/database.html",
+    "tags": [
+     "implementer-agreement",
+     "GRF",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GRF006 - WKT specification for missing EPSG",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GRF006",
+    "title": "GRF006 - WKT specification for missing EPSG",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GRF006_WKT-specification-for-missing-EPSG.html",
+    "description": "The rule verifies that if an ESPG code does not exist for the coordinate reference system, this CRS shall be further speciied using the IfcWellKnownText entity https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcCoordinateReferenceSystem.htm#8.18.3.2.3-Attributes",
+    "tags": [
+     "implementer-agreement",
+     "GRF",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GRF007 - Valid vertical datum CRS type",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GRF007",
+    "title": "GRF007 - Valid vertical datum CRS type",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GRF007_valid-vertical-datum-crs-type.html",
+    "description": "The rule verifies that any coordinate reference system (CRS) assigned as a vertical datum is either a vertical CRS or a compound CRS containing a vertical component, to ensure valid height referencing. https://pyproj4.github.io/pyproj/stable/api/crs/crs.html",
+    "tags": [
+     "implementer-agreement",
+     "GRF",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GRF008 - Rigid operation units",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GRF008",
+    "title": "GRF008 - Rigid operation units",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GRF008_Rigid-operation-units.html",
+    "description": "The rule verifies that correct unit types are assigned to rigid operation coordinates",
+    "tags": [
+     "implementer-agreement",
+     "GRF",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GRP000 - Groups",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GRP000",
+    "title": "GRP000 - Groups",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GRP000_Groups.html",
+    "description": "The rule verifies the presence of IFC entities used to define a group as a logical collection of objects.",
+    "tags": [
+     "implementer-agreement",
+     "GRP",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GRP001 - Acyclic groups",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GRP001",
+    "title": "GRP001 - Acyclic groups",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GRP001_Acyclic-groups.html",
+    "description": "The rule verifies that an IfcGroup does not reference itself, not even through intermediary entities.",
+    "tags": [
+     "implementer-agreement",
+     "GRP",
+     "version1"
+    ]
+   },
+   {
+    "inst": 71,
+    "validation_task_id": null,
+    "feature": "IFC102 - Absence of deprecated entities",
+    "feature_version": 5,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "schema_identifier": "not {'POLYGONAL', 'STANDARD', 'ELEMENTEDWALL'}"
+    },
+    "observed": {
+     "schema_identifier": "STANDARD"
+    },
+    "scenario": "Check for deprecated enumerated values - IFC4 -- @1.1 ",
+    "last_step": ".PredefinedType. ^is not^ 'POLYGONAL' or 'STANDARD' or 'ELEMENTEDWALL'",
+    "instance_id": 71,
+    "rule": "IFC102",
+    "title": "IFC102 - Absence of deprecated entities",
+    "entity": "IfcWall",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/IFC102_Absence-of-deprecated-entities.html",
+    "description": "The rule verifies that the IFC model does not have deprecated entities, attributes or enumerators. By definition, a deprecated entity shall not be exported by applications. Complying interpreters shall still be able to import deprecated definitions. IFC2X3: https://standards.buildingsmart.org/IFC/RELEASE/IFC2x3/TC1/HTML/deprecated_constructs.htm IFC4X3: https://standards.buildingsmart.org/IFC/RELEASE/IFC4_3/HTML/content/introduction.htm#List-of-known-backward-incompatibilities-of-this-document-with-ISO-16739-1-2018 IFC4: https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/",
+    "tags": [
+     "IFC",
+     "version5",
+     "implementer-agreement"
+    ]
+   },
+   {
+    "inst": 73,
+    "validation_task_id": null,
+    "feature": "IFC102 - Absence of deprecated entities",
+    "feature_version": 5,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "schema_identifier": "not {'POLYGONAL', 'STANDARD', 'ELEMENTEDWALL'}"
+    },
+    "observed": {
+     "schema_identifier": "STANDARD"
+    },
+    "scenario": "Check for deprecated enumerated values - IFC4 -- @1.1 ",
+    "last_step": ".PredefinedType. ^is not^ 'POLYGONAL' or 'STANDARD' or 'ELEMENTEDWALL'",
+    "instance_id": 73,
+    "rule": "IFC102",
+    "title": "IFC102 - Absence of deprecated entities",
+    "entity": "IfcWall",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/IFC102_Absence-of-deprecated-entities.html",
+    "description": "The rule verifies that the IFC model does not have deprecated entities, attributes or enumerators. By definition, a deprecated entity shall not be exported by applications. Complying interpreters shall still be able to import deprecated definitions. IFC2X3: https://standards.buildingsmart.org/IFC/RELEASE/IFC2x3/TC1/HTML/deprecated_constructs.htm IFC4X3: https://standards.buildingsmart.org/IFC/RELEASE/IFC4_3/HTML/content/introduction.htm#List-of-known-backward-incompatibilities-of-this-document-with-ISO-16739-1-2018 IFC4: https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/",
+    "tags": [
+     "IFC",
+     "version5",
+     "implementer-agreement"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "LAY000 - Presentation Layer Assignment",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "LAY000",
+    "title": "LAY000 - Presentation Layer Assignment",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/LAY000_Presentation-layer-assignment.html",
+    "description": "The rule verifies the presence of IFC entities used to assign layers (also known as, CAD layer) to collection of elements. This is used mainly for grouping and visibility control, and in general to organise geometry into groups that may be shown or hidden. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Product_Shape/Product_Geometry_Layer/content.html",
+    "tags": [
+     "implementer-agreement",
+     "LAY",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "LIP000 - Linear Placement",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "LIP000",
+    "title": "LIP000 - Linear Placement",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/LIP000_Linear-Placement.html",
+    "description": "The rule verifies the presence of IFC entities used to position elements relative to an IfcLinearPositioningElement in accordance with the ISO 19148 Linear referencing standard. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Product_Shape/Product_Placement/Product_Linear_Placement/content.html",
+    "tags": [
+     "implementer-agreement",
+     "LIP",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "LOP000 - Local placement",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "LOP000",
+    "title": "LOP000 - Local placement",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/LOP000_Local-placement.html",
+    "description": "The rule verifies the presence of IFC entities used to position a product in relation to the placement of another product; or its absolute placement within the geometric representation context of the project.",
+    "tags": [
+     "implementer-agreement",
+     "LOP",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "MAT000 - Materials",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "MAT000",
+    "title": "MAT000 - Materials",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/MAT000_Materials.html",
+    "description": "The rule verifies the presence of IFC entities used to define materials assigned to elements. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Object_Association/Material_Association/Material_Single/content.html",
+    "tags": [
+     "implementer-agreement",
+     "MAT",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "MPD001 - Correct use of RepresentationType and RepresentationIdentifier in the context of IfcMappedItem",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "MPD001",
+    "title": "MPD001 - Correct use of RepresentationType and RepresentationIdentifier in the context of IfcMappedItem",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/MPD001_Correct-use-of-RepresentationType-and-RepresentationIdentifier-in-the-context-of-IfcMappedItem.html",
+    "description": "The rule verifies that the shape representations being mapped as part of an IfcMappedItem all have the same RepresentationType and that the RepresentationIdentifier correspond to that of the representation that owns the mapped item.",
+    "tags": [
+     "implementer-agreement",
+     "MPD",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "OJP000 - Object placement",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "OJP000",
+    "title": "OJP000 - Object placement",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/OJP000_Object-placement.html",
+    "description": "The rule verifies the presence of IFC entities used to define an object placement, which in turns establishes the local coordinate system and spatial position of the product.",
+    "tags": [
+     "implementer-agreement",
+     "OJP",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "OJP001 - Relative placement for elements aggregated to another element",
+    "feature_version": 3,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "OJP001",
+    "title": "OJP001 - Relative placement for elements aggregated to another element",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/OJP001_Relative-placement-for-elements-aggregated-to-another-element.html",
+    "description": "The rule verifies that if an IfcElement is a part of another IfcElement (the container) through the relationship IfcRelAggregates, then the relative placement of that IfcElement shall be provided by an IfcLocalPlacement with an PlacementRelTo attribute pointing to the IfcLocalPlacement of the container element.",
+    "tags": [
+     "implementer-agreement",
+     "OJP",
+     "version3"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "OJT001 - Object Predefined Type",
+    "feature_version": 3,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "OJT001",
+    "title": "OJT001 - Object Predefined Type",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/OJT001_Object-predefined-type.html",
+    "description": "The rule verifies that the attribute 'PredefinedType' for object occurrences is used in accordance with Concept Template 4.1.3.2 - Object Predefined Type. Ref: https://standards.buildingsmart.org/IFC/RELEASE/IFC4_3/HTML/concepts/Object_Attributes/Object_Predefined_Type/content.html",
+    "tags": [
+     "implementer-agreement",
+     "OJT",
+     "version3"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "PJS000 - Project",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "PJS000",
+    "title": "PJS000 - Project",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS000_Project.html",
+    "description": "The rule verifies the presence of IFC entities used to define the overall context and a directory of objects contained within. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Project_Context/content.html",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "PJS001 - Correct conversion based units",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "PJS001",
+    "title": "PJS001 - Correct conversion based units",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS001_Correct-conversion-based-units.html",
+    "description": "The rule verifies that conversion-based units used per Concept Template 4.1.9.9 (https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Project_Context/Project_Units/content.html) have names and corresponding conversion factors per the table of recommended values. This table is not considered to be a normative reference. Therefore all schema versions are checked against the latest table from IFC 4X3: https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcConversionBasedUnit.htm.",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "PJS002 - Correct elements related to project",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "PJS002",
+    "title": "PJS002 - Correct elements related to project",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS002_Correct-elements-related-to-project.html",
+    "description": "The rule verifies that object occurrences (e.g. beams, walls) used within the context of a project are not related to the project using the the declaration relationship. See the Spatial Containment template for relating object occurrences to the spatial structure. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Project_Context/Project_Declaration/content.html",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version2"
+    ]
+   },
+   {
+    "inst": 71,
+    "validation_task_id": null,
+    "feature": "PJS003 - Globally Unique Identifiers",
+    "feature_version": 1,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "oneOf": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "observed": {
+     "schema_identifier": "7YvctVUKr0kugbFTf53O9L"
+    },
+    "scenario": "Valid globally unique identifiers -- @1.3 ",
+    "last_step": "Its value ^starts^ with '0' or '1' or '2' or '3'",
+    "instance_id": 71,
+    "rule": "PJS003",
+    "title": "PJS003 - Globally Unique Identifiers",
+    "entity": "IfcWall",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS003_Globally-Unique-Identifiers.html",
+    "description": "The rule verifies that the GUID of each element adheres to the Global Unique Identifier format and ensures compliance with constraints that are not yet validated by other methods. Specifically, the characters must be within the official encoding character set \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$,\" , the resulting string must be exactly 22 characters in length, and the first character must be either 0, 1, 2, or 3. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcGloballyUniqueId.htm",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": 73,
+    "validation_task_id": null,
+    "feature": "PJS003 - Globally Unique Identifiers",
+    "feature_version": 1,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "oneOf": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "observed": {
+     "schema_identifier": "8YvctVUKr0kugbFTf53O9L"
+    },
+    "scenario": "Valid globally unique identifiers -- @1.3 ",
+    "last_step": "Its value ^starts^ with '0' or '1' or '2' or '3'",
+    "instance_id": 73,
+    "rule": "PJS003",
+    "title": "PJS003 - Globally Unique Identifiers",
+    "entity": "IfcWall",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS003_Globally-Unique-Identifiers.html",
+    "description": "The rule verifies that the GUID of each element adheres to the Global Unique Identifier format and ensures compliance with constraints that are not yet validated by other methods. Specifically, the characters must be within the official encoding character set \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$,\" , the resulting string must be exactly 22 characters in length, and the first character must be either 0, 1, 2, or 3. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcGloballyUniqueId.htm",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": 75,
+    "validation_task_id": null,
+    "feature": "PJS003 - Globally Unique Identifiers",
+    "feature_version": 1,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "oneOf": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "observed": {
+     "schema_identifier": "9YvctVUKr0kugbFTf53O9L"
+    },
+    "scenario": "Valid globally unique identifiers -- @1.3 ",
+    "last_step": "Its value ^starts^ with '0' or '1' or '2' or '3'",
+    "instance_id": 75,
+    "rule": "PJS003",
+    "title": "PJS003 - Globally Unique Identifiers",
+    "entity": "IfcSlab",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS003_Globally-Unique-Identifiers.html",
+    "description": "The rule verifies that the GUID of each element adheres to the Global Unique Identifier format and ensures compliance with constraints that are not yet validated by other methods. Specifically, the characters must be within the official encoding character set \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$,\" , the resulting string must be exactly 22 characters in length, and the first character must be either 0, 1, 2, or 3. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcGloballyUniqueId.htm",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": 76,
+    "validation_task_id": null,
+    "feature": "PJS003 - Globally Unique Identifiers",
+    "feature_version": 1,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "oneOf": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "observed": {
+     "schema_identifier": "AYvctVUKr0kugbFTf53O9L"
+    },
+    "scenario": "Valid globally unique identifiers -- @1.3 ",
+    "last_step": "Its value ^starts^ with '0' or '1' or '2' or '3'",
+    "instance_id": 76,
+    "rule": "PJS003",
+    "title": "PJS003 - Globally Unique Identifiers",
+    "entity": "IfcRelContainedInSpatialStructure",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS003_Globally-Unique-Identifiers.html",
+    "description": "The rule verifies that the GUID of each element adheres to the Global Unique Identifier format and ensures compliance with constraints that are not yet validated by other methods. Specifically, the characters must be within the official encoding character set \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$,\" , the resulting string must be exactly 22 characters in length, and the first character must be either 0, 1, 2, or 3. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcGloballyUniqueId.htm",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": 83,
+    "validation_task_id": null,
+    "feature": "PJS003 - Globally Unique Identifiers",
+    "feature_version": 1,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "oneOf": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "observed": {
+     "schema_identifier": "BYvctVUKr0kugbFTf53O9L"
+    },
+    "scenario": "Valid globally unique identifiers -- @1.3 ",
+    "last_step": "Its value ^starts^ with '0' or '1' or '2' or '3'",
+    "instance_id": 83,
+    "rule": "PJS003",
+    "title": "PJS003 - Globally Unique Identifiers",
+    "entity": "IfcPropertySet",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS003_Globally-Unique-Identifiers.html",
+    "description": "The rule verifies that the GUID of each element adheres to the Global Unique Identifier format and ensures compliance with constraints that are not yet validated by other methods. Specifically, the characters must be within the official encoding character set \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$,\" , the resulting string must be exactly 22 characters in length, and the first character must be either 0, 1, 2, or 3. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcGloballyUniqueId.htm",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": 84,
+    "validation_task_id": null,
+    "feature": "PJS003 - Globally Unique Identifiers",
+    "feature_version": 1,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "oneOf": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "observed": {
+     "schema_identifier": "CYvctVUKr0kugbFTf53O9L"
+    },
+    "scenario": "Valid globally unique identifiers -- @1.3 ",
+    "last_step": "Its value ^starts^ with '0' or '1' or '2' or '3'",
+    "instance_id": 84,
+    "rule": "PJS003",
+    "title": "PJS003 - Globally Unique Identifiers",
+    "entity": "IfcRelDefinesByProperties",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS003_Globally-Unique-Identifiers.html",
+    "description": "The rule verifies that the GUID of each element adheres to the Global Unique Identifier format and ensures compliance with constraints that are not yet validated by other methods. Specifically, the characters must be within the official encoding character set \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$,\" , the resulting string must be exactly 22 characters in length, and the first character must be either 0, 1, 2, or 3. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcGloballyUniqueId.htm",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": 86,
+    "validation_task_id": null,
+    "feature": "PJS003 - Globally Unique Identifiers",
+    "feature_version": 1,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "oneOf": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "observed": {
+     "schema_identifier": "DYvctVUKr0kugbFTf53O9L"
+    },
+    "scenario": "Valid globally unique identifiers -- @1.3 ",
+    "last_step": "Its value ^starts^ with '0' or '1' or '2' or '3'",
+    "instance_id": 86,
+    "rule": "PJS003",
+    "title": "PJS003 - Globally Unique Identifiers",
+    "entity": "IfcPropertySet",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS003_Globally-Unique-Identifiers.html",
+    "description": "The rule verifies that the GUID of each element adheres to the Global Unique Identifier format and ensures compliance with constraints that are not yet validated by other methods. Specifically, the characters must be within the official encoding character set \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$,\" , the resulting string must be exactly 22 characters in length, and the first character must be either 0, 1, 2, or 3. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcGloballyUniqueId.htm",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": 87,
+    "validation_task_id": null,
+    "feature": "PJS003 - Globally Unique Identifiers",
+    "feature_version": 1,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "oneOf": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "observed": {
+     "schema_identifier": "EYvctVUKr0kugbFTf53O9L"
+    },
+    "scenario": "Valid globally unique identifiers -- @1.3 ",
+    "last_step": "Its value ^starts^ with '0' or '1' or '2' or '3'",
+    "instance_id": 87,
+    "rule": "PJS003",
+    "title": "PJS003 - Globally Unique Identifiers",
+    "entity": "IfcRelDefinesByProperties",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS003_Globally-Unique-Identifiers.html",
+    "description": "The rule verifies that the GUID of each element adheres to the Global Unique Identifier format and ensures compliance with constraints that are not yet validated by other methods. Specifically, the characters must be within the official encoding character set \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$,\" , the resulting string must be exactly 22 characters in length, and the first character must be either 0, 1, 2, or 3. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcGloballyUniqueId.htm",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": 60,
+    "validation_task_id": null,
+    "feature": "PJS003 - Globally Unique Identifiers",
+    "feature_version": 1,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "oneOf": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "observed": {
+     "schema_identifier": "4YvctVUKr0kugbFTf53O9L"
+    },
+    "scenario": "Valid globally unique identifiers -- @1.3 ",
+    "last_step": "Its value ^starts^ with '0' or '1' or '2' or '3'",
+    "instance_id": 60,
+    "rule": "PJS003",
+    "title": "PJS003 - Globally Unique Identifiers",
+    "entity": "IfcRelAggregates",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS003_Globally-Unique-Identifiers.html",
+    "description": "The rule verifies that the GUID of each element adheres to the Global Unique Identifier format and ensures compliance with constraints that are not yet validated by other methods. Specifically, the characters must be within the official encoding character set \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$,\" , the resulting string must be exactly 22 characters in length, and the first character must be either 0, 1, 2, or 3. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcGloballyUniqueId.htm",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": 61,
+    "validation_task_id": null,
+    "feature": "PJS003 - Globally Unique Identifiers",
+    "feature_version": 1,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "oneOf": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "observed": {
+     "schema_identifier": "5YvctVUKr0kugbFTf53O9L"
+    },
+    "scenario": "Valid globally unique identifiers -- @1.3 ",
+    "last_step": "Its value ^starts^ with '0' or '1' or '2' or '3'",
+    "instance_id": 61,
+    "rule": "PJS003",
+    "title": "PJS003 - Globally Unique Identifiers",
+    "entity": "IfcRelAggregates",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS003_Globally-Unique-Identifiers.html",
+    "description": "The rule verifies that the GUID of each element adheres to the Global Unique Identifier format and ensures compliance with constraints that are not yet validated by other methods. Specifically, the characters must be within the official encoding character set \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$,\" , the resulting string must be exactly 22 characters in length, and the first character must be either 0, 1, 2, or 3. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcGloballyUniqueId.htm",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": 62,
+    "validation_task_id": null,
+    "feature": "PJS003 - Globally Unique Identifiers",
+    "feature_version": 1,
+    "severity": "ERROR",
+    "outcome_code": "E00020",
+    "expected": {
+     "oneOf": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "observed": {
+     "schema_identifier": "6YvctVUKr0kugbFTf53O9L"
+    },
+    "scenario": "Valid globally unique identifiers -- @1.3 ",
+    "last_step": "Its value ^starts^ with '0' or '1' or '2' or '3'",
+    "instance_id": 62,
+    "rule": "PJS003",
+    "title": "PJS003 - Globally Unique Identifiers",
+    "entity": "IfcRelAggregates",
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS003_Globally-Unique-Identifiers.html",
+    "description": "The rule verifies that the GUID of each element adheres to the Global Unique Identifier format and ensures compliance with constraints that are not yet validated by other methods. Specifically, the characters must be within the official encoding character set \"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$,\" , the resulting string must be exactly 22 characters in length, and the first character must be either 0, 1, 2, or 3. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcGloballyUniqueId.htm",
+    "tags": [
+     "implementer-agreement",
+     "PJS",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "POR000 - Port Connectivity and Nesting",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "POR000",
+    "title": "POR000 - Port Connectivity and Nesting",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/POR000_Port-connectivity-and-nesting.html",
+    "description": "The rule verifies the presence of IFC entities used to define ports (as means for an element to connect to other elements) and the relationship that is made between two ports. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Object_Connectivity/Element_Connectivity/Port_Connectivity/content.html",
+    "tags": [
+     "implementer-agreement",
+     "POR",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "PSE001 - Standard properties and property sets validation",
+    "feature_version": 3,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "PSE001",
+    "title": "PSE001 - Standard properties and property sets validation",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PSE001_Standard-properties-and-property-sets-validation.html",
+    "description": "The rule verifies that each IfcPropertySet starting with 'Pset_' is defined correctly.",
+    "tags": [
+     "implementer-agreement",
+     "PSE",
+     "version3"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "QTY000 - Quantities for Objects",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "QTY000",
+    "title": "QTY000 - Quantities for Objects",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/QTY000_Quantities-for-objects.html",
+    "description": "The rule verifies the presence of IFC entities used to define quantities of elements, such as their dimensions, volume, area, weight. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Object_Definition/Quantity_Sets/content.html",
+    "tags": [
+     "implementer-agreement",
+     "QTY",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "QTY001 - Standard quantities and quantity sets validation",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "QTY001",
+    "title": "QTY001 - Standard quantities and quantity sets validation",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/QTY001_Standard-quantities-and-quantity-sets-validation.html",
+    "description": "The rule verifies that each IfcElementQuantity starting with 'Qto_' is defined correctly.",
+    "tags": [
+     "implementer-agreement",
+     "QTY",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "SPA000 - Spaces Information",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "SPA000",
+    "title": "SPA000 - Spaces Information",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/SPA000_Spaces-information.html",
+    "description": "The rule verifies the presence of IFC entities used to model spaces, such as rooms, hallways, clearance zones, and circulation areas.",
+    "tags": [
+     "implementer-agreement",
+     "SPA",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "SPS001 - Basic spatial structure for buildings",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "SPS001",
+    "title": "SPS001 - Basic spatial structure for buildings",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/SPS001_Basic-spatial-structure-for-buildings.html",
+    "description": "The rule verifies that there's maximum one instance of IfcSite and at least one instance of IfcBuilding as part of the spatial structure.",
+    "tags": [
+     "implementer-agreement",
+     "SPS",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "SPS002 - Correct spatial breakdown",
+    "feature_version": 3,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "SPS002",
+    "title": "SPS002 - Correct spatial breakdown",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/SPS002_Correct-spatial-breakdown.html",
+    "description": "The rule verifies that spatial elements are aggregated as per the Spatial Composition Table. The possible allowed breakdown can be found in the csv file in the folder 'features/resources/spatial_CompositionTable.csv'",
+    "tags": [
+     "implementer-agreement",
+     "SPS",
+     "version3"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "SPS003 - Correct containment of assemblies",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "SPS003",
+    "title": "SPS003 - Correct containment of assemblies",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/SPS003_Correct-containment-of-assemblies.html",
+    "description": "The rule verifies that IfcElement that are aggregated in another IfcElement must not be contained using IfcRelContainedInSpatialStructure.",
+    "tags": [
+     "implementer-agreement",
+     "SPS",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "SPS005 - Simultaneous spatial relationships",
+    "feature_version": 2,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "SPS005",
+    "title": "SPS005 - Simultaneous spatial relationships",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/SPS005_Simultaneous-spatial-relationships.html",
+    "description": "The rule verifies that an IfcElement does not simultaneously act as a child in two or more spatial relationships. For example, an element cannot participate in both nesting and aggregating children roles.",
+    "tags": [
+     "implementer-agreement",
+     "SPS",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "SPS007 - Spatial Containment",
+    "feature_version": 6,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "SPS007",
+    "title": "SPS007 - Spatial Containment",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/SPS007_Spatial-containment.html",
+    "description": "The rule verifies that spatial containment via IfcRelContainedInSpatialStructure is utilised in accordance with Concept Template for Spatial Containment",
+    "tags": [
+     "implementer-agreement",
+     "SPS",
+     "version6"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "VER000 - Versioning and revision control",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "VER000",
+    "title": "VER000 - Versioning and revision control",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/VER000_Versioning-and-revision-control.html",
+    "description": "The rule verifies the presence of IFC entities used to track changes to building data over time and maintain a comprehensive history of those changes. https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/concepts/Object_Attributes/Revision_Control/content.html",
+    "tags": [
+     "implementer-agreement",
+     "VER",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "VRT000 - Virtual Elements",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "VRT000",
+    "title": "VRT000 - Virtual Elements",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/VRT000_Virtual-elements.html",
+    "description": "The rule verifies the presence of IFC entities used to model special elements providing imaginary, placeholder, or provisional areas (e.g. clearance), volumes, and boundaries.",
+    "tags": [
+     "implementer-agreement",
+     "VRT",
+     "version1"
+    ]
+   }
+  ],
+  "info": {
+   "rules": 104,
+   "crashed": [],
+   "seconds": 0.84
+  }
+ },
+ {
+  "stage": "normative_ip",
+  "status": "valid",
+  "outcomes": [
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS012 - Alignment segment start and length attribute types",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS012",
+    "title": "ALS012 - Alignment segment start and length attribute types",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS012_Alignment-segment-start-and-length-attribute-types.html",
+    "description": "The rule verifies that an alignment segment uses the correct IfcLengthMeasure type for attributes SegmentStart and SegmentLength. Ref: [Issue #141](https://github.com/buildingSMART/ifc-gherkin-rules/issues/141)",
+    "tags": [
+     "informal-proposition",
+     "ALS",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "BRP002 - Single component in connected faceset",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "BRP002",
+    "title": "BRP002 - Single component in connected faceset",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/BRP002_Single-component-in-connected-faceset.html",
+    "description": "The rule verifies that for connected facesets (open- and closed shells) their union of the domains of the faces and their bounding loops shall be arcwise connected.",
+    "tags": [
+     "informal-proposition",
+     "BRP",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "BRP003 - Planar faces are planar",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "BRP003",
+    "title": "BRP003 - Planar faces are planar",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/BRP003_Planar-faces-are-planar.html",
+    "description": "The rule verifies that polygonal faces of open and closed shells, which do not have an explicit underlying surface geometry, are planar within the tolerance measure set in the geometric representation context.",
+    "tags": [
+     "informal-proposition",
+     "BRP",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GEM001 - Closed shell edge usage",
+    "feature_version": 4,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GEM001",
+    "title": "GEM001 - Closed shell edge usage",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GEM001_Closed-shell-edge-usage.html",
+    "description": "The rule verifies that closed faceted shells and closed facesets edges are referenced correctly.",
+    "tags": [
+     "informal-proposition",
+     "GEM",
+     "version4"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GEM002 - Space representation",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GEM002",
+    "title": "GEM002 - Space representation",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GEM002_Space-representation.html",
+    "description": "The rule verifies that all IfcSpaces have a correct Body shape representation.",
+    "tags": [
+     "informal-proposition",
+     "GEM",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GEM003 - Unique Representation Identifier",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "GEM003",
+    "title": "GEM003 - Unique Representation Identifier",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GEM003_Unique-representation-identifier.html",
+    "description": "The rule verifies that Shape Representation identifier is unique within the product representation of an IfcProduct element.",
+    "tags": [
+     "informal-proposition",
+     "GEM",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GEM004 - Constraints on representation identifiers",
+    "feature_version": 3,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "GEM004",
+    "title": "GEM004 - Constraints on representation identifiers",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GEM004_Constraints-on-representation-identifiers.html",
+    "description": "The rule verifies that shape representations adhere to the permissible values outlined in the CSV files found in the 'features/resources/{attribute}.csv' folder, as specified in the documentation.",
+    "tags": [
+     "informal-proposition",
+     "GEM",
+     "version3"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "SWE001 - Arbitrary profile boundary no self-intersections",
+    "feature_version": 4,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "SWE001",
+    "title": "SWE001 - Arbitrary profile boundary no self-intersections",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/SWE001_Arbitrary-profile-boundary-no-self-intersections.html",
+    "description": "The rule verifies that IfcArbitraryClosedProfileDefs and IfcArbitraryProfileDefWithVoids do not have any self-intersections in their boundaries. Profile definitions are the basis of geometrical sweeps such as extrusions.",
+    "tags": [
+     "informal-proposition",
+     "SWE",
+     "version4"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "SWE002 - Mirroring within IfcDerivedProfileDef shall not be used",
+    "feature_version": 3,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "SWE002",
+    "title": "SWE002 - Mirroring within IfcDerivedProfileDef shall not be used",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/SWE002_Mirroring-within-IfcDerivedProfileDef-shall-not-be-used.html",
+    "description": "The rule verifies that the transformation defined in IfcDerivedProfileDef.Operator does not introduce mirroring. The subtype IfcMirroredProfileDef should be used for that. For the tapered sweeps, which tend to rely on IfcDerivedProfileDef, by expressing the tapering operation as a change in profile, mirroring should not be used altogether.",
+    "tags": [
+     "informal-proposition",
+     "SWE",
+     "version3"
+    ]
+   }
+  ],
+  "info": {
+   "rules": 104,
+   "crashed": [],
+   "seconds": 0.39
+  }
+ },
+ {
+  "stage": "industry_practices",
+  "status": "valid",
+  "outcomes": [
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALB010 - Alignment Nesting Referents",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALB010",
+    "title": "ALB010 - Alignment Nesting Referents",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALB010_Alignment-nesting-referents.html",
+    "description": "The rule verifies that each horizontal alignment nests at least one IfcReferent, such as stations or mileage points. These can be used as semantic entities holding information about locations along the alignment. IfcReferent is associated to IfcAlignment via the IfcRelNests relationship.",
+    "tags": [
+     "industry-practice",
+     "ALB",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS016 - Alignment horizontal segment geometric continuity",
+    "feature_version": 3,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS016",
+    "title": "ALS016 - Alignment horizontal segment geometric continuity",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS016_Alignment-horizontal-segment-geometric-continuity.html",
+    "description": "The rule verifies that there is geometric continuity between segments in an IfcCompositeCurve. The calculated end position and tangent vector of segment `n` is compared to the provided placement of segment `n + 1`. A warning is emitted if the calculated difference is greater than the applicable tolerance. The tolerance for positional continuity is taken from the precision of the applicable geometric context. The tolerance for tangential continuity is taken from the precision of the applicable geometric context and adjusted based on the length of the alignment segment.",
+    "tags": [
+     "industry-practice",
+     "ALS",
+     "version3"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "ALS017 - Alignment vertical segment geometric continuity",
+    "feature_version": 4,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "ALS017",
+    "title": "ALS017 - Alignment vertical segment geometric continuity",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/ALS017_Alignment-vertical-segment-geometric-continuity.html",
+    "description": "The rule verifies that there is geometric continuity between segments in an IfcGradientCurve. The calculated end position and tangent vector of segment `n` is compared to the provided placement of segment `n + 1`. A warning is emitted if the calculated difference is greater than the applicable tolerance. The tolerance for positional and gradient continuity is taken from the precision of the applicable geometric context.",
+    "tags": [
+     "industry-practice",
+     "ALS",
+     "version4"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "BLT003 - Stair decomposition",
+    "feature_version": 2,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "BLT003",
+    "title": "BLT003 - Stair decomposition",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/BLT003_Stair-decomposition.html",
+    "description": "The rule verifies that stair elements are properly aggregated in accordance with the Stair Decomposition Table, as outlined in the best practices. The possible allowed breakdown can be found in the csv file in the folder 'features/resources/stair_DecompositionTable.csv'",
+    "tags": [
+     "BLT",
+     "industry-practice",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GEM051 - Presence of Geometric Context",
+    "feature_version": 2,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "GEM051",
+    "title": "GEM051 - Presence of Geometric Context",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GEM051_Presence-of-geometric-context.html",
+    "description": "The rule verifies that a geometric context is present in the model, that its attribute ContextType is provided (not empty) and its value is valid.",
+    "tags": [
+     "industry-practice",
+     "GEM",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GEM052 - Correct geometric subcontexts",
+    "feature_version": 2,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "GEM052",
+    "title": "GEM052 - Correct geometric subcontexts",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GEM052_Correct-geometric-subcontexts.html",
+    "description": "The rule verifies that there is a minimum of at least one subcontext per context, that its attribute ContextIdentifier is provided (not empty) and its value is one of the allowed values in the list of shape representation identifiers. Reference: https://github.com/buildingSMART/Sample-Test-Files/issues/137.",
+    "tags": [
+     "industry-practice",
+     "GEM",
+     "version2"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GRF003 - CRS presence with spatial entities",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "GRF003",
+    "title": "GRF003 - CRS presence with spatial entities",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GRF003_CRS-presence-with-spatial-entities.html",
+    "description": "The rule verifies that proper georeferencing using a coordinate reference system is established when facilities such as buildings or bridges are present in a model. Models containing IfcFacility must contain a IfcProjectedCRS or IfcGeographicCRS.",
+    "tags": [
+     "industry-practice",
+     "no-activation",
+     "GRF",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "GRF005 - CRS unit type differences",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "GRF005",
+    "title": "GRF005 - CRS unit type differences",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/GRF005_CRS-unit-type-differences.html",
+    "description": "The rule verifies that the Scale attribute of IfcMapConversion is used when the units of the CRS are not identical to the units of the engineering coordinate system. If omitted, the value of 1.0 is assumed. If the units of the referenced source location engineering coordinate system are different from the units of the referenced target coordinate system, then this attribute must be included and must have the value of the scale from the source to the target units",
+    "tags": [
+     "industry-practice",
+     "GRF",
+     "version1",
+     "E00100"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "IFC106 - Resource entities should be referenced by rooted entity",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "IFC106",
+    "title": "IFC106 - Resource entities should be referenced by rooted entity",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/IFC106_Resource-entities-should-be-referenced-by-rooted-entity.html",
+    "description": "The rule verifies that resource entities are directly or indirectly related to at least one rooted entity instance by means of forward or a small curated set of inverse attributes. Resource entities are the schema classes that do not inherit from IfcRoot, typically defined in the resource layer of the schema (e.g Geometry Resource). The inverse attributes that are followed are: StyledByItem HasCoordinateOperation LayerAssignments LayerAssignment HasSubContexts HasProperties (material and profile def) HasRepresentation (material) HasColours HasTextures (tessellated face sets) HasShapeAspects (representation map and product definition shape) WellKnownText (coordinate reference system)",
+    "tags": [
+     "IFC",
+     "version1",
+     "industry-practice"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "IFC430 - Entities in scope for IFC 4X3 ReferenceView MVD",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "IFC430",
+    "title": "IFC430 - Entities in scope for IFC 4X3 ReferenceView MVD",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/IFC430_Entities-in-scope-for-IFC-4X3-ReferenceView-MVD.html",
+    "description": "The rule verifies that IFC models using schema version 4.3 and declaring the Reference View Model View Definition (MVD) do not export any entities that are outside the scope of this MVD.",
+    "tags": [
+     "IFC",
+     "version1",
+     "industry-practice"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "IFC431 - Entities in scope for IFC 4X3 Alignment-basedView MVD",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "IFC431",
+    "title": "IFC431 - Entities in scope for IFC 4X3 Alignment-basedView MVD",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/IFC431_Entities-in-scope-for-IFC-4X3-Alignment-basedView-MVD.html",
+    "description": "The rule verifies that IFC models using schema version 4.3 and declaring the Alignment-basedView Model View Definition (MVD) do not export any entities that are outside the scope of this MVD.",
+    "tags": [
+     "IFC",
+     "version1",
+     "industry-practice"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "LIP002 - Linear placement fallback coordinates",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "LIP002",
+    "title": "LIP002 - Linear placement fallback coordinates",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/LIP002_Linear-placement-fallback-coordinates.html",
+    "description": "The rule verifies that all linear placements include the CartesianPosition attribute and that the provided values correspond to the calculated placement defined by the RelativePlacement attribute",
+    "tags": [
+     "industry-practice",
+     "LIP",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "PJS101 - Project presence",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "PJS101",
+    "title": "PJS101 - Project presence",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PJS101_Project-presence.html",
+    "description": "The rule verifies that there is exactly one instance of IfcProject. While this is a common industry practice, it does not make the IFC model invalid. For example, project libraries, including type libraries or property definition libraries, may not necessarily follow this rule.",
+    "tags": [
+     "PJS",
+     "industry-practice",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "PSE002 - Custom properties and property sets validation",
+    "feature_version": 1,
+    "severity": "NOT_APPLICABLE",
+    "outcome_code": "N00010",
+    "expected": null,
+    "observed": null,
+    "rule": "PSE002",
+    "title": "PSE002 - Custom properties and property sets validation",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/PSE002_Custom-properties-and-property-sets-validation.html",
+    "description": "The rule verifies that property set names do not start with any upper- and lowercase variation of 'pset' in order to prevent confusion with standardized property sets in the IFC specification. The property sets defined in the IFC specification all start with 'Pset_'",
+    "tags": [
+     "industry-practice",
+     "PSE",
+     "version1"
+    ]
+   },
+   {
+    "inst": null,
+    "validation_task_id": null,
+    "feature": "SPS008 - Spatial Container Representations",
+    "feature_version": 1,
+    "severity": "EXECUTED",
+    "outcome_code": "X00040",
+    "expected": null,
+    "observed": null,
+    "rule": "SPS008",
+    "title": "SPS008 - Spatial Container Representations",
+    "entity": null,
+    "doc": "https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/features/SPS008_Spatial-container-representations.html",
+    "description": "The rule verifies that certain spatial containers do not have a geometric representation, but are rather solely a container for other elements or aggregated into other facility parts.",
+    "tags": [
+     "industry-practice",
+     "SPS",
+     "version1"
+    ]
+   }
+  ],
+  "info": {
+   "rules": 104,
+   "crashed": [],
+   "seconds": 1.09
+  }
+ }
+]

@@ -57,6 +57,19 @@ describe("property names from bSDD", () => {
     }
   });
 
+  it("in English, keeps bSDD's names that are not the code, from one listing", async () => {
+    const { seen } = fakeBsdd();
+    const response = await ask("en");
+    expect(response.status).toBe(200);
+    const table = await response.json();
+    expect(table.language).toBe("en");
+    expect(Object.keys(table.names)).toHaveLength(2501);
+    expect(table.names.P1).toBe("P 1");
+    // Three pages, English only: no languageCode.
+    expect(seen).toHaveLength(3);
+    expect(seen.every((url) => !url.searchParams.has("languageCode"))).toBe(true);
+  });
+
   it("reads bSDD once a day, not once per viewer", async () => {
     const { fetchMock } = fakeBsdd(10);
     await Promise.all([ask("pt-PT"), ask("pt-PT")]);

@@ -80,7 +80,7 @@ else** — permission to send more is not a reason to.
 | WFS/WMS service URL, layer, style and map bounds | user-selected public provider via `/api/ogc` (opt-in) | context features, map images and legends; ADR 010 |
 | SHA-256 of a `SignatureValue` + a nonce (opt-in, when a `TSA_URL` is configured) | `app/api/tsa/route.ts`, this app's own server, then the time-stamp authority | RFC 3161 time-stamps send no CORS headers and the paid ones need credentials (ADR 012) |
 | The texture library's manifest, then the chosen textures' files by id (while realistic materials is on) | `/texture-library/` on this origin: `backend/` (Django Ninja) for the manifest, nginx for the files | realistic materials in the viewer (ADR 016); chosen in the browser from the model's material names and colours, none of which is sent |
-| The IFC property names in the interface's language: the request names the language (`pt-PT`), nothing else (Portuguese only) | `app/api/bsdd/property-names/route.ts`, this app's own server, then bSDD (the IFC dictionary's URI and the language, at most once a day per server) | labels in the properties panel (ADR 017); bSDD sends no CORS headers |
+| The IFC property names in the interface's language: the request names the language (`pt-PT` or `en`), nothing else | `app/api/bsdd/property-names/route.ts`, this app's own server, then bSDD (the IFC dictionary's URI and the language, at most once a day per server) | labels in the properties panel (ADR 017); bSDD sends no CORS headers |
 | The Turnstile widget's own traffic, then its one-time token (opt-in, when `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set) | the browser to `challenges.cloudflare.com` on `/human-check` only; the token via `app/api/human-check/route.ts` to Cloudflare's `siteverify` | the human check in front of the site (ADR 013); before the app loads, so no user content exists yet |
 
 There is no account and no project database. The one backend, `backend/`, is
@@ -293,7 +293,12 @@ panels in dark, a soft `#e0e6f0` page with translucent white panels in light,
   (`Pset_SpaceHeaterTypeCommon` on spaces, a copy of `Pset_SpaceCommon`'s
   Reference; the proxy, storey and system sets on the building) and storey
   `AboveGround` as `IfcLogical` (PSE001); repeated points dropped from 18
-  polylines (GEM111). Re-check with ifcopenshell's validator
+  polylines (GEM111). And its header: FILE_NAME's originating system as
+  `Autodesk - Revit 2024 (ENG) - 24.0.5.432` (Revit writes two parts; the
+  policy wants company - application - version), and the free-text
+  FILE_DESCRIPTION entry ifc-lite added made a `Comment [ … ]`, with the IFC
+  exporter's version — one entry not in `Keyword [value]` form hid the
+  ReferenceView from the header check. Re-check with ifcopenshell's validator
   (`express_rules`) and the rules above after any change. Its WFS/WMS counterpart is
   `OGC_EXAMPLE_URL` (Gaia's open data GeoServer, which covers its site),
   offered under the GIS tab's service URL: choosing it only fills the field.
@@ -456,7 +461,14 @@ than NOTDEFINED applies to every occurrence and overrides the occurrence's
 own; otherwise the occurrence's. USERDEFINED is named by the occurrence's
 `ObjectType`, or the type's `ElementType` (`ProcessType`, `ResourceType`).
 `ElementInfo.predefinedType` carries the result; the Attributes tab marks one
-from the type "from type". Filters, lenses and quantities still read the
+from the type "from type". A door's OperationType and a window's
+PartitioningType are read the same way (`ElementInfo.typeDrivenAttributes`,
+named by `UserDefinedOperationType` / `UserDefinedPartitioningType`):
+BLT001/BLT002 require a typed occurrence to leave them empty, so the panel
+shows the type's. **IDS does not inherit them**: an attribute facet reads the
+occurrence's own value (IDS 1.0, the engine's #7394), so a door that obeys
+BLT001 fails `<attribute>OperationType</attribute>` — the specification
+should apply to `IFCDOORTYPE` instead (`type-driven-attributes.test.ts`). Filters, lenses and quantities still read the
 occurrence's own value. **IDS validation reads it as ifctester does**
 (`ifctesterPredefinedType`, wired into the engine's accessor by
 `idsAccessor` in the adapter), which is more lenient: an ObjectType or a
@@ -1560,6 +1572,63 @@ set are worse than none.
 - The BCF export builds a `BcfFile` and hands it to `lib/bcf/serialize.ts`; it
   never writes XML itself, so it inherits §8's schema guarantees.
 
+### 9b. IFC validation, as buildingSMART's service does it (ADR 018)
+
+The **Validation** tab (`IfcValidationPanel.tsx`, `lib/validation/`) runs the
+service's own Python — IfcOpenShell, ifc-gherkin-rules, its header policy — on
+Pyodide in `lib/workers/ifc-validation.worker.ts`. Nothing leaves the device:
+Pyodide, its packages and the rules are this origin's `public/validator/`.
+
+- **Do not port rules to TypeScript.** Parity comes from running buildingSMART's
+  code at the commits the service pins (`validator/manifest.json`); bump them
+  together and re-check with `npm run validator:check -- model.ifc` (the built
+  assets under Node) and `e2e/ifc-validation.spec.ts`.
+- **Every download is pinned and hashed.** `scripts/build-validator-assets.mts`
+  (run by `prebuild`/`predev`) verifies Pyodide's packages against its lockfile
+  and everything else against the manifest, caches in `.cache/validator/`, and
+  writes a lockfile of exactly what ships. Offline with no cache it leaves the
+  validator out; the panel says it is unavailable. `DICE_VALIDATOR=off` skips it.
+- **Stages run in-process with the service's arguments** (`dice_validator.py`):
+  no subprocesses in Pyodide. The order and blocking are `configs.py`'s
+  (`lib/validation/stages.ts`); rule outcomes are reduced as production saves
+  them. Each feature reopens the model, so opens are cached (read-only).
+- **`rtree` and `pyproj` are stand-ins** (`validator/python/shims/`): Pyodide has
+  neither. The pyproj table is generated by the real pyproj 3.7.1 from its
+  official wheel (`validator/tools/gen_epsg_table.py`) — a source build links
+  the system PROJ and another EPSG release.
+- **`simple_spf` is vendored** from the build the service installs (it is not in
+  the Pyodide wheel), and `lark-parser` 0.12 replaces `lark`: both provide the
+  `lark` module, and 0.12 is what the service has.
+- A rule that crashes is reported as the rule's error, not the model's
+  (GRP001 on `IfcZone` is an upstream bug).
+- **Ship only what the rules use in the browser** (`validator/README.md`, "Not
+  shipped"): Django, pyspellchecker, pandas, SQLAlchemy… are in their
+  requirements for production's database and their TESTING mode. Django's
+  enums come from `validator/python/overrides/validation_results.py` — `str()`
+  must give the value (it is the outcome code written), as Django's choices do.
+  Before dropping or adding a package, compare every stage's outcomes on a few
+  models against the build before (`validator:check --json`), seed fixed.
+- **A finding says what it means** (`lib/validation/explain.ts`, `validationExplain`),
+  in the panel, the PDF and the BCF alike. The driver adds what the service's
+  output leaves implicit: a header field read from the originating system names it
+  (`source`); a rejected FILE_DESCRIPTION says which check failed (`reason`: one
+  entry that is not "Keyword [value]" stops IfcOpenShell reading every view, so a
+  right `ViewDefinition` is still reported); a schema message is split into its
+  title, the sentence saying what is required and why it failed, with the IFC
+  documentation page; a rule carries its feature file's description. Header
+  findings are one per field, the originating system first — grouping them by
+  outcome code once showed four as "originating_system · 4 occurrences".
+- **Exports, as for IDS and clashes:** BCF (`lib/validation/bcf-export.ts`) —
+  one topic per rule by default (QTY001 alone can be 1 595 occurrences), or
+  per occurrence; errors and warnings only; snapshots only where the instance
+  is drawn (a polyline or a property set has no shape and no GlobalId, so its
+  topic names the STEP `#id`) — downloaded and handed to the BCF manager. And a
+  PDF (`lib/validation/pdf-report.ts`, pure, pdfmake loaded on click): a cover
+  with the stages and the pinned versions, then each rule with its occurrences,
+  at most `MAX_ROWS_PER_RULE` listed. Both share `findings.ts`'s grouping with
+  the panel. Their tests run on real service output
+  (`lib/validation/__tests__/fixtures/`, regenerated with `validator:check --json`).
+
 ### 9a. bSDD suggestions
 
 The IDS editor offers vocabulary from two sources: the **loaded model** and the
@@ -1596,20 +1665,23 @@ The IDS editor offers vocabulary from two sources: the **loaded model** and the
   author every time they clear the field. `onPropertyName` writes only fields
   that are still empty, once, on the edit that names the property; when the
   lookup resolves later the editor offers a button instead of writing.
-- **A property's name in Portuguese is a label, never its name** (ADR 017,
+- **A property's bSDD name is a label, never its name** (ADR 017,
   `lib/bsdd/property-names.ts`, `use-property-names.ts`). The properties panel
-  shows bSDD's pt-PT name under the IFC one (`PropertyTable`'s `translation`,
-  `data-property-translation`), and its filter finds it; the IFC name is still
+  shows bSDD's name in the interface's language under the IFC one — pt-PT in
+  Portuguese, English in English, never both (`PropertyTable`'s `translations`,
+  `data-property-translation="<language>"`) — and its filter finds it; the IFC name is still
   what everything matches on. Only in `Pset_*`/`Qto_*` sets, which IFC
   reserves for buildingSMART's own. The table is keyed by property code, since
   bSDD names a property once for the whole dictionary. It is read live from
   bSDD by `app/api/bsdd/property-names/route.ts` (`lib/bsdd/dictionary-names.ts`):
-  the dictionary's listing in English and in pt-PT, three pages each, keeping
-  only names that differ from the English and the code. A listing that comes
+  for pt-PT the dictionary's listing in English and in pt-PT, three pages
+  each, keeping only names that differ from the English and the code; for `en`
+  the English listing alone, keeping names that differ from the code
+  ("FireRating" → "Fire Rating"). A listing that comes
   back short is an error, not a partial table. Built at most once a day per
   server; a failed rebuild serves the previous table and retries in ten
   minutes, and with no previous table a failure is not cached. With bSDD unreachable there are no labels
-  and nothing else changes. Only in Portuguese: in English nothing is asked.
+  and nothing else changes.
   (`backend/dictionary/`, the admin-updated table, is kept but unused.)
 - **Allowed values: the class's, else the property's.** bSDD's IFC 4.3 class
   listing no longer carries `allowedValues` (`IfcWall`'s 233 properties list

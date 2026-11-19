@@ -5,7 +5,7 @@ import {
   isStandardSet,
   loadPropertyNames,
   propertyLabel,
-  propertyNameLanguage,
+  propertyNameLanguages,
   propertyNamesUrl,
 } from "../property-names";
 
@@ -57,9 +57,9 @@ describe("loadPropertyNames", () => {
 describe("labels", () => {
   const table = { language: "pt-PT", updatedAt: "", names: new Map([["FireRating", "Classe de Resistência ao Fogo"], ["Status", "Estado"]]) };
 
-  it("only in Portuguese: English names are the IFC ones", () => {
-    expect(propertyNameLanguage("pt")).toBe("pt-PT");
-    expect(propertyNameLanguage("en")).toBeNull();
+  it("in the interface's language only", () => {
+    expect(propertyNameLanguages("pt")).toEqual(["pt-PT"]);
+    expect(propertyNameLanguages("en")).toEqual(["en"]);
   });
 
   it("only for buildingSMART's own sets", () => {

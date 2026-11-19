@@ -75,6 +75,9 @@ export function IdsSpecificationCard({ specification }: { specification: Aggrega
   const t = useTranslations("viewer.idsPanel.card");
   const [open, setOpen] = useState(false);
   const count = cardinalityFailure(specification);
+  // Models on which the engine could not evaluate it (a refused pattern, most
+  // often): no element to list, so the reason itself is what is shown.
+  const errors = specification.errors;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -101,8 +104,11 @@ export function IdsSpecificationCard({ specification }: { specification: Aggrega
                     {specification.failedCount}
                   </Badge>
                 )}
-                {specification.failedCount === 0 && count && (
-                  <AlertTriangle className="text-destructive h-3 w-3 shrink-0" aria-label={t("countFailed")} />
+                {specification.failedCount === 0 && (errors.length > 0 || count) && (
+                  <AlertTriangle
+                    className="text-destructive h-3 w-3 shrink-0"
+                    aria-label={errors.length > 0 ? t("evaluationFailed") : t("countFailed")}
+                  />
                 )}
               </div>
               {specification.description && (
@@ -130,6 +136,21 @@ export function IdsSpecificationCard({ specification }: { specification: Aggrega
 
         <CollapsibleContent>
           <div className="space-y-2 border-t p-2">
+            {errors.map((error, index) => (
+              <div
+                key={`${error.modelName}:${index}`}
+                className="flex items-start gap-2 rounded-md border px-2 py-1.5"
+                data-evaluation-error-row
+              >
+                <AlertTriangle className="text-destructive mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium">{t("evaluationFailedTitle")}</p>
+                  <p className="text-destructive text-[11px] break-words">{error.message}</p>
+                  <p className="text-muted-foreground truncate text-[10px]">{error.modelName}</p>
+                </div>
+              </div>
+            ))}
+
             {count && (
               <div className="flex items-start gap-2 rounded-md border px-2 py-1.5" data-failure-count-row>
                 <AlertTriangle className="text-destructive mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -171,7 +192,7 @@ export function IdsSpecificationCard({ specification }: { specification: Aggrega
               </section>
             )}
 
-            {specification.failures.length === 0 && !count && (
+            {specification.failures.length === 0 && !count && errors.length === 0 && (
               <p className="text-muted-foreground text-[11px]">
                 {specification.applicableCount === 0 ? t("nothingApplied") : t("allPassed")}
               </p>
