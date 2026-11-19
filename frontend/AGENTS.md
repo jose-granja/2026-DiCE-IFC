@@ -80,7 +80,7 @@ else** — permission to send more is not a reason to.
 | WFS/WMS service URL, layer, style and map bounds | user-selected public provider via `/api/ogc` (opt-in) | context features, map images and legends; ADR 010 |
 | SHA-256 of a `SignatureValue` + a nonce (opt-in, when a `TSA_URL` is configured) | `app/api/tsa/route.ts`, this app's own server, then the time-stamp authority | RFC 3161 time-stamps send no CORS headers and the paid ones need credentials (ADR 012) |
 | The texture library's manifest, then the chosen textures' files by id (while realistic materials is on) | `/texture-library/` on this origin: `backend/` (Django Ninja) for the manifest, nginx for the files | realistic materials in the viewer (ADR 016); chosen in the browser from the model's material names and colours, none of which is sent |
-| The IFC property names in the interface's language: the request names the language (`pt-PT`), nothing else (Portuguese only) | `app/api/bsdd/property-names/route.ts`, this app's own server, then bSDD (the IFC dictionary's URI and the language, at most once a day per server) | labels in the properties panel (ADR 017); bSDD sends no CORS headers |
+| The IFC property names in the interface's language: the request names the language (`pt-PT` or `en`), nothing else | `app/api/bsdd/property-names/route.ts`, this app's own server, then bSDD (the IFC dictionary's URI and the language, at most once a day per server) | labels in the properties panel (ADR 017); bSDD sends no CORS headers |
 | The Turnstile widget's own traffic, then its one-time token (opt-in, when `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set) | the browser to `challenges.cloudflare.com` on `/human-check` only; the token via `app/api/human-check/route.ts` to Cloudflare's `siteverify` | the human check in front of the site (ADR 013); before the app loads, so no user content exists yet |
 
 There is no account and no project database. The one backend, `backend/`, is
@@ -1665,20 +1665,23 @@ The IDS editor offers vocabulary from two sources: the **loaded model** and the
   author every time they clear the field. `onPropertyName` writes only fields
   that are still empty, once, on the edit that names the property; when the
   lookup resolves later the editor offers a button instead of writing.
-- **A property's name in Portuguese is a label, never its name** (ADR 017,
+- **A property's bSDD name is a label, never its name** (ADR 017,
   `lib/bsdd/property-names.ts`, `use-property-names.ts`). The properties panel
-  shows bSDD's pt-PT name under the IFC one (`PropertyTable`'s `translation`,
-  `data-property-translation`), and its filter finds it; the IFC name is still
+  shows bSDD's name in the interface's language under the IFC one — pt-PT in
+  Portuguese, English in English, never both (`PropertyTable`'s `translations`,
+  `data-property-translation="<language>"`) — and its filter finds it; the IFC name is still
   what everything matches on. Only in `Pset_*`/`Qto_*` sets, which IFC
   reserves for buildingSMART's own. The table is keyed by property code, since
   bSDD names a property once for the whole dictionary. It is read live from
   bSDD by `app/api/bsdd/property-names/route.ts` (`lib/bsdd/dictionary-names.ts`):
-  the dictionary's listing in English and in pt-PT, three pages each, keeping
-  only names that differ from the English and the code. A listing that comes
+  for pt-PT the dictionary's listing in English and in pt-PT, three pages
+  each, keeping only names that differ from the English and the code; for `en`
+  the English listing alone, keeping names that differ from the code
+  ("FireRating" → "Fire Rating"). A listing that comes
   back short is an error, not a partial table. Built at most once a day per
   server; a failed rebuild serves the previous table and retries in ten
   minutes, and with no previous table a failure is not cached. With bSDD unreachable there are no labels
-  and nothing else changes. Only in Portuguese: in English nothing is asked.
+  and nothing else changes.
   (`backend/dictionary/`, the admin-updated table, is kept but unused.)
 - **Allowed values: the class's, else the property's.** bSDD's IFC 4.3 class
   listing no longer carries `allowedValues` (`IfcWall`'s 233 properties list

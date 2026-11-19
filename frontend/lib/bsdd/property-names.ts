@@ -4,7 +4,7 @@
  *
  * A label only: `FireRating` stays the property's name everywhere — it is what
  * IDS, filters, quantities and exports match on — and "Classe de Resistência ao
- * Fogo" is shown beside it.
+ * Fogo" (in Portuguese) or "Fire Rating" (in English) is shown beside it.
  *
  * Read live from bSDD, through this app's server (`/api/bsdd/property-names`,
  * since bSDD sends no CORS headers), once per page. The request names a
@@ -14,8 +14,8 @@
 
 import { z } from "zod";
 
-/** The interface's languages other than English, in bSDD's codes: Portuguese is Portugal's. */
-const LANGUAGES: Record<string, string> = { pt: "pt-PT" };
+/** The label shown for each interface language, in bSDD's codes: Portuguese is Portugal's. */
+const LANGUAGES: Record<string, string[]> = { pt: ["pt-PT"], en: ["en"] };
 
 export const propertyNamesUrl = (language: string) => `/api/bsdd/property-names?language=${encodeURIComponent(language)}`;
 
@@ -33,9 +33,9 @@ export type PropertyNameTable = {
   names: ReadonlyMap<string, string>;
 };
 
-/** bSDD's code for the interface's `locale`, or null when its names are the IFC ones (English). */
-export function propertyNameLanguage(locale: string): string | null {
-  return LANGUAGES[locale] ?? null;
+/** bSDD's codes for the labels shown in the interface's `locale`: its own language only. */
+export function propertyNameLanguages(locale: string): string[] {
+  return LANGUAGES[locale] ?? ["en"];
 }
 
 async function fromBsdd(language: string): Promise<PropertyNameTable | null> {

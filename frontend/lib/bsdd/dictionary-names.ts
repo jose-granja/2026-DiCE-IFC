@@ -11,14 +11,19 @@
  * thousand at a time, in the language asked for, and answers in English where
  * it has no translation without saying so. So the English listing is read too,
  * and only names that differ from it (and from the code) are kept: ~1 000 of
- * them in pt-PT, ~50 KB, where the six listings are ~1.5 MB.
+ * them in pt-PT, ~50 KB, where the six listings are ~1.5 MB. English's own
+ * table is that listing, keeping the names that differ from the code
+ * ("FireRating" → "Fire Rating"): shown in both languages.
  */
 
 export const BSDD_API = "https://api.bsdd.buildingsmart.org";
 export const IFC_DICTIONARY = "https://identifier.buildingsmart.org/uri/buildingsmart/ifc/4.3";
 
-/** The languages a table is built for: the interface's, other than English. */
-export const PROPERTY_NAME_LANGUAGES = new Set(["pt-PT"]);
+/** The languages a table is built for: the interface's. */
+export const PROPERTY_NAME_LANGUAGES = new Set(["pt-PT", "en"]);
+
+/** bSDD's own language: its listing without a `languageCode`. */
+const ENGLISH = "en";
 
 const PAGE = 1000;
 /** IFC 4.3 has 2 501. Anything past this is not the dictionary we know. */
@@ -81,14 +86,20 @@ export async function fetchNames(language: string | null, signal: AbortSignal): 
   return names;
 }
 
-/** The table for `language`: the names bSDD translates, keyed by IFC property code. */
+/**
+ * The table for `language`, keyed by IFC property code: the names bSDD
+ * translates, or for English its names that are not just the code.
+ */
 export async function buildTable(language: string, signal: AbortSignal, now = new Date()): Promise<PropertyNamesTable> {
-  const [english, translated] = await Promise.all([fetchNames(null, signal), fetchNames(language, signal)]);
+  const isEnglish = language === ENGLISH;
+  const [english, translated] = isEnglish
+    ? await fetchNames(null, signal).then((names) => [names, names] as const)
+    : await Promise.all([fetchNames(null, signal), fetchNames(language, signal)]);
 
   const names: Record<string, string> = {};
   for (const code of [...translated.keys()].sort()) {
     const name = translated.get(code)!;
-    if (name.length <= 300 && code.length <= 160 && name !== english.get(code) && name !== code) names[code] = name;
+    if (name.length <= 300 && code.length <= 160 && name !== code && (isEnglish || name !== english.get(code))) names[code] = name;
   }
   return {
     version: 1,

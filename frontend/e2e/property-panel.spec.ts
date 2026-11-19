@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 
 /**
  * The information panel.
@@ -394,24 +394,33 @@ const PORTUGUESE_NAMES = {
   updatedAt: "2026-11-12T09:00:00Z",
   names: { FireRating: "Classe de Resistência ao Fogo", LoadBearing: "Capacidade de Carga" },
 };
+const ENGLISH_NAMES = {
+  ...PORTUGUESE_NAMES,
+  language: "en",
+  names: { FireRating: "Fire Rating", LoadBearing: "Load Bearing" },
+};
+/** Stands in for this app's server: each language's table. */
+const bsddNames = (asked: URL[]) => (route: Route) => {
+  const url = new URL(route.request().url());
+  asked.push(url);
+  const table = url.searchParams.get("language") === "en" ? ENGLISH_NAMES : PORTUGUESE_NAMES;
+  return route.fulfill({ contentType: "application/json", body: JSON.stringify(table) });
+};
 
 test("labels standard properties with their Portuguese name from bSDD, keeping the IFC name", async ({ page }) => {
   const asked: URL[] = [];
-  await page.route("**/api/bsdd/property-names?*", (route) => {
-    asked.push(new URL(route.request().url()));
-    return route.fulfill({ contentType: "application/json", body: JSON.stringify(PORTUGUESE_NAMES) });
-  });
+  await page.route("**/api/bsdd/property-names?*", bsddNames(asked));
   await selectWall(page, "pt");
   await page.getByRole("tab", { name: "Propriedades", exact: true }).click();
   const section = page.locator('[data-section="Propriedades"]');
   const fire = section.locator("tr", { has: page.getByRole("rowheader", { name: /FireRating/ }) });
 
   const label = fire.locator("[data-property-translation]");
-  await expect(label).toHaveText("Classe de Resistência ao Fogo");
+  await expect(label).toHaveText(["Classe de Resistência ao Fogo"]);
   await expect(label).toHaveAttribute("lang", "pt-PT");
   await expect(fire.getByText("FireRating", { exact: true })).toBeVisible();
   await expect(fire.getByRole("cell", { name: "REI 60" })).toBeVisible();
-  // The request names a language, and nothing else.
+  // The request names a language, and nothing else; the English names are not asked for.
   expect(asked.length).toBeGreaterThan(0);
   expect(asked.every((url) => url.pathname === "/api/bsdd/property-names" && url.search === "?language=pt-PT")).toBe(true);
 
@@ -421,14 +430,16 @@ test("labels standard properties with their Portuguese name from bSDD, keeping t
   await expect(section.getByText("LoadBearing", { exact: true })).toHaveCount(0);
 });
 
-test("in English the IFC names stand alone, and bSDD is not asked", async ({ page }) => {
-  const asked: string[] = [];
-  page.on("request", (request) => { if (request.url().includes("/property-names")) asked.push(request.url()); });
+test("in English, standard properties carry bSDD's English name alone", async ({ page }) => {
+  const asked: URL[] = [];
+  await page.route("**/api/bsdd/property-names?*", bsddNames(asked));
   await selectWall(page);
   await page.getByRole("tab", { name: "Properties", exact: true }).click();
-  await expect(page.getByText("REI 60")).toBeVisible();
-  await expect(page.locator("[data-property-translation]")).toHaveCount(0);
-  expect(asked).toEqual([]);
+  const section = page.locator('[data-section="Properties"]');
+  const fire = section.locator("tr", { has: page.getByRole("rowheader", { name: /FireRating/ }) });
+  await expect(fire.locator("[data-property-translation]")).toHaveText(["Fire Rating"]);
+  expect(asked.map((url) => url.search)).toEqual(expect.arrayContaining(["?language=en"]));
+  expect(asked.every((url) => url.search === "?language=en")).toBe(true);
 });
 
 test("with bSDD unreachable the IFC names are shown as always", async ({ page }) => {

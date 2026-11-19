@@ -45,10 +45,10 @@ export function IdsProperties({ entity, filter }: { entity: EntityRef; filter: s
   const term = filter.trim().toLowerCase();
   const rows = (data ?? []).map((row) => ({
     ...row,
-    translation: translate(row.propertySet, row.name),
+    translations: translate(row.propertySet, row.name),
     value: row.state === "missing" ? t("ids.missing") : row.state === "empty" ? t("emptyValue")
       : row.values.map((value) => formatPropertyValue(value, t("yes"), t("no"), row.unit, decimalPlaces)).join("; "),
-  })).filter((row) => !term || [row.name, row.translation?.text ?? "", row.propertySet ?? t("attributes"), row.value, ...row.specifications]
+  })).filter((row) => !term || [row.name, ...row.translations.map((label) => label.text), row.propertySet ?? t("attributes"), row.value, ...row.specifications]
     .some((value) => value.toLowerCase().includes(term)));
 
   return (

@@ -133,7 +133,7 @@ function IfcPropertyPanel() {
         properties: set.properties.filter((property) =>
           matches(set.name, "") || matches(
             // The bSDD label too: "resistência" finds FireRating.
-            [property.name, translate(set.name, property.name)?.text].filter(Boolean).join(" "),
+            [property.name, ...translate(set.name, property.name).map((label) => label.text)].join(" "),
             formatProperty(property, t("yes"), t("no"), decimalPlaces),
           ),
         ),
@@ -153,12 +153,9 @@ function IfcPropertyPanel() {
     ...(view.source === "type" && info?.typeObject
       ? { badge: { label: t("fromType"), hint: t("fromTypeHint", { type: info.typeObject.type, attribute: name }) } }
       : {}),
-    details: [
-      view.userDefinedIn
-        ? t(view.value === view.enumValue ? "predefinedUserDefinedMissing" : "predefinedUserDefined", { attribute: view.userDefinedIn })
-        : "",
-      view.overridden ? t("predefinedOverridden", { value: view.overridden }) : "",
-    ].filter(Boolean),
+    details: view.userDefinedIn
+      ? [t(view.value === view.enumValue ? "predefinedUserDefinedMissing" : "predefinedUserDefined", { attribute: view.userDefinedIn })]
+      : [],
   });
   const enumerationRows: PropertyTableRow[] = info
     ? [
@@ -483,7 +480,7 @@ function propertySetGroups(
   yes: string,
   no: string,
   decimalPlaces: number,
-  translate: (set: string, property: string) => PropertyTranslation | undefined,
+  translate: (set: string, property: string) => PropertyTranslation[],
 ): PropertyTableGroup[] {
   return sets.map((set, setIndex) => ({
     id: `set:${setIndex}`,
@@ -491,7 +488,7 @@ function propertySetGroups(
     rows: set.properties.map((property, propertyIndex) => ({
       id: `property:${propertyIndex}`,
       name: property.name,
-      translation: translate(set.name, property.name),
+      translations: translate(set.name, property.name),
       value: formatProperty(property, yes, no, decimalPlaces),
     })),
   }));
