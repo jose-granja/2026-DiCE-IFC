@@ -885,7 +885,7 @@
       "fromItsType": "Tipo",
       "fromItsTypeHint": "Definido uma vez no tipo e partilhado por todas as ocorrências.",
       "fromType": "do tipo",
-      "fromTypeHint": "Definido no seu {type}. Pela regra da buildingSMART, o PredefinedType de um tipo aplica-se a todas as suas ocorrências.",
+      "fromTypeHint": "Definido no seu {type}. Pela regra da buildingSMART, o {attribute} de um tipo aplica-se a todas as suas ocorrências.",
       "translationHint": "Nome desta propriedade no Dicionário de Dados da buildingSMART (bSDD). A propriedade mantém o seu nome IFC.",
       "predefinedUserDefined": "USERDEFINED, indicado em {attribute}",
       "predefinedUserDefinedMissing": "USERDEFINED, sem {attribute} que o indique",

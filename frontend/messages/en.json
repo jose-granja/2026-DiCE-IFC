@@ -885,7 +885,7 @@
       "fromItsType": "Type",
       "fromItsTypeHint": "Defined once on the type and shared by every occurrence.",
       "fromType": "from type",
-      "fromTypeHint": "Set on its {type}. By buildingSMART's rule, a type's PredefinedType applies to every occurrence of it.",
+      "fromTypeHint": "Set on its {type}. By buildingSMART's rule, a type's {attribute} applies to every occurrence of it.",
       "translationHint": "The name of this property in the buildingSMART Data Dictionary (bSDD). The property itself keeps its IFC name.",
       "predefinedUserDefined": "USERDEFINED, named in {attribute}",
       "predefinedUserDefinedMissing": "USERDEFINED, with no {attribute} to name it",

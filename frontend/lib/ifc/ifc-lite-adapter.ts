@@ -94,7 +94,7 @@ import {
   type Vec3,
   type VocabularyOptions,
 } from "./types";
-import { effectivePredefinedType, ifctesterPredefinedType } from "./predefined-type";
+import { effectivePredefinedType, effectiveTypeDrivenAttributes, ifctesterPredefinedType } from "./predefined-type";
 import {
   asFiniteNumber,
   compileQuantityExpression,
@@ -978,6 +978,7 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
     // the occurrence has no `IfcRelDefinesByType`.
     const type = extractTypePropertiesOnDemand(store, expressId);
     const typeObject = typeObjectFor(store, expressId);
+    const ownAttributes = extractAllEntityAttributes(store, expressId);
 
     return {
       attributes: entity
@@ -1035,7 +1036,11 @@ export const ifcLiteAdapter: IfcEngineAdapter = {
 
       typeObject,
 
-      predefinedType: effectivePredefinedType(extractAllEntityAttributes(store, expressId), typeObject),
+      predefinedType: effectivePredefinedType(ownAttributes, typeObject),
+
+      typeDrivenAttributes: entity
+        ? effectiveTypeDrivenAttributes(normalizeIfcTypeName(entity.type), ownAttributes, typeObject)
+        : [],
 
       materials: materialRefsFor(store, expressId),
 

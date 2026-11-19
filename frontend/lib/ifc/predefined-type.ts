@@ -48,8 +48,51 @@ function attribute(attributes: Attributes, name: string): string {
 }
 
 /** An enumeration as written: "STANDARD", ".STANDARD." and "standard" are the same. */
-function enumValue(attributes: Attributes): string {
-  return attribute(attributes, "PredefinedType").replace(/^\.|\.$/g, "").toUpperCase();
+function enumValue(attributes: Attributes, name = "PredefinedType"): string {
+  return attribute(attributes, name).replace(/^\.|\.$/g, "").toUpperCase();
+}
+
+/**
+ * An enumeration the type dictates, read as {@link effectivePredefinedType}
+ * reads PredefinedType: the type's value when it says more than NOTDEFINED,
+ * else the occurrence's own, else the type's NOTDEFINED. `occurrenceUserDefined`
+ * and `typeUserDefined` name the attributes holding the text of USERDEFINED.
+ */
+function effectiveTypeDrivenEnum(
+  occurrence: Attributes,
+  type: { type: string; attributes: Attributes } | null,
+  name: string,
+  occurrenceUserDefined: string,
+  typeUserDefined: (typeClass: string) => string,
+): PredefinedTypeView | null {
+  const own = enumValue(occurrence, name);
+  const typed = type ? enumValue(type.attributes, name) : "";
+
+  if (type && typed && typed !== "NOTDEFINED") {
+    const userDefinedIn = typed === "USERDEFINED" ? typeUserDefined(type.type) : undefined;
+    return {
+      value: (userDefinedIn && attribute(type.attributes, userDefinedIn)) || typed,
+      enumValue: typed,
+      source: "type",
+      ...(userDefinedIn ? { userDefinedIn } : {}),
+      ...(own && own !== "NOTDEFINED"
+        ? { overridden: own === "USERDEFINED" ? attribute(occurrence, occurrenceUserDefined) || own : own }
+        : {}),
+    };
+  }
+
+  if (own) {
+    const userDefined = own === "USERDEFINED";
+    return {
+      value: (userDefined && attribute(occurrence, occurrenceUserDefined)) || own,
+      enumValue: own,
+      source: "occurrence",
+      ...(userDefined ? { userDefinedIn: occurrenceUserDefined } : {}),
+    };
+  }
+
+  // Neither says more than NOTDEFINED: the type's, since the occurrence left it unset.
+  return typed ? { value: typed, enumValue: typed, source: "type" } : null;
 }
 
 /**
@@ -61,32 +104,40 @@ export function effectivePredefinedType(
   occurrence: Attributes,
   type: { type: string; attributes: Attributes } | null,
 ): PredefinedTypeView | null {
-  const own = enumValue(occurrence);
-  const typed = type ? enumValue(type.attributes) : "";
+  return effectiveTypeDrivenEnum(occurrence, type, "PredefinedType", "ObjectType", userDefinedAttributeOfType);
+}
 
-  if (type && typed && typed !== "NOTDEFINED") {
-    const userDefinedIn = typed === "USERDEFINED" ? userDefinedAttributeOfType(type.type) : undefined;
-    return {
-      value: (userDefinedIn && attribute(type.attributes, userDefinedIn)) || typed,
-      enumValue: typed,
-      source: "type",
-      ...(userDefinedIn ? { userDefinedIn } : {}),
-      ...(own && own !== "NOTDEFINED" ? { overridden: own === "USERDEFINED" ? attribute(occurrence, "ObjectType") || own : own } : {}),
-    };
-  }
+/**
+ * The other enumerations a door's or a window's type dictates (IFC4, IFC4X3):
+ * `IfcDoor.OperationType` from its `IfcDoorType`, `IfcWindow.PartitioningType`
+ * from its `IfcWindowType`, each named by `UserDefined…` when USERDEFINED.
+ * buildingSMART's BLT001 and BLT002 require the occurrence to leave it empty
+ * when it has a type, so an occurrence that does shows its type's value.
+ */
+const TYPE_DRIVEN_ATTRIBUTES: ReadonlyArray<{ occurrence: RegExp; name: string; userDefined: string }> = [
+  { occurrence: /^ifcdoor(standardcase)?$/i, name: "OperationType", userDefined: "UserDefinedOperationType" },
+  { occurrence: /^ifcwindow(standardcase)?$/i, name: "PartitioningType", userDefined: "UserDefinedPartitioningType" },
+];
 
-  if (own) {
-    const userDefined = own === "USERDEFINED";
-    return {
-      value: (userDefined && attribute(occurrence, "ObjectType")) || own,
-      enumValue: own,
-      source: "occurrence",
-      ...(userDefined ? { userDefinedIn: "ObjectType" } : {}),
-    };
-  }
+export type TypeDrivenAttributeView = PredefinedTypeView & { name: string };
 
-  // Neither says more than NOTDEFINED: the type's, since the occurrence left it unset.
-  return typed ? { value: typed, enumValue: typed, source: "type" } : null;
+/**
+ * OperationType for a door, PartitioningType for a window, as
+ * {@link effectivePredefinedType} reads PredefinedType: the type's when it says
+ * more than NOTDEFINED, else the occurrence's own. Empty for any other class,
+ * and when neither the element nor its type has the value. (In IFC2X3 only
+ * `IfcDoorStyle` has an OperationType, so a door shows its style's; a window
+ * style has no PartitioningType.)
+ */
+export function effectiveTypeDrivenAttributes(
+  occurrenceClass: string,
+  occurrence: Attributes,
+  type: { type: string; attributes: Attributes } | null,
+): TypeDrivenAttributeView[] {
+  return TYPE_DRIVEN_ATTRIBUTES.filter((entry) => entry.occurrence.test(occurrenceClass)).flatMap((entry) => {
+    const view = effectiveTypeDrivenEnum(occurrence, type, entry.name, entry.userDefined, () => entry.userDefined);
+    return view ? [{ name: entry.name, ...view }] : [];
+  });
 }
 
 /**

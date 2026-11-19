@@ -71,6 +71,7 @@ import type {
   PropertyView,
   PropertySetView,
 } from "@/lib/ifc/types";
+import type { PredefinedTypeView } from "@/lib/ifc/predefined-type";
 
 export function PropertyPanel() {
   const report = useGisAreaStore((s) => s.showing ? s.report : null);
@@ -141,25 +142,30 @@ function IfcPropertyPanel() {
 
   // What each tab shows, worked out once so its heading can count it — what is
   // listed, so the count agrees with the filter above.
-  const predefined = info?.predefinedType;
   // PredefinedType by buildingSMART's rules (lib/ifc/predefined-type.ts): the
-  // type's when it has one, marked so, else the element's own.
-  const predefinedRow: PropertyTableRow | null = predefined
-    ? {
-        id: "PredefinedType",
-        name: "PredefinedType",
-        value: predefined.value,
-        ...(predefined.source === "type" && info?.typeObject
-          ? { badge: { label: t("fromType"), hint: t("fromTypeHint", { type: info.typeObject.type }) } }
-          : {}),
-        details: [
-          predefined.userDefinedIn
-            ? t(predefined.value === predefined.enumValue ? "predefinedUserDefinedMissing" : "predefinedUserDefined", { attribute: predefined.userDefinedIn })
-            : "",
-          predefined.overridden ? t("predefinedOverridden", { value: predefined.overridden }) : "",
-        ].filter(Boolean),
-      }
-    : null;
+  // type's when it has one, marked so, else the element's own. A door's
+  // OperationType and a window's PartitioningType are read the same way
+  // (BLT001/BLT002: the type dictates them, the occurrence leaves them empty).
+  const typeDrivenRow = (name: string, view: PredefinedTypeView): PropertyTableRow => ({
+    id: name,
+    name,
+    value: view.value,
+    ...(view.source === "type" && info?.typeObject
+      ? { badge: { label: t("fromType"), hint: t("fromTypeHint", { type: info.typeObject.type, attribute: name }) } }
+      : {}),
+    details: [
+      view.userDefinedIn
+        ? t(view.value === view.enumValue ? "predefinedUserDefinedMissing" : "predefinedUserDefined", { attribute: view.userDefinedIn })
+        : "",
+      view.overridden ? t("predefinedOverridden", { value: view.overridden }) : "",
+    ].filter(Boolean),
+  });
+  const enumerationRows: PropertyTableRow[] = info
+    ? [
+        ...(info.predefinedType ? [typeDrivenRow("PredefinedType", info.predefinedType)] : []),
+        ...info.typeDrivenAttributes.map((view) => typeDrivenRow(view.name, view)),
+      ]
+    : [];
   const attributeRows: PropertyTableRow[] = info
     ? [
         ...[
@@ -174,7 +180,7 @@ function IfcPropertyPanel() {
             id: String(label), name: String(label), value: String(value), mono: Boolean(mono),
           })),
         // Last, as in the schema.
-        ...(predefinedRow ? [predefinedRow] : []),
+        ...enumerationRows,
       ].filter((row) => matches(row.name, row.value))
     : [];
   const shownPropertySets = info ? visibleSets(info.propertySets) : [];

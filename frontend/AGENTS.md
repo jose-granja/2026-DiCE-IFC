@@ -461,7 +461,14 @@ than NOTDEFINED applies to every occurrence and overrides the occurrence's
 own; otherwise the occurrence's. USERDEFINED is named by the occurrence's
 `ObjectType`, or the type's `ElementType` (`ProcessType`, `ResourceType`).
 `ElementInfo.predefinedType` carries the result; the Attributes tab marks one
-from the type "from type". Filters, lenses and quantities still read the
+from the type "from type". A door's OperationType and a window's
+PartitioningType are read the same way (`ElementInfo.typeDrivenAttributes`,
+named by `UserDefinedOperationType` / `UserDefinedPartitioningType`):
+BLT001/BLT002 require a typed occurrence to leave them empty, so the panel
+shows the type's. **IDS does not inherit them**: an attribute facet reads the
+occurrence's own value (IDS 1.0, the engine's #7394), so a door that obeys
+BLT001 fails `<attribute>OperationType</attribute>` — the specification
+should apply to `IFCDOORTYPE` instead (`type-driven-attributes.test.ts`). Filters, lenses and quantities still read the
 occurrence's own value. **IDS validation reads it as ifctester does**
 (`ifctesterPredefinedType`, wired into the engine's accessor by
 `idsAccessor` in the adapter), which is more lenient: an ObjectType or a
