@@ -19,6 +19,7 @@ const PANELS = [
   "section",
   "measure",
   "ids",
+  "validation",
   "georef",
   "gis",
   "clash",
@@ -49,6 +50,7 @@ import FilterPanel from "./_components/FilterPanel";
 import SectionPanel from "./_components/SectionPanel";
 import MeasurePanel from "./_components/MeasurePanel";
 import IdsPanel from "./_components/IdsPanel";
+import IfcValidationPanel from "./_components/IfcValidationPanel";
 import GeorefPanels from "./_components/GeorefPanels";
 import BcfPanel from "./_components/BcfPanel";
 import ClashPanel from "./_components/ClashPanel";
@@ -353,6 +355,14 @@ export default function ViewerPage() {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
+                    <TabsTrigger value="validation" data-state={tab === "validation" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.validation")}>
+                      <ToolTabIcon tab="validation" />
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("tabs.validation")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
                     <TabsTrigger value="clash" data-state={tab === "clash" ? "active" : "inactive"} className="text-xs" aria-label={t("tabs.clash")}>
                       <ToolTabIcon tab="clash" />
                     </TabsTrigger>
@@ -423,6 +433,12 @@ export default function ViewerPage() {
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
                 <IdsPanel />
+              </TabsContent>
+              <TabsContent
+                value="validation"
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <IfcValidationPanel />
               </TabsContent>
               <GeorefPanels />
               <TabsContent

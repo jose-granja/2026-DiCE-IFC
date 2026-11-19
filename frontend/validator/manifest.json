@@ -1,0 +1,145 @@
+{
+  "$comment": "Pins for public/validator/ (ADR 018). Everything is downloaded by scripts/build-validator-assets.mts and checked against these SHA-256s, or Pyodide's own lockfile for its packages.",
+  "service": {
+    "validate": "5ceadbca687667601d687c2a5ff686ed263f2917",
+    "ifc-gherkin-rules": "893f8275049b8960c3ce0c7379b4b57aefeaa8f9",
+    "ifc-validation-data-model": "cad20d3f67728fb53b7e65fe8eb903a9ad28f412",
+    "ifcopenshell": "v0.8.6-8b5b400"
+  },
+  "pyodide": {
+    "version": "0.28.3",
+    "cdn": "https://cdn.jsdelivr.net/pyodide/v0.28.3/full/",
+    "packages": [
+      "numpy",
+      "shapely",
+      "networkx",
+      "pydantic",
+      "pyparsing",
+      "pytest",
+      "mpmath",
+      "pyyaml",
+      "python-dateutil",
+      "typing-extensions",
+      "six",
+      "packaging"
+    ],
+    "$dropDependencies": "Declared by Pyodide's lockfile but unused by the rules: networkx only needs matplotlib to draw.",
+    "dropDependencies": {
+      "networkx": [
+        "matplotlib"
+      ]
+    }
+  },
+  "wheels": [
+    {
+      "name": "ifcopenshell",
+      "version": "0.8.5",
+      "file": "ifcopenshell-0.8.5-cp313-cp313-pyodide_2025_0_wasm32.whl",
+      "url": "https://raw.githubusercontent.com/IfcOpenShell/wasm-wheels/7f24d2fddcf57a627ad5606e37164fcf7b76c12b/ifcopenshell-0.8.5-cp313-cp313-pyodide_2025_0_wasm32.whl",
+      "sha256": "fbebb7a7144277be213d156ed9b77de30de1d92b0b2b0c815e4a07555bfb929c",
+      "license": "LGPL-3.0-or-later",
+      "imports": [
+        "ifcopenshell"
+      ]
+    },
+    {
+      "name": "behave",
+      "version": "1.2.6",
+      "file": "behave-1.2.6-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/a8/6c/ec9169548b6c4cb877aaa6773408ca08ae2a282805b958dbc163cb19822d/behave-1.2.6-py2.py3-none-any.whl",
+      "sha256": "ebda1a6c9e5bfe95c5f9f0a2794e01c7098b3dde86c10a95d8621c5907ff6f1c",
+      "license": "BSD",
+      "imports": [
+        "behave"
+      ]
+    },
+    {
+      "name": "isodate",
+      "version": "0.7.2",
+      "file": "isodate-0.7.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/15/aa/0aca39a37d3c7eb941ba736ede56d689e7be91cab5d9ca846bde3999eba6/isodate-0.7.2-py3-none-any.whl",
+      "sha256": "28009937d8031054830160fce6d409ed342816b543597cece116d966c6d99e15",
+      "license": "Copyright (c) 2021, Hugo van Kemenade an",
+      "imports": [
+        "isodate"
+      ]
+    },
+    {
+      "name": "lark-parser",
+      "version": "0.12.0",
+      "file": "lark_parser-0.12.0-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/76/00/90f05db333fe1aa6b6ffea83a35425b7d53ea95c8bba0b1597f226cf1d5f/lark_parser-0.12.0-py2.py3-none-any.whl",
+      "sha256": "0eaf30cb5ba787fe404d73a7d6e61df97b21d5a63ac26c5008c78a494373c675",
+      "license": "MIT",
+      "imports": [
+        "lark"
+      ]
+    },
+    {
+      "name": "parse-type",
+      "version": "0.6.6",
+      "file": "parse_type-0.6.6-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/85/8d/eef3d8cdccc32abdd91b1286884c99b8c3a6d3b135affcc2a7a0f383bb32/parse_type-0.6.6-py2.py3-none-any.whl",
+      "sha256": "3ca79bbe71e170dfccc8ec6c341edfd1c2a0fc1e5cfd18330f93af938de2348c",
+      "license": "MIT",
+      "imports": [
+        "parse_type"
+      ]
+    },
+    {
+      "name": "parse",
+      "version": "1.22.4",
+      "file": "parse-1.22.4-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/8f/5f/fbe039e06108eefad9e6b1f7d915a9c73ca0451700c7d48ce05eaa3a2833/parse-1.22.4-py2.py3-none-any.whl",
+      "sha256": "ae430a4477316eed4a9710f642b2db968ec89d5d82e6b0908b8169673b476847",
+      "license": "MIT",
+      "imports": [
+        "parse"
+      ]
+    },
+    {
+      "name": "pydot",
+      "version": "4.0.1",
+      "file": "pydot-4.0.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/7e/32/a7125fb28c4261a627f999d5fb4afff25b523800faed2c30979949d6facd/pydot-4.0.1-py3-none-any.whl",
+      "sha256": "869c0efadd2708c0be1f916eb669f3d664ca684bc57ffb7ecc08e70d5e93fee6",
+      "license": "MIT",
+      "imports": [
+        "pydot"
+      ]
+    }
+  ],
+  "archives": [
+    {
+      "name": "ifc-gherkin-rules",
+      "url": "https://codeload.github.com/buildingSMART/ifc-gherkin-rules/tar.gz/893f8275049b8960c3ce0c7379b4b57aefeaa8f9",
+      "sha256": "2b65cc3cf3ba75f05a7908e32300e849d74e8f28d618eaadbc2bfc41f585461b",
+      "to": "rules",
+      "include": [
+        "__init__.py",
+        "main.py",
+        "validation_results.py",
+        "outcome_embedding_json_formatter.py",
+        "behave.ini",
+        "LICENSE",
+        "features/"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "ifc-validation-data-model",
+      "url": "https://codeload.github.com/buildingSMART/ifc-validation-data-model/tar.gz/cad20d3f67728fb53b7e65fe8eb903a9ad28f412",
+      "sha256": "1ea0bf2f46430e6c789486fe78ec8bafec58c6fc644b069f9c84c7ab5035f31b",
+      "to": "rules/ifc_validation_models",
+      "include": [
+        ""
+      ],
+      "exclude": [
+        "tests.py",
+        "test_settings.py"
+      ],
+      "license": "MIT"
+    }
+  ],
+  "$notShipped": "Listed in ifc-gherkin-rules' requirements but not needed in the browser (ADR 018): django (+asgiref, sqlparse) \u2014 only production's database writes, validation_results.py is replaced by python/overrides/validation_results.py; pyspellchecker \u2014 only TESTING mode's protocol check, a stand-in in python/shims; pandas, sqlalchemy, sqlalchemy-utils, tabulate, python-dotenv \u2014 not imported by any rule. Parity checked on three models."
+}

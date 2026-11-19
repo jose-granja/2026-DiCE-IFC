@@ -240,7 +240,8 @@
       "filtersActive": "{count, plural, one {# valor de filtro ativo} other {# valores de filtro ativos}} — abra o separador para os alterar ou limpar",
       "globeActive": "O contexto 3D do mundo está ativo",
       "lens": "Vista",
-      "lensActive": "Há uma vista ativa"
+      "lensActive": "Há uma vista ativa",
+      "validation": "Validação"
     },
     "clash": {
       "title": "Detetor de conflitos",
@@ -1758,7 +1759,8 @@
       "measure": "Medições",
       "ids": "Verificação IDS",
       "clash": "Detetor de conflitos",
-      "bcf": "Tópicos BCF"
+      "bcf": "Tópicos BCF",
+      "validation": "Validação IFC"
     },
     "realistic": {
       "credit": "Texturas:"
@@ -1767,6 +1769,69 @@
       "open": "Abrir o modelo de exemplo",
       "opening": "A abrir o modelo de exemplo…",
       "failed": "Não foi possível abrir o modelo de exemplo: {error}"
+    },
+    "validation": {
+      "intro": "Verifica o modelo como o serviço de validação da buildingSMART — sintaxe, cabeçalho, esquema e regras normativas — com o mesmo código, neste dispositivo. Nada é enviado.",
+      "unavailable": "O validador não está instalado neste servidor.",
+      "noModel": "Abra um modelo para o validar.",
+      "model": "Modelo a validar",
+      "run": "Validar",
+      "cancel": "Cancelar",
+      "export": {
+        "title": "Exportar",
+        "grouping": "Tópicos BCF",
+        "perRule": "Um tópico por regra",
+        "perOccurrence": "Um tópico por ocorrência ({count})",
+        "snapshots": "Imagens dos elementos",
+        "snapshotsHint": "Enquadra cada elemento desenhado e captura a vista (no máximo {max}). As ocorrências em instâncias não desenhadas são descritas no texto.",
+        "bcf": "BCF",
+        "pdf": "Relatório PDF",
+        "bcfPreparing": "A preparar o BCF…",
+        "bcfProgress": "A capturar imagens {done}/{total}…",
+        "bcfBudget": "As imagens param após {max} tópicos; os restantes são escritos sem imagem.",
+        "bcfDone": "{count, plural, one {# tópico exportado} other {# tópicos exportados}} — também aberto no separador BCF.",
+        "pdfPreparing": "A preparar o PDF…",
+        "pdfDone": "Relatório guardado como {name}.",
+        "failed": "A exportação falhou: {message}"
+      },
+      "download": "A primeira execução transfere cerca de {mb} MB; depois o navegador guarda-os.",
+      "elapsed": "{seconds} s",
+      "starting": "A iniciar…",
+      "loading": {
+        "runtime": "A iniciar o Python…",
+        "packages": "A carregar pacotes {done}/{total}…",
+        "rules": "A carregar as regras…"
+      },
+      "running": "A verificar: {stage}…",
+      "error": "A validação parou: {error}",
+      "cancelled": "Cancelada.",
+      "stages": {
+        "header_syntax": "Sintaxe do cabeçalho",
+        "header": "Cabeçalho",
+        "syntax": "Sintaxe",
+        "prerequisites": "Pré-requisitos",
+        "schema": "Esquema",
+        "normative_ia": "Regras normativas — acordos de implementação",
+        "normative_ip": "Regras normativas — proposições informais",
+        "industry_practices": "Práticas da indústria"
+      },
+      "status": {
+        "valid": "Válido",
+        "warning": "Avisos",
+        "invalid": "Inválido",
+        "skipped": "Não executado",
+        "failed": "Não foi possível executar"
+      },
+      "skippedBecause": "Não executado: {stage} falhou.",
+      "stageFailed": "Esta etapa não pôde ser executada: {reason}",
+      "ruleCrashed": "{rule} não pôde ser avaliada (um erro na regra, não no modelo): {error}",
+      "occurrences": "{count, plural, one {# ocorrência} other {# ocorrências}}",
+      "ruleDoc": "Abrir a documentação da regra",
+      "show": "Mostrar no visualizador",
+      "notFound": "O modelo já não está aberto.",
+      "expected": "Esperado:",
+      "observed": "Observado:",
+      "showMore": "Mostrar mais {count}"
     }
   },
   "idsCreate": {
@@ -2731,5 +2796,122 @@
     "noscript": "Esta verificação precisa de JavaScript, tal como o resto do site.",
     "privacy": "A verificação é feita pelo Cloudflare Turnstile, que analisa o seu navegador para distinguir pessoas de bots. Nenhum dos seus ficheiros, modelos ou tópicos está envolvido.",
     "privacyLink": "O que é enviado"
+  },
+  "validationExport": {
+    "projectName": "Validação IFC — {model}",
+    "label": "Validação IFC",
+    "topicTitle": "{rule} ({count, plural, one {# ocorrência} other {# ocorrências}})",
+    "comment": "Criado a partir da validação IFC ({stage}) em {date}, com as regras de validação da buildingSMART, neste dispositivo.",
+    "stage": "Etapa",
+    "rule": "Regra",
+    "noInstance": "O ficheiro",
+    "expected": "esperado:",
+    "observed": "observado:",
+    "andMore": "…e mais {count}.",
+    "stages": {
+      "header_syntax": "Sintaxe do cabeçalho",
+      "header": "Cabeçalho",
+      "syntax": "Sintaxe",
+      "prerequisites": "Pré-requisitos",
+      "schema": "Esquema",
+      "normative_ia": "Regras normativas — acordos de implementação",
+      "normative_ip": "Regras normativas — proposições informais",
+      "industry_practices": "Práticas da indústria"
+    }
+  },
+  "validationReport": {
+    "eyebrow": "RELATÓRIO DE VALIDAÇÃO IFC",
+    "validated": "Validado",
+    "duration": "Duração",
+    "seconds": "{seconds} s",
+    "where": "Onde",
+    "whereValue": "No navegador, com o código do serviço de validação da buildingSMART; o ficheiro não foi enviado.",
+    "rules": "Regras",
+    "engine": "Motor",
+    "serviceRuns": "o serviço usa {version}",
+    "stagesTitle": "Etapas",
+    "stage": "Etapa",
+    "status": "Estado",
+    "findings": "Ocorrências",
+    "statuses": {
+      "valid": "Válido",
+      "warning": "Avisos",
+      "invalid": "Inválido",
+      "skipped": "Não executado",
+      "failed": "Não foi possível executar"
+    },
+    "noFindings": "Sem erros nem avisos.",
+    "skipped": "Não executado: {stage} falhou.",
+    "failed": "Esta etapa não pôde ser executada: {reason}",
+    "crashed": "{rule} não pôde ser avaliada (um erro na regra, não no modelo): {error}",
+    "error": "Erro",
+    "warning": "Aviso",
+    "occurrences": "{count, plural, one {# ocorrência} other {# ocorrências}}",
+    "instance": "Instância",
+    "entity": "Entidade",
+    "expected": "Esperado",
+    "observed": "Observado",
+    "andMore": "…e mais {count}, não listadas.",
+    "page": "Página {page} de {total}",
+    "stages": {
+      "header_syntax": "Sintaxe do cabeçalho",
+      "header": "Cabeçalho",
+      "syntax": "Sintaxe",
+      "prerequisites": "Pré-requisitos",
+      "schema": "Esquema",
+      "normative_ia": "Regras normativas — acordos de implementação",
+      "normative_ip": "Regras normativas — proposições informais",
+      "industry_practices": "Práticas da indústria"
+    }
+  },
+  "validationExplain": {
+    "header": {
+      "fields": {
+        "originating_system": "Sistema de origem (FILE_NAME)",
+        "company_name": "Empresa no sistema de origem",
+        "application_name": "Aplicação no sistema de origem",
+        "version": "Versão no sistema de origem",
+        "time_stamp": "Data e hora (FILE_NAME)",
+        "description": "Definição de vista do modelo (FILE_DESCRIPTION)",
+        "comments": "Comentários (FILE_DESCRIPTION)",
+        "other": "Cabeçalho: {field}"
+      },
+      "why": {
+        "originating_system": "O sistema de origem em FILE_NAME tem de indicar a empresa, a aplicação e a sua versão, por esta ordem, separadas por “ - ” (espaço, hífen, espaço): “Empresa - Aplicação - Versão”, por exemplo “Autodesk - Revit - 2024.2”. O serviço lê dele a empresa, a aplicação e a versão, por isso, quando não o consegue dividir em três, também essas são assinaladas. É escrito pelo exportador IFC da ferramenta de autoria: altere-o nas definições do exportador ou comunique-o ao fabricante.",
+        "company_name": "A empresa é a primeira parte do sistema de origem (“Empresa - Aplicação - Versão”). Não pode estar vazia, conter “-” nem começar ou terminar com um espaço.",
+        "application_name": "A aplicação é a segunda parte do sistema de origem (“Empresa - Aplicação - Versão”). Não pode estar vazia, conter “-” nem começar ou terminar com um espaço.",
+        "version": "A versão é a terceira parte do sistema de origem (“Empresa - Aplicação - Versão”). Tem de ser um número de versão como os pacotes Python o escrevem (PEP 440: 2024, 24.2, 24.2.0.49…), sem espaços à volta.",
+        "time_stamp": "A data e hora em FILE_NAME tem de estar em ISO 8601, por exemplo “2024-05-17T14:30:00”.",
+        "description": "FILE_DESCRIPTION tem de indicar a definição de vista do modelo para a qual o ficheiro foi exportado, como “ViewDefinition [nome]”. Permitidas para {schema}: {allowed}. Uma vista complementar (add-on) tem de vir acompanhada de uma vista de coordenação.",
+        "comments": "Os comentários em FILE_DESCRIPTION estão limitados a 256 caracteres.",
+        "other": "O campo {field} do cabeçalho não é válido como o cabeçalho IFC exige."
+      },
+      "found": "No ficheiro: “{value}”",
+      "parts": "No ficheiro: “{value}” — {count, plural, one {uma parte} other {# partes}} separadas por “ - ”, quando são precisas três.",
+      "derived": "Vazio, porque não foi possível lê-lo do sistema de origem “{source}”.",
+      "empty": "Vazio no ficheiro.",
+      "description": {
+        "empty": "FILE_DESCRIPTION está vazio: não indica nenhuma definição de vista.",
+        "unreadable": "O ficheiro indica a sua vista, mas não foi possível ler nenhuma: cada entrada de FILE_DESCRIPTION tem de ser “Palavra-chave [valor]”, e {entries} não é. Uma entrada assim impede o IfcOpenShell de ler todas as outras. Remova-a ou escreva-a como “Comment [ … ]”.",
+        "noView": "FILE_DESCRIPTION não tem nenhuma entrada “ViewDefinition [ … ]”.",
+        "notAllowed": "O ficheiro indica {views}, que não é uma vista permitida para {schema}.",
+        "addOn": "O ficheiro indica uma vista complementar ({views}) sem uma vista de coordenação.",
+        "type": "A verificação de cabeçalho do IfcOpenShell encontrou o valor de FILE_DESCRIPTION com o tipo errado: tem de ser uma lista de textos com, no máximo, 256 caracteres."
+      }
+    },
+    "schema": {
+      "titleNotOptional": "Falta {attribute}",
+      "titleRule": "Regra {rule} não cumprida",
+      "notOptional": "{attribute} é um atributo obrigatório de {entity}, mas o ficheiro deixa-o por preencher ($). Preencha-o na ferramenta de autoria ou comunique-o ao fabricante do exportador.",
+      "whereRule": "Cada {entity} tem de cumprir a sua regra {rule}, como o esquema IFC a define. A documentação da entidade explica o que a regra exige.",
+      "globalRule": "O modelo tem de cumprir a regra global {rule} do esquema.",
+      "violatedBy": "Porquê: {detail}"
+    },
+    "docs": {
+      "header": "Como escrever o cabeçalho IFC (buildingSMART)",
+      "schema": "A entidade na documentação IFC",
+      "rule": "A documentação da regra"
+    },
+    "technical": "Detalhes técnicos"
   }
 }

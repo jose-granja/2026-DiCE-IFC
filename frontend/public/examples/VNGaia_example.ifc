@@ -1,7 +1,7 @@
 ISO-10303-21;
 HEADER;
-FILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]','RevitIdentifiers [VersionGUID: 95ba75f2-1289-46d8-934a-bfe7ad9ce304, NumberOfSaves: 93]','CoordinateReference [CoordinateBase: Project Base Point, ProjectSite: Default Site]','ExchangeRequirement [Architecture]','Re-exported by ifc-lite, 2 modifications'),'2;1');
-FILE_NAME('VNGaia_example.ifc','2026-11-15T09:49:02',(''),(''),'DiCE-IFC','Autodesk Revit 24.0.5.432 (ENG) - IFC 24.2.0.49','');
+FILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]','RevitIdentifiers [VersionGUID: 95ba75f2-1289-46d8-934a-bfe7ad9ce304, NumberOfSaves: 93]','CoordinateReference [CoordinateBase: Project Base Point, ProjectSite: Default Site]','ExchangeRequirement [Architecture]','Comment [Revit IFC exporter 24.2.0.49, Re-exported by ifc-lite, 2 modifications]'),'2;1');
+FILE_NAME('VNGaia_example.ifc','2026-11-15T09:49:02',(''),(''),'DiCE-IFC','Autodesk - Revit 2024 (ENG) - 24.0.5.432','');
 FILE_SCHEMA(('IFC4'));
 ENDSEC;
 DATA;

@@ -240,7 +240,8 @@
       "filtersActive": "{count, plural, one {# filter value is on} other {# filter values are on}} — open the tab to change or clear them",
       "globeActive": "The 3D world context is on",
       "lens": "Lens",
-      "lensActive": "A lens is on"
+      "lensActive": "A lens is on",
+      "validation": "Validation"
     },
     "clash": {
       "title": "Clash detection",
@@ -1758,7 +1759,8 @@
       "measure": "Measurements",
       "ids": "IDS verification",
       "clash": "Clash detection",
-      "bcf": "BCF topics"
+      "bcf": "BCF topics",
+      "validation": "IFC validation"
     },
     "realistic": {
       "credit": "Textures:"
@@ -1767,6 +1769,69 @@
       "open": "Open the example model",
       "opening": "Opening the example model…",
       "failed": "The example model could not be opened: {error}"
+    },
+    "validation": {
+      "intro": "Checks the model as buildingSMART's validation service does — syntax, header, schema and the normative rules — with the same code, on this device. Nothing is uploaded.",
+      "unavailable": "The validator is not installed on this server.",
+      "noModel": "Open a model to validate it.",
+      "model": "Model to validate",
+      "run": "Validate",
+      "cancel": "Cancel",
+      "export": {
+        "title": "Export",
+        "grouping": "BCF topics",
+        "perRule": "One topic per rule",
+        "perOccurrence": "One topic per occurrence ({count})",
+        "snapshots": "Snapshots of the elements",
+        "snapshotsHint": "Frames each drawn element and captures the view (at most {max}). Findings about non-drawn instances are described in the text.",
+        "bcf": "BCF",
+        "pdf": "PDF report",
+        "bcfPreparing": "Preparing the BCF…",
+        "bcfProgress": "Capturing snapshots {done}/{total}…",
+        "bcfBudget": "Snapshots stop after {max} topics; the rest are written without one.",
+        "bcfDone": "{count, plural, one {# topic exported} other {# topics exported}} — also open in the BCF tab.",
+        "pdfPreparing": "Preparing the PDF…",
+        "pdfDone": "Report saved as {name}.",
+        "failed": "The export failed: {message}"
+      },
+      "download": "First run downloads about {mb} MB, then the browser keeps it.",
+      "elapsed": "{seconds} s",
+      "starting": "Starting…",
+      "loading": {
+        "runtime": "Starting Python…",
+        "packages": "Loading packages {done}/{total}…",
+        "rules": "Loading the rules…"
+      },
+      "running": "Checking: {stage}…",
+      "error": "The validation stopped: {error}",
+      "cancelled": "Cancelled.",
+      "stages": {
+        "header_syntax": "Header syntax",
+        "header": "Header",
+        "syntax": "Syntax",
+        "prerequisites": "Prerequisites",
+        "schema": "Schema",
+        "normative_ia": "Normative rules — implementer agreements",
+        "normative_ip": "Normative rules — informal propositions",
+        "industry_practices": "Industry practices"
+      },
+      "status": {
+        "valid": "Valid",
+        "warning": "Warnings",
+        "invalid": "Invalid",
+        "skipped": "Not run",
+        "failed": "Could not run"
+      },
+      "skippedBecause": "Not run: {stage} failed.",
+      "stageFailed": "This stage could not run: {reason}",
+      "ruleCrashed": "{rule} could not be evaluated (an error in the rule, not in the model): {error}",
+      "occurrences": "{count, plural, one {# occurrence} other {# occurrences}}",
+      "ruleDoc": "Open the rule's documentation",
+      "show": "Show in the viewer",
+      "notFound": "The model is no longer open.",
+      "expected": "Expected:",
+      "observed": "Observed:",
+      "showMore": "Show {count} more"
     }
   },
   "idsCreate": {
@@ -2731,5 +2796,122 @@
     "noscript": "This check needs JavaScript, as does the rest of the site.",
     "privacy": "The check is run by Cloudflare Turnstile, which looks at your browser to tell people from bots. None of your files, models or issues are involved.",
     "privacyLink": "What is sent"
+  },
+  "validationExport": {
+    "projectName": "IFC validation — {model}",
+    "label": "IFC validation",
+    "topicTitle": "{rule} ({count, plural, one {# occurrence} other {# occurrences}})",
+    "comment": "Raised from the IFC validation ({stage}) on {date}, with buildingSMART's validation rules, on this device.",
+    "stage": "Stage",
+    "rule": "Rule",
+    "noInstance": "The file",
+    "expected": "expected:",
+    "observed": "observed:",
+    "andMore": "…and {count} more.",
+    "stages": {
+      "header_syntax": "Header syntax",
+      "header": "Header",
+      "syntax": "Syntax",
+      "prerequisites": "Prerequisites",
+      "schema": "Schema",
+      "normative_ia": "Normative rules — implementer agreements",
+      "normative_ip": "Normative rules — informal propositions",
+      "industry_practices": "Industry practices"
+    }
+  },
+  "validationReport": {
+    "eyebrow": "IFC VALIDATION REPORT",
+    "validated": "Validated",
+    "duration": "Duration",
+    "seconds": "{seconds} s",
+    "where": "Where",
+    "whereValue": "In the browser, with buildingSMART's validation service code; the file was not uploaded.",
+    "rules": "Rules",
+    "engine": "Engine",
+    "serviceRuns": "the service runs {version}",
+    "stagesTitle": "Stages",
+    "stage": "Stage",
+    "status": "Status",
+    "findings": "Findings",
+    "statuses": {
+      "valid": "Valid",
+      "warning": "Warnings",
+      "invalid": "Invalid",
+      "skipped": "Not run",
+      "failed": "Could not run"
+    },
+    "noFindings": "No errors or warnings.",
+    "skipped": "Not run: {stage} failed.",
+    "failed": "This stage could not run: {reason}",
+    "crashed": "{rule} could not be evaluated (an error in the rule, not in the model): {error}",
+    "error": "Error",
+    "warning": "Warning",
+    "occurrences": "{count, plural, one {# occurrence} other {# occurrences}}",
+    "instance": "Instance",
+    "entity": "Entity",
+    "expected": "Expected",
+    "observed": "Observed",
+    "andMore": "…and {count} more, not listed.",
+    "page": "Page {page} of {total}",
+    "stages": {
+      "header_syntax": "Header syntax",
+      "header": "Header",
+      "syntax": "Syntax",
+      "prerequisites": "Prerequisites",
+      "schema": "Schema",
+      "normative_ia": "Normative rules — implementer agreements",
+      "normative_ip": "Normative rules — informal propositions",
+      "industry_practices": "Industry practices"
+    }
+  },
+  "validationExplain": {
+    "header": {
+      "fields": {
+        "originating_system": "Originating system (FILE_NAME)",
+        "company_name": "Company in the originating system",
+        "application_name": "Application in the originating system",
+        "version": "Version in the originating system",
+        "time_stamp": "Time stamp (FILE_NAME)",
+        "description": "Model view definition (FILE_DESCRIPTION)",
+        "comments": "Comments (FILE_DESCRIPTION)",
+        "other": "Header: {field}"
+      },
+      "why": {
+        "originating_system": "FILE_NAME’s originating system must name the company, the application and its version, in that order, separated by “ - ” (space, hyphen, space): “Company - Application - Version”, for example “Autodesk - Revit - 2024.2”. The service reads the company, the application and the version from it, so when it cannot be split into three, those are reported too. It is written by the authoring tool’s IFC exporter: change it in the exporter’s settings, or report it to the vendor.",
+        "company_name": "The company is the first part of the originating system (“Company - Application - Version”). It must not be empty, must not contain “-”, and must not start or end with a space.",
+        "application_name": "The application is the second part of the originating system (“Company - Application - Version”). It must not be empty, must not contain “-”, and must not start or end with a space.",
+        "version": "The version is the third part of the originating system (“Company - Application - Version”). It must be a version number as Python packages write them (PEP 440: 2024, 24.2, 24.2.0.49…), with no spaces around it.",
+        "time_stamp": "FILE_NAME’s time stamp must be a date and time in ISO 8601, for example “2024-05-17T14:30:00”.",
+        "description": "FILE_DESCRIPTION must name the model view definition the file was exported for, as “ViewDefinition [name]”. Allowed for {schema}: {allowed}. An add-on view must come with a coordination view.",
+        "comments": "Comments in FILE_DESCRIPTION are limited to 256 characters.",
+        "other": "The header field {field} is not valid as the IFC header requires it."
+      },
+      "found": "In the file: “{value}”",
+      "parts": "In the file: “{value}” — {count, plural, one {one part} other {# parts}} separated by “ - ”, where three are needed.",
+      "derived": "Empty, because it could not be read from the originating system “{source}”.",
+      "empty": "Empty in the file.",
+      "description": {
+        "empty": "FILE_DESCRIPTION is empty: it names no view definition.",
+        "unreadable": "The file does declare its view, but no view could be read: each FILE_DESCRIPTION entry must be “Keyword [value]”, and {entries} is not. One such entry stops IfcOpenShell from reading any of them. Remove it, or write it as “Comment [ … ]”.",
+        "noView": "FILE_DESCRIPTION has no “ViewDefinition [ … ]” entry.",
+        "notAllowed": "The file declares {views}, which is not a view allowed for {schema}.",
+        "addOn": "The file declares an add-on view ({views}) without a coordination view.",
+        "type": "IfcOpenShell’s header check found FILE_DESCRIPTION’s value of the wrong type: it must be a list of strings of at most 256 characters."
+      }
+    },
+    "schema": {
+      "titleNotOptional": "{attribute} is missing",
+      "titleRule": "Rule {rule} not satisfied",
+      "notOptional": "{attribute} is a required attribute of {entity}, but the file leaves it unset ($). Fill it in the authoring tool, or report it to the exporter’s vendor.",
+      "whereRule": "Every {entity} must satisfy its rule {rule}, as the IFC schema defines it. The entity’s documentation explains what the rule requires.",
+      "globalRule": "The model must satisfy the schema’s global rule {rule}.",
+      "violatedBy": "Why: {detail}"
+    },
+    "docs": {
+      "header": "How to write the IFC header (buildingSMART)",
+      "schema": "The entity in the IFC documentation",
+      "rule": "The rule’s documentation"
+    },
+    "technical": "Technical details"
   }
 }
