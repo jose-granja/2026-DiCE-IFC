@@ -65,6 +65,9 @@ export function ExportBar({ run }: { run: ValidationRun }) {
     }
     win.document.write(renderHtmlReport(run, tReport, tFailure, locale));
     win.document.close();
+    // The report's cards collapse; on paper they have to be open. Its print CSS
+    // opens them too, but only where the browser supports ::details-content.
+    for (const details of win.document.querySelectorAll("details")) details.open = true;
     win.addEventListener("load", () => win.print());
   };
 

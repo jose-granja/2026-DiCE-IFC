@@ -67,3 +67,13 @@ needs its own decision under §1).
   from, and which FILE_DESCRIPTION check failed; for the schema, the message's
   parts and the IFC documentation of the entity; for the rules, the feature
   file's description. The raw message stays under "Technical details".
+- **Amended 2026-11-19, custom rules:** our own rules (the DiCE-IFC-Rules
+  repository: ifc-gherkin-rules' format and step phrases) run as one more stage,
+  `dice_rules`, after industry practices and blocked by what blocks them. They
+  are pinned and hashed like the service's archives (`customRules` in the
+  manifest) and shipped in `validator.zip`, so nothing is fetched at run time and
+  §1 is unchanged. The service's stages exclude them by path and load none of
+  their Python steps, so buildingSMART's results are the same with or without
+  them (checked on the fixture and the example model). A rule's documentation
+  link goes to its file on GitHub at the pinned commit. Rules shipped to the
+  browser are public, whatever the repository's visibility.

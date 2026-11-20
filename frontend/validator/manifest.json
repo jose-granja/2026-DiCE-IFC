@@ -141,5 +141,13 @@
       "license": "MIT"
     }
   ],
+  "$customRules": "Our own rules (DiCE-IFC-Rules), run as the stage dice_rules after buildingSMART's (ADR 018, amendment 'custom rules'). Pinned like the archives: github is 'owner/repo', and `npm run validator:pin-rules -- owner/repo <commit>` writes commit and sha256. DICE_RULES_DIR=<a local checkout> builds from that checkout instead, for writing and testing rules. With neither, the stage is not shipped.",
+  "customRules": {
+    "name": "DiCE-IFC-Rules",
+    "github": null,
+    "commit": null,
+    "sha256": null,
+    "license": "MIT"
+  },
   "$notShipped": "Listed in ifc-gherkin-rules' requirements but not needed in the browser (ADR 018): django (+asgiref, sqlparse) \u2014 only production's database writes, validation_results.py is replaced by python/overrides/validation_results.py; pyspellchecker \u2014 only TESTING mode's protocol check, a stand-in in python/shims; pandas, sqlalchemy, sqlalchemy-utils, tabulate, python-dotenv \u2014 not imported by any rule. Parity checked on three models."
 }

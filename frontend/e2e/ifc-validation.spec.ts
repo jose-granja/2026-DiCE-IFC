@@ -14,6 +14,7 @@ test("validates a model on the device, stage by stage, with nothing sent elsewhe
   test.setTimeout(300_000);
   const build = await page.request.get("/validator/build.json");
   test.skip(!build.ok(), "public/validator/ was not built (npm run validator:assets)");
+  const { customRules } = (await build.json()) as { customRules?: { rules: string[] } | null };
 
   const foreign: string[] = [];
   const origin = new URL(baseURL!).origin;
@@ -49,6 +50,9 @@ test("validates a model on the device, stage by stage, with nothing sent elsewhe
   await expect(stage("normative_ia")).toHaveAttribute("data-count", "13");
   await expect(stage("normative_ip")).toHaveAttribute("data-status", "valid");
   await expect(stage("industry_practices")).toHaveAttribute("data-status", "valid");
+  // Our own rules (DiCE-IFC-Rules) are a stage of their own, when the build has them; DCE001 finds no storey here.
+  if (customRules?.rules.length) await expect(stage("dice_rules")).toHaveAttribute("data-status", "valid");
+  else await expect(stage("dice_rules")).toHaveCount(0);
 
   // Each header field is its own finding, explained: what is required, and what the file has.
   await stage("header").locator("button").first().click();

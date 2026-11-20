@@ -21,7 +21,7 @@ if (!model) {
   process.exit(2);
 }
 
-const STAGES = ["header_syntax", "header", "syntax", "prerequisites", "schema", "normative_ia", "normative_ip", "industry_practices"];
+const STAGES = ["header_syntax", "header", "syntax", "prerequisites", "schema", "normative_ia", "normative_ip", "industry_practices", "dice_rules"];
 const t0 = performance.now();
 const lap = (label: string) => console.log(`[${((performance.now() - t0) / 1000).toFixed(1)} s] ${label}`);
 

@@ -1776,6 +1776,7 @@
       "model": "Modelo a validar",
       "run": "Validar",
       "cancel": "Cancelar",
+      "exportJson": "Descarregar os resultados (JSON)",
       "export": {
         "title": "Exportar",
         "grouping": "Tópicos BCF",
@@ -1812,7 +1813,8 @@
         "schema": "Esquema",
         "normative_ia": "Regras normativas — acordos de implementação",
         "normative_ip": "Regras normativas — proposições informais",
-        "industry_practices": "Práticas da indústria"
+        "industry_practices": "Práticas da indústria",
+        "dice_rules": "Regras DiCE"
       },
       "status": {
         "valid": "Válido",
@@ -2628,31 +2630,62 @@
   },
   "idsReport": {
     "reportTitle": "Relatório IDS — {title}",
-    "generatedBy": "Relatório de validação IDS · gerado {date} · DiCE-IFC",
+    "eyebrow": "Relatório de validação IDS",
+    "generatedOn": "Gerado em {date}",
+    "schemaMeta": "Esquema {schemas}",
     "localOnlyNote": "Todos os modelos neste relatório foram validados no navegador. Nenhum ficheiro foi enviado.",
+    "summary": "Resumo",
     "allSatisfied": "Todas as especificações satisfeitas",
     "notSatisfied": "{count, plural, one {# especificação não satisfeita} other {# especificações não satisfeitas}}",
-    "passed": "Aprovados",
-    "failed": "Reprovados",
+    "statSpecifications": "Especificações",
+    "statSpecsPassed": "Especificações aprovadas",
+    "statSpecsFailed": "Especificações reprovadas",
     "notApplicable": "Não aplicável",
+    "statElementsChecked": "Elementos verificados",
     "failingElements": "Elementos em falha",
-    "checks": "Verificações",
-    "passRate": "Taxa de sucesso",
-    "models": "Modelos",
+    "checkRate": "Taxa por verificação",
+    "checkRateDetail": "{passed} de {total} verificações elemento–requisito aprovadas",
+    "elementRate": "Taxa por elemento",
+    "elementRateDetail": "{passed} de {total} elementos aplicáveis cumprem todos os requisitos",
+    "specRate": "Taxa por especificação",
+    "specRateDetail": "{passed} de {total} especificações aplicáveis aprovadas",
+    "noChecks": "Nada foi verificado",
+    "rateExplainer": "As três taxas respondem a perguntas diferentes. Uma verificação é um elemento contra um requisito. Um elemento só é aprovado se cumprir todos os requisitos da sua especificação, e uma especificação só é aprovada se todos os elementos aplicáveis forem aprovados — um único elemento em falha reprova a especificação inteira. Para uma entrega, a taxa por especificação é a que conta.",
     "modelCol": "Modelo",
     "schemaCol": "Esquema",
     "entitiesCol": "Entidades",
     "specifications": "Especificações",
-    "specificationCol": "Especificação",
-    "statusCol": "Estado",
-    "applicableCol": "Aplicável",
+    "show": "Mostrar",
+    "filterAll": "Todas",
+    "filterFailed": "Reprovadas",
+    "filterPassed": "Aprovadas",
+    "filterNotApplicable": "Não aplicáveis",
     "statusPass": "Aprovado",
     "statusFail": "Reprovado",
     "statusNA": "N/A",
-    "elementCol": "Elemento",
+    "specApplicable": "{count, plural, one {# elemento aplicável} other {# elementos aplicáveis}}",
+    "specPassed": "{count, plural, one {# aprovado} other {# aprovados}}",
+    "specFailed": "{count, plural, one {# reprovado} other {# reprovados}}",
+    "elementsPassedRate": "{rate} dos elementos aprovados",
+    "checksPassed": "{passed} de {total} verificações aprovadas ({rate})",
+    "requirements": "Requisitos",
+    "optional": "opcional",
+    "prohibited": "proibido",
+    "byElement": "Por elemento",
     "classCol": "Classe",
+    "nameCol": "Nome",
+    "globalIdCol": "GlobalId",
+    "idCol": "ID",
+    "reasonCol": "Motivo",
     "whyFailedCol": "Motivo da falha",
+    "unnamed": "sem nome",
+    "selectHint": "Clique para selecionar",
+    "evaluationFailed": "Não foi possível avaliar a especificação",
+    "countFailed": "O número de elementos exigido pela especificação não é cumprido",
+    "nothingApplied": "Nenhum elemento corresponde a esta especificação.",
+    "allPassed": "Todos os elementos aplicáveis cumprem todos os requisitos.",
     "andMore": "…e mais {count}. Exporte BCF para o conjunto completo.",
+    "footerGenerator": "Validador IDS DiCE-IFC",
     "footerModels": "{count, plural, one {# modelo} other {# modelos}}",
     "footerSpecifications": "{count, plural, one {# especificação} other {# especificações}}",
     "footerValidated": "validado {start}–{end}"
@@ -2801,6 +2834,7 @@
     "label": "Validação IFC",
     "topicTitle": "{rule} ({count, plural, one {# ocorrência} other {# ocorrências}})",
     "comment": "Criado a partir da validação IFC ({stage}) em {date}, com as regras de validação da buildingSMART, neste dispositivo.",
+    "commentCustom": "Levantado pela validação IFC ({stage}) em {date}, com as regras próprias do DiCE-IFC, neste dispositivo.",
     "stage": "Etapa",
     "rule": "Regra",
     "noInstance": "O ficheiro",
@@ -2815,7 +2849,8 @@
       "schema": "Esquema",
       "normative_ia": "Regras normativas — acordos de implementação",
       "normative_ip": "Regras normativas — proposições informais",
-      "industry_practices": "Práticas da indústria"
+      "industry_practices": "Práticas da indústria",
+      "dice_rules": "Regras DiCE"
     }
   },
   "validationReport": {
@@ -2860,7 +2895,8 @@
       "schema": "Esquema",
       "normative_ia": "Regras normativas — acordos de implementação",
       "normative_ip": "Regras normativas — proposições informais",
-      "industry_practices": "Práticas da indústria"
+      "industry_practices": "Práticas da indústria",
+      "dice_rules": "Regras DiCE"
     }
   },
   "validationExplain": {
@@ -2909,7 +2945,8 @@
     "docs": {
       "header": "Como escrever o cabeçalho IFC (buildingSMART)",
       "schema": "A entidade na documentação IFC",
-      "rule": "A documentação da regra"
+      "rule": "A documentação da regra",
+      "customRule": "A regra no DiCE-IFC-Rules (GitHub)"
     },
     "technical": "Detalhes técnicos"
   }

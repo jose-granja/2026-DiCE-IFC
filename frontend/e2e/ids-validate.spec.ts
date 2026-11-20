@@ -166,7 +166,8 @@ test("the HTML report matches the page's language, not always English", async ({
 
   expect(html).toContain('<html lang="pt">');
   expect(html).toMatch(/Relatório IDS/);
-  expect(html).toMatch(/Modelos/);
+  expect(html).toMatch(/Resumo/);
+  expect(html).toMatch(/Taxa por especificação/);
   expect(html).toMatch(/Especificações/);
   // This fixture has a failing wall, so the verdict and tile read in
   // Portuguese rather than the old hard-coded English.

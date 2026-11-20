@@ -6,6 +6,10 @@
  * Not run here: the virus scan (the file never leaves the device), digital
  * signatures (`lib/signing/` checks those) and bSDD (it would send the model's
  * classification references to a third party).
+ *
+ * Added here, last: `dice_rules`, our own rules (DiCE-IFC-Rules, pinned in
+ * `validator/manifest.json`), when the build has them — never mixed into the
+ * service's stages.
  */
 
 export const VALIDATION_STAGES = [
@@ -17,12 +21,13 @@ export const VALIDATION_STAGES = [
   "normative_ia",
   "normative_ip",
   "industry_practices",
+  "dice_rules",
 ] as const;
 
 export type ValidationStage = (typeof VALIDATION_STAGES)[number];
 
-/** As `configs.py`: a stage that fails stops these from running. */
-const AFTER_PREREQUISITES: ValidationStage[] = ["schema", "normative_ia", "normative_ip", "industry_practices"];
+/** As `configs.py`: a stage that fails stops these from running (and our rules, which need the same model). */
+const AFTER_PREREQUISITES: ValidationStage[] = ["schema", "normative_ia", "normative_ip", "industry_practices", "dice_rules"];
 export const STAGE_BLOCKS: Partial<Record<ValidationStage, ValidationStage[]>> = {
   header_syntax: ["header", "syntax", "prerequisites", ...AFTER_PREREQUISITES],
   syntax: AFTER_PREREQUISITES,
@@ -95,7 +100,29 @@ export type ValidatorBuild = {
   pyodide: string;
   packages: string[];
   bytes: number;
+  /** Our own rules, when shipped: the repository, its commit (or a local checkout's), the rule codes. */
+  customRules?: {
+    name: string;
+    source: "github" | "local";
+    github: string | null;
+    commit: string | null;
+    modified: boolean;
+    rules: string[];
+    docs: string | null;
+  } | null;
 };
+
+/** The stages this build runs: the service's, and ours when it has rules of ours. */
+export function stagesFor(build: ValidatorBuild | null | undefined): ValidationStage[] {
+  return VALIDATION_STAGES.filter((stage) => stage !== "dice_rules" || Boolean(build?.customRules?.rules.length));
+}
+
+/** Our rules as a version: "DiCE-IFC-Rules 1a2b3c4" (with "+" for uncommitted changes), or null. */
+export function customRulesLabel(build: ValidatorBuild | null | undefined): string | null {
+  const custom = build?.customRules;
+  if (!custom) return null;
+  return [custom.name, custom.commit ? `${custom.commit.slice(0, 7)}${custom.modified ? "+" : ""}` : "(local)"].join(" ");
+}
 
 /**
  * The outcome code as the service names it. Rule outcomes arrive as Python's

@@ -1518,8 +1518,8 @@ flows live. Both are written in `messages/*.json` (no hard-coded prose).
 Validation is a **panel in the viewer** (`viewer/_components/IdsPanel.tsx`), not
 a page. The useful action on a failure is "show me that element", which needs
 the viewport beside it. `/ids/validate` redirects to `/viewer?panel=ids` so old
-links land on what replaced them. The charts stayed behind in the exported HTML
-report, where there is room for them.
+links land on what replaced them. The summary rates stayed behind in the
+exported HTML report, where there is room for them.
 
 A run describes the models that were loaded when it happened, so the panel
 clears it when the federation changes — stale results next to a changed model
@@ -1556,6 +1556,17 @@ set are worse than none.
   applicable count minus the failures, since every applicable element is checked
   against every requirement. A specification that fails on its count alone has
   no element to list and gets a row of its own.
+- **The exported report (`lib/ids/html-report.ts`) is laid out as ifclite.com's**:
+  summary tiles, three pass rates with bars (check, element, specification —
+  floored, never rounded, so a failing element never reads 100%), and one
+  `<details>` card per specification, failed ones open, holding its requirements
+  and their failing elements, then a by-element table. It stays **script-free**
+  (`validate-engine.test.ts` asserts no `<script>`/`src=`): the status filter is
+  radio buttons read by CSS `:has()`, and print opens every card
+  (`::details-content` in CSS, plus `ExportBar`'s print button). Rows are capped
+  (100 per requirement, 500 by element) with the hidden count stated. Labels are
+  `messages/*.json` `idsReport`, with an English copy in the file for callers
+  without next-intl; `html-report.test.ts` renders both catalogues.
 - **Validation runs one model at a time.** Four parallel runs on four cores
   finish together at the end with a frozen progress bar and no cores left for
   the renderer.
@@ -1601,6 +1612,11 @@ Pyodide, its packages and the rules are this origin's `public/validator/`.
   `lark` module, and 0.12 is what the service has.
 - A rule that crashes is reported as the rule's error, not the model's
   (GRP001 on `IfcZone` is an upstream bug).
+- **The run's return value is the final word** (`lib/validation/store.ts`): stage
+  events come over Comlink's callback channel, the return over the worker's own,
+  and the two are not ordered — the last stage's event can land after the run is
+  marked finished and be dropped (it hid a fast last stage). Merge the returned
+  results; do not rely on the events alone.
 - **Ship only what the rules use in the browser** (`validator/README.md`, "Not
   shipped"): Django, pyspellchecker, pandas, SQLAlchemy… are in their
   requirements for production's database and their TESTING mode. Django's
@@ -1628,6 +1644,21 @@ Pyodide, its packages and the rules are this origin's `public/validator/`.
   at most `MAX_ROWS_PER_RULE` listed. Both share `findings.ts`'s grouping with
   the panel. Their tests run on real service output
   (`lib/validation/__tests__/fixtures/`, regenerated with `validator:check --json`).
+- **Our own rules are a stage of their own, `dice_rules`, never mixed into the
+  service's.** They live in the DiCE-IFC-Rules repository (same Gherkin format,
+  buildingSMART's step phrases), pinned in `validator/manifest.json`
+  (`customRules`: `npm run validator:pin-rules -- owner/repo <commit>` writes the
+  commit and SHA-256); `DICE_RULES_DIR=<checkout>` builds from a local checkout
+  to write and test them. They are unpacked under `rules/features/custom/` and
+  selected by path, all of them, whatever their tags; the service's stages
+  exclude that path, so a rule tagged `@industry-practice` (which only makes its
+  findings warnings) stays out of buildingSMART's results. Their Python steps
+  (`dice_custom_steps`) load only in their stage. The build leaves them out, with
+  a warning, if a feature is not "ABC123 - Title", repeats a code, or uses one of
+  buildingSMART's prefixes. Users get new rules with the next deployment; the
+  browser never fetches them, and once shipped they are readable by anyone.
+  A phrase that matches no step is reported as the rule's error ("no step
+  matches …"): behave would otherwise mark the rule not applicable.
 
 ### 9a. bSDD suggestions
 

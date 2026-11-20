@@ -108,5 +108,5 @@ export function outcomeTechnical(outcome: ValidationOutcome): string | null {
 export function docLabel(group: FindingGroup, t: ExplainTranslate): string {
   if (group.kind === "header") return t("docs.header");
   if (group.kind === "schema") return t("docs.schema");
-  return t("docs.rule");
+  return group.stage === "dice_rules" ? t("docs.customRule") : t("docs.rule");
 }

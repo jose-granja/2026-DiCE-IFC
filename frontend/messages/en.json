@@ -1776,6 +1776,7 @@
       "model": "Model to validate",
       "run": "Validate",
       "cancel": "Cancel",
+      "exportJson": "Download the results (JSON)",
       "export": {
         "title": "Export",
         "grouping": "BCF topics",
@@ -1812,7 +1813,8 @@
         "schema": "Schema",
         "normative_ia": "Normative rules — implementer agreements",
         "normative_ip": "Normative rules — informal propositions",
-        "industry_practices": "Industry practices"
+        "industry_practices": "Industry practices",
+        "dice_rules": "DiCE rules"
       },
       "status": {
         "valid": "Valid",
@@ -2628,31 +2630,62 @@
   },
   "idsReport": {
     "reportTitle": "IDS report — {title}",
-    "generatedBy": "IDS validation report · generated {date} · DiCE-IFC",
+    "eyebrow": "IDS validation report",
+    "generatedOn": "Generated {date}",
+    "schemaMeta": "Schema {schemas}",
     "localOnlyNote": "Every model in this report was validated in the browser. No file was uploaded.",
+    "summary": "Summary",
     "allSatisfied": "All specifications satisfied",
     "notSatisfied": "{count, plural, one {# specification not satisfied} other {# specifications not satisfied}}",
-    "passed": "Passed",
-    "failed": "Failed",
+    "statSpecifications": "Specifications",
+    "statSpecsPassed": "Specifications passed",
+    "statSpecsFailed": "Specifications failed",
     "notApplicable": "Not applicable",
+    "statElementsChecked": "Elements checked",
     "failingElements": "Failing elements",
-    "checks": "Checks",
-    "passRate": "Pass rate",
-    "models": "Models",
+    "checkRate": "Check pass rate",
+    "checkRateDetail": "{passed} of {total} element–requirement checks passed",
+    "elementRate": "Element pass rate",
+    "elementRateDetail": "{passed} of {total} applicable elements passed every requirement",
+    "specRate": "Specification pass rate",
+    "specRateDetail": "{passed} of {total} applicable specifications passed",
+    "noChecks": "Nothing was checked",
+    "rateExplainer": "The three rates answer different questions. A check is one element against one requirement. An element passes only if it meets every requirement of its specification, and a specification passes only if every applicable element passes it — one failing element fails the whole specification. For a deliverable, the specification rate is the one that counts.",
     "modelCol": "Model",
     "schemaCol": "Schema",
     "entitiesCol": "Entities",
     "specifications": "Specifications",
-    "specificationCol": "Specification",
-    "statusCol": "Status",
-    "applicableCol": "Applicable",
+    "show": "Show",
+    "filterAll": "All",
+    "filterFailed": "Failed",
+    "filterPassed": "Passed",
+    "filterNotApplicable": "Not applicable",
     "statusPass": "Pass",
     "statusFail": "Fail",
     "statusNA": "N/A",
-    "elementCol": "Element",
+    "specApplicable": "{count, plural, one {# applicable element} other {# applicable elements}}",
+    "specPassed": "{count} passed",
+    "specFailed": "{count} failed",
+    "elementsPassedRate": "{rate} of elements passed",
+    "checksPassed": "{passed} of {total} checks passed ({rate})",
+    "requirements": "Requirements",
+    "optional": "optional",
+    "prohibited": "prohibited",
+    "byElement": "By element",
     "classCol": "Class",
+    "nameCol": "Name",
+    "globalIdCol": "GlobalId",
+    "idCol": "ID",
+    "reasonCol": "Reason",
     "whyFailedCol": "Why it failed",
+    "unnamed": "unnamed",
+    "selectHint": "Click to select",
+    "evaluationFailed": "The specification could not be evaluated",
+    "countFailed": "The specification’s count is not met",
+    "nothingApplied": "No element matched this specification.",
+    "allPassed": "Every applicable element passed every requirement.",
     "andMore": "…and {count} more. Export BCF for the complete set.",
+    "footerGenerator": "DiCE-IFC IDS validator",
     "footerModels": "{count, plural, one {# model} other {# models}}",
     "footerSpecifications": "{count, plural, one {# specification} other {# specifications}}",
     "footerValidated": "validated {start}–{end}"
@@ -2801,6 +2834,7 @@
     "label": "IFC validation",
     "topicTitle": "{rule} ({count, plural, one {# occurrence} other {# occurrences}})",
     "comment": "Raised from the IFC validation ({stage}) on {date}, with buildingSMART's validation rules, on this device.",
+    "commentCustom": "Raised from the IFC validation ({stage}) on {date}, with DiCE-IFC's own rules, on this device.",
     "stage": "Stage",
     "rule": "Rule",
     "noInstance": "The file",
@@ -2815,7 +2849,8 @@
       "schema": "Schema",
       "normative_ia": "Normative rules — implementer agreements",
       "normative_ip": "Normative rules — informal propositions",
-      "industry_practices": "Industry practices"
+      "industry_practices": "Industry practices",
+      "dice_rules": "DiCE rules"
     }
   },
   "validationReport": {
@@ -2860,7 +2895,8 @@
       "schema": "Schema",
       "normative_ia": "Normative rules — implementer agreements",
       "normative_ip": "Normative rules — informal propositions",
-      "industry_practices": "Industry practices"
+      "industry_practices": "Industry practices",
+      "dice_rules": "DiCE rules"
     }
   },
   "validationExplain": {
@@ -2909,7 +2945,8 @@
     "docs": {
       "header": "How to write the IFC header (buildingSMART)",
       "schema": "The entity in the IFC documentation",
-      "rule": "The rule’s documentation"
+      "rule": "The rule’s documentation",
+      "customRule": "The rule in DiCE-IFC-Rules (GitHub)"
     },
     "technical": "Technical details"
   }
