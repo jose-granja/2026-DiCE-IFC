@@ -23,7 +23,7 @@ and said to resolve it with a spike rather than an argument.
 
 ## Why CMD is out of scope
 
-Chave Móvel Digital would mean an AMA contract, an `ApplicationId`, and a
+Chave Móvel Digital would mean an ARTE contract, an `ApplicationId`, and a
 certification process measured in months, all on the critical path before a
 single signature could be produced. It would also break the privacy line: SCMD
 is a remote signing service, so a digest would have to leave the machine.

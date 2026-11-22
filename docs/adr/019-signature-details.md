@@ -104,17 +104,17 @@ What is built:
 
 What turning it on needs, and what is not known yet:
 
-1. **Registration with AMA.** SCAP answers applications AMA has registered.
-   This application is not, and AGENTS.md §6 rules out an AMA ApplicationId
+1. **Registration with AMA.** SCAP answers applications ARTE has registered.
+   This application is not, and AGENTS.md §6 rules out an ARTE ApplicationId
    for Chave Móvel Digital; accepting this ADR would revise that rule for SCAP
    alone.
 2. **The citizen authenticates with the card** before SCAP releases their
    attributes — in the Autenticação.gov app, with the authentication
-   certificate, which is a second PIN. The protocol is AMA's and has to be read
+   certificate, which is a second PIN. The protocol is ARTE's and has to be read
    from their documentation once registered; nothing here assumes it.
 3. **Who talks to SCAP.** Card authentication needs the companion, which
    would then do more than sign ("a device, not a signing service"); the
-   application's own AMA credentials cannot be in the browser, so they need a
+   application's own ARTE credentials cannot be in the browser, so they need a
    route handler like `/api/tsa`. Both widen AGENTS.md §1's tables, and need
    writing down there before code.
 4. **Embedded IFC.** CAdES `signer-attributes-v2` has `signedAssertions`, each

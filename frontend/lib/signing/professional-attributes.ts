@@ -4,7 +4,7 @@
  * "atributos profissionais" in the Autenticação.gov app.
  *
  * **Off.** ADR 019 is proposed, not accepted. SCAP answers only applications
- * AMA has registered, over the network, after the citizen authenticates with
+ * ARTE has registered, over the network, after the citizen authenticates with
  * the card — and this application is not registered, so nothing here talks to
  * it. The interface is what the signing page and `xades.ts` are written
  * against, so turning it on is a source, not a redesign.

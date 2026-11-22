@@ -217,11 +217,11 @@ the adapter makes that a contained change.
 
 **Scope decision: the physical Cartão de Cidadão is the only accepted signing
 device. Chave Móvel Digital is out of scope.** Do not build an SCMD relay, do
-not request an AMA ApplicationId, do not add a phone/PIN/OTP form. If a user
+not request an ARTE ApplicationId, do not add a phone/PIN/OTP form. If a user
 asks for CMD, point them at the official Autenticação.gov desktop application
 and say so plainly in the UI.
 
-This removes the AMA contract and the certification process from the critical
+This removes the ARTE contract and the certification process from the critical
 path, and it makes the §2 privacy line absolute: with card signing, not even a
 digest crosses the wire.
 

@@ -75,7 +75,7 @@ the providers' own pages on 2026-10-12 and are not quotes.
 | **Namirial**, **Sectigo** | Yes | On request; Sectigo says fees may apply and are not refunded | Contact sales | Not found published. |
 | *Development only:* **FreeTSA**, public DigiCert / Sectigo endpoints | **No** | Free | RFC 3161, no auth | Produce valid RFC 3161 tokens — right for trying this out. A signature stamped by them is **not** a QES time-stamp. |
 
-~~Not found: any Portuguese public-sector (AMA / Cartão de Cidadão) free
+~~Not found: any Portuguese public-sector (ARTE / Cartão de Cidadão) free
 time-stamping service.~~ **Wrong — there is one; see the amendment below.**
 
 **Suggested path:** try the mechanism against SK ID's free test environment (or a

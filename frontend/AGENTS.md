@@ -500,7 +500,7 @@ Read `docs/adr/007-local-signing-companion.md` and
 mistake worth not repeating.)
 
 - **Physical Cartão de Cidadão only.** Chave Móvel Digital is out of scope — no
-  SCMD relay, no AMA ApplicationId, no phone/PIN/OTP form. Point users at the
+  SCMD relay, no ARTE ApplicationId, no phone/PIN/OTP form. Point users at the
   official Autenticação.gov desktop app instead.
 - **Never build a PIN field.** The pteid PKCS#11 module raises its own PIN dialog.
   We never see, transport, cache or store the PIN.
@@ -620,7 +620,7 @@ mistake worth not repeating.)
 - **Professional attributes (SCAP) are switched off** (ADR 019, proposed). The
   slot (`SignerRoleV2/SignedAssertions`, the issuer's assertion as received)
   and `professional-attributes.ts` exist; `scap` answers `not-configured`
-  because SCAP needs an AMA registration this application does not have. Do
+  because SCAP needs an ARTE registration this application does not have. Do
   not wire a source without settling ADR 019 §5 first — it widens what crosses
   the wire and what the companion does.
 - **Read an EC key's curve from its certificate, never from the hash.** The

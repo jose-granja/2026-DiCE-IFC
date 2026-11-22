@@ -20,7 +20,7 @@
 | [016](016-hosted-texture-library.md) | Textures: the model's own first, then a library we host (Django Ninja backend) | Accepted, built; supersedes 014's choice of libraries |
 | [017](017-property-names-from-bsdd.md) | IFC property names in Portuguese, from bSDD, as a label (read live through the app's server) | Accepted, built |
 | [018](018-in-browser-ifc-validation.md) | buildingSMART's IFC validation (syntax, header, schema, normative rules), run in the browser on Pyodide with the service's own code | Accepted, built (first version) |
-| [019](019-signature-details.md) | Reason, place and professional attributes in a signature | Reason and place accepted, built; professional attributes (SCAP) **proposed** — slot built, switched off, needs AMA registration |
+| [019](019-signature-details.md) | Reason, place and professional attributes in a signature | Reason and place accepted, built; professional attributes (SCAP) **proposed** — slot built, switched off, needs ARTE registration |
 
 ## Open questions from the build brief
 
