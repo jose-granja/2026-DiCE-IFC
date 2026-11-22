@@ -32,6 +32,7 @@ import { unzipSync } from "fflate";
 import { digestBase64, fromBase64 } from "./canonical";
 import { canonicalize } from "./c14n";
 import { readCertificate } from "./der";
+import { cleanDetail, REASON_COMMITMENT_OID, statedOrNothing, type StatedDetails } from "./details";
 import { listSignatureFiles } from "./asice";
 import type { HashAlgorithm } from "./provider";
 import { checkTimestampToken } from "./timestamp";
@@ -88,6 +89,12 @@ export type SignatureVerification = {
   trust: TrustStatus;
   /** Present when the signature carries a time-stamp. */
   timestamp?: TimestampVerification;
+  /**
+   * Reason, place and certified attributes the signer stated — read only from
+   * the `SignedProperties` a matching Reference covers, so nothing added after
+   * signing can show up here. The signer's statement, not checked.
+   */
+  details?: StatedDetails;
   /** Anything that stopped a check from running. */
   problems: string[];
 };
@@ -161,7 +168,7 @@ async function verifySignatureFile(
 
   const signatureMethod =
     find(document_, "SignatureMethod")?.getAttribute("Algorithm") ?? "";
-  const algorithm = algorithmFor(signatureMethod, info.keyType);
+  const algorithm = algorithmFor(signatureMethod, info.keyType, info.namedCurve);
   if (!algorithm) {
     return failed(
       file,
@@ -226,8 +233,44 @@ async function verifySignatureFile(
     algorithm: algorithm.label,
     trust: "not-checked",
     timestamp: await checkSignatureTimestamp(document_),
+    details: statedDetails(document_, references),
     problems,
   };
+}
+
+/**
+ * What the signer stated (`details.ts`), from the signed properties alone.
+ * The place is read from any tool's `SignatureProductionPlace(V2)`; the reason
+ * only from this application's commitment type, whose qualifier is the text.
+ * Certified attributes are counted: their format is the issuer's.
+ */
+function statedDetails(document_: Document, references: ReferenceCheck[]): StatedDetails | undefined {
+  const covered = references
+    .filter((reference) => reference.uri.startsWith("#") && reference.present && reference.digestMatches)
+    .map((reference) => elementById(document_, reference.uri.slice(1)))
+    .find((element) => element?.localName === "SignedProperties");
+  if (!covered) return undefined;
+  const all = (name: string) =>
+    Array.from(covered.getElementsByTagName("*")).filter((node) => node.localName === name);
+
+  const place = all("SignatureProductionPlaceV2")[0] ?? all("SignatureProductionPlace")[0];
+  const location = place
+    ? cleanDetail(
+        ["StreetAddress", "City", "PostalCode", "StateOrProvince", "CountryName"]
+          .map((part) => childText(place, part))
+          .filter(Boolean)
+          .join(", "),
+      )
+    : undefined;
+
+  const ours = all("CommitmentTypeIndication").find((indication) => {
+    const identifier = childText(indication, "Identifier");
+    return identifier === `urn:oid:${REASON_COMMITMENT_OID}` || identifier === REASON_COMMITMENT_OID;
+  });
+  const reason = ours ? cleanDetail(childText(ours, "CommitmentTypeQualifier")) : undefined;
+
+  const assertions = all("SignedAssertion").length;
+  return statedOrNothing({ reason, location, certifiedAttributes: assertions || undefined });
 }
 
 /** The `SignatureTimeStamp`, if any, against the `SignatureValue` it should cover. */
@@ -379,7 +422,7 @@ type AlgorithmChoice = {
   verifyParams: AlgorithmIdentifier | RsaPssParams | EcdsaParams;
 };
 
-function algorithmFor(uri: string, keyType: "RSA" | "EC"): AlgorithmChoice | null {
+function algorithmFor(uri: string, keyType: "RSA" | "EC", namedCurve?: string): AlgorithmChoice | null {
   const hash = uri.includes("sha512")
     ? "SHA-512"
     : uri.includes("sha384")
@@ -392,7 +435,7 @@ function algorithmFor(uri: string, keyType: "RSA" | "EC"): AlgorithmChoice | nul
   if (uri.includes("ecdsa") || keyType === "EC") {
     return {
       label: `ECDSA-${hash}`,
-      importParams: { name: "ECDSA", namedCurve: curveFor(hash) },
+      importParams: { name: "ECDSA", namedCurve: namedCurve ?? curveFor(hash) },
       verifyParams: { name: "ECDSA", hash },
     };
   }
@@ -413,8 +456,10 @@ function algorithmFor(uri: string, keyType: "RSA" | "EC"): AlgorithmChoice | nul
 }
 
 /**
- * XMLDSig names ECDSA by hash, not by curve, so the curve has to be inferred.
- * The usual pairing holds for the Cartão de Cidadão, whose v2 key is P-256.
+ * Only when the certificate does not name its curve. XMLDSig names ECDSA by
+ * hash, not by curve, and the pairing below is a guess — a wrong one for the
+ * Cartão de Cidadão v2, which signs SHA-512 with a P-256 key. The certificate's
+ * own curve (`CertificateInfo.namedCurve`) is what is used.
  */
 function curveFor(hash: string): string {
   if (hash === "SHA-512") return "P-521";

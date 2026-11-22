@@ -98,7 +98,10 @@ export function addSignature(
   signatureXml: string,
 ): Uint8Array {
   const existing = unzipSync(container);
-  const next = listSignatureFiles(existing).length + 1;
+  // One past the highest, not the count: with 001 and 003 present (002
+  // removed), "count + 1" is 003 and would overwrite someone's signature.
+  const next =
+    Math.max(0, ...listSignatureFiles(existing).map((path) => Number(/(\d+)\.xml$/i.exec(path)![1]))) + 1;
 
   const files: Record<string, [Uint8Array, { level: 0 | 6 }]> = {};
   files["mimetype"] = [

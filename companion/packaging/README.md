@@ -7,7 +7,7 @@ to match the target OS *and* CPU architecture.
 | Target | Command | Output |
 |---|---|---|
 | macOS | `./packaging/build_macos.sh` | `dist_mac/DiCE-IFC-Companion-<v>-macos-<arch>.pkg` |
-| Windows | `powershell -ExecutionPolicy Bypass -File packaging\build_windows.ps1` | `dist_win\DiCE-IFC-Companion-<v>-windows-setup.exe` |
+| Windows | `powershell -ExecutionPolicy Bypass -File packaging\build_windows.ps1` | `dist_win\DiCE-IFC-Companion-<v>-win.exe` (the program), and `dist_win\DiCE-IFC-Companion-<v>-windows-setup.exe` when Inno Setup 6 is installed |
 
 `.github/workflows/companion.yml` runs both on a `companion-v*` tag and attaches
 the results to a GitHub release.

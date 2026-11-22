@@ -17,7 +17,7 @@
  * To ship them in an image, run this on the host before building it.
  */
 
-import { cp, mkdir, readdir, rm } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,16 +31,36 @@ type Source = { directory: string; pattern: RegExp };
 const SOURCES: Source[] = [
   // macOS installers, one per architecture built.
   { directory: join(companion, "dist_mac"), pattern: /^DiCE-IFC-Companion-.+-macos-.+\.pkg$/ },
-  // Windows: the Inno Setup installer when there is one, else the bare program.
-  { directory: join(companion, "dist_win"), pattern: /^(DiCE-IFC-Companion-.+-windows-setup|dice-companion)\.exe$/ },
+  // Windows: the Inno Setup installer when there is one, and the program,
+  // which `build_windows.ps1` names `DiCE-IFC-Companion-<v>-win.exe`.
+  { directory: join(companion, "dist_win"), pattern: /^DiCE-IFC-Companion-.+-(windows-setup|win)\.exe$/ },
 ];
 
-const found: Array<{ directory: string; file: string }> = [];
+/** `companion/pyproject.toml`'s version, which names the builds. */
+async function companionVersion(): Promise<string | undefined> {
+  try {
+    return /^version\s*=\s*"([^"]+)"/m.exec(await readFile(join(companion, "pyproject.toml"), "utf8"))?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
+/** `file` in `directory`, served as `name`. */
+const found: Array<{ directory: string; file: string; name: string }> = [];
 for (const { directory, pattern } of SOURCES) {
   if (!existsSync(directory)) continue;
   for (const file of await readdir(directory)) {
-    if (pattern.test(file)) found.push({ directory, file });
+    if (pattern.test(file)) found.push({ directory, file, name: file });
   }
+}
+
+// A Windows build from before the program had a versioned name leaves only
+// `dice-companion.exe`. Serve it under the name the setup page links
+// (`lib/signing/companion-download.ts`), unless a named one is already there.
+const bare = join(companion, "dist_win", "dice-companion.exe");
+const version = await companionVersion();
+if (existsSync(bare) && version && !found.some(({ name }) => name.endsWith("-win.exe"))) {
+  found.push({ directory: join(companion, "dist_win"), file: "dice-companion.exe", name: `DiCE-IFC-Companion-${version}-win.exe` });
 }
 
 // Only when there is something fresh to put in its place: a Docker build has
@@ -54,9 +74,9 @@ if (found.length > 0) {
 }
 
 const copied: string[] = [];
-for (const { directory, file } of found) {
-  await cp(join(directory, file), join(target, file));
-  copied.push(file);
+for (const { directory, file, name } of found) {
+  await cp(join(directory, file), join(target, name));
+  copied.push(name);
 }
 
 console.log(

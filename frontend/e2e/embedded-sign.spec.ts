@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { unzipSync } from "fflate";
 import { bitString, explicit, integer, name, nullValue, oid, sequence, utcTime } from "../lib/signing/der";
+import { fakeTimestampResponse } from "../lib/signing/__tests__/fake-tsa";
 
 const IFC = resolve("fixtures/ifc/georeferenced-wall-ifc4.ifc");
 const original = readFileSync(IFC);
@@ -14,14 +15,19 @@ const model = (fileName: string) => ({ name: fileName, mimeType: "application/oc
  * PIN. Node's keys support both the CMS SHA-256 profile and the SHA-512 XAdES
  * requests the companion's advertised algorithms negotiate.
  */
-async function companion(page: Page, keyType: "RSA" | "EC", options: { badSignature?: boolean; cancelAt?: number } = {}) {
+async function companion(page: Page, keyType: "RSA" | "EC", options: {
+  badSignature?: boolean; cancelAt?: number; cn?: string;
+  /** A 0.2 companion that relays the Cartão de Cidadão time-stamp; "limited" answers as its budget does when spent. */
+  timestamp?: "ok" | "limited"; remaining?: number; stamps?: Buffer[];
+} = {}) {
   const keys = keyType === "EC"
     ? generateKeyPairSync("ec", { namedCurve: "prime256v1" })
     : generateKeyPairSync("rsa", { modulusLength: 2048 });
   const algorithm = keyType === "EC"
     ? sequence(oid("1.2.840.10045.4.3.2"))
     : sequence(oid("1.2.840.113549.1.1.11"), nullValue());
-  const subject = name([["CN", "BROWSER TEST KEY (NOT A CARD)"], ["C", "PT"]]);
+  // A different CN is a different certificate (issuer and serial), as two citizens' cards are.
+  const subject = name([["CN", options.cn ?? "BROWSER TEST KEY (NOT A CARD)"], ["C", "PT"]]);
   const tbs = sequence(explicit(0, integer(2)), integer(1), algorithm, subject,
     sequence(utcTime(new Date("2020-01-01T00:00:00Z")), utcTime(new Date("2040-01-01T00:00:00Z"))),
     subject, keys.publicKey.export({ type: "spki", format: "der" }));
@@ -38,7 +44,24 @@ async function companion(page: Page, keyType: "RSA" | "EC", options: { badSignat
     const path = new URL(request.url()).pathname;
     let body: unknown;
     if (path === "/pair") body = { token: "ephemeral-test-token" };
-    else if (path === "/status") body = { middleware: "test", reader: "test", cardPresent: true, ready: true, paired: true };
+    else if (path === "/status") body = {
+      middleware: "test", reader: "test", cardPresent: true, ready: true, paired: true,
+      ...(options.timestamp ? {
+        features: ["sign", "timestamp"],
+        timestamp: { name: "Cartão de Cidadão", remaining: options.remaining ?? 18 },
+      } : {}),
+    };
+    else if (path === "/timestamp" && options.timestamp) {
+      const query = Buffer.from(request.postDataJSON().request, "base64");
+      options.stamps?.push(query);
+      if (options.timestamp === "limited") {
+        return route.fulfill({ status: 429, headers, json: {
+          code: "rate-limited", retryAfter: 600,
+          error: "The Cartão de Cidadão time-stamp service allows 20 requests in 20 minutes; try again in 10 min.",
+        } });
+      }
+      body = { reply: Buffer.from(fakeTimestampResponse(new Uint8Array(query))).toString("base64"), name: "Cartão de Cidadão" };
+    }
     else if (path === "/certificate") body = { certificate, chain: [] };
     else if (path === "/sign") {
       const input = request.postDataJSON();
@@ -134,10 +157,13 @@ for (const keyType of ["RSA", "EC"] as const) {
     await openVerifyFromLink(page);
     await page.setInputFiles('input[type="file"]', signed.path);
     await expect(page.locator("[data-embedded-verification]")).toContainText("Signature integrity verified");
+    // Signed already, so the page adds a signature rather than signing anew —
+    // and this card already signed it, so it is refused before the PIN.
     await openEmbedded(page);
     await page.setInputFiles('input[type="file"]', signed.path);
+    await expect(page.locator('[data-existing-signers="valid"]')).toHaveCount(1, { timeout: 30000 });
     await page.getByRole("button", { name: "Sign", exact: true }).click();
-    await expect(page.locator('[data-sign-errors] p[role="alert"]')).toContainText("already contains a signature");
+    await expect(page.locator('[data-sign-errors] p[role="alert"]')).toContainText("Your card has already signed this file.");
     expect(requests).toHaveLength(1);
     await page.goto("/sign/verify");
     await page.setInputFiles('input[type="file"]', { name: "tampered.ifc", mimeType: "application/octet-stream",
@@ -195,11 +221,11 @@ test("appends files, refuses duplicate names and retains the queue when switchin
   await selectIfczip(page);
   await page.setInputFiles('input[type="file"]', model("first.ifc"));
   await page.setInputFiles('input[type="file"]', [model("first.ifc"), model("second.ifcxml")]);
-  await expect(page.getByRole("cell", { name: "first.ifc", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("cell", { name: /^first\.ifc/ })).toHaveCount(1);
   await expect(page.getByRole("cell", { name: /^second\.ifcxml/ })).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Sign", exact: true })).toBeEnabled();
   await selectEmbedded(page);
-  await expect(page.getByRole("cell", { name: "first.ifc", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("cell", { name: /^first\.ifc/ })).toHaveCount(1);
   await expect(page.getByRole("cell", { name: /^second\.ifcxml/ })).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Sign", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Remove second.ifcxml", exact: true }).click();
@@ -278,5 +304,238 @@ test("rejects invalid input before contacting the card, and is translated in Por
   await page.setInputFiles('input[type="file"]', { name: "bad.ifc", mimeType: "application/octet-stream", buffer: Buffer.from("not IFC") });
   await page.getByRole("button", { name: "Assinar", exact: true }).click();
   await expect(page.locator('[data-sign-errors] p[role="alert"]')).toContainText("não é um ficheiro IFC STEP suportado");
-  expect(requests).toEqual([]);
+  // The page asks `/status` whether the companion can time-stamp; that carries
+  // nothing and uses no key. The card's own endpoints were never reached.
+  expect(requests.filter((url) => !url.endsWith("/status"))).toEqual([]);
+});
+
+test("co-signs a signed IFC and a signed IFCZIP with a second card, and refuses the same card twice", async ({ page }, testInfo) => {
+  // The author signs the model both ways.
+  await companion(page, "RSA", { cn: "AUTHOR TEST KEY" });
+  await openEmbedded(page);
+  await page.setInputFiles('input[type="file"]', IFC);
+  await page.getByRole("button", { name: "Sign", exact: true }).click();
+  await expect(page.locator("[data-sign-output]")).toHaveCount(1, { timeout: 30000 });
+  const signedIfc = await downloadOutput(page, testInfo, 0);
+  await page.goto("/sign/ifc");
+  await selectIfczip(page);
+  await page.setInputFiles('input[type="file"]', IFC);
+  await page.getByRole("button", { name: "Sign", exact: true }).click();
+  await expect(page.locator("[data-sign-output]")).toHaveCount(1, { timeout: 30000 });
+  const signedZip = await downloadOutput(page, testInfo, 0);
+
+  // The reviewer's card adds a signature to both, each in its own format.
+  await page.unroute("http://127.0.0.1:8765/**");
+  const requests = await companion(page, "EC", { cn: "REVIEWER TEST KEY" });
+  // Nobody says these are signed: the page reads them, and adds a signature.
+  await page.goto("/sign/ifc");
+  await expect(page.getByRole("combobox", { name: "What to do" })).toHaveCount(0);
+  await page.setInputFiles('input[type="file"]', [
+    { name: signedIfc.name, mimeType: "application/octet-stream", buffer: signedIfc.bytes },
+    { name: signedZip.name, mimeType: "application/octet-stream", buffer: signedZip.bytes },
+  ]);
+  const existing = page.locator('[data-existing-signers="valid"]');
+  await expect(existing).toHaveCount(2, { timeout: 30000 });
+  await expect(existing.first()).toContainText("Signed by AUTHOR TEST KEY: your signature will be added.");
+  // Every file is signed: the output format has nothing to apply to.
+  await expect(page.getByRole("combobox", { name: "Output format" })).toHaveCount(0);
+  await expect(page.locator("[data-cosign-hint]")).toBeVisible();
+  await page.getByRole("button", { name: "Sign", exact: true }).click();
+  await expect(page.locator("[data-sign-output]")).toHaveCount(2, { timeout: 30000 });
+  await expect(page.locator("[data-sign-outputs]")).toContainText("Every signature in each file, yours included, was verified");
+  expect(requests).toHaveLength(2);
+
+  const cosignedIfc = await downloadOutput(page, testInfo, 0);
+  const cosignedZip = await downloadOutput(page, testInfo, 1);
+  // Same files, same names, one more signature each; nothing before it moved.
+  expect(cosignedIfc.name).toBe(signedIfc.name);
+  expect(cosignedZip.name).toBe(signedZip.name);
+  expect(cosignedIfc.bytes.subarray(0, signedIfc.bytes.length)).toEqual(signedIfc.bytes);
+  expect(cosignedIfc.bytes.toString().match(/SIGNATURE;/g)).toHaveLength(2);
+  const before = unzipSync(signedZip.bytes), after = unzipSync(cosignedZip.bytes);
+  expect(Object.keys(after).filter((entry) => entry.startsWith("META-INF/signatures")).sort())
+    .toEqual(["META-INF/signatures001.xml", "META-INF/signatures002.xml"]);
+  expect(Buffer.from(after["META-INF/signatures001.xml"])).toEqual(Buffer.from(before["META-INF/signatures001.xml"]));
+
+  await page.goto("/sign/verify");
+  await page.setInputFiles('input[type="file"]', [cosignedIfc.path, cosignedZip.path]);
+  await expect(page.locator('[data-verify-status="verified"]')).toHaveCount(2, { timeout: 30000 });
+  await expect(page.locator("[data-verify-results]")).toContainText("REVIEWER TEST KEY");
+
+  // The same card cannot sign the same file twice, and is not asked to.
+  await page.goto("/sign/ifc");
+  await page.setInputFiles('input[type="file"]', cosignedIfc.path);
+  await expect(page.locator('[data-existing-signers="valid"]')).toHaveCount(1, { timeout: 30000 });
+  await page.getByRole("button", { name: "Sign", exact: true }).click();
+  await expect(page.locator('[data-sign-errors] p[role="alert"]')).toContainText("Your card has already signed this file.");
+  expect(requests).toHaveLength(2);
+});
+
+test("a mixed queue: the new file is signed, the signed one gets a signature, the altered one is refused", async ({ page }, testInfo) => {
+  await companion(page, "RSA", { cn: "AUTHOR TEST KEY" });
+  await openEmbedded(page);
+  await page.setInputFiles('input[type="file"]', IFC);
+  await page.getByRole("button", { name: "Sign", exact: true }).click();
+  await expect(page.locator("[data-sign-output]")).toHaveCount(1, { timeout: 30000 });
+  const signed = await downloadOutput(page, testInfo, 0);
+
+  await page.unroute("http://127.0.0.1:8765/**");
+  const requests = await companion(page, "EC", { cn: "REVIEWER TEST KEY" });
+  await openEmbedded(page);
+  await page.setInputFiles('input[type="file"]', [
+    model("new.ifc"),
+    { name: "author-signed.ifc", mimeType: "application/octet-stream", buffer: signed.bytes },
+    { name: "altered.ifc", mimeType: "application/octet-stream", buffer: Buffer.from(signed.bytes.toString().replace("IFCWALL", "IFCSLAB")) },
+  ]);
+  await expect(page.locator('[data-existing-signers="none"]')).toContainText("Not signed yet: it will be signed in the output format chosen above.", { timeout: 30000 });
+  await expect(page.locator('[data-existing-signers="valid"]')).toContainText("Signed by AUTHOR TEST KEY");
+  await expect(page.locator('[data-existing-signers="invalid"]')).toHaveCount(1);
+  // One file still needs a format, so the choice stays on the page.
+  await expect(page.getByRole("combobox", { name: "Output format" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Sign", exact: true }).click();
+  await expect(page.locator("[data-sign-output]")).toHaveCount(2, { timeout: 30000 });
+  await expect(page.locator("[data-sign-output]").nth(0)).toContainText("new-signed.ifc");
+  await expect(page.locator("[data-sign-output]").nth(1)).toContainText("author-signed.ifc");
+  const alerts = page.locator('[data-sign-errors] p[role="alert"]');
+  await expect(alerts).toHaveCount(1);
+  await expect(alerts.first()).toContainText("altered.ifc: A signature in this file does not verify");
+  // Two PIN entries: the new file and the co-signature. The altered file cost none.
+  expect(requests).toHaveLength(2);
+
+  const cosigned = await downloadOutput(page, testInfo, 1);
+  expect(cosigned.bytes.toString().match(/SIGNATURE;/g)).toHaveLength(2);
+});
+
+test("signs a reason and a place in both formats, and the verify page reads them back", async ({ page }, testInfo) => {
+  const requests = await companion(page, "EC");
+  await openEmbedded(page);
+  const details = page.locator("[data-signature-details]");
+  await expect(details).toBeVisible();
+  // Professional attributes are shown, switched off, with the reason why (ADR 019).
+  await expect(page.locator('[data-professional-attributes="unavailable"]')).toContainText("AMA's SCAP");
+  await expect(page.getByRole("checkbox", { name: "Add professional attributes (SCAP)" })).toBeDisabled();
+
+  await page.getByLabel("Reason", { exact: true }).fill("Approved for construction");
+  await page.getByLabel("Location", { exact: true }).fill("Lisboa");
+  await page.setInputFiles('input[type="file"]', IFC);
+  await page.getByRole("button", { name: "Sign", exact: true }).click();
+  await expect(page.locator("[data-sign-output]")).toHaveCount(1, { timeout: 30000 });
+  const signedIfc = await downloadOutput(page, testInfo, 0);
+
+  // The fields keep their text across a change of format.
+  await selectIfczip(page);
+  await expect(page.getByLabel("Reason", { exact: true })).toHaveValue("Approved for construction");
+  await page.getByRole("button", { name: "Sign", exact: true }).click();
+  await expect(page.locator("[data-sign-output]")).toHaveCount(1, { timeout: 30000 });
+  const signedZip = await downloadOutput(page, testInfo, 0);
+  expect(requests).toHaveLength(2);
+  // IFCZIP: only SignedInfo reaches the companion, so the text does not.
+  expect(requests[1].toString()).not.toContain("Lisboa");
+
+  await page.goto("/sign/verify");
+  await page.setInputFiles('input[type="file"]', [signedIfc.path, signedZip.path]);
+  await expect(page.locator('[data-verify-status="verified"]')).toHaveCount(2, { timeout: 30000 });
+  await expect(page.locator('[data-signature-detail="reason"]')).toHaveText(["Reason:Approved for construction", "Reason:Approved for construction"]);
+  await expect(page.locator('[data-signature-detail="location"]')).toHaveText(["Location:Lisboa", "Location:Lisboa"]);
+  await expect(page.locator("[data-verify-results]")).toContainText("what the signer stated when signing");
+});
+
+test.describe("the Cartão de Cidadão time-stamp, through the companion", () => {
+  test("stamps an IFCZIP signature from this machine, sending the companion a hash request and nothing else", async ({ page }, testInfo) => {
+    const stamps: Buffer[] = [];
+    await companion(page, "EC", { timestamp: "ok", remaining: 18, stamps });
+    await page.goto("/sign/ifc");
+    await selectIfczip(page);
+    const option = page.locator('[data-timestamp-option][data-timestamp-source="cartao"]');
+    const stampIt = option.getByLabel("Add a free time-stamp from the Cartão de Cidadão service");
+    // The user's choice: off until ticked.
+    await expect(stampIt).not.toBeChecked();
+    await stampIt.check();
+    await expect(option.locator("[data-timestamp-budget]")).toContainText("allows 20 time-stamps in 20 minutes; 18 are left");
+
+    await page.setInputFiles('input[type="file"]', IFC);
+    await page.getByRole("button", { name: "Sign", exact: true }).click();
+    await expect(page.locator("[data-sign-output]")).toHaveCount(1, { timeout: 30000 });
+    await expect(page.locator('[data-timestamp-status="added"]')).toBeVisible();
+    // One RFC 3161 request: a SHA-256 imprint and a nonce, nothing of the model.
+    expect(stamps).toHaveLength(1);
+    expect(stamps[0].length).toBeLessThan(80);
+    expect(stamps[0].toString("latin1")).not.toMatch(/IFCWALL|ISO-10303/);
+
+    const signed = await downloadOutput(page, testInfo, 0);
+    await openVerifyFromLink(page);
+    await page.setInputFiles('input[type="file"]', signed.path);
+    await expect(page.locator('[data-verify-status="verified"]')).toHaveCount(1, { timeout: 30000 });
+    await expect(page.locator("[data-verify-results]")).toContainText("Time-stamp:");
+    await expect(page.locator("[data-verify-results]")).not.toContainText("No time-stamp");
+  });
+
+  test("offers both when the deployment has its own authority, the Cartão de Cidadão first", async ({ page }) => {
+    await page.unroute("**/api/tsa");
+    await page.route("**/api/tsa", (route) => route.fulfill({ json: { configured: true, name: "Test time-stamp authority" } }));
+    await companion(page, "EC", { timestamp: "ok" });
+    await page.goto("/sign/ifc");
+    await selectIfczip(page);
+    await expect(page.getByLabel("Add a time-stamp", { exact: true })).not.toBeChecked();
+    await page.getByLabel("Add a time-stamp", { exact: true }).check();
+    const source = page.getByRole("combobox", { name: "Time-stamp authority" });
+    await expect(source).toContainText("Cartão de Cidadão (free, through the companion)");
+    await source.click();
+    await page.getByRole("option", { name: "Test time-stamp authority" }).click();
+    await expect(page.locator("[data-timestamp-option]")).toHaveAttribute("data-timestamp-source", "server");
+    await expect(page.locator("[data-timestamp-budget]")).toHaveCount(0);
+  });
+
+  test("warns before signing more than the budget allows, and keeps a signature the limit refused to stamp", async ({ page }) => {
+    await companion(page, "EC", { timestamp: "limited", remaining: 0 });
+    await page.goto("/sign/ifc");
+    await selectIfczip(page);
+    await page.setInputFiles('input[type="file"]', IFC);
+    // Unticked, nothing to warn about; ticked, the budget is short.
+    await expect(page.locator("[data-timestamp-budget-short]")).toHaveCount(0);
+    await page.getByLabel("Add a free time-stamp from the Cartão de Cidadão service").check();
+    await expect(page.locator("[data-timestamp-budget-short]")).toContainText("Only 0 of these 1 signatures can be time-stamped now");
+    await page.getByRole("button", { name: "Sign", exact: true }).click();
+    await expect(page.locator("[data-sign-output]")).toHaveCount(1, { timeout: 30000 });
+    await expect(page.locator('[data-timestamp-status="failed"]')).toContainText(
+      "the Cartão de Cidadão service's limit of 20 time-stamps in 20 minutes was reached",
+    );
+  });
+
+  test("stamps a signature inside the IFC too (CAdES-T), and the verify page reads it", async ({ page }, testInfo) => {
+    const stamps: Buffer[] = [];
+    await companion(page, "EC", { timestamp: "ok", stamps });
+    await openEmbedded(page);
+    // Offered for the default format, no longer only for IFCZIP.
+    const stampIt = page.getByLabel("Add a free time-stamp from the Cartão de Cidadão service");
+    await expect(stampIt).not.toBeChecked();
+    await page.setInputFiles('input[type="file"]', IFC);
+    // Not ticked: signed, and nothing asked of the time-stamp service.
+    await page.getByRole("button", { name: "Sign", exact: true }).click();
+    await expect(page.locator("[data-sign-output]")).toHaveCount(1, { timeout: 30000 });
+    expect(stamps).toHaveLength(0);
+    await expect(page.locator("[data-timestamp-status]")).toHaveCount(0);
+
+    await stampIt.check();
+    await page.getByRole("button", { name: "Sign", exact: true }).click();
+    await expect(page.locator('[data-timestamp-status="added"]')).toBeVisible({ timeout: 30000 });
+    expect(stamps).toHaveLength(1);
+    const signed = await downloadOutput(page, testInfo, 0);
+    expect(signed.bytes.toString().match(/SIGNATURE;/g)).toHaveLength(1);
+
+    await openVerifyFromLink(page);
+    await page.setInputFiles('input[type="file"]', signed.path);
+    await expect(page.locator("[data-embedded-verification]")).toContainText("Signature integrity verified", { timeout: 30000 });
+    await expect(page.locator('[data-signature-detail="timestamp"]')).toContainText("Time-stamp:");
+    await expect(page.locator('[data-signature-detail="timestamp"]')).not.toContainText("No time-stamp");
+  });
+
+  test("an older companion is asked to update, and nothing is offered", async ({ page }) => {
+    await companion(page, "EC");
+    await page.goto("/sign/ifc");
+    await selectIfczip(page);
+    await expect(page.locator("[data-companion-outdated]")).toContainText("Update the signing companion");
+    await expect(page.locator("#ifc-sign-timestamp")).toHaveCount(0);
+  });
 });

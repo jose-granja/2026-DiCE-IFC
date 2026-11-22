@@ -8,18 +8,19 @@
 | [004](004-card-signing-companion.md) | Card companion: forked Web eID; CMD dropped | **Companion choice superseded by 007**; card/CMD analysis stands |
 | [005](005-bcf-implementation.md) | BCF: own reader/writer, XSD-validated | Accepted |
 | [006](006-canonical-xml-by-construction.md) | XMLDSig: canonical XML by construction | **Superseded by 008 — the premise was wrong** |
-| [007](007-local-signing-companion.md) | Own local signing companion; localhost in the trust boundary | Accepted, supersedes 004's companion choice; **amended** — automatic pairing, installers, one PIN prompt |
+| [007](007-local-signing-companion.md) | Own local signing companion; localhost in the trust boundary | Accepted, supersedes 004's companion choice; **amended** — automatic pairing, installers, one PIN prompt; one outbound call, the Cartão de Cidadão time-stamp relay (2026-11-22) |
 | [008](008-real-canonicalization.md) | Implement exclusive XML canonicalisation | Accepted, supersedes 006 |
 | [009](009-bsdd-suggestions.md) | bSDD suggestions in the IDS editor, via a same-origin proxy | Accepted |
 | [010](010-vector-context-formats.md) | CityJSON, GeoJSON, CityGML/GML and GeoPackage read in the browser | Accepted |
-| [011](011-embedded-ifc-signatures.md) | Embedded IFC CMS signatures alongside the existing IFCZIP flow | Accepted |
-| [012](012-signature-timestamps.md) | Signature time-stamps (XAdES-B-T) through a same-origin RFC 3161 proxy | Mechanism accepted; the authority is a deployment choice (Q5) |
+| [011](011-embedded-ifc-signatures.md) | Embedded IFC CMS signatures alongside the existing IFCZIP flow | Accepted; **amended** — co-signing, and a CAdES-T time-stamp (2026-11-22) |
+| [012](012-signature-timestamps.md) | Signature time-stamps (XAdES-B-T) through a same-origin RFC 3161 proxy | Mechanism accepted; the authority is a deployment choice (Q5); **amended** — the free Cartão de Cidadão service, through the companion (2026-11-22) |
 | [013](013-human-check.md) | A human check (Cloudflare Turnstile) in front of the site | Accepted; off unless a deployment sets the keys |
 | [014](014-realistic-materials.md) | Realistic materials: Poly Haven textures chosen in the browser | **Libraries superseded by 016** (hosted library); matching, projection and relief stand. Accepted; off until the user turns it on; **amended** — 360into as a second library, Poly Haven's colours from flat previews; relief and roughness maps (2026-11-06); textures matched to the model's brightness (2026-11-07) |
 | [015](015-worker-csp.md) | A CSP for the Web Workers, narrower than the page's | Accepted |
 | [016](016-hosted-texture-library.md) | Textures: the model's own first, then a library we host (Django Ninja backend) | Accepted, built; supersedes 014's choice of libraries |
 | [017](017-property-names-from-bsdd.md) | IFC property names in Portuguese, from bSDD, as a label (read live through the app's server) | Accepted, built |
 | [018](018-in-browser-ifc-validation.md) | buildingSMART's IFC validation (syntax, header, schema, normative rules), run in the browser on Pyodide with the service's own code | Accepted, built (first version) |
+| [019](019-signature-details.md) | Reason, place and professional attributes in a signature | Reason and place accepted, built; professional attributes (SCAP) **proposed** — slot built, switched off, needs ARTE registration |
 
 ## Open questions from the build brief
 
@@ -29,7 +30,7 @@
 | Q2 | Who code-signs and notarises the native host installer? | **Open, and now the only thing standing between us and a clean install.** `companion/packaging/` builds both installers and `.github/workflows/companion.yml` releases them; both are unsigned, so macOS says "unidentified developer" and SmartScreen warns. Needs an Apple Developer ID and an EV certificate — money, not code. |
 | Q3 | Bulk: N PIN prompts, or one manifest signature? | **Both built, decision deferred to the user.** `/sign` offers `combined` (one signature over N files, one prompt — the default) and `per-file` (N independently verifiable containers, N prompts), and states which guarantee each gives. Measuring what pteid actually prompts still needs hardware, but no longer blocks anything. |
 | Q4 | Is ASiC-E the right container? | **Open — needs a consumer.** ADR 002 recommends it and keeps the container assembler swappable. |
-| Q5 | Which qualified TSA, and who pays? | **Mechanism built, authority still open.** `/api/tsa` stamps a signature (XAdES-B-T) with whatever `TSA_URL` names, and the page offers it when one is set; with none, signatures are B-B. Provider options and prices read from their pages are in ADR 012. What remains is the choice, the contract, and confirming the provider's qualified time-stamping service in the trusted list. |
+| Q5 | Which qualified TSA, and who pays? | **Partly answered (2026-11-22): the Cartão de Cidadão service is free, through the companion (ADR 012 amendment); whether it is qualified is still to confirm in the trusted list.** Mechanism built, authority still open. `/api/tsa` stamps a signature (XAdES-B-T) with whatever `TSA_URL` names, and the page offers it when one is set; with none, signatures are B-B. Provider options and prices read from their pages are in ADR 012. What remains is the choice, the contract, and confirming the provider's qualified time-stamping service in the trusted list. |
 | Q6 | Does `cde` need to store projects/models? | **Resolved — metadata only.** `cde` holds `Project`, `ProjectMembership` and an opt-in `SignatureAudit`. No model, geometry or georeferencing data. |
 
 ## Writing a new one

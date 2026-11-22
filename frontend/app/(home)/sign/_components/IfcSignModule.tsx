@@ -7,7 +7,6 @@ import { Download, FileSignature, Upload, X } from "lucide-react";
 import { zip } from "fflate";
 import ModuleHeader from "@/components/ModuleHeader";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -27,18 +26,28 @@ import {
 } from "@/lib/signing/provider";
 import {
   BulkSigningError,
-  signIfcBatch,
+  cosignFormat,
+  signIfcFiles,
   type BatchOutput,
 } from "@/lib/signing/bulk";
+import { CosignError } from "@/lib/signing/cosign";
 import { EmbeddedIfcError } from "@/lib/signing/embedded";
-import type { SignMode } from "@/lib/signing/sign";
 import {
-  requestTimestamp,
-  timestampService,
-  type TimestampService,
-} from "@/lib/signing/timestamp-client";
+  commonName,
+  summariseIfcSignature,
+  type SignatureSummary,
+} from "@/lib/signing/summary";
+import type { SignMode } from "@/lib/signing/sign";
+import { SignatureDetailsFields, type DetailsDraft } from "./SignatureDetailsFields";
+import { TimestampOption, useTimestamping } from "./TimestampOption";
 
 type Format = "ifczip" | "embedded";
+/**
+ * What a queued file carries, read when it is added. Nobody says which is which:
+ * an unsigned file is signed in the chosen format, a signed one gets this
+ * card's signature added in its own (`signIfcFiles`).
+ */
+type FileState = "checking" | "unsigned" | "signed" | "invalid";
 type ProgressState = {
   current: number;
   total: number;
@@ -73,23 +82,52 @@ export default function IfcSignModule() {
   const [outputs, setOutputs] = useState<BatchOutput[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
-  // Whether this deployment can time-stamp. Unknown (`null`) shows nothing.
-  const [service, setService] = useState<TimestampService | null>(null);
-  const [stamp, setStamp] = useState(true);
-  useEffect(() => {
-    let live = true;
-    void timestampService().then((found) => live && setService(found));
-    return () => {
-      live = false;
-    };
-  }, []);
+  // Where a time-stamp can come from: the Cartão de Cidadão service through the
+  // companion, this deployment's authority, both, or neither.
+  const stamping = useTimestamping();
+  const [details, setDetails] = useState<DetailsDraft>({ reason: "", location: "" });
+  // Who has signed each queued file already, read as it is added. A file not
+  // in the map is still being checked; `undefined` means it carries no signature.
+  const [signers, setSigners] = useState<ReadonlyMap<File, SignatureSummary | undefined>>(new Map());
+  const inspected = useRef(new WeakSet<File>());
   const busy = operation !== null;
   const embedded = format === "embedded";
-  const accept: readonly string[] = embedded ? [".ifc"] : IFC_FILE_EXTENSIONS;
-  const incompatible = files.some(
-    (file) =>
-      !accept.some((extension) => file.name.toLowerCase().endsWith(extension)),
-  );
+  const stateOf = (file: File): FileState => {
+    if (!cosignFormat(file.name)) return "unsigned";
+    if (!signers.has(file)) return "checking";
+    const summary = signers.get(file);
+    if (!summary) return "unsigned";
+    return summary.valid && summary.signers.length > 0 ? "signed" : "invalid";
+  };
+  const isSigned = (file: File) => signers.get(file) !== undefined;
+  const checking = files.some((file) => stateOf(file) === "checking");
+  const unsigned = files.filter((file) => stateOf(file) === "unsigned");
+  const anySigned = files.some(isSigned);
+  // The format is for files with no signature; a signed file keeps its own.
+  const fitsFormat = (file: File) =>
+    (embedded ? [".ifc"] : IFC_FILE_EXTENSIONS).some((extension) =>
+      file.name.toLowerCase().endsWith(extension),
+    );
+  const incompatible = unsigned.some((file) => !fitsFormat(file));
+  // Only when something in the queue may still need it.
+  const showFormat = !files.length || files.some((file) => stateOf(file) !== "signed" && stateOf(file) !== "invalid");
+  useEffect(() => {
+    for (const file of files) {
+      if (inspected.current.has(file)) continue;
+      // An .ifcxml carries no signature this application can read or join.
+      if (!cosignFormat(file.name)) continue;
+      inspected.current.add(file);
+      void summariseIfcSignature(file).then(
+        (summary) => setSigners((current) => new Map(current).set(file, summary)),
+        () => setSigners((current) => new Map(current).set(file, undefined)),
+      );
+    }
+  }, [files]);
+  // How many signatures this run would stamp, against the Cartão de Cidadão
+  // budget: one per file, except one IFCZIP signature over all unsigned files.
+  const stampable = !embedded && mode === "combined" && unsigned.length
+    ? 1 + files.length - unsigned.length
+    : files.length;
 
   const resetResults = () => {
     setOutputs([]);
@@ -97,6 +135,7 @@ export default function IfcSignModule() {
   };
   const errorMessage = (error: unknown): string => {
     if (error instanceof BulkSigningError) return m(`errors.${error.code}`);
+    if (error instanceof CosignError) return m(`cosign.errors.${error.code}`);
     if (error instanceof EmbeddedIfcError) return e(`errors.${error.code}`);
     if (error instanceof SigningError) {
       const keys = {
@@ -120,12 +159,12 @@ export default function IfcSignModule() {
     const names = new Set(files.map((file) => file.name.toLowerCase()));
     for (const file of picked) {
       if (
-        !accept.some((extension) => file.name.toLowerCase().endsWith(extension))
+        !IFC_FILE_EXTENSIONS.some((extension) => file.name.toLowerCase().endsWith(extension))
       ) {
         rejected.push(
           t("unsupportedFiles", {
             names: file.name,
-            extensions: accept.join(", "),
+            extensions: IFC_FILE_EXTENSIONS.join(", "),
           }),
         );
       } else if (names.has(file.name.toLowerCase())) {
@@ -139,21 +178,24 @@ export default function IfcSignModule() {
     setErrors(rejected);
   };
   const sign = async () => {
-    if (locked.current || !files.length || incompatible) return;
+    if (locked.current || !files.length || incompatible || checking) return;
     locked.current = true;
     setOperation("sign");
     resetResults();
     try {
       registerSigningProviders();
-      const result = await signIfcBatch(files, await getSigningProvider(), {
+      // XAdES-T in an IFCZIP, CAdES-T inside an IFC: both formats take one.
+      const timestamper = stamping.timestamper;
+      const onOutput = (output: BatchOutput) =>
+        setOutputs((current) => [...current, output]);
+      const result = await signIfcFiles(files, await getSigningProvider(), {
         format,
         mode: embedded ? "per-file" : mode,
-        timestamper:
-          !embedded && service?.configured && stamp
-            ? requestTimestamp
-            : undefined,
+        isSigned,
+        timestamper,
+        details,
         onProgress: setProgress,
-        onOutput: (output) => setOutputs((current) => [...current, output]),
+        onOutput,
       });
       setOutputs(result.outputs);
       setErrors(
@@ -167,6 +209,8 @@ export default function IfcSignModule() {
       setOperation(null);
       setProgress(null);
       locked.current = false;
+      // Stamps were spent: show what is left of the budget.
+      stamping.refresh();
     }
   };
   const downloadAll = async () => {
@@ -239,7 +283,7 @@ export default function IfcSignModule() {
             </Button>
             <Button
               size="sm"
-              disabled={busy || !files.length || incompatible}
+              disabled={busy || !files.length || incompatible || checking}
               onClick={() => void sign()}
             >
               <FileSignature className="size-4" />
@@ -249,7 +293,7 @@ export default function IfcSignModule() {
               ref={input}
               type="file"
               multiple
-              accept={accept.join(",")}
+              accept={IFC_FILE_EXTENSIONS.join(",")}
               className="hidden"
               disabled={busy}
               onChange={(event) => {
@@ -304,6 +348,7 @@ export default function IfcSignModule() {
 
         <section className="space-y-4 rounded-lg border p-4">
           <div className="grid gap-4 sm:grid-cols-2">
+            {showFormat && (
             <div className="space-y-2">
               <Label htmlFor="ifc-sign-format">{m("format")}</Label>
               <Select
@@ -327,7 +372,8 @@ export default function IfcSignModule() {
                 </SelectContent>
               </Select>
             </div>
-            {!embedded && (
+            )}
+            {showFormat && !embedded && (
               <div className="space-y-2">
                 <Label htmlFor="ifc-sign-mode">{t("signatureMode")}</Label>
                 <Select
@@ -357,7 +403,12 @@ export default function IfcSignModule() {
               </div>
             )}
           </div>
-          <p className="text-muted-foreground text-sm">
+          {anySigned && (
+            <p className="text-muted-foreground text-sm" data-cosign-hint>
+              {m("cosign.hint")}
+            </p>
+          )}
+          {showFormat && <p className="text-muted-foreground text-sm">
             {embedded
               ? m("embeddedHint")
               : t.rich(
@@ -367,43 +418,14 @@ export default function IfcSignModule() {
                     strong: (chunks) => <strong>{chunks}</strong>,
                   },
                 )}
-          </p>
-          {/* {service && !service.configured && <p className="text-muted-foreground flex items-center gap-1.5 text-xs" data-timestamp-option data-configured="false">
-            <Info className="size-3.5 shrink-0" aria-hidden />{t("timestamp.notConfigured")}
-          </p>} */}
-          {service?.configured && (
-            <div
-              className="space-y-1 rounded-md border p-3"
-              data-timestamp-option
-              data-configured="true"
-            >
-              {embedded ? (
-                <p className="text-muted-foreground text-xs">
-                  {t("timestamp.embeddedNote")}
-                </p>
-              ) : (
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    id="ifc-sign-timestamp"
-                    checked={stamp}
-                    disabled={busy}
-                    className="mt-0.5"
-                    onCheckedChange={(checked) => setStamp(checked === true)}
-                  />
-                  <div className="space-y-0.5">
-                    <Label htmlFor="ifc-sign-timestamp" className="text-sm">
-                      {service.name
-                        ? t("timestamp.add", { name: service.name })
-                        : t("timestamp.addUnnamed")}
-                    </Label>
-                    <p className="text-muted-foreground text-xs">
-                      {t("timestamp.hint")}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          </p>}
+          <SignatureDetailsFields idPrefix="ifc-sign" value={details} onChange={setDetails} disabled={busy} />
+          <TimestampOption
+            stamping={stamping}
+            idPrefix="ifc-sign"
+            disabled={busy}
+            signatures={stampable}
+          />
           {/* {embedded && (
             <details className="text-muted-foreground text-sm">
               <summary className="cursor-pointer">{m("compatibility")}</summary>
@@ -453,12 +475,12 @@ export default function IfcSignModule() {
                     <tr key={`${file.name}-${index}`} className="border-t">
                       <td className="break-all p-3">
                         {file.name}
-                        {embedded &&
-                          !file.name.toLowerCase().endsWith(".ifc") && (
-                            <p className="text-destructive text-xs">
-                              {m("incompatible")}
-                            </p>
-                          )}
+                        <ExistingSigners state={stateOf(file)} summary={signers.get(file)} />
+                        {stateOf(file) === "unsigned" && !fitsFormat(file) && (
+                          <p className="text-destructive text-xs">
+                            {m("incompatible")}
+                          </p>
+                        )}
                       </td>
                       <td className="whitespace-nowrap p-3 text-right tabular-nums">
                         {file.size < 1024
@@ -495,7 +517,9 @@ export default function IfcSignModule() {
           )}
         </section>
         {incompatible && (
-          <p className="text-destructive text-sm">{m("incompatibleHint")}</p>
+          <p className="text-destructive text-sm">
+            {m("incompatibleHint")}
+          </p>
         )}
 
         <Link
@@ -560,7 +584,9 @@ export default function IfcSignModule() {
             data-sign-outputs
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-medium">{m("outputs")}</h2>
+              <h2 className="font-medium">
+                {m("outputs")}
+              </h2>
               {outputs.length > 1 && (
                 <Button
                   size="sm"
@@ -604,9 +630,9 @@ export default function IfcSignModule() {
                         data-timestamp-status="failed"
                         role="status"
                       >
-                        {t("timestamp.failed", {
-                          error: output.timestamp.error,
-                        })}
+                        {output.timestamp.reason === "rate-limited"
+                          ? t("timestamp.limitReached")
+                          : t("timestamp.failed", { error: output.timestamp.error })}
                       </p>
                     )}
                   </div>
@@ -621,7 +647,8 @@ export default function IfcSignModule() {
                 </li>
               ))}
             </ul>
-            {embedded && <p className="text-sm">{e("valid")}</p>}
+            {outputs.some((output) => output.format === "embedded") && <p className="text-sm">{e("valid")}</p>}
+            {anySigned && <p className="text-sm">{m("cosign.verified")}</p>}
             {outputs.length > 1 && (
               <p className="text-muted-foreground text-xs">
                 {m("archiveHint")}
@@ -631,5 +658,33 @@ export default function IfcSignModule() {
         )}
       </div>
     </div>
+  );
+}
+
+/** What a queued file carries, and so what signing it will do. */
+function ExistingSigners({
+  state,
+  summary,
+}: {
+  state: FileState;
+  summary: SignatureSummary | undefined;
+}) {
+  const m = useTranslations("ifcSign.cosign");
+  if (state === "checking") {
+    return <p className="text-muted-foreground text-xs" data-existing-signers="checking">{m("checking")}</p>;
+  }
+  if (state === "unsigned") {
+    return <p className="text-muted-foreground text-xs" data-existing-signers="none">{m("notSigned")}</p>;
+  }
+  if (state === "invalid" || !summary) {
+    return <p className="text-destructive text-xs" data-existing-signers="invalid">{m("invalid")}</p>;
+  }
+  return (
+    <p className="text-muted-foreground text-xs" data-existing-signers="valid">
+      {m("signedBy", {
+        count: summary.signers.length,
+        names: summary.signers.map((signer) => commonName(signer.subject)).join(" · "),
+      })}
+    </p>
   );
 }

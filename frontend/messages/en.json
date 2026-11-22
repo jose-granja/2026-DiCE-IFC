@@ -54,6 +54,12 @@
         "why": "A time-stamp is a third party's signed statement that the signature existed at a given moment — it is what lets a signature be checked after its certificate has expired. Time-stamp authorities send no CORS headers and the paid ones need credentials that must not reach a browser, so the request goes through this app's server. The hash is of the signature, which is itself a signature over digests: it says nothing about your model, no file name travels with it, and the server never stores or logs it. The authority sees this deployment's address, not yours."
       },
       {
+        "what": "The SHA-256 hash of a signature's own value (never a file) and a random number",
+        "when": "Only when you tick “Add a time-stamp” with the Cartão de Cidadão service as its source — it starts unticked — and only if the signing companion on your computer can relay it (version 0.2 or later)",
+        "where": "The Cartão de Cidadão time-stamp service (ts.cartaodecidadao.pt), sent by the signing companion from your computer — not through this app's server",
+        "why": "It is the free time-stamp service the Autenticação.gov application uses. It allows 20 requests in 20 minutes per caller and blocks a caller that asks for more for 24 hours, so the request has to come from your computer, as the Autenticação.gov application's does: asked from this app's server, every user would share one allowance. The companion counts its own requests and stops before the limit. It forwards only a request for a hash, to that one address, and the service sees your computer's address. The request travels over plain HTTP, as the service offers it; the answer is signed by the service and checked in your browser."
+      },
+      {
         "what": "WFS/WMS service URL, selected layer and requested map bounds",
         "when": "Only after you choose Read layers or Load selected layer in Context model",
         "where": "The public service you choose, through this app’s read-only /api/ogc proxy",
@@ -68,7 +74,7 @@
     ],
     "localOnly": [
       {
-        "what": "Signature metadata containing document digests, together with the signing certificate",
+        "what": "Signature metadata containing document digests, together with the signing certificate — and, for a signature inside an IFC file, the reason and location you typed, if any",
         "where": "The DiCE-IFC signing companion, on http://127.0.0.1",
         "why": "The signing key is on your Cartão de Cidadão, and a browser cannot talk to a smart card. The companion passes the digest to the card and returns the signature. It has no endpoint that accepts a document and refuses anything larger than a few kilobytes. Every request must carry a token the companion generates fresh each time it starts, and it hands that token out only to this application's own origin — which is why you never have to copy one, and why another web page cannot use it to drive your card."
       }
@@ -887,6 +893,7 @@
       "fromType": "from type",
       "fromTypeHint": "Set on its {type}. By buildingSMART's rule, a type's {attribute} applies to every occurrence of it.",
       "translationHint": "The name of this property in the buildingSMART Data Dictionary (bSDD). The property itself keeps its IFC name.",
+      "attributeTranslationHint": "The name of this attribute in the buildingSMART Data Dictionary (bSDD). The attribute itself keeps its IFC name.",
       "predefinedUserDefined": "USERDEFINED, named in {attribute}",
       "predefinedUserDefinedMissing": "USERDEFINED, with no {attribute} to name it",
       "noMaterials": "This element has no materials.",
@@ -1776,6 +1783,7 @@
       "model": "Model to validate",
       "run": "Validate",
       "cancel": "Cancel",
+      "exportJson": "Download the results (JSON)",
       "export": {
         "title": "Export",
         "grouping": "BCF topics",
@@ -1812,7 +1820,8 @@
         "schema": "Schema",
         "normative_ia": "Normative rules — implementer agreements",
         "normative_ip": "Normative rules — informal propositions",
-        "industry_practices": "Industry practices"
+        "industry_practices": "Industry practices",
+        "dice_rules": "DiCE rules"
       },
       "status": {
         "valid": "Valid",
@@ -2254,7 +2263,12 @@
       "none": "None — the signing time is only what the signer's computer claimed",
       "present": "{time}, by {tsa}",
       "mismatch": "Does not match this signature: {problem}"
-    }
+    },
+    "reason": "Reason",
+    "location": "Location",
+    "professionalAttributes": "Professional attributes",
+    "certifiedAttributes": "{count, plural, one {# certified attribute, not checked} other {# certified attributes, not checked}}",
+    "detailsNote": "Reason and location are what the signer stated when signing; nobody confirmed them."
   },
   "ifcVerify": {
     "description": "Check signatures inside IFC files and in IFCZIP or BCF containers. Add one or more files; verification runs locally.",
@@ -2303,6 +2317,22 @@
       "duplicate-name": "A file with this name is already selected. Rename one of the files before adding it.",
       "unsupported-format": "One or more selected files are not supported by this output format.",
       "invalid-mode": "Signing inside IFC creates one signature per file. Choose IFCZIP for one signature covering several files."
+    },
+    "cosign": {
+      "hint": "Files someone has already signed get your signature added instead, each keeping its format, its signatures and its name. In an IFCZIP your signature sits beside the others and covers the model, so each one stands on its own. Inside an IFC it follows the last one and covers the model and every signature before it.",
+      "checking": "Checking its signatures…",
+      "signedBy": "{count, plural, one {Signed by {names}} other {Signed by {names} (# signatures)}}: your signature will be added.",
+      "notSigned": "Not signed yet: it will be signed in the output format chosen above.",
+      "invalid": "A signature in this file does not verify: it changed after signing, so yours cannot be added.",
+      "verified": "Every signature in each file, yours included, was verified before download.",
+      "errors": {
+        "not-signed": "This file has no signature to add yours to.",
+        "existing-invalid": "A signature in this file does not verify: the file changed after it was signed. Your signature was not added.",
+        "uncovered-payload": "This IFCZIP holds a file that no existing signature covers, added after signing. Your signature was not added.",
+        "already-signer": "Your card has already signed this file.",
+        "too-many-signatures": "This IFC already carries 16 signatures, the most this format allows.",
+        "result-invalid": "The co-signed file did not verify, so it is not offered. Nothing was changed; try again."
+      }
     }
   },
   "embeddedSign": {
@@ -2337,7 +2367,7 @@
     "errors": {
       "invalid-ifc": "This is not a supported IFC STEP file. Check its header and section boundaries.",
       "non-ascii": "This signature format requires ASCII STEP encoding. Export text using STEP Unicode escapes, or choose IFCZIP format to sign this file unchanged.",
-      "already-signed": "This IFC already contains a signature. Use Verify to check it. Adding another signature is not supported here.",
+      "already-signed": "This IFC already contains a signature, so yours is added to it rather than signing it anew; use Verify to check it.",
       "invalid-signature": "The signature or file structure is invalid. No signed file was produced.",
       "unsigned-file": "This IFC does not contain an embedded signature.",
       "unsupported-format": "Select a plain .ifc file. This file or signature format is not supported here.",
@@ -2398,7 +2428,14 @@
       "notConfigured": "This deployment has no time-stamp authority, so the signature carries only the time your computer claims.",
       "stamped": "Time-stamped {time}",
       "failed": "Signed, but not time-stamped: {error}",
-      "embeddedNote": "Time-stamps apply to IFCZIP containers. An embedded signature is not time-stamped."
+      "addCartao": "Add a free time-stamp from the Cartão de Cidadão service",
+      "source": "Time-stamp authority",
+      "cartaoService": "Cartão de Cidadão (free, through the companion)",
+      "deploymentService": "This site's time-stamp authority",
+      "cartaoHint": "Asked from this computer through the signing companion, as the Autenticação.gov app does. The service allows 20 time-stamps in 20 minutes; {remaining, plural, =0 {none are left right now} one {# is left} other {# are left}}.",
+      "cartaoShort": "Only {remaining} of these {count} signatures can be time-stamped now; the rest will be signed without one. Sign them later to stamp them all.",
+      "limitReached": "Signed, but not time-stamped: the Cartão de Cidadão service's limit of 20 time-stamps in 20 minutes was reached. The signature is valid without one.",
+      "companionOutdated": "Update the signing companion to add a free time-stamp from the Cartão de Cidadão service."
     },
     "phaseTimestamping": "Asking the time-stamp authority…"
   },
@@ -2608,8 +2645,14 @@
   },
   "signatureBadge": {
     "checkingSignature": "Checking the signature…",
-    "signatureValid": "{count, plural, one {Signature valid — # signer} other {Signature valid — # signers}}",
-    "signatureNotValid": "Signature not valid"
+    "signatureValid": "{count, plural, one {Signature valid — # signer} other {All signatures valid — # signers}}",
+    "signatureNotValid": "Signature not valid",
+    "signaturesNotValid": "{failed} of {count} signatures not valid",
+    "signerValid": "Valid",
+    "signerNotValid": "Not valid",
+    "embeddedChain": "In signing order: each signature also covers the ones above it.",
+    "reason": "Reason",
+    "location": "Location"
   },
   "themeToggle": {
     "toggleTheme": "Toggle theme",
@@ -2628,31 +2671,62 @@
   },
   "idsReport": {
     "reportTitle": "IDS report — {title}",
-    "generatedBy": "IDS validation report · generated {date} · DiCE-IFC",
+    "eyebrow": "IDS validation report",
+    "generatedOn": "Generated {date}",
+    "schemaMeta": "Schema {schemas}",
     "localOnlyNote": "Every model in this report was validated in the browser. No file was uploaded.",
+    "summary": "Summary",
     "allSatisfied": "All specifications satisfied",
     "notSatisfied": "{count, plural, one {# specification not satisfied} other {# specifications not satisfied}}",
-    "passed": "Passed",
-    "failed": "Failed",
+    "statSpecifications": "Specifications",
+    "statSpecsPassed": "Specifications passed",
+    "statSpecsFailed": "Specifications failed",
     "notApplicable": "Not applicable",
+    "statElementsChecked": "Elements checked",
     "failingElements": "Failing elements",
-    "checks": "Checks",
-    "passRate": "Pass rate",
-    "models": "Models",
+    "checkRate": "Check pass rate",
+    "checkRateDetail": "{passed} of {total} element–requirement checks passed",
+    "elementRate": "Element pass rate",
+    "elementRateDetail": "{passed} of {total} applicable elements passed every requirement",
+    "specRate": "Specification pass rate",
+    "specRateDetail": "{passed} of {total} applicable specifications passed",
+    "noChecks": "Nothing was checked",
+    "rateExplainer": "The three rates answer different questions. A check is one element against one requirement. An element passes only if it meets every requirement of its specification, and a specification passes only if every applicable element passes it — one failing element fails the whole specification. For a deliverable, the specification rate is the one that counts.",
     "modelCol": "Model",
     "schemaCol": "Schema",
     "entitiesCol": "Entities",
     "specifications": "Specifications",
-    "specificationCol": "Specification",
-    "statusCol": "Status",
-    "applicableCol": "Applicable",
+    "show": "Show",
+    "filterAll": "All",
+    "filterFailed": "Failed",
+    "filterPassed": "Passed",
+    "filterNotApplicable": "Not applicable",
     "statusPass": "Pass",
     "statusFail": "Fail",
     "statusNA": "N/A",
-    "elementCol": "Element",
+    "specApplicable": "{count, plural, one {# applicable element} other {# applicable elements}}",
+    "specPassed": "{count} passed",
+    "specFailed": "{count} failed",
+    "elementsPassedRate": "{rate} of elements passed",
+    "checksPassed": "{passed} of {total} checks passed ({rate})",
+    "requirements": "Requirements",
+    "optional": "optional",
+    "prohibited": "prohibited",
+    "byElement": "By element",
     "classCol": "Class",
+    "nameCol": "Name",
+    "globalIdCol": "GlobalId",
+    "idCol": "ID",
+    "reasonCol": "Reason",
     "whyFailedCol": "Why it failed",
+    "unnamed": "unnamed",
+    "selectHint": "Click to select",
+    "evaluationFailed": "The specification could not be evaluated",
+    "countFailed": "The specification’s count is not met",
+    "nothingApplied": "No element matched this specification.",
+    "allPassed": "Every applicable element passed every requirement.",
     "andMore": "…and {count} more. Export BCF for the complete set.",
+    "footerGenerator": "DiCE-IFC IDS validator",
     "footerModels": "{count, plural, one {# model} other {# models}}",
     "footerSpecifications": "{count, plural, one {# specification} other {# specifications}}",
     "footerValidated": "validated {start}–{end}"
@@ -2801,6 +2875,7 @@
     "label": "IFC validation",
     "topicTitle": "{rule} ({count, plural, one {# occurrence} other {# occurrences}})",
     "comment": "Raised from the IFC validation ({stage}) on {date}, with buildingSMART's validation rules, on this device.",
+    "commentCustom": "Raised from the IFC validation ({stage}) on {date}, with DiCE-IFC's own rules, on this device.",
     "stage": "Stage",
     "rule": "Rule",
     "noInstance": "The file",
@@ -2815,7 +2890,8 @@
       "schema": "Schema",
       "normative_ia": "Normative rules — implementer agreements",
       "normative_ip": "Normative rules — informal propositions",
-      "industry_practices": "Industry practices"
+      "industry_practices": "Industry practices",
+      "dice_rules": "DiCE rules"
     }
   },
   "validationReport": {
@@ -2860,7 +2936,8 @@
       "schema": "Schema",
       "normative_ia": "Normative rules — implementer agreements",
       "normative_ip": "Normative rules — informal propositions",
-      "industry_practices": "Industry practices"
+      "industry_practices": "Industry practices",
+      "dice_rules": "DiCE rules"
     }
   },
   "validationExplain": {
@@ -2909,8 +2986,19 @@
     "docs": {
       "header": "How to write the IFC header (buildingSMART)",
       "schema": "The entity in the IFC documentation",
-      "rule": "The rule’s documentation"
+      "rule": "The rule’s documentation",
+      "customRule": "The rule in DiCE-IFC-Rules (GitHub)"
     },
     "technical": "Technical details"
+  },
+  "signatureDetails": {
+    "title": "Signature details (optional)",
+    "hint": "Signed with the signature: anyone who checks it sees them, and changing them afterwards breaks it. They are your statement; nobody confirms them.",
+    "reason": "Reason",
+    "reasonPlaceholder": "e.g. Structural design approved",
+    "location": "Location",
+    "locationPlaceholder": "e.g. Lisbon",
+    "professional": "Add professional attributes (SCAP)",
+    "professionalUnavailable": "Not available yet. AMA's SCAP certifies professional attributes only for applications it has registered, and this one is not."
   }
 }

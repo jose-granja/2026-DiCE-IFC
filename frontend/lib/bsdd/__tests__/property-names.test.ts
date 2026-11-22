@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  attributeLabel,
   forgetPropertyNames,
   isStandardSet,
   loadPropertyNames,
@@ -71,5 +72,15 @@ describe("labels", () => {
     expect(propertyLabel(table, "Pset_WallCommon", "Unknown")).toBeUndefined();
     expect(propertyLabel(null, "Pset_WallCommon", "FireRating")).toBeUndefined();
     expect(isStandardSet("Qto_SlabBaseQuantities")).toBe(true);
+  });
+
+  it("for an entity attribute, which needs no set", () => {
+    const names = { ...table, names: new Map([["ObjectType", "Tipo de Objeto"], ["OperationType", "Tipo de Operação"], ["Tag", "Tag"]]) };
+    expect(attributeLabel(names, "ObjectType")).toBe("Tipo de Objeto");
+    expect(attributeLabel(names, "OperationType")).toBe("Tipo de Operação");
+    // The same as the IFC name is no label; bSDD does not list PredefinedType.
+    expect(attributeLabel(names, "Tag")).toBeUndefined();
+    expect(attributeLabel(names, "PredefinedType")).toBeUndefined();
+    expect(attributeLabel(null, "ObjectType")).toBeUndefined();
   });
 });

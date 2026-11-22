@@ -47,8 +47,16 @@ one this service can neither see nor answer.
 ## What it will not accept
 
 There is no endpoint that takes a document. The largest thing this service reads
-is a 64-byte digest, and the body limit is set accordingly — an upload path is
-not something to leave lying around "just in case".
+is the CMS signed attributes for a signature inside an IFC — digests, a time,
+and the signer's own reason and place — and the body limit is set accordingly;
+an upload path is not something to leave lying around "just in case".
+
+## The one call it makes out
+
+`POST /timestamp` relays an RFC 3161 request for a hash to the Cartão de
+Cidadão time-stamp service, one fixed host, and nothing else (`timestamp.py`).
+It is here because that service's limit is per caller: asked from the citizen's
+machine, as the Autenticação.gov app does, it is the citizen's own budget.
 """
 
 from __future__ import annotations
@@ -61,13 +69,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
 
-from . import card
+from . import card, timestamp
 
 # A digest and a certificate, base64, with room to spare. Nothing legitimate
 # sent here is larger.
 MAX_BODY_BYTES = 8 * 1024
 
-VERSION = "0.1.1"
+VERSION = "0.2.0"
+
+# What this companion can do, for the page to offer only what is here. An older
+# companion has no `features`, which the page reads as "sign only".
+FEATURES = ["sign", "timestamp"]
 
 
 class Companion:
@@ -77,6 +89,9 @@ class Companion:
         # PKCS#11 sessions are not safe to use concurrently, and a card can only
         # do one thing at a time anyway.
         self.lock = threading.Lock()
+        # The Cartão de Cidadão time-stamp service's limit, counted here so the
+        # citizen is never blocked for a day (`timestamp.py`).
+        self.timestamp_budget = timestamp.Budget()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -153,6 +168,11 @@ class Handler(BaseHTTPRequestHandler):
                 200,
                 {
                     "version": VERSION,
+                    "features": FEATURES,
+                    "timestamp": {
+                        "name": timestamp.TSA_NAME,
+                        "remaining": self.companion.timestamp_budget.remaining(),
+                    },
                     "middleware": state.module_path,
                     "reader": state.reader,
                     "cardPresent": state.card_present,
@@ -212,7 +232,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(403, {"error": "Missing or wrong companion token.", "code": "forbidden"}, origin)
             return
 
-        if path != "/sign":
+        if path not in ("/sign", "/timestamp"):
             self._send(404, {"error": "No such endpoint.", "code": "not-found"}, origin)
             return
 
@@ -231,6 +251,10 @@ class Handler(BaseHTTPRequestHandler):
             request = json.loads(self.rfile.read(length) or b"{}")
         except json.JSONDecodeError:
             self._send(400, {"error": "Malformed JSON.", "code": "bad-request"}, origin)
+            return
+
+        if path == "/timestamp":
+            self._timestamp(request, origin)
             return
 
         try:
@@ -264,6 +288,36 @@ class Handler(BaseHTTPRequestHandler):
                 "algorithm": result["algorithm"],
                 "certificate": base64.b64encode(result["certificate"]).decode(),
             },
+            origin,
+        )
+
+    def _timestamp(self, request: dict, origin: str | None) -> None:
+        """
+        Relay one RFC 3161 request for a hash to the Cartão de Cidadão
+        time-stamp service, from this machine (`timestamp.py`). Not under the
+        card's lock: no card is involved.
+        """
+        try:
+            data = base64.b64decode(request["request"], validate=True)
+        except (KeyError, TypeError, ValueError):
+            self._send(
+                400,
+                {"error": "Expected {request}, base64.", "code": "bad-request"},
+                origin,
+            )
+            return
+        try:
+            reply = timestamp.relay(data, self.companion.timestamp_budget)
+        except timestamp.TimestampError as error:
+            status = {"bad-request": 400, "rate-limited": 429}.get(error.code, 502)
+            payload = {"error": str(error), "code": error.code}
+            if error.retry_after is not None:
+                payload["retryAfter"] = error.retry_after
+            self._send(status, payload, origin)
+            return
+        self._send(
+            200,
+            {"reply": base64.b64encode(reply).decode(), "name": timestamp.TSA_NAME},
             origin,
         )
 

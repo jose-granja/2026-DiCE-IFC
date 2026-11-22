@@ -24,7 +24,8 @@
     "licenses": "node --experimental-strip-types scripts/generate-licenses.mts",
     "copy:cesium": "node --experimental-strip-types scripts/copy-cesium-assets.mts",
     "validator:assets": "node --experimental-strip-types scripts/build-validator-assets.mts",
-    "validator:check": "node --experimental-strip-types scripts/check-validator.mts"
+    "validator:check": "node --experimental-strip-types scripts/check-validator.mts",
+    "validator:pin-rules": "node --experimental-strip-types scripts/pin-custom-rules.mts"
   },
   "dependencies": {
     "@cesium/engine": "^26.3.0",

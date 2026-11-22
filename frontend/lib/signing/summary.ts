@@ -18,6 +18,7 @@
 
 import { verifyContainer } from "./verify";
 import { inspectEmbeddedSignatures } from "./embedded";
+import type { StatedDetails } from "./details";
 import { EmbeddedIfcError, type EmbeddedIfcErrorCode } from "./embedded-format";
 
 export type SignatureSummary = {
@@ -35,6 +36,8 @@ export type SignatureSummary = {
     valid: boolean;
     /** Always `not-checked` until the trust proxy lands — see verify.ts. */
     trust: "not-checked" | "trusted" | "untrusted";
+    /** Reason and place the signer stated (`details.ts`). */
+    details?: StatedDetails;
   }>;
   problems: string[];
 };
@@ -66,6 +69,7 @@ export async function summariseSignature(
         algorithm: entry.algorithm,
         valid: entry.valid,
         trust: entry.trust,
+        details: entry.details,
       })),
     };
   } catch (error) {
@@ -95,7 +99,7 @@ export async function summariseEmbeddedSignature(file: File): Promise<SignatureS
       problems: [], embeddedProblem: valid ? undefined : "invalid-signature",
       signers: result.signatures.map((entry) => ({
         subject: entry.subject ?? "", issuer: entry.issuer ?? "", signingTime: entry.signingTime,
-        algorithm: entry.algorithm ?? "", valid: entry.valid, trust: "not-checked",
+        algorithm: entry.algorithm ?? "", valid: entry.valid, trust: "not-checked", details: entry.details,
       })),
     };
   } catch (error) {
@@ -104,6 +108,16 @@ export async function summariseEmbeddedSignature(file: File): Promise<SignatureS
       embeddedProblem: error instanceof EmbeddedIfcError ? error.code : "unknown",
     };
   }
+}
+
+/**
+ * The signatures already in a file a co-signature would join: an `.ifc`'s
+ * embedded ones (off the UI thread), or an `.ifczip` container's. `undefined`
+ * when it carries none.
+ */
+export async function summariseIfcSignature(file: File): Promise<SignatureSummary | undefined> {
+  if (/\.ifc$/i.test(file.name)) return summariseEmbeddedSignature(file);
+  return summariseSignature(new Uint8Array(await file.arrayBuffer()), file.name);
 }
 
 /** `CN=…` out of an RFC 4514 subject, falling back to the whole string. */

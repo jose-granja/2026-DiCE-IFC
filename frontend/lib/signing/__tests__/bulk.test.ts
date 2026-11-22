@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BulkSigningError, signIfcBatch, type BatchOutput, type BatchProgress } from "../bulk";
-import { signEmbeddedIfc } from "../embedded";
+import { BulkSigningError, cosignFormat, cosignIfcBatch, signIfcBatch, signIfcFiles, type BatchOutput, type BatchProgress } from "../bulk";
+import { cosignContainer, CosignError } from "../cosign";
+import { cosignEmbeddedIfc, signEmbeddedIfc } from "../embedded";
 import { EmbeddedIfcError } from "../embedded-format";
 import { SigningError, type SigningCertificate, type SigningProvider } from "../provider";
 import { signFiles } from "../sign";
 
 // These tests cover queue and device boundaries. The existing embedded and
 // roundtrip suites exercise the signatures with real keys and OpenSSL.
-vi.mock("../embedded", () => ({ signEmbeddedIfc: vi.fn() }));
+vi.mock("../embedded", () => ({ signEmbeddedIfc: vi.fn(), cosignEmbeddedIfc: vi.fn() }));
+vi.mock("../cosign", async (original) => ({ ...(await original<typeof import("../cosign")>()), cosignContainer: vi.fn() }));
 vi.mock("../sign", () => ({ signFiles: vi.fn() }));
 
 const certificate: SigningCertificate = {
@@ -242,3 +244,120 @@ describe("partial failures and card safety", () => {
     expect(device.sign).not.toHaveBeenCalled();
   });
 });
+
+describe("co-signing a batch", () => {
+  beforeEach(() => {
+    vi.mocked(cosignEmbeddedIfc).mockImplementation(async (file, device) => {
+      const cert = await signWith(device);
+      return { bytes, name: file.name, certificate: cert, signingTime: "2026-11-22T12:00:00.000Z" };
+    });
+    vi.mocked(cosignContainer).mockImplementation(async (file, device) => {
+      await signWith(device);
+      return { name: file.name, bytes, covers: ["model.ifc"] };
+    });
+  });
+
+  it("joins each file's own format: the signatures inside an .ifc, the container of an .ifczip", async () => {
+    expect([cosignFormat("a.IFC"), cosignFormat("b.ifczip"), cosignFormat("c.ifcxml")]).toEqual(["embedded", "ifczip", null]);
+    const device = provider();
+    const result = await cosignIfcBatch(files(["model-signed.ifc", "model.ifczip"]), device, {});
+    expect(result.outputs.map((output) => [output.name, output.format])).toEqual([
+      ["model-signed.ifc", "embedded"],
+      ["model.ifczip", "ifczip"],
+    ]);
+    expect(cosignEmbeddedIfc).toHaveBeenCalledTimes(1);
+    expect(cosignContainer).toHaveBeenCalledTimes(1);
+    expect(device.sign).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses what it cannot co-sign before the card", async () => {
+    const device = provider();
+    await expect(cosignIfcBatch(files(["model.ifcxml"]), device, {})).rejects.toMatchObject({ code: "unsupported-format" });
+    await expect(cosignIfcBatch(files(["a.ifc", "A.IFC"]), device, {})).rejects.toMatchObject({ code: "duplicate-name" });
+    expect(device.getSigningCertificate).not.toHaveBeenCalled();
+  });
+
+  it("skips a file that must not be co-signed, with its reason, and goes on", async () => {
+    vi.mocked(cosignEmbeddedIfc).mockImplementationOnce(async () => { throw new CosignError("existing-invalid"); });
+    const result = await cosignIfcBatch(files(["altered.ifc", "good.ifc"]), provider(), {});
+    expect(result.failures).toMatchObject([{ fileName: "altered.ifc", error: { code: "existing-invalid" } }]);
+    expect(result.outputs.map((output) => output.name)).toEqual(["good.ifc"]);
+  });
+
+  it("stops when the PIN is cancelled, keeping what was done", async () => {
+    vi.mocked(cosignContainer)
+      .mockImplementationOnce(async (file, device) => { await signWith(device); return { name: file.name, bytes, covers: [] }; })
+      .mockImplementationOnce(async () => { throw new SigningError("cancelled", "Cancelled."); });
+    const result = await cosignIfcBatch(files(["one.ifczip", "two.ifczip", "three.ifczip"]), provider(), {});
+    expect(result.outputs.map((output) => output.name)).toEqual(["one.ifczip"]);
+    expect(result.cancelled).toBe(true);
+    expect(cosignContainer).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("signing a queue whatever each file carries", () => {
+  beforeEach(() => {
+    vi.mocked(cosignEmbeddedIfc).mockImplementation(async (file, device) => {
+      const cert = await signWith(device);
+      return { bytes, name: file.name, certificate: cert, signingTime: "2026-11-22T12:00:00.000Z" };
+    });
+    vi.mocked(cosignContainer).mockImplementation(async (file, device) => {
+      await signWith(device);
+      return { name: file.name, bytes, covers: ["model.ifc"] };
+    });
+  });
+  const signedNames = new Set(["author.ifc", "author.ifczip"]);
+  const isSigned = (file: File) => signedNames.has(file.name);
+
+  it("signs the new files in the chosen format and adds a signature to the signed ones in theirs", async () => {
+    const device = provider();
+    const progress: BatchProgress[] = [];
+    const result = await signIfcFiles(files(["new.ifc", "author.ifc", "author.ifczip"]), device, {
+      ...embeddedOptions, isSigned, onProgress: (step) => progress.push(step),
+    });
+    expect(result.outputs.map((output) => [output.name, output.format])).toEqual([
+      ["new-signed.ifc", "embedded"],
+      ["author.ifc", "embedded"],
+      ["author.ifczip", "ifczip"],
+    ]);
+    expect(signEmbeddedIfc).toHaveBeenCalledTimes(1);
+    expect(cosignEmbeddedIfc).toHaveBeenCalledTimes(1);
+    expect(cosignContainer).toHaveBeenCalledTimes(1);
+    // One count over the whole queue, whichever way each file went.
+    expect(Math.max(...progress.map((step) => step.current))).toBe(3);
+    expect(new Set(progress.map((step) => step.total))).toEqual(new Set([3]));
+  });
+
+  it("applies the format only to files with no signature: a signed .ifczip is joined, not re-wrapped", async () => {
+    const result = await signIfcFiles(files(["author.ifczip", "new.ifc"]), provider(), { ...zipOptions, isSigned });
+    expect(signFiles).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(signFiles).mock.calls[0][0].map((input) => input.name)).toEqual(["new.ifc"]);
+    expect(cosignContainer).toHaveBeenCalledTimes(1);
+    expect(result.outputs.map((output) => output.name)).toEqual(["new.ifczip", "author.ifczip"]);
+  });
+
+  it("refuses an unsigned file the chosen format cannot take, before the card", async () => {
+    const device = provider();
+    await expect(signIfcFiles(files(["plain.ifczip", "author.ifc"]), device, { ...embeddedOptions, isSigned }))
+      .rejects.toMatchObject({ code: "unsupported-format", fileName: "plain.ifczip" });
+    expect(device.getSigningCertificate).not.toHaveBeenCalled();
+  });
+
+  it("stops the whole queue when the PIN is cancelled while signing the new files", async () => {
+    vi.mocked(signEmbeddedIfc).mockRejectedValueOnce(new SigningError("cancelled", "Cancelled."));
+    const result = await signIfcFiles(files(["new.ifc", "author.ifc"]), provider(), { ...embeddedOptions, isSigned });
+    expect(result.cancelled).toBe(true);
+    expect(cosignEmbeddedIfc).not.toHaveBeenCalled();
+  });
+
+  it("keeps one card for the whole queue", async () => {
+    const device = provider();
+    vi.mocked(device.getSigningCertificate)
+      .mockResolvedValueOnce(certificate)
+      .mockResolvedValueOnce({ ...certificate, certificateDer: "second-card" });
+    const result = await signIfcFiles(files(["new.ifc", "author.ifc"]), device, { ...embeddedOptions, isSigned });
+    expect(result.outputs).toHaveLength(1);
+    expect(result.failures).toMatchObject([{ fileName: "author.ifc", error: { code: "card-changed" } }]);
+  });
+});
+

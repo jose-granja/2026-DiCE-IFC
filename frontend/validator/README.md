@@ -24,6 +24,33 @@ Build-archive SHA-256 (for `simple_spf`):
 `ifcopenshell-python-311-v0.8.6-8b5b400-linux64.zip`, 43 882 779 bytes,
 `dd9d1b8e0a60bfa95da2558bcb3961589140e417fa20d617c892f3e4e29f6b94`.
 
+## Our own rules (`dice_rules`)
+
+The last stage runs rules of our own from the DiCE-IFC-Rules repository:
+`.feature` files in ifc-gherkin-rules' format, with its step phrases, and
+optionally Python steps. `manifest.json`'s `customRules` pins the repository
+and commit, with the tarball's SHA-256:
+
+```bash
+npm run validator:pin-rules -- owner/DiCE-IFC-Rules <commit>
+npm run validator:assets
+```
+
+To write and test rules, build from a local checkout instead:
+
+```bash
+DICE_RULES_DIR=../../DiCE-IFC-Rules npm run validator:assets
+npm run validator:check -- model.ifc dice_rules
+```
+
+In `validator.zip` they go to `rules/features/custom/` (features) and
+`rules/features/steps/dice_custom_steps/` (steps, loaded by
+`zz_dice_custom_steps.py` only while `dice_rules` runs), with
+`custom_rules.json` describing what was built (also in `build.json`). The
+service's stages pass `--exclude features/custom/`, so their results do not
+change. With no pin and no `DICE_RULES_DIR`, the stage is not shipped and the
+panel does not show it.
+
 ## Differences from the service, on purpose
 
 - **ifcopenshell 0.8.5** (newest Pyodide build) where the service runs 0.8.6

@@ -33,7 +33,7 @@ test("queues files and reports their size", async ({ page }) => {
   await page.setInputFiles('input[type="file"]', [IFC4]);
 
   await expect(
-    page.getByRole("cell", { name: "georeferenced-wall-ifc4.ifc", exact: true }),
+    page.getByRole("cell", { name: /^georeferenced-wall-ifc4\.ifc/ }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign" })).toBeEnabled();
 });
@@ -64,14 +64,14 @@ test("queues a file dropped onto the empty area, and refuses one of the wrong ki
     { name: "notes.txt", text: "not a model" },
   ]);
 
-  await expect(page.getByRole("cell", { name: "dropped.ifc", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /^dropped\.ifc/ })).toBeVisible();
   await expect(page.getByRole("cell", { name: "notes.txt", exact: true })).toHaveCount(0);
   await expect(page.getByText(/Not signed: notes\.txt/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign" })).toBeEnabled();
 
   // Still a drop target once there are files, so more can be added.
   await dropFiles(page, [{ name: "second.ifc", text: "ISO-10303-21;" }]);
-  await expect(page.getByRole("cell", { name: "second.ifc", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /^second\.ifc/ })).toBeVisible();
 });
 
 test("the BCF page takes dropped BCF files, not IFC ones", async ({ page }) => {
@@ -364,6 +364,21 @@ test("renders with no console errors", async ({ page }) => {
     if (m.type() === "error") errors.push(m.text());
   });
   page.on("pageerror", (e) => errors.push(e.message));
+  // The pages ask the companion what it is and can do. Whatever companion runs
+  // on the machine running the tests — none, or one that refuses this port's
+  // origin, which the browser logs as a CORS error — is not this page's error.
+  await page.route("http://127.0.0.1:8765/**", (route) => {
+    const headers = {
+      "access-control-allow-origin": route.request().headers().origin ?? "*",
+      "access-control-allow-headers": "content-type,x-dice-token",
+    };
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    const path = new URL(route.request().url()).pathname;
+    return route.fulfill({ headers, json: path === "/pair"
+      ? { token: "test-token" }
+      : { version: "0.2.0", features: ["sign", "timestamp"], timestamp: { name: "Cartão de Cidadão", remaining: 18 },
+          middleware: "test", reader: "test", cardPresent: true, ready: true, paired: true } });
+  });
 
   await openSign(page);
   await page.setInputFiles('input[type="file"]', [IFC4]);

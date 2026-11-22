@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { VALIDATION_STAGES, type StageResult, type ValidatorBuild } from "@/lib/validation/stages";
+import { stagesFor, VALIDATION_STAGES, type StageResult, type ValidatorBuild } from "@/lib/validation/stages";
 import { describeValue, findingGroups, type FindingGroup } from "@/lib/validation/findings";
 import { docLabel, groupExplanation, groupTitle, outcomeNote, outcomeTechnical } from "@/lib/validation/explain";
 import { useIfcValidationStore, type ValidationRun } from "@/lib/validation/store";
@@ -70,7 +70,7 @@ export default function IfcValidationPanel() {
   const exportJson = () => {
     if (!run) return;
     const blob = new Blob([JSON.stringify({ model: run.modelName, validated: new Date(run.startedAt).toISOString(), service: build?.service,
-      stages: VALIDATION_STAGES.map((s) => run.results[s]).filter(Boolean) }, null, 2)], { type: "application/json" });
+      customRules: build?.customRules ?? undefined, stages: VALIDATION_STAGES.map((s) => run.results[s]).filter(Boolean) }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -83,7 +83,7 @@ export default function IfcValidationPanel() {
     <div className="flex min-h-0 flex-1 flex-col" data-ifc-validation>
       <PanelHeader tab="validation" busy={running}>
         {run?.finishedAt && !run.cancelled && (
-          <Button size="sm" variant="ghost" className="h-7" onClick={exportJson} aria-label={t("export")} title={t("export")}>
+          <Button size="sm" variant="ghost" className="h-7" onClick={exportJson} aria-label={t("exportJson")} title={t("exportJson")}>
             <Download className="h-3.5 w-3.5" />
           </Button>
         )}
@@ -145,7 +145,7 @@ export default function IfcValidationPanel() {
             {run.error && <p className="text-destructive">{t("error", { error: run.error })}</p>}
             {run.cancelled && <p className="text-muted-foreground">{t("cancelled")}</p>}
             <ul className="space-y-1.5">
-              {VALIDATION_STAGES.map((stage) => {
+              {(run.stages ?? stagesFor(build)).map((stage) => {
                 const result = run.results[stage];
                 if (!result) {
                   return running ? (

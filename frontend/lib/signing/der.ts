@@ -87,10 +87,21 @@ export type CertificateInfo = {
   notBefore: string;
   notAfter: string;
   keyType: "RSA" | "EC";
+  /**
+   * An EC key's curve, from the certificate. XMLDSig names ECDSA by hash only,
+   * and the hash says nothing about the curve: a Cartão de Cidadão v2 signs
+   * ECDSA-SHA512 with a P-256 key.
+   */
+  namedCurve?: "P-256" | "P-384" | "P-521";
 };
 
 const OID_RSA = "1.2.840.113549.1.1.1";
 const OID_EC = "1.2.840.10045.2.1";
+const CURVES: Record<string, CertificateInfo["namedCurve"]> = {
+  "1.2.840.10045.3.1.7": "P-256",
+  "1.3.132.0.34": "P-384",
+  "1.3.132.0.35": "P-521",
+};
 
 export function readCertificate(der: Uint8Array): CertificateInfo {
   const certificate = readNode(der);
@@ -109,8 +120,9 @@ export function readCertificate(der: Uint8Array): CertificateInfo {
 
   const [notBefore, notAfter] = readChildren(validity);
   const [algorithm] = readChildren(spki);
-  const [algorithmOid] = readChildren(algorithm);
+  const [algorithmOid, parameters] = readChildren(algorithm);
   const oid = readOid(algorithmOid.content);
+  const namedCurve = oid === OID_EC && parameters?.tag === 0x06 ? CURVES[readOid(parameters.content)] : undefined;
 
   return {
     spki: spki.full,
@@ -120,6 +132,7 @@ export function readCertificate(der: Uint8Array): CertificateInfo {
     notBefore: readTime(notBefore),
     notAfter: readTime(notAfter),
     keyType: oid === OID_EC ? "EC" : oid === OID_RSA ? "RSA" : "RSA",
+    ...(namedCurve ? { namedCurve } : {}),
   };
 }
 
@@ -167,15 +180,19 @@ function readTime(node: DerNode): string {
   return `${year}-${rest.slice(0, 2)}-${rest.slice(2, 4)}T${rest.slice(4, 6)}:${rest.slice(6, 8)}:${rest.slice(8, 10)}Z`;
 }
 
+/**
+ * Arcs are BigInt: a UUID arc under `2.25` (X.667) is 128 bits, and a JS number
+ * would round it into a different OID without a word.
+ */
 export function readOid(content: Uint8Array): string {
-  const parts = [Math.floor(content[0] / 40), content[0] % 40];
-  let value = 0;
+  const parts: Array<number | bigint> = [Math.floor(content[0] / 40), content[0] % 40];
+  let value = BigInt(0);
 
   for (let index = 1; index < content.length; index += 1) {
-    value = value * 128 + (content[index] & 0x7f);
+    value = value * BigInt(128) + BigInt(content[index] & 0x7f);
     if (!(content[index] & 0x80)) {
       parts.push(value);
-      value = 0;
+      value = BigInt(0);
     }
   }
 
@@ -257,16 +274,17 @@ export function utf8String(value: string): Uint8Array {
 }
 
 export function oid(value: string): Uint8Array {
-  const parts = value.split(".").map(Number);
-  const bytes = [parts[0] * 40 + parts[1]];
+  const parts = value.split(".");
+  const bytes = [Number(parts[0]) * 40 + Number(parts[1])];
 
+  // BigInt for the same reason as `readOid`.
   for (const part of parts.slice(2)) {
     const chunks: number[] = [];
-    let remaining = part;
+    let remaining = BigInt(part);
     do {
-      chunks.unshift(remaining & 0x7f);
-      remaining >>= 7;
-    } while (remaining > 0);
+      chunks.unshift(Number(remaining & BigInt(0x7f)));
+      remaining >>= BigInt(7);
+    } while (remaining > BigInt(0));
     for (let index = 0; index < chunks.length - 1; index += 1) chunks[index] |= 0x80;
     bytes.push(...chunks);
   }

@@ -10,14 +10,16 @@ import { create } from "zustand";
 
 import { unwrapModel } from "@/lib/viewer/container";
 import { getSourceFile } from "@/lib/viewer/loader";
-import { cancelValidation, runValidation, type ValidationEvent } from "@/lib/workers/ifc-validation-client";
-import { VALIDATION_STAGES, type StageResult, type ValidationStage } from "./stages";
+import { cancelValidation, runValidation, validatorBuild, type ValidationEvent } from "@/lib/workers/ifc-validation-client";
+import { stagesFor, type StageResult, type ValidationStage } from "./stages";
 
 export type ValidationRun = {
   modelId: string;
   modelName: string;
   startedAt: number;
   finishedAt?: number;
+  /** The stages this run runs: the service's, and our own rules' when the build has them. */
+  stages?: ValidationStage[];
   /** While running: Pyodide loading, or the stage under way. */
   loading?: Extract<ValidationEvent, { type: "loading" }>;
   current?: ValidationStage;
@@ -53,14 +55,19 @@ export const useIfcValidationStore = create<ValidationState>((set, get) => ({
       // The service validates the .ifc itself: an ifcZIP is unwrapped first, as for viewing.
       const ifc = (await unwrapModel(file)).file;
       const bytes = new Uint8Array(await ifc.arrayBuffer());
-      const output = await runValidation(bytes, [...VALIDATION_STAGES], (event) => {
+      const stages = stagesFor(await validatorBuild());
+      update({ stages });
+      const output = await runValidation(bytes, stages, (event) => {
         const run = get().run;
         if (!run || run.modelId !== modelId || run.finishedAt) return;
         if (event.type === "loading") update({ loading: event });
         else if (event.type === "stage-start") update({ loading: undefined, current: event.stage });
         else update({ results: { ...run.results, [event.result.stage]: event.result } });
       });
-      update({ current: undefined, loading: undefined, finishedAt: Date.now(), memoryMb: output.memoryMb, outOfMemory: output.outOfMemory });
+      // The returned results are the complete set: the last stage's event travels on the
+      // callback's own channel and can arrive after this return, once the run is finished.
+      const results = { ...get().run?.results, ...Object.fromEntries(output.results.map((result) => [result.stage, result])) };
+      update({ current: undefined, loading: undefined, finishedAt: Date.now(), results, memoryMb: output.memoryMb, outOfMemory: output.outOfMemory });
     } catch (error) {
       if (get().run?.cancelled) return;
       update({ current: undefined, loading: undefined, finishedAt: Date.now(), error: String((error as Error)?.message ?? error) });

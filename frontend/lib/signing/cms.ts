@@ -1,10 +1,13 @@
 /** Detached CMS, SHA-256 / RSA or P-256. RFC 5652; no certificate trust check. */
 import { base64, digest, fromBase64 } from "./canonical";
+import { cleanDetails, REASON_COMMITMENT_OID, statedOrNothing, type SignatureDetails, type StatedDetails } from "./details";
 import {
   concat, encode, explicit, integer, nullValue, oid, readCertificate,
   readChildren, readNode, readOid, sequence, set, utcTime, type DerNode,
 } from "./der";
 import { SigningError, type SigningCertificate, type SignResult } from "./provider";
+import { checkTimestampToken } from "./timestamp";
+import type { TimestampVerification } from "./verify";
 
 const O = {
   data: "1.2.840.113549.1.7.1", signedData: "1.2.840.113549.1.7.2",
@@ -13,7 +16,56 @@ const O = {
   p256: "1.2.840.10045.3.1.7", es256: "1.2.840.10045.4.3.2",
   contentType: "1.2.840.113549.1.9.3", messageDigest: "1.2.840.113549.1.9.4",
   signingTime: "1.2.840.113549.1.9.5", signingCert: "1.2.840.113549.1.9.16.2.47",
+  // RFC 5126 (CAdES): what the signer states, in `details.ts`.
+  commitmentType: "1.2.840.113549.1.9.16.2.16", signerLocation: "1.2.840.113549.1.9.16.2.17",
+  // RFC 3161 Appendix A / CAdES-T: an unsigned attribute, over the signature value.
+  signatureTimeStampToken: "1.2.840.113549.1.9.16.2.14",
 };
+const utf8String = (text: string) => encode(0x0c, new TextEncoder().encode(text));
+
+/**
+ * The signer's place and reason as CAdES signed attributes. Explicit tags, as
+ * RFC 5126's module declares. The place is a locality; the reason a commitment
+ * type of this application's own (`REASON_COMMITMENT_OID`) whose qualifier is
+ * the text.
+ */
+function detailAttributes(details: SignatureDetails | undefined): Uint8Array[] {
+  const { reason, location } = cleanDetails(details) ?? {};
+  return [
+    ...(location ? [attr(O.signerLocation, sequence(explicit(1, utf8String(location))))] : []),
+    ...(reason ? [attr(O.commitmentType, sequence(oid(REASON_COMMITMENT_OID),
+      sequence(sequence(oid(REASON_COMMITMENT_OID), utf8String(reason)))))] : []),
+  ];
+}
+
+/**
+ * Read back a place and a reason. For display only: a detail this cannot read
+ * — another tool's encoding, a commitment type that is not ours — is left out,
+ * and never makes a signature invalid.
+ */
+function readDetails(attributes: Map<string, DerNode>): StatedDetails | undefined {
+  const text = (node: DerNode | undefined) => {
+    if (node?.tag === 0x0c) return new TextDecoder("utf-8", { fatal: true }).decode(node.content);
+    // PrintableString, IA5String: ASCII.
+    if (node?.tag === 0x13 || node?.tag === 0x16) return new TextDecoder("latin1").decode(node.content);
+    return undefined;
+  };
+  const details: StatedDetails = {};
+  try {
+    const place = attributes.get(O.signerLocation);
+    const locality = place && children(place).find((field) => field.tag === 0xa1);
+    if (locality) details.location = text(readChildren(locality)[0]);
+  } catch { /* unreadable: not shown */ }
+  try {
+    const commitment = attributes.get(O.commitmentType);
+    const [type, qualifiers] = commitment ? children(commitment) : [];
+    if (type && qualifiers && id(type) === REASON_COMMITMENT_OID) {
+      const [qualifierId, value] = children(children(qualifiers)[0]);
+      if (id(qualifierId) === REASON_COMMITMENT_OID) details.reason = text(value);
+    }
+  } catch { /* unreadable: not shown */ }
+  return statedOrNothing(details);
+}
 const hashId = () => sequence(oid(O.sha256), nullValue());
 const attr = (id: string, value: Uint8Array) => sequence(oid(id), set(value));
 const equal = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
@@ -78,7 +130,13 @@ function ecSignatureFromDer(der: Uint8Array): Uint8Array {
   return raw;
 }
 
-export async function prepareCms(contentDigest: Uint8Array, certificate: SigningCertificate, at = new Date()) {
+export async function prepareCms(
+  contentDigest: Uint8Array,
+  certificate: SigningCertificate,
+  at = new Date(),
+  /** Place and reason, signed with it. Professional attributes are XAdES-only for now. */
+  details?: Omit<SignatureDetails, "professionalAttributes">,
+) {
   requireValue(contentDigest.length === 32);
   const leaf = fromBase64(certificate.certificateDer);
   const parts = certificateParts(leaf);
@@ -92,24 +150,44 @@ export async function prepareCms(contentDigest: Uint8Array, certificate: Signing
     attr(O.signingTime, utcTime(at)),
     // ESS SigningCertificateV2, default SHA-256, binds the exact certificate.
     attr(O.signingCert, sequence(sequence(sequence(encode(4, await digest("SHA-256", leaf)))))),
+    ...detailAttributes(details),
   ].sort(compare);
   const dataToBeSigned = set(...attributes);
+  /** The signature value as the SignerInfo stores it: DER for ECDSA, as-is for RSA. */
+  const stored = (result: SignResult) => {
+    if (!equal(fromBase64(result.certificateDer), leaf)) {
+      throw new SigningError("card-changed", "The signing certificate changed.");
+    }
+    if (result.algorithm !== chosen) throw new SigningError("unsupported-algorithm", "Unexpected signature algorithm.");
+    const signature = fromBase64(result.signatureValue);
+    return parts.ec ? ecSignatureToDer(signature) : signature;
+  };
   return {
     algorithm: chosen,
     hash: "SHA-256" as const,
     dataToBeSigned,
-    complete(result: SignResult): Uint8Array {
-      if (!equal(fromBase64(result.certificateDer), leaf)) {
-        throw new SigningError("card-changed", "The signing certificate changed.");
-      }
-      if (result.algorithm !== chosen) throw new SigningError("unsupported-algorithm", "Unexpected signature algorithm.");
-      const signature = fromBase64(result.signatureValue);
+    /**
+     * What a CAdES signature time-stamp covers (RFC 3161 Appendix A): SHA-256
+     * of the SignerInfo's signature value, exactly as stored. Checks the result
+     * first, so a stamp is never spent on a signature `complete` would refuse.
+     */
+    timestampDigest: async (result: SignResult) => digest("SHA-256", stored(result)),
+    /**
+     * Assemble the SignedData. A time-stamp token, when there is one, goes in
+     * `unsignedAttrs`: added after signing, outside what the signature covers,
+     * as a time-stamp over a signature has to be.
+     */
+    complete(result: SignResult, options: { timestampToken?: Uint8Array } = {}): Uint8Array {
+      const value = stored(result);
       const certificates = [leaf, ...certificate.chainDer.map(fromBase64)]
         .filter((cert, i, all) => all.findIndex((other) => equal(cert, other)) === i).sort(compare);
       const signer = sequence(integer(1), sequence(parts.issuer.full, parts.serial.full), hashId(),
         encode(0xa0, concat(...attributes)),
         parts.ec ? sequence(oid(O.es256)) : sequence(oid(O.rsa), nullValue()),
-        encode(4, parts.ec ? ecSignatureToDer(signature) : signature));
+        encode(4, value),
+        ...(options.timestampToken
+          ? [encode(0xa1, attr(O.signatureTimeStampToken, options.timestampToken))]
+          : []));
       return sequence(oid(O.signedData), explicit(0, sequence(integer(1), set(hashId()),
         sequence(oid(O.data)), encode(0xa0, concat(...certificates)), set(signer))));
     },
@@ -120,6 +198,14 @@ export type CmsVerification = {
   valid: boolean;
   certificate?: SigningCertificate;
   signingTime?: string;
+  /** Reason and place the signer stated, inside what the signature covers. */
+  details?: StatedDetails;
+  /**
+   * The signature time-stamp (CAdES-T), when there is one, checked against this
+   * signature's value. Like XAdES's: whether it is about this signature, not
+   * whether its authority is trusted.
+   */
+  timestamp?: TimestampVerification;
 };
 
 /** Restricted to detached, single-signer SHA-256 CMS with signed attributes.
@@ -138,7 +224,9 @@ export async function verifyCms(cms: Uint8Array, contentDigest: Uint8Array): Pro
     const certs = children(sd[3], 0xa0), signers = children(sd[4], 0x31);
     requireValue(certs.length > 0 && certs.length <= 16 && signers.length === 1);
     const si = children(signers[0]);
-    requireValue(si.length === 6 && equal(si[0].full, integer(1)) && algorithm(si[2]) === O.sha256);
+    // Six fields, or seven with unsigned attributes — which may only be a signature time-stamp.
+    requireValue((si.length === 6 || (si.length === 7 && si[6].tag === 0xa1))
+      && equal(si[0].full, integer(1)) && algorithm(si[2]) === O.sha256);
     const sid = children(si[1]);
     requireValue(sid.length === 2);
     const candidates = certs.filter((cert) => {
@@ -186,7 +274,20 @@ export async function verifyCms(cms: Uint8Array, contentDigest: Uint8Array): Pro
       requireValue(/^\d{12}Z$/.test(raw));
       signingTime = `${Number(raw.slice(0, 2)) >= 50 ? "19" : "20"}${raw.slice(0, 2)}-${raw.slice(2, 4)}-${raw.slice(4, 6)}T${raw.slice(6, 8)}:${raw.slice(8, 10)}:${raw.slice(10, 12)}Z`;
     }
-    return { valid, signingTime, certificate: { ...parsed, certificateDer: base64(leaf),
+    let timestamp: TimestampVerification | undefined;
+    if (si.length === 7) {
+      const unsigned = children(si[6], 0xa1);
+      requireValue(unsigned.length === 1);
+      const [key, values] = children(unsigned[0]);
+      requireValue(id(key) === O.signatureTimeStampToken);
+      const tokens = children(values, 0x31);
+      requireValue(tokens.length === 1);
+      const checked = checkTimestampToken(tokens[0].full, { digest: await digest("SHA-256", si[5].content) });
+      timestamp = checked.valid
+        ? { matches: true, time: checked.token.genTime.toISOString(), tsa: checked.token.tsa, policy: checked.token.policy, problems: [] }
+        : { matches: false, problems: checked.problems };
+    }
+    return { valid, signingTime, details: readDetails(attributes), timestamp, certificate: { ...parsed, certificateDer: base64(leaf),
       chainDer: [], supportedAlgorithms: [parts.ec ? "ES256" : "RS256"] } };
   } catch {
     return { valid: false };

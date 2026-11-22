@@ -59,7 +59,7 @@ import { useContextModelStore } from "@/lib/viewer/context-model-store";
 import { ContextPropertyPanel } from "./ContextPropertyPanel";
 import { IdsProperties } from "./IdsProperties";
 import { PropertyTable, type PropertyTableGroup, type PropertyTableRow } from "./PropertyTable";
-import { usePropertyTranslation, type PropertyTranslation } from "@/lib/bsdd/use-property-names";
+import { useAttributeTranslation, usePropertyTranslation, type PropertyTranslation } from "@/lib/bsdd/use-property-names";
 import { formatPropertyValue } from "@/lib/viewer/property-format";
 import { useDisplaySettingsStore } from "@/lib/viewer/display-settings";
 import { GisAreaReport } from "./GisAreaReport";
@@ -87,6 +87,7 @@ function IfcPropertyPanel() {
   const t = useTranslations("viewer.propertyPanel");
   const decimalPlaces = useDisplaySettingsStore((s) => s.propertyDecimalPlaces);
   const translate = usePropertyTranslation();
+  const translateAttribute = useAttributeTranslation();
   const selection = useViewerStore((s) => s.selection);
   const models = useViewerStore((s) => s.models);
   const ref = selection[selection.length - 1] ?? null;
@@ -126,6 +127,10 @@ function IfcPropertyPanel() {
     label.toLowerCase().includes(term) ||
     value.toLowerCase().includes(term);
 
+  /** An attribute row by its IFC name, its bSDD label ("tipo de objeto" finds ObjectType) or its value. */
+  const matchesAttribute = (row: PropertyTableRow) =>
+    matches([row.name, ...(row.translations ?? []).map((label) => label.text)].join(" "), row.value);
+
   const visibleSets = (sets: PropertySetView[]) =>
     sets
       .map((set) => ({
@@ -149,6 +154,7 @@ function IfcPropertyPanel() {
   const typeDrivenRow = (name: string, view: PredefinedTypeView): PropertyTableRow => ({
     id: name,
     name,
+    translations: translateAttribute(name),
     value: view.value,
     ...(view.source === "type" && info?.typeObject
       ? { badge: { label: t("fromType"), hint: t("fromTypeHint", { type: info.typeObject.type, attribute: name }) } }
@@ -174,11 +180,15 @@ function IfcPropertyPanel() {
         ]
           .filter(([, value]) => Boolean(value))
           .map(([label, value, mono]) => ({
-            id: String(label), name: String(label), value: String(value), mono: Boolean(mono),
+            id: String(label),
+            name: String(label),
+            translations: translateAttribute(String(label)),
+            value: String(value),
+            mono: Boolean(mono),
           })),
         // Last, as in the schema.
         ...enumerationRows,
-      ].filter((row) => matches(row.name, row.value))
+      ].filter(matchesAttribute)
     : [];
   const shownPropertySets = info ? visibleSets(info.propertySets) : [];
   const shownQuantities = info ? visibleSets(info.quantities) : [];
@@ -191,8 +201,9 @@ function IfcPropertyPanel() {
           name,
           value: typeof value === "boolean" ? t(value ? "yes" : "no") : String(value),
           mono: name === "GlobalId",
+          translations: translateAttribute(name),
         }))
-        .filter((row) => matches(row.name, row.value))
+        .filter(matchesAttribute)
     : [];
   const typeGroupCount = (typeAttributeRows.length ? 1 : 0) + shownTypeProperties.length;
   const shownMaterials = info ? info.materials.filter((material) => matches(material.name, "")) : [];

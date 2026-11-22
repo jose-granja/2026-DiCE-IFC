@@ -79,6 +79,7 @@ else** — permission to send more is not a reason to.
 | Map tiles, 3D tiles | the configured provider (opt-in) | basemap and 3D context |
 | WFS/WMS service URL, layer, style and map bounds | user-selected public provider via `/api/ogc` (opt-in) | context features, map images and legends; ADR 010 |
 | SHA-256 of a `SignatureValue` + a nonce (opt-in, when a `TSA_URL` is configured) | `app/api/tsa/route.ts`, this app's own server, then the time-stamp authority | RFC 3161 time-stamps send no CORS headers and the paid ones need credentials (ADR 012) |
+| SHA-256 of a `SignatureValue` + a nonce, as an RFC 3161 request the browser builds (opt-in, the Cartão de Cidadão time-stamp) | the companion on the citizen's machine, then `http://ts.cartaodecidadao.pt/tsa/server` only | the free service the Autenticação.gov app uses limits each caller to 20 in 20 minutes, so it must be the citizen's machine asking, not this app's server (ADR 012, amended 2026-11-22) |
 | The texture library's manifest, then the chosen textures' files by id (while realistic materials is on) | `/texture-library/` on this origin: `backend/` (Django Ninja) for the manifest, nginx for the files | realistic materials in the viewer (ADR 016); chosen in the browser from the model's material names and colours, none of which is sent |
 | The IFC property names in the interface's language: the request names the language (`pt-PT` or `en`), nothing else | `app/api/bsdd/property-names/route.ts`, this app's own server, then bSDD (the IFC dictionary's URI and the language, at most once a day per server) | labels in the properties panel (ADR 017); bSDD sends no CORS headers |
 | The Turnstile widget's own traffic, then its one-time token (opt-in, when `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set) | the browser to `challenges.cloudflare.com` on `/human-check` only; the token via `app/api/human-check/route.ts` to Cloudflare's `siteverify` | the human check in front of the site (ADR 013); before the app loads, so no user content exists yet |
@@ -96,9 +97,13 @@ Nothing else *over the network*. Separately, and only on the same machine:
 | What | Where | Why |
 |---|---|---|
 | A digest of `SignedInfo` (32–64 bytes) | `http://127.0.0.1` companion | the signing key is on a card the browser cannot reach |
+| For a signature inside an IFC, the CMS signed attributes: digests, the signing time, and the reason and place the signer typed (≤ 200 characters each) | `http://127.0.0.1` companion | the card hashes internally, so it needs the bytes (ADRs 011, 019); never the model |
 
 The companion binds to loopback, requires a token regenerated on every start,
-allow-lists the calling origin and has no endpoint that accepts a document. If you are about to add a network call, it must fit a row above or
+allow-lists the calling origin and has no endpoint that accepts a document. Its
+one outbound call is the Cartão de Cidadão time-stamp relay in the table above:
+one fixed host, and only a request it has checked is an RFC 3161 request for a
+SHA-256 hash. If you are about to add a network call, it must fit a row above or
 it needs an ADR first.
 
 ### Code-review checklist (paste into every PR that touches `lib/` or a module page)
@@ -495,7 +500,7 @@ Read `docs/adr/007-local-signing-companion.md` and
 mistake worth not repeating.)
 
 - **Physical Cartão de Cidadão only.** Chave Móvel Digital is out of scope — no
-  SCMD relay, no AMA ApplicationId, no phone/PIN/OTP form. Point users at the
+  SCMD relay, no ARTE ApplicationId, no phone/PIN/OTP form. Point users at the
   official Autenticação.gov desktop app instead.
 - **Never build a PIN field.** The pteid PKCS#11 module raises its own PIN dialog.
   We never see, transport, cache or store the PIN.
@@ -515,7 +520,12 @@ mistake worth not repeating.)
 - **The companion is a device, not a signing service.** It returns a certificate
   and signs `SignedInfo`; `xades.ts` and `asice.ts` still build everything in
   the browser. Do not move container assembly into it — that would retire tested
-  code in favour of untested code and widen what crosses the boundary.
+  code in favour of untested code and widen what crosses the boundary. Its one
+  other job is relaying the Cartão de Cidadão time-stamp
+  (`companion/dice_companion/timestamp.py`): the browser builds the request and
+  checks the answer; the companion checks the request's shape, forwards it to
+  one fixed host, and keeps under the service's limit. Do not grow that into a
+  general proxy, and do not move the checking into it.
 - **Ask the card, do not assume.** Three things about the Cartão de Cidadão were
   written down as fact and were wrong: that it declares a protected
   authentication path (it reports `CKF_LOGIN_REQUIRED = false` and no protected
@@ -568,12 +578,55 @@ mistake worth not repeating.)
   `TSA_URL` (ADR 012, which also lists provider options). The browser sends a
   SHA-256 hex string and nothing else; the route builds the RFC 3161 request,
   checks the answer stamps *that* hash and nonce, rate-limits per client (every
-  stamp may cost money), and never logs a digest. OCSP/CRL/TSL fetches would need
+  stamp may cost money), and never logs a digest. The **Cartão de Cidadão**
+  time-stamp (the free one the Autenticação.gov app uses) goes through the
+  companion instead, because its limit — 20 in 20 minutes, a 24-hour block
+  beyond — is per caller, and through this server every user would share one.
+  The companion spends at most 18 per window (two left for the Autenticação.gov
+  app) and answers `rate-limited` past that; the page says before signing when
+  a batch is larger than what is left. It is offered when `/status` lists
+  `timestamp` in `features` (companion 0.2+), and preferred over `TSA_URL`
+  when both exist. **Both formats take a time-stamp**: XAdES-T in an IFCZIP or
+  BCF, CAdES-T inside an IFC (`unsignedAttrs`, over the stored signature
+  value; ADR 011, amended). **The checkbox starts unticked** — asking a third
+  party is the user's choice; do not default it on. OCSP/CRL/TSL fetches would need
   the same kind of proxy and are not built; an OCSP/CRL proxy must be
   host-allow-listed — without that it is an open relay.
 - **A failed time-stamp must not lose a signature.** The citizen has typed the PIN
   by then. `signFiles` returns the B-B container with `timestamp.status: "failed"`
   and the page says so; do not throw, and do not downgrade silently.
+- **Co-signing is automatic, and checks before the PIN** (`lib/signing/cosign.ts`,
+  ADR 002 and 011 amendments). `/sign/ifc` reads every queued file as it is
+  added, and `signIfcFiles` (`bulk.ts`) signs an unsigned file in the chosen
+  format and adds a signature to a signed `.ifc` or `.ifczip` in its own,
+  keeping its name — nobody has to say which is which, and there is no "what
+  to do" choice. The output format applies only to unsigned files, and the
+  page hides it when every queued file is signed.
+  IFCZIP co-signatures are parallel (`signaturesNNN.xml` over the same
+  payload); embedded ones are sequential (each block covers the model and the
+  blocks before it). Refuse before the card signs: an existing signature that
+  does not verify, an IFCZIP payload file no signature covers, the same
+  certificate signing twice, a 17th embedded block. Verify the whole result
+  before offering it. `signEmbeddedIfc` still refuses a signed IFC: the page
+  never sends it one, and that refusal catches a misreading.
+- **Reason and place are signed, and read back only from what was signed**
+  (`lib/signing/details.ts`, ADR 019). XAdES: `SignatureProductionPlaceV2/City`
+  and a `CommitmentTypeIndication` with our own UUID-arc OID whose qualifier is
+  the free text; CMS: `signer-location` and `commitment-type-indication`, same
+  OID. The verifier reads them only from a `SignedProperties` a matching
+  Reference covers, and reading them never decides validity. They are the
+  signer's statement: show them as that, never as checked. OIDs are BigInt in
+  `der.ts` — a 128-bit arc in a JS number becomes a different OID.
+- **Professional attributes (SCAP) are switched off** (ADR 019, proposed). The
+  slot (`SignerRoleV2/SignedAssertions`, the issuer's assertion as received)
+  and `professional-attributes.ts` exist; `scap` answers `not-configured`
+  because SCAP needs an ARTE registration this application does not have. Do
+  not wire a source without settling ADR 019 §5 first — it widens what crosses
+  the wire and what the companion does.
+- **Read an EC key's curve from its certificate, never from the hash.** The
+  companion negotiates ES512 for a CC v2, whose key is P-256; guessing "SHA-512
+  → P-521" reported every such IFCZIP signature invalid
+  (`CertificateInfo.namedCurve`, `cosign.test.ts`).
 - **Do not call a signature qualified.** A time-stamp from a *qualified* service
   plus the card's qualified certificate is what makes a QES, and the verifier does
   not check either against the trusted list. `verify.ts` reports what a token
@@ -669,6 +722,14 @@ from a BCF 3.0 file.
   check runs, and set afterwards; the three states are distinct so the UI never
   labels an ordinary model "unsigned" or a pending check "failed". Valid is not
   trusted, and the badge says so.
+- **The badge lists every signer**, in the file's order, never just the first:
+  a co-signed file (§6) has several. With more than one, each row is marked
+  valid or not, so a broken co-signature is pointed at rather than only
+  counted; an embedded IFC adds that each signature covers the ones above it.
+- **A model id is unique across the worker pool**, not just within a worker:
+  `mint()` adds the adapter instance's own tag. Two `.ifczip`s wrapping the
+  same `model.ifc` — a file and its co-signed copy — once both became
+  `m1:model.ifc` and the store merged their rows.
 - **Fixtures are buildingSMART's own test cases** (`fixtures/bcf/`, 20 archives
   across 2.1 and 3.0). Every one is parsed, rewritten and schema-validated on
   `npm test`. Add to them rather than hand-writing an archive.
@@ -1518,8 +1579,8 @@ flows live. Both are written in `messages/*.json` (no hard-coded prose).
 Validation is a **panel in the viewer** (`viewer/_components/IdsPanel.tsx`), not
 a page. The useful action on a failure is "show me that element", which needs
 the viewport beside it. `/ids/validate` redirects to `/viewer?panel=ids` so old
-links land on what replaced them. The charts stayed behind in the exported HTML
-report, where there is room for them.
+links land on what replaced them. The summary rates stayed behind in the
+exported HTML report, where there is room for them.
 
 A run describes the models that were loaded when it happened, so the panel
 clears it when the federation changes — stale results next to a changed model
@@ -1556,6 +1617,17 @@ set are worse than none.
   applicable count minus the failures, since every applicable element is checked
   against every requirement. A specification that fails on its count alone has
   no element to list and gets a row of its own.
+- **The exported report (`lib/ids/html-report.ts`) is laid out as ifclite.com's**:
+  summary tiles, three pass rates with bars (check, element, specification —
+  floored, never rounded, so a failing element never reads 100%), and one
+  `<details>` card per specification, failed ones open, holding its requirements
+  and their failing elements, then a by-element table. It stays **script-free**
+  (`validate-engine.test.ts` asserts no `<script>`/`src=`): the status filter is
+  radio buttons read by CSS `:has()`, and print opens every card
+  (`::details-content` in CSS, plus `ExportBar`'s print button). Rows are capped
+  (100 per requirement, 500 by element) with the hidden count stated. Labels are
+  `messages/*.json` `idsReport`, with an English copy in the file for callers
+  without next-intl; `html-report.test.ts` renders both catalogues.
 - **Validation runs one model at a time.** Four parallel runs on four cores
   finish together at the end with a frozen progress bar and no cores left for
   the renderer.
@@ -1601,6 +1673,11 @@ Pyodide, its packages and the rules are this origin's `public/validator/`.
   `lark` module, and 0.12 is what the service has.
 - A rule that crashes is reported as the rule's error, not the model's
   (GRP001 on `IfcZone` is an upstream bug).
+- **The run's return value is the final word** (`lib/validation/store.ts`): stage
+  events come over Comlink's callback channel, the return over the worker's own,
+  and the two are not ordered — the last stage's event can land after the run is
+  marked finished and be dropped (it hid a fast last stage). Merge the returned
+  results; do not rely on the events alone.
 - **Ship only what the rules use in the browser** (`validator/README.md`, "Not
   shipped"): Django, pyspellchecker, pandas, SQLAlchemy… are in their
   requirements for production's database and their TESTING mode. Django's
@@ -1628,6 +1705,21 @@ Pyodide, its packages and the rules are this origin's `public/validator/`.
   at most `MAX_ROWS_PER_RULE` listed. Both share `findings.ts`'s grouping with
   the panel. Their tests run on real service output
   (`lib/validation/__tests__/fixtures/`, regenerated with `validator:check --json`).
+- **Our own rules are a stage of their own, `dice_rules`, never mixed into the
+  service's.** They live in the DiCE-IFC-Rules repository (same Gherkin format,
+  buildingSMART's step phrases), pinned in `validator/manifest.json`
+  (`customRules`: `npm run validator:pin-rules -- owner/repo <commit>` writes the
+  commit and SHA-256); `DICE_RULES_DIR=<checkout>` builds from a local checkout
+  to write and test them. They are unpacked under `rules/features/custom/` and
+  selected by path, all of them, whatever their tags; the service's stages
+  exclude that path, so a rule tagged `@industry-practice` (which only makes its
+  findings warnings) stays out of buildingSMART's results. Their Python steps
+  (`dice_custom_steps`) load only in their stage. The build leaves them out, with
+  a warning, if a feature is not "PREFIX123 - Title" (e.g. "DiCE001 - …"), repeats a code, or uses one of
+  buildingSMART's prefixes. Users get new rules with the next deployment; the
+  browser never fetches them, and once shipped they are readable by anyone.
+  A phrase that matches no step is reported as the rule's error ("no step
+  matches …"): behave would otherwise mark the rule not applicable.
 
 ### 9a. bSDD suggestions
 
@@ -1671,7 +1763,13 @@ The IDS editor offers vocabulary from two sources: the **loaded model** and the
   Portuguese, English in English, never both (`PropertyTable`'s `translations`,
   `data-property-translation="<language>"`) — and its filter finds it; the IFC name is still
   what everything matches on. Only in `Pset_*`/`Qto_*` sets, which IFC
-  reserves for buildingSMART's own. The table is keyed by property code, since
+  reserves for buildingSMART's own. **Entity attributes are labelled too**
+  (`attributeLabel`, `useAttributeTranslation`: `ObjectType` → "Tipo de
+  Objeto", a door's `OperationType` → "Tipo de Operação"), in the Attributes
+  and Type tabs and the IDS tab's attribute rows, with no set to check: the
+  dictionary lists IFC's attributes among its properties by the same code, and
+  an attribute's name is the schema's. bSDD does not list `PredefinedType`, so
+  it has no label. The table is keyed by property code, since
   bSDD names a property once for the whole dictionary. It is read live from
   bSDD by `app/api/bsdd/property-names/route.ts` (`lib/bsdd/dictionary-names.ts`):
   for pt-PT the dictionary's listing in English and in pt-PT, three pages

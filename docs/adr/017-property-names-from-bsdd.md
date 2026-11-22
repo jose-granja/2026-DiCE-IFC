@@ -38,6 +38,14 @@ amended 2026-11-19): mostly the IFC name with spaces, but read more easily
 name starts with `Pset_` or `Qto_`, which IFC reserves for them. A company's
 `Status` in `Acme_Wall` may mean something else.
 
+**Entity attributes too** (amended 2026-11-20). The dictionary lists IFC's
+attributes among its properties, by the same code (`ObjectType` → "Tipo de
+Objeto", `OperationType` → "Tipo de Operação", `GlobalId` → "ID Global"), so
+the same table labels the Attributes and Type tabs and the IDS tab's
+attribute rows. No set check applies: an attribute's name is the schema's,
+not a company's. `PredefinedType` is not in the dictionary and has no label.
+No request is added.
+
 **Read live from bSDD, through this app's server.** bSDD sends no CORS
 headers, so the browser cannot ask it. `app/api/bsdd/property-names/route.ts`
 (`lib/bsdd/dictionary-names.ts`) reads the dictionary's listing in English and

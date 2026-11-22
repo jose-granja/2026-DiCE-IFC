@@ -29,8 +29,8 @@ import { PanelHeader } from "./PanelHeader";
  *
  * The panel is narrow, so it carries the parts that drive work: what is being
  * validated, the verdict, and the failures with their jump into the 3D view.
- * The charts are a reporting view and live in the exported HTML report, where
- * there is room for them.
+ * The summary rates are a reporting view and live in the exported HTML report
+ * (`lib/ids/html-report.ts`), where there is room for them.
  */
 export function IdsPanel() {
   const t = useTranslations("viewer.idsPanel");

@@ -102,6 +102,19 @@ describe("schema and rule findings", () => {
     expect(groupExplanation(group, explain)).toBe("CreationDate is a required attribute of IfcOwnerHistory, but the file leaves it unset ($). Fill it in the authoring tool, or report it to the exporter’s vendor.");
   });
 
+  it("link our own rules to their repository, not to buildingSMART's pages", () => {
+    const ours = findingGroups({
+      dice_rules: { stage: "dice_rules", status: "invalid", info: {}, outcomes: [
+        { severity: "ERROR", rule: "DCE001", title: "DCE001 - Named storeys and spaces", inst: 15, entity: "IfcSpace",
+          doc: "https://github.com/o/DiCE-IFC-Rules/blob/c12ec33/features/rules/DCE/DCE001_Named-storeys-and-spaces.feature",
+          description: "The rule verifies that each building storey and each space has a name." },
+      ] },
+    })[0];
+    expect(docLabel(ours, explain)).toBe("The rule in DiCE-IFC-Rules (GitHub)");
+    expect(groupExplanation(ours, explain)).toMatch(/^The rule verifies that each building storey/);
+    expect(docLabel(groups.find((g) => g.label === "PJS003")!, explain)).toBe("The rule’s documentation");
+  });
+
   it("give a rule's description from its feature file", () => {
     const pjs = groups.find((g) => g.label === "PJS003")!;
     expect(groupExplanation(pjs, explain)).toMatch(/^The rule verifies that the GUID/);

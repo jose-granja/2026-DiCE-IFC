@@ -10,6 +10,9 @@ Each function returns a JSON string: {"stage", "status", "outcomes", "info"}.
 Layout in Pyodide's file system (from `rules.zip`, `npm run validator:assets`):
   /validator/rules            ifc-gherkin-rules at the service's commit (+ its data model)
   /validator/header_policy    the service's header check
+  /validator/rules/features/custom   our own rules (DiCE-IFC-Rules), when built with them;
+                              their steps in features/steps/dice_custom_steps
+  /validator/custom_rules.json       what was built of them (build-validator-assets.mts)
   site-packages               ifcopenshell (wheel), simple_spf, the rtree/pyproj stand-ins
 """
 import base64
@@ -43,6 +46,11 @@ RULE_TAGS = {
     "normative_ip": "@informal-proposition",
     "industry_practices": "@industry-practice",
 }
+
+# Our own rules: run by path, all of them, in their own stage; never in buildingSMART's.
+CUSTOM_STAGE = "dice_rules"
+CUSTOM_FEATURES = "features/custom/"
+CUSTOM_META = "/validator/custom_rules.json"
 
 SEVERITY_ORDER = {"NOT_APPLICABLE": 0, "EXECUTED": 1, "PASSED": 2, "WARNING": 3, "ERROR": 4}
 
@@ -348,22 +356,53 @@ def _reduce(outcomes):
     return []
 
 
+def _custom_rules():
+    """What was built of our own rules, or None."""
+    try:
+        with open(CUSTOM_META, encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, ValueError):
+        return None
+
+
+def _rule_doc(location, custom):
+    """A rule's page: buildingSMART's published one, or our rule's file on GitHub."""
+    if not location.endswith(".feature"):
+        return None
+    if location.startswith(CUSTOM_FEATURES):
+        docs = (custom or {}).get("docs")
+        return docs + "features/rules/" + location[len(CUSTOM_FEATURES):] if docs else None
+    return RULE_DOCS + os.path.basename(location).replace(".feature", ".html")
+
+
 def rules(stage, path):
     started = time.time()
-    tag = RULE_TAGS[stage]
+    custom = _custom_rules()
+    if stage == CUSTOM_STAGE:
+        if not custom:
+            return _result(stage, [], started, status="skipped", reason="none")
+        # All of ours, whatever their tags (@industry-practice only makes a rule's findings warnings).
+        selection = ["--include", CUSTOM_FEATURES]
+    else:
+        # The service's selection, by tag, of the service's rules only.
+        selection = [f"--tags={RULE_TAGS[stage]}", "--exclude", CUSTOM_FEATURES]
     if RULES_DIR not in sys.path:
         sys.path.insert(0, RULES_DIR)
     _cache_model_opens()
     from behave.__main__ import main as behave_main
 
     out_json = "/tmp/dice-behave.json"
-    args = [f"--tags={tag}", "--tags=-disabled",
+    args = selection + ["--tags=-disabled",
             "--define", f"input={path}",
             "--define", "max_outcomes_per_rule=0",
             "--define", f"purepythonparser={'true' if stage == 'prerequisites' else 'false'}",
             "-f", "outcome_embedding_json", "-o", out_json, "--no-summary"]
     old_cwd = os.getcwd()
     os.chdir(RULES_DIR)
+    if os.path.exists(out_json):
+        os.remove(out_json)
+    # Our rules' steps are loaded only in their stage (features/steps/zz_dice_custom_steps.py).
+    os.environ["DICE_RULES_STAGE"] = "1" if stage == CUSTOM_STAGE else "0"
     out, err = _Capture(), _Capture()
     try:
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
@@ -373,7 +412,12 @@ def rules(stage, path):
                 pass
     finally:
         os.chdir(old_cwd)
+        os.environ.pop("DICE_RULES_STAGE", None)
 
+    if not os.path.exists(out_json):
+        # behave stopped before running a rule: an ambiguous or broken step, a feature it cannot parse.
+        said = [line for line in (err.getvalue() + out.getvalue()).splitlines() if line.strip()]
+        raise RuntimeError(said[-1][:300] if said else "the rules did not run")
     with open(out_json, encoding="utf-8") as handle:
         log = json.load(handle)
 
@@ -382,9 +426,9 @@ def rules(stage, path):
     for feature in log:
         rule = feature["name"].split(" - ")[0].strip()
         title = feature["name"]
-        # The service links each rule to its published page, named after the feature file.
+        # The service links each rule to its published page, named after the feature file; ours, to the file.
         location = (feature.get("location") or "").split(":")[0]
-        doc = (RULE_DOCS + os.path.basename(location).replace(".feature", ".html")) if location.endswith(".feature") else None
+        doc = _rule_doc(location, custom)
         # The rule's own words ("The rule verifies that…"), as the service shows them.
         description = " ".join(line.strip() for line in feature.get("description", []) if line.strip()) or None
         found = []
@@ -392,6 +436,10 @@ def rules(stage, path):
             for blob in element.get("validation_outcomes", []):
                 found.extend(json.loads(base64.b64decode(blob["data"]).decode("utf-8")))
             for st in element.get("steps", []):
+                if (st.get("result") or {}).get("status") == "undefined":
+                    # A phrase no step matches (a typo, say): the rule checks nothing, so say so.
+                    crashed.append({"rule": rule, "step": st.get("name"), "error": f"no step matches “{st.get('name')}”"})
+                    continue
                 message = (st.get("result") or {}).get("error_message")
                 if message and (st.get("result") or {}).get("status") == "failed" and "ValidationOutcome(" not in str(message):
                     text = message[-1] if isinstance(message, list) else str(message)
@@ -424,6 +472,10 @@ def industry_practices(path):
     return rules("industry_practices", path)
 
 
+def dice_rules(path):
+    return rules(CUSTOM_STAGE, path)
+
+
 STAGES = {
     "header_syntax": header_syntax,
     "header": header,
@@ -433,6 +485,7 @@ STAGES = {
     "normative_ia": normative_ia,
     "normative_ip": normative_ip,
     "industry_practices": industry_practices,
+    CUSTOM_STAGE: dice_rules,
 }
 
 

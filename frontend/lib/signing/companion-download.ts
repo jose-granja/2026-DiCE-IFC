@@ -35,8 +35,13 @@ export type CompanionDownload = {
   kind: "installer" | "program";
 };
 
-/** Kept in step with `companion/pyproject.toml`. */
-export const COMPANION_VERSION = "0.1.1";
+/**
+ * The version of the installers served from `public/companion/`, kept in step
+ * with `companion/pyproject.toml` when they are rebuilt. The page still asks a
+ * running companion what it can do (`/status` → `features`) rather than
+ * trusting this number: the Windows program served next to it may be older.
+ */
+export const COMPANION_VERSION = "0.2.0";
 
 const CONFIGURED_BASE = (process.env.NEXT_PUBLIC_COMPANION_DOWNLOAD_BASE ?? "").replace(
   /\/+$/,
@@ -95,10 +100,11 @@ const FILES: Record<Exclude<CompanionPlatform, "unknown">, string> = {
   "macos-arm64": `DiCE-IFC-Companion-${COMPANION_VERSION}-macos-arm64.pkg`,
   "macos-x64": `DiCE-IFC-Companion-${COMPANION_VERSION}-macos-x86_64.pkg`,
   // Released builds are the Inno Setup installer. What this app serves itself
-  // is whatever `build_windows.ps1` left in `dist_win`, which on a machine
-  // without Inno Setup is the bare program.
+  // is the program `build_windows.ps1` names `DiCE-IFC-Companion-<v>-win.exe`
+  // (`copy:companion` gives an older, unversioned `dice-companion.exe` that
+  // name too), so the download says which build it is.
   windows: SELF_HOSTED
-    ? "dice-companion.exe"
+    ? `DiCE-IFC-Companion-${COMPANION_VERSION}-win.exe`
     : `DiCE-IFC-Companion-${COMPANION_VERSION}-windows-setup.exe`,
 };
 

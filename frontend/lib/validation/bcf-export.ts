@@ -129,7 +129,7 @@ function topicFor(
   if (group.doc) topic.referenceLinks.push(group.doc);
   topic.comments.push(createComment({
     author,
-    comment: t("comment", { stage: t(`stages.${group.stage}`), date: input.validatedAt.toISOString().slice(0, 10) }),
+    comment: t(group.stage === "dice_rules" ? "commentCustom" : "comment", { stage: t(`stages.${group.stage}`), date: input.validatedAt.toISOString().slice(0, 10) }),
   }));
   return topic;
 }

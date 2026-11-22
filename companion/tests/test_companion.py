@@ -490,3 +490,118 @@ class OriginListTests(unittest.TestCase):
     def test_the_default_is_development_only(self):
         origins, _ = load_origins(environ={}, home=__import__("pathlib").Path("/nonexistent"))
         self.assertEqual(origins[:2], ["http://localhost:3000", "http://127.0.0.1:3000"])
+
+
+# ---------------------------------------------------------------- time-stamps
+
+from dice_companion import timestamp  # noqa: E402
+
+
+def timestamp_request(*, digest=b"\x11" * 32, oid="0609608648016503040201", nonce=b"\x01\x02\x03\x04\x05\x06\x07\x08",
+                      cert_req=True, extra=b""):
+    """A TimeStampReq in the web app's shape (`buildTimestampRequest`)."""
+    def tlv(tag, value):
+        return bytes([tag, len(value)]) + value
+    algorithm = tlv(0x30, bytes.fromhex(oid) + b"\x05\x00")
+    imprint = tlv(0x30, algorithm + tlv(0x04, digest))
+    body = tlv(0x02, b"\x01") + imprint + tlv(0x02, nonce) + (tlv(0x01, b"\xff") if cert_req else b"") + extra
+    return tlv(0x30, body)
+
+
+class TimestampRequestTests(unittest.TestCase):
+    def test_the_web_apps_request_is_accepted(self):
+        timestamp.check_request(timestamp_request())
+        timestamp.check_request(timestamp_request(cert_req=False))
+
+    def test_anything_else_is_refused(self):
+        for bad in (
+            b"",
+            b"ISO-10303-21;\nHEADER;",  # a model is not a request
+            timestamp_request(oid="06052b0e03021a"),  # SHA-1
+            timestamp_request(digest=b"\x11" * 31),
+            timestamp_request(nonce=b""),
+            timestamp_request(extra=bytes.fromhex("a0020500")),  # extensions
+            timestamp_request() + b"\x00",  # trailing bytes
+            b"\x30" + bytes([0x7F]) + b"\x00" * 127,  # too large and not a request
+        ):
+            with self.subTest(bad=bad[:12]):
+                with self.assertRaises(timestamp.TimestampError) as caught:
+                    timestamp.check_request(bad)
+                self.assertEqual(caught.exception.code, "bad-request")
+
+
+class TimestampBudgetTests(unittest.TestCase):
+    def test_stays_under_the_services_limit_and_recovers_after_the_window(self):
+        now = [1000.0]
+        budget = timestamp.Budget(clock=lambda: now[0])
+        for _ in range(timestamp.BUDGET):
+            budget.take()
+        self.assertEqual(budget.remaining(), 0)
+        with self.assertRaises(timestamp.TimestampError) as caught:
+            budget.take()
+        self.assertEqual(caught.exception.code, "rate-limited")
+        self.assertGreater(caught.exception.retry_after, 0)
+        # Fewer than the service's 20, so it never blocks the citizen for a day.
+        self.assertLess(timestamp.BUDGET, 20)
+
+        now[0] += timestamp.WINDOW_SECONDS
+        budget.take()
+        self.assertEqual(budget.remaining(), timestamp.BUDGET - 1)
+
+
+class TimestampEndpointTests(CompanionTestCase):
+    def setUp(self):
+        # A fresh budget per test; the server's handler shares one Companion.
+        self.httpd.RequestHandlerClass.companion.timestamp_budget = timestamp.Budget()
+
+    def stamp(self, body, token=TOKEN):
+        return self.request("/timestamp", method="POST", token=token, origin=ORIGIN, body=body)
+
+    def test_requires_the_token(self):
+        with unittest.mock.patch.object(timestamp, "post") as post:
+            status, payload, _ = self.stamp({"request": base64.b64encode(timestamp_request()).decode()}, token=None)
+        self.assertEqual(status, 403)
+        post.assert_not_called()
+
+    def test_relays_the_request_to_the_one_service_and_returns_the_answer_untouched(self):
+        sent = timestamp_request()
+        with unittest.mock.patch.object(timestamp, "post", return_value=b"\x30\x03\x02\x01\x00") as post:
+            # A caller cannot name another host: anything but `request` is ignored.
+            status, payload, _ = self.stamp({
+                "request": base64.b64encode(sent).decode(), "url": "http://example.com/",
+            })
+        self.assertEqual(status, 200)
+        post.assert_called_once_with(sent)
+        self.assertEqual(base64.b64decode(payload["reply"]), b"\x30\x03\x02\x01\x00")
+        self.assertEqual(payload["name"], "Cartão de Cidadão")
+        self.assertEqual(timestamp.TSA_URL, "http://ts.cartaodecidadao.pt/tsa/server")
+
+    def test_refuses_what_is_not_a_request_for_a_hash_without_calling_out(self):
+        with unittest.mock.patch.object(timestamp, "post") as post:
+            status, payload, _ = self.stamp({"request": base64.b64encode(b"ISO-10303-21;").decode()})
+            self.assertEqual((status, payload["code"]), (400, "bad-request"))
+            status, payload, _ = self.stamp({"digest": "00" * 32})
+            self.assertEqual((status, payload["code"]), (400, "bad-request"))
+        post.assert_not_called()
+
+    def test_says_when_the_limit_is_reached_instead_of_calling_out(self):
+        body = {"request": base64.b64encode(timestamp_request()).decode()}
+        with unittest.mock.patch.object(timestamp, "post", return_value=b"\x30\x00") as post:
+            for _ in range(timestamp.BUDGET):
+                self.assertEqual(self.stamp(body)[0], 200)
+            status, payload, _ = self.stamp(body)
+        self.assertEqual((status, payload["code"]), (429, "rate-limited"))
+        self.assertGreater(payload["retryAfter"], 0)
+        self.assertEqual(post.call_count, timestamp.BUDGET)
+
+    def test_an_unreachable_service_is_a_502(self):
+        body = {"request": base64.b64encode(timestamp_request()).decode()}
+        with unittest.mock.patch.object(timestamp, "post", side_effect=urllib.error.URLError("offline")):
+            status, payload, _ = self.stamp(body)
+        self.assertEqual((status, payload["code"]), (502, "tsa-unreachable"))
+
+    def test_status_says_it_can_stamp_and_how_many_are_left(self):
+        status, payload, _ = self.request("/status", origin=ORIGIN)
+        self.assertEqual(status, 200)
+        self.assertIn("timestamp", payload["features"])
+        self.assertEqual(payload["timestamp"], {"name": "Cartão de Cidadão", "remaining": timestamp.BUDGET})

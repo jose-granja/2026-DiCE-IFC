@@ -12,7 +12,7 @@ import type { Content, TableCell, TDocumentDefinitions } from "pdfmake/interface
 
 import { describeValue, findingGroups } from "./findings";
 import { groupExplanation, groupTitle, outcomeNote, type ExplainTranslate } from "./explain";
-import { VALIDATION_STAGES, type StageResult, type ValidationStage, type ValidatorBuild } from "./stages";
+import { customRulesLabel, VALIDATION_STAGES, type StageResult, type ValidationStage, type ValidatorBuild } from "./stages";
 
 export type ReportTranslate = (key: string, values?: Record<string, string | number>) => string;
 
@@ -57,7 +57,8 @@ export function buildValidationReport(input: ValidationReportInput, t: ReportTra
       [t("validated"), dateTime.format(input.validatedAt)],
       [t("duration"), t("seconds", { seconds: Math.round(input.seconds) })],
       [t("where"), t("whereValue")],
-      [t("rules"), service["ifc-gherkin-rules"] ? `ifc-gherkin-rules ${service["ifc-gherkin-rules"].slice(0, 7)}` : "—"],
+      [t("rules"), [service["ifc-gherkin-rules"] && `ifc-gherkin-rules ${service["ifc-gherkin-rules"].slice(0, 7)}`,
+        input.results.dice_rules && customRulesLabel(input.build)].filter(Boolean).join(" · ") || "—"],
       [t("engine"), [service.ifcopenshell && `IfcOpenShell (${t("serviceRuns", { version: service.ifcopenshell })})`, input.build && `Pyodide ${input.build.pyodide}`].filter(Boolean).join(" · ") || "—"],
     ]),
     { text: t("stagesTitle"), style: "sectionTitle" },
