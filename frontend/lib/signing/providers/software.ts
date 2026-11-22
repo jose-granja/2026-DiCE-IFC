@@ -58,6 +58,12 @@ export type SoftwareProviderOptions = {
   /** Fixed validity, so a test certificate does not expire mid-suite. */
   notBefore?: Date;
   notAfter?: Date;
+  /**
+   * EC only: sign with this hash instead of SHA-256. `ES512` is what the
+   * companion negotiates for a CC v2, whose key is P-256 — a pairing a
+   * verifier must read the curve from the certificate to accept.
+   */
+  algorithm?: "ES256" | "ES384" | "ES512";
 };
 
 const OID_SHA256_RSA = "1.2.840.113549.1.1.11";
@@ -100,7 +106,7 @@ export async function createSoftwareSigningProvider(
 
   const parsed = readCertificate(certificateDer);
   const supportedAlgorithms: SignatureAlgorithm[] =
-    keyType === "EC" ? ["ES256"] : ["RS256"];
+    keyType === "EC" ? [options.algorithm ?? "ES256"] : ["RS256"];
 
   const certificate: SigningCertificate = {
     certificateDer: base64(certificateDer),

@@ -35,8 +35,13 @@ export type CompanionDownload = {
   kind: "installer" | "program";
 };
 
-/** Kept in step with `companion/pyproject.toml`. */
-export const COMPANION_VERSION = "0.1.1";
+/**
+ * The version of the installers served from `public/companion/`, kept in step
+ * with `companion/pyproject.toml` when they are rebuilt. The page still asks a
+ * running companion what it can do (`/status` → `features`) rather than
+ * trusting this number: the Windows program served next to it may be older.
+ */
+export const COMPANION_VERSION = "0.2.0";
 
 const CONFIGURED_BASE = (process.env.NEXT_PUBLIC_COMPANION_DOWNLOAD_BASE ?? "").replace(
   /\/+$/,

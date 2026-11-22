@@ -56,6 +56,7 @@ import {
   utf8,
   type XmlNode,
 } from "./canonical";
+import { cleanDetails, REASON_COMMITMENT_OID, type SignatureDetails } from "./details";
 import {
   hashForAlgorithm,
   xmldsigAlgorithmUri,
@@ -104,6 +105,8 @@ export type PrepareOptions = {
   now?: Date;
   /** Injectable for the same reason; must be unique within a container. */
   idSuffix?: string;
+  /** What the signer states — reason, place, attributes — signed with it (`details.ts`). */
+  details?: SignatureDetails;
 };
 
 /**
@@ -146,6 +149,7 @@ export async function prepareSignature(
       referenceId,
       mimeType: object.mimeType,
     })),
+    details: cleanDetails(options.details),
   });
 
   const signedPropertiesXml = toCanonical(signedProperties);
@@ -425,7 +429,9 @@ function buildSignedProperties(input: {
   certificateDigest: string;
   certificate: SigningCertificate;
   dataObjects: Array<{ referenceId: string; mimeType: string }>;
+  details?: SignatureDetails;
 }): XmlNode {
+  const { reason, location, professionalAttributes } = input.details ?? {};
   return element(
     "xades:SignedProperties",
     [
@@ -461,19 +467,69 @@ function buildSignedProperties(input: {
               ),
             ],
           ),
+          // EN 319 132-1's order: SigningCertificateV2, then the place, then the role.
+          ...(location
+            ? [element("xades:SignatureProductionPlaceV2", [], [textElement("xades:City", location)])]
+            : []),
+          ...(professionalAttributes
+            ? [
+                element("xades:SignerRoleV2", [], [
+                  element(
+                    "xades:SignedAssertions",
+                    [],
+                    // The issuer's assertion as received, base64 — never parsed and rebuilt.
+                    professionalAttributes.map((attribute) =>
+                      textElement("xades:SignedAssertion", attribute.assertion),
+                    ),
+                  ),
+                ]),
+              ]
+            : []),
         ],
       ),
       element(
         "xades:SignedDataObjectProperties",
         [],
-        input.dataObjects.map((object) =>
-          element(
-            "xades:DataObjectFormat",
-            [{ name: "ObjectReference", value: `#${object.referenceId}` }],
-            [textElement("xades:MimeType", object.mimeType)],
+        [
+          ...input.dataObjects.map((object) =>
+            element(
+              "xades:DataObjectFormat",
+              [{ name: "ObjectReference", value: `#${object.referenceId}` }],
+              [textElement("xades:MimeType", object.mimeType)],
+            ),
           ),
-        ),
+          // After every DataObjectFormat: the schema's order.
+          ...(reason ? [reasonIndication(reason)] : []),
+        ],
       ),
+    ],
+  );
+}
+
+/**
+ * The signer's free-text reason, as a commitment type (`details.ts`): this
+ * application's identifier, covering every signed object, the text as its
+ * qualifier.
+ */
+function reasonIndication(reason: string): XmlNode {
+  return element(
+    "xades:CommitmentTypeIndication",
+    [],
+    [
+      element(
+        "xades:CommitmentTypeId",
+        [],
+        [
+          textElement("xades:Identifier", `urn:oid:${REASON_COMMITMENT_OID}`, [
+            { name: "Qualifier", value: "OIDAsURN" },
+          ]),
+          textElement("xades:Description", "Reason stated by the signer"),
+        ],
+      ),
+      element("xades:AllSignedDataObjects", []),
+      element("xades:CommitmentTypeQualifiers", [], [
+        textElement("xades:CommitmentTypeQualifier", reason),
+      ]),
     ],
   );
 }

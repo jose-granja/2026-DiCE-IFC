@@ -54,6 +54,12 @@
         "why": "Um selo temporal é a declaração assinada de um terceiro de que a assinatura existia num dado momento — é o que permite verificar uma assinatura depois de o seu certificado ter expirado. As autoridades de selos temporais não enviam cabeçalhos CORS e as pagas exigem credenciais que não podem chegar a um navegador, por isso o pedido passa pelo servidor desta aplicação. O resumo é da assinatura, que por sua vez é uma assinatura sobre resumos: não diz nada sobre o seu modelo, nenhum nome de ficheiro o acompanha e o servidor nunca o guarda nem regista. A autoridade vê o endereço desta instalação, não o seu."
       },
       {
+        "what": "O resumo SHA-256 do valor da própria assinatura (nunca um ficheiro) e um número aleatório",
+        "when": "Apenas quando assinala “Acrescentar um selo temporal” com o serviço do Cartão de Cidadão como origem — não vem assinalado — e só se o companion de assinatura no seu computador o puder reencaminhar (versão 0.2 ou posterior)",
+        "where": "O serviço de selos temporais do Cartão de Cidadão (ts.cartaodecidadao.pt), enviado pelo companion de assinatura a partir do seu computador — não pelo servidor desta aplicação",
+        "why": "É o serviço gratuito de selos temporais que a aplicação Autenticação.gov usa. Permite 20 pedidos em cada 20 minutos por quem pede e bloqueia durante 24 horas quem pedir mais, por isso o pedido tem de sair do seu computador, como o da aplicação Autenticação.gov: pedido a partir do servidor desta aplicação, todos os utilizadores partilhariam a mesma quota. O companion conta os seus próprios pedidos e para antes do limite. Só reencaminha um pedido para um resumo, para esse único endereço, e o serviço vê o endereço do seu computador. O pedido segue por HTTP simples, como o serviço o oferece; a resposta é assinada pelo serviço e verificada no seu navegador."
+      },
+      {
         "what": "URL do serviço WFS/WMS, camada selecionada e limites da área pedida",
         "when": "Apenas após escolher Ler camadas ou Carregar camada selecionada no Modelo de contexto",
         "where": "O serviço público escolhido, através do proxy de leitura /api/ogc desta aplicação",
@@ -68,7 +74,7 @@
     ],
     "localOnly": [
       {
-        "what": "Metadados da assinatura com resumos criptográficos dos documentos e o certificado de assinatura",
+        "what": "Metadados da assinatura com resumos criptográficos dos documentos e o certificado de assinatura — e, numa assinatura dentro de um ficheiro IFC, o motivo e a localização que escreveu, se os indicou",
         "where": "O companion de assinatura do DiCE-IFC, em http://127.0.0.1",
         "why": "A chave de assinatura está no seu Cartão de Cidadão e um navegador não consegue falar com um cartão inteligente. O companion entrega o resumo ao cartão e devolve a assinatura. Não tem qualquer ponto de acesso que aceite um documento e recusa tudo o que seja maior do que alguns kilobytes. Cada pedido tem de trazer um token que o companion gera de novo sempre que arranca, e só o entrega à origem desta própria aplicação — é por isso que nunca precisa de copiar nenhum, e por isso que outra página web não o pode usar para comandar o seu cartão."
       }
@@ -887,6 +893,7 @@
       "fromType": "do tipo",
       "fromTypeHint": "Definido no seu {type}. Pela regra da buildingSMART, o {attribute} de um tipo aplica-se a todas as suas ocorrências.",
       "translationHint": "Nome desta propriedade no Dicionário de Dados da buildingSMART (bSDD). A propriedade mantém o seu nome IFC.",
+      "attributeTranslationHint": "Nome deste atributo no Dicionário de Dados da buildingSMART (bSDD). O atributo mantém o seu nome IFC.",
       "predefinedUserDefined": "USERDEFINED, indicado em {attribute}",
       "predefinedUserDefinedMissing": "USERDEFINED, sem {attribute} que o indique",
       "noMaterials": "Este elemento não tem materiais.",
@@ -2256,7 +2263,12 @@
       "none": "Nenhum — a hora da assinatura é só a que o computador do signatário declarou",
       "present": "{time}, por {tsa}",
       "mismatch": "Não corresponde a esta assinatura: {problem}"
-    }
+    },
+    "reason": "Motivo",
+    "location": "Localização",
+    "professionalAttributes": "Atributos profissionais",
+    "certifiedAttributes": "{count, plural, one {# atributo certificado, não verificado} other {# atributos certificados, não verificados}}",
+    "detailsNote": "O motivo e a localização são o que quem assinou declarou ao assinar; ninguém os confirmou."
   },
   "ifcVerify": {
     "description": "Verifique assinaturas dentro de ficheiros IFC e em contentores IFCZIP ou BCF. Adicione um ou vários ficheiros; a verificação é local.",
@@ -2305,6 +2317,22 @@
       "duplicate-name": "Já existe um ficheiro com este nome na seleção. Mude o nome de um dos ficheiros antes de o adicionar.",
       "unsupported-format": "Um ou mais ficheiros selecionados não são suportados por este formato de saída.",
       "invalid-mode": "A assinatura dentro do IFC cria uma assinatura por ficheiro. Escolha IFCZIP para uma assinatura que abranja vários ficheiros."
+    },
+    "cosign": {
+      "hint": "Os ficheiros que alguém já assinou recebem a sua assinatura acrescentada, mantendo cada um o formato, as assinaturas e o nome. Num IFCZIP a sua assinatura fica ao lado das outras e cobre o modelo, pelo que cada uma vale por si. Dentro de um IFC segue-se à última e cobre o modelo e todas as assinaturas anteriores.",
+      "checking": "A verificar as assinaturas…",
+      "signedBy": "{count, plural, one {Assinado por {names}} other {Assinado por {names} (# assinaturas)}}: a sua assinatura será acrescentada.",
+      "notSigned": "Ainda não está assinado: será assinado no formato de saída escolhido acima.",
+      "invalid": "Uma assinatura deste ficheiro não é válida: foi alterado depois de assinado, por isso a sua não pode ser acrescentada.",
+      "verified": "Todas as assinaturas de cada ficheiro, incluindo a sua, foram verificadas antes da transferência.",
+      "errors": {
+        "not-signed": "Este ficheiro não tem nenhuma assinatura a que juntar a sua.",
+        "existing-invalid": "Uma assinatura deste ficheiro não é válida: o ficheiro foi alterado depois de assinado. A sua assinatura não foi acrescentada.",
+        "uncovered-payload": "Este IFCZIP contém um ficheiro que nenhuma assinatura cobre, acrescentado depois da assinatura. A sua assinatura não foi acrescentada.",
+        "already-signer": "O seu cartão já assinou este ficheiro.",
+        "too-many-signatures": "Este IFC já tem 16 assinaturas, o máximo que este formato permite.",
+        "result-invalid": "O ficheiro coassinado não foi validado, por isso não é disponibilizado. Nada foi alterado; tente novamente."
+      }
     }
   },
   "embeddedSign": {
@@ -2339,7 +2367,7 @@
     "errors": {
       "invalid-ifc": "Este não é um ficheiro IFC STEP suportado. Verifique o cabeçalho e os limites das secções.",
       "non-ascii": "Este formato de assinatura requer codificação STEP em ASCII. Exporte o texto com sequências de escape Unicode STEP ou escolha o formato IFCZIP para assinar este ficheiro sem o alterar.",
-      "already-signed": "Este IFC já contém uma assinatura. Use Verificar para a analisar. Não é possível acrescentar outra assinatura aqui.",
+      "already-signed": "Este IFC já contém uma assinatura, por isso a sua é acrescentada em vez de o assinar de novo; use Verificar para a validar.",
       "invalid-signature": "A assinatura ou a estrutura do ficheiro é inválida. Não foi produzido nenhum ficheiro assinado.",
       "unsigned-file": "Este IFC não contém uma assinatura incluída.",
       "unsupported-format": "Selecione um ficheiro .ifc simples. Este formato de ficheiro ou assinatura não é suportado aqui.",
@@ -2400,7 +2428,14 @@
       "notConfigured": "Esta instalação não tem autoridade de selos temporais, por isso a assinatura só traz a hora que o seu computador declara.",
       "stamped": "Selo temporal de {time}",
       "failed": "Assinado, mas sem selo temporal: {error}",
-      "embeddedNote": "Os selos temporais aplicam-se a contentores IFCZIP. Uma assinatura incorporada não recebe selo temporal."
+      "addCartao": "Acrescentar um selo temporal gratuito do serviço do Cartão de Cidadão",
+      "source": "Entidade de selos temporais",
+      "cartaoService": "Cartão de Cidadão (gratuito, através do companion)",
+      "deploymentService": "Entidade de selos temporais deste site",
+      "cartaoHint": "Pedido a partir deste computador, através do companion de assinatura, como faz a aplicação Autenticação.gov. O serviço permite 20 selos em cada 20 minutos; {remaining, plural, =0 {neste momento não resta nenhum} one {resta #} other {restam #}}.",
+      "cartaoShort": "Só {remaining} destas {count} assinaturas podem levar selo temporal agora; as restantes ficam assinadas sem ele. Assine-as mais tarde para as selar todas.",
+      "limitReached": "Assinado, mas sem selo temporal: foi atingido o limite do serviço do Cartão de Cidadão, 20 selos em cada 20 minutos. A assinatura é válida sem ele.",
+      "companionOutdated": "Atualize o companion de assinatura para acrescentar um selo temporal gratuito do serviço do Cartão de Cidadão."
     },
     "phaseTimestamping": "A pedir o selo temporal à autoridade…"
   },
@@ -2610,8 +2645,14 @@
   },
   "signatureBadge": {
     "checkingSignature": "A verificar a assinatura…",
-    "signatureValid": "{count, plural, one {Assinatura válida — # assinante} other {Assinatura válida — # assinantes}}",
-    "signatureNotValid": "Assinatura inválida"
+    "signatureValid": "{count, plural, one {Assinatura válida — # assinante} other {Todas as assinaturas válidas — # assinantes}}",
+    "signatureNotValid": "Assinatura inválida",
+    "signaturesNotValid": "{failed, plural, one {# de {count} assinaturas não é válida} other {# de {count} assinaturas não são válidas}}",
+    "signerValid": "Válida",
+    "signerNotValid": "Inválida",
+    "embeddedChain": "Por ordem de assinatura: cada assinatura cobre também as anteriores.",
+    "reason": "Motivo",
+    "location": "Localização"
   },
   "themeToggle": {
     "toggleTheme": "Alternar tema",
@@ -2949,5 +2990,15 @@
       "customRule": "A regra no DiCE-IFC-Rules (GitHub)"
     },
     "technical": "Detalhes técnicos"
+  },
+  "signatureDetails": {
+    "title": "Detalhes da assinatura (opcional)",
+    "hint": "Ficam dentro da assinatura: quem a verificar vê-os, e alterá-los depois invalida-a. São uma declaração sua; ninguém os confirma.",
+    "reason": "Motivo",
+    "reasonPlaceholder": "ex.: Aprovação do projeto de estabilidade",
+    "location": "Localização",
+    "locationPlaceholder": "ex.: Lisboa",
+    "professional": "Incluir atributos profissionais (SCAP)",
+    "professionalUnavailable": "Ainda não disponível. O SCAP da AMA só certifica atributos profissionais para aplicações que registou, e esta não está registada."
   }
 }

@@ -334,8 +334,10 @@ async function customRules(tree: Record<string, Uint8Array>): Promise<CustomRule
     if (feature) {
       const name = /^\s*Feature:\s*(.+?)\s*$/m.exec(new TextDecoder().decode(data))?.[1] ?? "";
       const code = name.split(" - ")[0].trim();
-      if (!/^[A-Z]{3}\d{3}$/.test(code) || !name.includes(" - ")) problems.push(`${path}: the feature must be named "ABC123 - Title", not "${name}"`);
-      else if (theirs.has(code.slice(0, 3))) problems.push(`${path}: ${code.slice(0, 3)} is one of buildingSMART's prefixes`);
+      // A prefix of letters (ours: "DiCE") and three digits; never a prefix of buildingSMART's, in any case.
+      const prefix = /^([A-Za-z]{2,8})\d{3}$/.exec(code)?.[1];
+      if (!prefix || !name.includes(" - ")) problems.push(`${path}: the feature must be named "PREFIX123 - Title" (letters, then three digits), not "${name}"`);
+      else if (theirs.has(prefix.toUpperCase())) problems.push(`${path}: ${prefix} is one of buildingSMART's prefixes`);
       else if (codes.has(code)) problems.push(`${path}: ${code} is also ${codes.get(code)}`);
       else codes.set(code, path);
       placed[`${CUSTOM_FEATURES}${feature[1]}`] = data;

@@ -20,6 +20,7 @@
 
 import { base64, fromBase64 } from "../canonical";
 import { readCertificate } from "../der";
+import { buildTimestampRequest, checkTimestampToken, parseTimestampResponse, randomNonce } from "../timestamp";
 import {
   SigningError,
   type ReadinessCheck,
@@ -45,6 +46,9 @@ const STATUS_TIMEOUT_MS = 2_500;
 
 type StatusResponse = {
   version?: string;
+  /** What this companion can do. Absent before 0.2.0, which could only sign. */
+  features?: string[];
+  timestamp?: { name?: string; remaining?: number };
   middleware?: string | null;
   reader?: string | null;
   cardPresent?: boolean;
@@ -285,9 +289,76 @@ async function call(
     throw new SigningError(
       codeFor(String(payload.code ?? "")),
       String(payload.error ?? `The companion returned ${response.status}.`),
+      // The companion's own answer, for callers whose codes are not signing
+      // codes (`requestCompanionTimestamp`'s "rate-limited").
+      payload,
     );
   }
   return payload;
+}
+
+// ---------------------------------------------------------------------------
+// The Cartão de Cidadão time-stamp, through the companion (ADR 012, amended)
+// ---------------------------------------------------------------------------
+
+export type CompanionTimestamp =
+  | { state: "available"; name: string; remaining: number }
+  /** A companion is running, but one from before it could time-stamp. */
+  | { state: "outdated" }
+  | { state: "absent" };
+
+/** Whether the companion on this machine can time-stamp, and how many stamps are left. */
+export async function companionTimestampStatus(): Promise<CompanionTimestamp> {
+  const { url } = getCompanionSettings();
+  // `/status` needs no token; this must not pair as a side effect of rendering.
+  const status = await fetchStatus(url, "");
+  if (!status) return { state: "absent" };
+  if (!status.features?.includes("timestamp")) return { state: "outdated" };
+  return {
+    state: "available",
+    name: status.timestamp?.name || "Cartão de Cidadão",
+    remaining: Math.max(0, Number(status.timestamp?.remaining ?? 0)),
+  };
+}
+
+/** The companion said the Cartão de Cidadão service's limit was reached. */
+export class TimestampLimitError extends Error {
+  readonly code = "rate-limited";
+  constructor(message: string, readonly retryAfter?: number) {
+    super(message);
+    this.name = "TimestampLimitError";
+  }
+}
+
+/**
+ * A `SignOptions.timestamper` that asks the Cartão de Cidadão service from this
+ * machine, through the companion. The request is built here — a SHA-256 hash
+ * and a fresh nonce — and the answer checked here: it must stamp *this* hash
+ * and carry *this* nonce. The companion only relays (`companion/…/timestamp.py`).
+ */
+export async function requestCompanionTimestamp(
+  digest: Uint8Array,
+): Promise<{ token: string; time: string; tsa?: string }> {
+  const { url, token } = await getPairedSettings();
+  const nonce = randomNonce();
+  let answer: Record<string, unknown>;
+  try {
+    answer = await call(url, token, "/timestamp", { request: base64(buildTimestampRequest({ digest, nonce })) });
+  } catch (error) {
+    const raw = error instanceof SigningError ? (error.cause as { code?: string; retryAfter?: number } | undefined) : undefined;
+    if (raw?.code === "rate-limited") throw new TimestampLimitError(error instanceof Error ? error.message : "", raw.retryAfter);
+    throw error;
+  }
+
+  const parsed = parseTimestampResponse(fromBase64(String(answer.reply ?? "")));
+  if (!parsed.granted) throw new Error(parsed.reason);
+  const checked = checkTimestampToken(parsed.token, { digest, nonce });
+  if (!checked.valid) throw new Error(checked.problems.join(" "));
+  return {
+    token: base64(parsed.token),
+    time: checked.token.genTime.toISOString(),
+    tsa: checked.token.tsa ?? String(answer.name ?? "Cartão de Cidadão"),
+  };
 }
 
 /** The companion's own error codes map onto ours one for one. */

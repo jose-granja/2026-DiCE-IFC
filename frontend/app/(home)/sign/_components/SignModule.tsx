@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import ModuleHeader from "@/components/ModuleHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -32,11 +31,8 @@ import {
   type SignProgress,
 } from "@/lib/signing/sign";
 import type { SignedOutput } from "@/lib/signing/sign";
-import {
-  requestTimestamp,
-  timestampService,
-  type TimestampService,
-} from "@/lib/signing/timestamp-client";
+import { SignatureDetailsFields, type DetailsDraft } from "./SignatureDetailsFields";
+import { TimestampOption, useTimestamping } from "./TimestampOption";
 
 /**
  * Container signing, used by `/sign/bcf`.
@@ -76,17 +72,10 @@ export function SignModule({
     registerSigningProviders();
   }, []);
 
-  // Whether this deployment can time-stamp, asked once. Unknown (`null`) shows
-  // nothing rather than a note that might be wrong for a moment.
-  const [service, setService] = useState<TimestampService | null>(null);
-  const [stamp, setStamp] = useState(true);
-  useEffect(() => {
-    let live = true;
-    void timestampService().then((found) => live && setService(found));
-    return () => {
-      live = false;
-    };
-  }, []);
+  // Where a time-stamp can come from, asked once: the Cartão de Cidadão service
+  // through the companion, this deployment's authority, both, or neither.
+  const stamping = useTimestamping();
+  const [details, setDetails] = useState<DetailsDraft>({ reason: "", location: "" });
 
   const providerId = useMemo(() => defaultSigningProviderId(), []);
   const busy = progress !== null;
@@ -133,8 +122,8 @@ export function SignModule({
         mode,
         kind,
         onProgress: setProgress,
-        timestamper:
-          service?.configured && stamp ? requestTimestamp : undefined,
+        timestamper: stamping.timestamper,
+        details,
       });
 
       setOutputs(results);
@@ -154,6 +143,7 @@ export function SignModule({
       toast.error(message);
     } finally {
       setProgress(null);
+      stamping.refresh();
     }
   };
 
@@ -298,45 +288,13 @@ export function SignModule({
                     strong: (chunks) => <strong>{chunks}</strong>,
                   })}
             </p>
-            {/* {service && !service.configured && (
-              // Not a box: it is information rather than a decision, and nothing on
-              // this page can change it.
-              <p
-                className="text-muted-foreground flex items-center gap-1.5 px-1 text-[11px]"
-                data-timestamp-option
-                data-configured="false"
-              >
-                <Info className="size-3 shrink-0" aria-hidden />
-                {t("timestamp.notConfigured")}
-              </p>
-            )} */}
-            {service?.configured && (
-              <div
-                className="rounded-lg border p-4"
-                data-timestamp-option
-                data-configured="true"
-              >
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    id="sign-timestamp"
-                    checked={stamp}
-                    disabled={busy}
-                    onCheckedChange={(checked) => setStamp(checked === true)}
-                    className="mt-0.5"
-                  />
-                  <div className="space-y-0.5">
-                    <Label htmlFor="sign-timestamp" className="text-sm font-medium">
-                      {service.name
-                        ? t("timestamp.add", { name: service.name })
-                        : t("timestamp.addUnnamed")}
-                    </Label>
-                    <p className="text-muted-foreground text-[11px]">
-                      {t("timestamp.hint")}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+            <SignatureDetailsFields idPrefix="sign" value={details} onChange={setDetails} disabled={busy} />
+            <TimestampOption
+              stamping={stamping}
+              idPrefix="sign"
+              disabled={busy}
+              signatures={mode === "combined" ? Math.min(1, files.length) : files.length}
+            />
           </section>
 
 
@@ -485,9 +443,9 @@ export function SignModule({
                         data-timestamp-status="failed"
                         role="status"
                       >
-                        {t("timestamp.failed", {
-                          error: output.timestamp.error,
-                        })}
+                        {output.timestamp.reason === "rate-limited"
+                          ? t("timestamp.limitReached")
+                          : t("timestamp.failed", { error: output.timestamp.error })}
                       </span>
                     )}
                   </span>

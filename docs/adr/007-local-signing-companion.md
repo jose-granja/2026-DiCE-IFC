@@ -1,6 +1,6 @@
 # ADR 007 — A local signing companion, and localhost as part of the trust boundary
 
-- **Status:** Accepted — supersedes the companion decision in ADR 004; **amended 2026-09-06** for automatic pairing and installers. See "Amendment".
+- **Status:** Accepted — supersedes the companion decision in ADR 004; **amended 2026-09-06** for automatic pairing and installers. See "Amendment". **Amended 2026-11-22:** one outbound call, the Cartão de Cidadão time-stamp relay (ADR 012).
 - **Date:** 2026-09-05
 - **Phase:** 3
 - **Supersedes:** ADR 004 decisions 1–4 (Web eID fork). ADR 004's analysis of the card, CMD and the algorithm split still stands.
@@ -224,3 +224,23 @@ open: it needs an Apple Developer ID and an EV certificate, not a code change.
 Until then macOS says "unidentified developer" and Windows SmartScreen warns.
 The download button says so before the click rather than after it — an expected
 warning is a different experience from an unexplained one.
+
+## Amendment (2026-11-22) — one outbound call
+
+The companion gains `POST /timestamp`, which relays an RFC 3161 request for a
+hash to the Cartão de Cidadão time-stamping service, and nothing else (ADR 012,
+amended 2026-11-22, has the reasons). It is the companion's first and only
+network call, so the limits are its design:
+
+- **one fixed host**, `ts.cartaodecidadao.pt`; the caller names none;
+- **only a request it has checked** is a `TimeStampReq` for a SHA-256 hash, in
+  the browser's exact shape, at most 128 bytes — nothing shaped like a
+  document gets through;
+- **the reply goes back untouched**; the browser parses and checks it;
+- **it keeps under the service's limit** (18 of the 20 allowed per 20 minutes),
+  so a batch cannot get the citizen blocked for a day;
+- behind the same token and origin allow-list as signing, and logged nowhere.
+
+`/status` now lists `features` (`["sign", "timestamp"]`) and the stamps left,
+so the page offers only what the running companion can do. Version 0.2.0.
+

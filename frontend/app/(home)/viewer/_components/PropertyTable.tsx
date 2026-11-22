@@ -13,7 +13,7 @@ export type PropertyTableRow = {
   /** A short label beside the name, e.g. "from type", with what it means on hover. */
   badge?: { label: string; hint?: string };
   /**
-   * The property's name from bSDD in the interface's language (ADR 017),
+   * The property's or attribute's name from bSDD in the interface's language (ADR 017),
    * shown under `name` as a label. `name` stays what it is: the IFC name.
    */
   translations?: Array<{ text: string; language: string; hint?: string }>;

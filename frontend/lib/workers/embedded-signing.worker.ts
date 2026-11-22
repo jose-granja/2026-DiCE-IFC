@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import * as Comlink from "comlink";
 import { digest } from "@/lib/signing/canonical";
-import { appendEmbeddedSignature, EmbeddedIfcError, hasEmbeddedSignature, inspectEmbeddedIfc, type EmbeddedIfcErrorCode } from "@/lib/signing/embedded-format";
+import { appendEmbeddedSignature, EmbeddedIfcError, hasEmbeddedSignature, inspectEmbeddedIfc, type EmbeddedBlock, type EmbeddedIfcErrorCode } from "@/lib/signing/embedded-format";
 import { verifyCms } from "@/lib/signing/cms";
 
 // Explicit error envelopes preserve typed error codes across Comlink.
@@ -15,28 +15,43 @@ async function reply<T>(operation: () => Promise<T>): Promise<Reply<T>> {
 }
 let original: Uint8Array | undefined;
 let contentDigest: Uint8Array | undefined;
+/** Set when co-signing: how many signatures the finished file must carry, all valid. */
+let expectedSignatures: number | undefined;
 
-async function verifyBytes(bytes: Uint8Array) {
-  const { normalized, blocks } = inspectEmbeddedIfc(bytes);
-  if (!blocks.length) throw new EmbeddedIfcError("unsigned-file");
+/** Each block covers the normalized file up to where it starts. */
+async function verifyBlocks(normalized: Uint8Array, blocks: EmbeddedBlock[]) {
   const signatures = [];
   for (const block of blocks) {
     const result = await verifyCms(block.cms, await digest("SHA-256", normalized.subarray(0, block.start)));
     signatures.push({ valid: result.valid, subject: result.certificate?.subject,
-      issuer: result.certificate?.issuer, signingTime: result.signingTime,
-      algorithm: result.certificate?.supportedAlgorithms[0] });
+      issuer: result.certificate?.issuer, serial: result.certificate?.serial, signingTime: result.signingTime,
+      algorithm: result.certificate?.supportedAlgorithms[0], details: result.details, timestamp: result.timestamp });
   }
-  return { signatures };
+  return signatures;
+}
+
+async function verifyBytes(bytes: Uint8Array) {
+  const { normalized, blocks } = inspectEmbeddedIfc(bytes);
+  if (!blocks.length) throw new EmbeddedIfcError("unsigned-file");
+  return { signatures: await verifyBlocks(normalized, blocks) };
 }
 
 const api = {
-  prepare(file: File) {
+  /**
+   * Read and hash the file to sign. A new signature refuses a signed file. A
+   * co-signature (ADR 011, amended) needs one, and covers the whole normalized
+   * file — the model and every signature before it; the existing signatures
+   * are verified here so the page can refuse before the card is asked.
+   */
+  prepare(file: File, cosign = false) {
     return reply(async () => {
       original = new Uint8Array(await file.arrayBuffer());
       const { normalized, blocks } = inspectEmbeddedIfc(original);
-      if (blocks.length) throw new EmbeddedIfcError("already-signed");
+      if (blocks.length && !cosign) throw new EmbeddedIfcError("already-signed");
+      const signatures = cosign ? await verifyBlocks(normalized, blocks) : [];
+      expectedSignatures = cosign ? blocks.length + 1 : undefined;
       contentDigest = await digest("SHA-256", normalized);
-      return contentDigest;
+      return { contentDigest, signatures };
     });
   },
   async finish(cms: Uint8Array) {
@@ -45,8 +60,16 @@ const api = {
       const checked = await verifyCms(cms, contentDigest);
       if (!checked.valid) throw new EmbeddedIfcError("invalid-signature");
       const bytes = appendEmbeddedSignature(original, cms);
+      if (expectedSignatures !== undefined) {
+        // A co-signed file is checked as a whole: every signature, in order.
+        const { signatures } = await verifyBytes(bytes);
+        if (signatures.length !== expectedSignatures || !signatures.every((signature) => signature.valid)) {
+          throw new EmbeddedIfcError("invalid-signature");
+        }
+      }
       original = undefined;
       contentDigest = undefined;
+      expectedSignatures = undefined;
       return bytes;
     });
     // Comlink transfers the top-level return value, not a nested typed array.

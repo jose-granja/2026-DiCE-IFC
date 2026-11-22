@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { EmbeddedIfcError, verifyEmbeddedIfc, type EmbeddedVerification } from "@/lib/signing/embedded";
-import { verifyContainer, type ContainerVerification } from "@/lib/signing/verify";
+import type { StatedDetails } from "@/lib/signing/details";
+import { verifyContainer, type ContainerVerification, type TimestampVerification } from "@/lib/signing/verify";
 
 const EXTENSIONS = [".ifc", ".ifczip", ".bcf", ".bcfzip", ".asice", ".zip", ".scs"];
 type Verification = { kind: "embedded"; value: EmbeddedVerification } | { kind: "container"; value: ContainerVerification };
@@ -180,7 +181,10 @@ function EmbeddedDetails({ result }: { result: EmbeddedVerification }) {
         <Row label={t("signedBy")} value={signature.subject ?? "—"} />
         <Row label={t("issuedBy")} value={signature.issuer ?? "—"} />
         <Row label={t("signingTime")} value={signature.signingTime ?? "—"} />
+        <TimestampRow timestamp={signature.timestamp} />
+        <StatedRows details={signature.details} />
       </dl> : <p className="text-destructive text-xs">{e("invalid")}</p>}
+      {signature.valid && signature.details && <DetailsNote />}
     </section>)}
   </div>;
 }
@@ -211,10 +215,10 @@ function ContainerDetails({ result }: { result: ContainerVerification }) {
         <Row label={t("signingTime")} value={signature.signingTime ?? "—"} />
         <Row label={m("certificateDates")} value={t("certificateValidRange", { from: signature.notBefore.slice(0, 10), to: signature.notAfter.slice(0, 10) })} />
         <Row label={t("signatureMaths")} value={t(signature.signatureValid ? "verified" : "failed")} />
-        <Row label={t("timestamp.label")} value={!signature.timestamp ? t("timestamp.none") : signature.timestamp.matches
-          ? t("timestamp.present", { time: signature.timestamp.time ?? "—", tsa: signature.timestamp.tsa ?? "—" })
-          : t("timestamp.mismatch", { problem: signature.timestamp.problems.join("; ") })} />
+        <TimestampRow timestamp={signature.timestamp} />
+        <StatedRows details={signature.details} />
       </dl>
+      {signature.details && <DetailsNote />}
       <div className="space-y-1">
         <h5 className="text-xs font-medium">{t("whatItCovers")}</h5>
         <ul className="space-y-0.5">{signature.references.map((reference, at) => <li key={`${reference.uri}-${at}`} className="flex items-start gap-1.5 text-xs">
@@ -231,8 +235,33 @@ function ContainerDetails({ result }: { result: ContainerVerification }) {
   </div>;
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return <div className="flex flex-wrap gap-1.5">
+/** A signature's time-stamp, in either format: XAdES-T or CAdES-T. */
+function TimestampRow({ timestamp }: { timestamp?: TimestampVerification }) {
+  const t = useTranslations("signVerify");
+  return <Row label={t("timestamp.label")} detail="timestamp" value={!timestamp ? t("timestamp.none") : timestamp.matches
+    ? t("timestamp.present", { time: timestamp.time ?? "—", tsa: timestamp.tsa ?? "—" })
+    : t("timestamp.mismatch", { problem: timestamp.problems.join("; ") })} />;
+}
+
+/** What the signer stated (`lib/signing/details.ts`), inside what the signature covers. */
+function StatedRows({ details }: { details?: StatedDetails }) {
+  const t = useTranslations("signVerify");
+  if (!details) return null;
+  return <>
+    {details.reason && <Row label={t("reason")} value={details.reason} detail="reason" />}
+    {details.location && <Row label={t("location")} value={details.location} detail="location" />}
+    {details.certifiedAttributes && <Row label={t("professionalAttributes")}
+      value={t("certifiedAttributes", { count: details.certifiedAttributes })} detail="certified-attributes" />}
+  </>;
+}
+
+function DetailsNote() {
+  const t = useTranslations("signVerify");
+  return <p className="text-muted-foreground text-xs">{t("detailsNote")}</p>;
+}
+
+function Row({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return <div className="flex flex-wrap gap-1.5" data-signature-detail={detail}>
     <dt className="shrink-0 text-muted-foreground">{label}:</dt><dd className="min-w-0 break-words">{value}</dd>
   </div>;
 }

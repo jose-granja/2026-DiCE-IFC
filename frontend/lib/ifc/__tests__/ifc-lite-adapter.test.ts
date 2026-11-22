@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 import {
   ifcLiteAdapter,
@@ -33,6 +33,28 @@ afterAll(() => {
 });
 
 runAdapterConformance(ifcLiteAdapter, fixtures);
+
+/**
+ * Models are parsed in a pool of workers, each its own adapter. The same file
+ * name opened in two of them — a model and its co-signed copy, both wrapping
+ * `model.ifc` — once got the same id, and the viewer merged the two.
+ */
+describe("model ids", () => {
+  it("differ across adapter instances for the same file name", async () => {
+    const instances = [];
+    for (let worker = 0; worker < 2; worker += 1) {
+      vi.resetModules();
+      instances.push((await import("../ifc-lite-adapter")).ifcLiteAdapter);
+    }
+    const ids = [];
+    for (const adapter of instances) {
+      const input = await load("georeferenced-wall-ifc4.ifc");
+      ids.push((await adapter.loadModel({ ...input, name: "model.ifc" })).id);
+    }
+    expect(ids[0]).not.toBe(ids[1]);
+    expect(ids.every((id) => id.endsWith(":model.ifc"))).toBe(true);
+  });
+});
 
 describe("geometry coordinate metadata", () => {
   it("combines the IFC Z-up WASM RTC offset with the later render shift", () => {

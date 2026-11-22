@@ -8,7 +8,7 @@ machine. This is that something, and it is deliberately as small as it can be.
 
 ## What it does, and what it refuses to do
 
-It is a **signing device, not a signing service**. It answers three questions:
+It is a **signing device, not a signing service**. It answers these questions:
 
 | Endpoint | Returns |
 |---|---|
@@ -16,6 +16,19 @@ It is a **signing device, not a signing service**. It answers three questions:
 | `GET /status` | whether the middleware, a reader and a card are present |
 | `GET /certificate` | the CITIZEN SIGNATURE certificate and its chain |
 | `POST /sign` | a signature over the bytes you supply |
+| `POST /timestamp` | the Cartão de Cidadão time-stamp service's answer to an RFC 3161 request for a hash (0.2.0+) |
+
+### The one call it makes out
+
+`POST /timestamp` relays a time-stamp request to the free Cartão de Cidadão
+service the Autenticação.gov application uses, `http://ts.cartaodecidadao.pt/tsa/server`,
+and to nothing else. That service allows each caller 20 requests in 20 minutes
+and blocks a caller that asks for more for 24 hours, so the request has to come
+from your computer rather than from a web server everyone shares. The browser
+builds the request (a SHA-256 hash of the signature and a random number) and
+checks the answer; this program checks the request is exactly that, forwards
+it, and counts — it stops at 18 in 20 minutes, leaving two for the
+Autenticação.gov application, and says so instead of getting you blocked.
 
 It never receives a model, a BCF file, or any document content. What it signs is
 the signature's own `SignedInfo` — a few hundred bytes listing digests, URIs and

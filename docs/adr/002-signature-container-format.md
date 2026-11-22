@@ -98,3 +98,27 @@ different properties. Confirm with an actual consumer before Phase 3 ships. If
 a bare `.ifczip` with a sidecar is mandated, the container assembler is the only
 thing that changes — the XAdES builder, the manifest logic and the signing
 provider are all unaffected. Keep that boundary clean for exactly this reason.
+
+## Amendment (2026-11-22) — co-signing on `/sign/ifc`
+
+Point 2 now has a page. `/sign/ifc` offers **Add a signature to signed files**
+(`lib/signing/cosign.ts`, `cosignContainer`): a signed `.ifczip` gains the card
+holder's signature as the next `META-INF/signaturesNNN.xml` over the same
+payload, and keeps its name. Signatures stay parallel. Before the card signs,
+every existing signature must verify, every payload file must be covered by
+one (a file added after signing is not signed by the next person unseen), and
+the card's certificate must not already be a signer. After, the whole
+container is verified again before it is offered. `addSignature` numbers past
+the highest existing file, not the count, so a gap left by a removed signature
+never overwrites another.
+
+Building it exposed a verifier bug: `verify.ts` guessed an ECDSA key's curve
+from the hash, so a CC v2 signature (P-256, ECDSA-SHA512 as the companion
+negotiates it) was imported as P-521 and reported invalid. The curve is now
+read from the certificate (`CertificateInfo.namedCurve`).
+
+**Later the same day:** the choice is gone. `/sign/ifc` reads each queued
+file as it is added and adds a signature to a signed one automatically, while
+unsigned files are signed in the chosen format (`signIfcFiles`, `bulk.ts`).
+The checks above are unchanged; the user no longer has to say which files are
+signed.

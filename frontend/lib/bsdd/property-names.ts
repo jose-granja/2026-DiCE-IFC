@@ -6,6 +6,9 @@
  * IDS, filters, quantities and exports match on — and "Classe de Resistência ao
  * Fogo" (in Portuguese) or "Fire Rating" (in English) is shown beside it.
  *
+ * Entity attributes (`ObjectType` → "Tipo de Objeto") are labelled the same
+ * way, from the same table (`attributeLabel`).
+ *
  * Read live from bSDD, through this app's server (`/api/bsdd/property-names`,
  * since bSDD sends no CORS headers), once per page. The request names a
  * language and nothing about a model (AGENTS.md §1). When bSDD cannot be
@@ -87,6 +90,21 @@ export function isStandardSet(set: string | undefined): set is string {
 /** The label for `property` in `set`, when the table has one. */
 export function propertyLabel(table: PropertyNameTable | null | undefined, set: string | undefined, property: string): string | undefined {
   if (!table || !isStandardSet(set)) return undefined;
-  const name = table.names.get(property);
-  return name && name !== property ? name : undefined;
+  return nameIn(table, property);
+}
+
+/**
+ * The label for an entity attribute (`Name`, `ObjectType`, a door's
+ * `OperationType`…), when the table has one. The dictionary lists IFC's
+ * attributes among its properties, by the same code, and an attribute's name
+ * is the schema's — no company can give it another meaning, so unlike a
+ * property it needs no set to vouch for it. `PredefinedType` is not listed.
+ */
+export function attributeLabel(table: PropertyNameTable | null | undefined, attribute: string): string | undefined {
+  return table ? nameIn(table, attribute) : undefined;
+}
+
+function nameIn(table: PropertyNameTable, code: string): string | undefined {
+  const name = table.names.get(code);
+  return name && name !== code ? name : undefined;
 }

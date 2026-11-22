@@ -1,6 +1,6 @@
 # ADR 011 — Embedded IFC signatures alongside IFCZIP
 
-- **Status:** Accepted
+- **Status:** Accepted; **amended 2026-11-22** for co-signing and for a signature time-stamp (CAdES-T)
 - **Date:** 2026-10-12
 
 ## Context
@@ -84,3 +84,52 @@ integrity/trust distinction as its existing IFCZIP badge. BCF signing keeps its
 container format and shares the signing pages' layout. The existing optional
 IFCZIP/BCF timestamp functionality is preserved; embedded CMS timestamps are
 outside this implementation.
+
+## Amendment (2026-11-22) — co-signing an embedded IFC
+
+Signing **new** files still refuses an already signed IFC. Co-signing was at
+first a separate, explicit choice on `/sign/ifc`; it is now automatic — the
+page reads each queued file and sends a signed one to `cosignEmbeddedIfc`
+(`signIfcFiles` in `bulk.ts`), an unsigned one to `signEmbeddedIfc`: the new CMS block is appended after the last one and
+covers the normalized file up to it — the model **and every earlier
+signature** — which is the chain the verifier already read. Signatures are
+therefore sequential, unlike IFCZIP's parallel ones, and the page says so.
+The output keeps the input's name.
+
+Before the card signs, every existing block must verify, the file must hold
+fewer than 16, and the card's certificate (issuer and serial) must not already
+be a signer. After, the worker verifies the whole chain, the new block
+included, before the file is offered. The limitation above stands: removing
+the last signatures cannot be detected without a record of who was expected
+to sign.
+
+## Amendment (2026-11-22) — a signature time-stamp (CAdES-T)
+
+An embedded signature can now carry a time-stamp, as IFCZIP signatures have
+since ADR 012 — the same option on the same page, from the same sources (the
+Cartão de Cidadão service through the companion, or the deployment's
+authority), and off until the user ticks it.
+
+- **What it covers:** SHA-256 of the SignerInfo's `signature` value, exactly as
+  stored — DER for ECDSA — which is what RFC 3161 Appendix A specifies for a
+  signature time-stamp. `prepareCms(…).timestampDigest(result)` computes it,
+  checking the card's result first so a stamp is never spent on a signature
+  that would be refused.
+- **Where it goes:** `unsignedAttrs` (`[1]`), one attribute,
+  `id-aa-signatureTimeStampToken` (1.2.840.113549.1.9.16.2.14), holding the
+  token as received. Unsigned on purpose: a time-stamp over a signature cannot
+  be inside what the signature covers. The block is appended with it, so a
+  later co-signature covers it like the rest of the block.
+- **Verifying:** the profile still fails closed. A SignerInfo may now have
+  seven fields, the seventh only `unsignedAttrs` holding exactly that one
+  attribute with one token; anything else there is refused. The token is
+  checked against the stored signature value; a mismatch is reported and the
+  signature stays valid, as for XAdES. `/sign/verify` shows it for both
+  formats.
+- **Older copies of this application** read a stamped signature as invalid —
+  their verifier allowed six fields only. Files signed without a time-stamp are
+  unchanged, and that is the default.
+- A stamp that cannot be had (the service's limit, a network failure) leaves
+  the signature unstamped and says why; the PIN was typed and the signature is
+  kept.
+

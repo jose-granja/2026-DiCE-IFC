@@ -276,7 +276,10 @@ test("groups Psets and Qtos and rounds only values with units throughout the pro
 ENDSEC;\nEND-ISO`);
   await selectWall(page, "en", source);
   const panel = page.locator("[data-property-panel]");
-  const value = (name: string) => panel.getByRole("rowheader", { name, exact: true }).locator("..").getByRole("cell");
+  // A row's header is its name, then bSDD's label when that reads differently
+  // ("GrossVolume Gross Volume"), so match the name as the first word.
+  const value = (name: string) =>
+    panel.getByRole("rowheader", { name: new RegExp(`^${name}( |$)`) }).locator("..").getByRole("cell");
   await page.getByRole("tab", { name: "Properties", exact: true }).click();
   await expect(panel.locator("[data-property-group]")).toHaveCount(2);
   await expect(panel.locator('[data-property-group="Pset_WallCommon"]')).toContainText("Width");
@@ -392,12 +395,12 @@ const PORTUGUESE_NAMES = {
   language: "pt-PT",
   dictionary: "https://identifier.buildingsmart.org/uri/buildingsmart/ifc/4.3",
   updatedAt: "2026-11-12T09:00:00Z",
-  names: { FireRating: "Classe de Resistência ao Fogo", LoadBearing: "Capacidade de Carga" },
+  names: { FireRating: "Classe de Resistência ao Fogo", LoadBearing: "Capacidade de Carga", Name: "Nome", GlobalId: "ID Global" },
 };
 const ENGLISH_NAMES = {
   ...PORTUGUESE_NAMES,
   language: "en",
-  names: { FireRating: "Fire Rating", LoadBearing: "Load Bearing" },
+  names: { FireRating: "Fire Rating", LoadBearing: "Load Bearing", GlobalId: "Global ID" },
 };
 /** Stands in for this app's server: each language's table. */
 const bsddNames = (asked: URL[]) => (route: Route) => {
@@ -428,6 +431,22 @@ test("labels standard properties with their Portuguese name from bSDD, keeping t
   await page.getByLabel("Filtrar propriedades").fill("resistência");
   await expect(fire).toBeVisible();
   await expect(section.getByText("LoadBearing", { exact: true })).toHaveCount(0);
+});
+
+test("attributes carry their bSDD name in the page's language too", async ({ page }) => {
+  await page.route("**/api/bsdd/property-names?*", bsddNames([]));
+  await selectWall(page, "pt");
+  const section = page.locator('[data-section="Atributos"]');
+  const name = section.locator("tr", { has: page.getByRole("rowheader", { name: /^Name/ }) });
+  await expect(name.locator("[data-property-translation]")).toHaveText(["Nome"]);
+  await expect(name.locator("[data-property-translation]")).toHaveAttribute("lang", "pt-PT");
+  const globalId = section.locator("tr", { has: page.getByRole("rowheader", { name: /^GlobalId/ }) });
+  await expect(globalId.locator("[data-property-translation]")).toHaveText(["ID Global"]);
+
+  // Searchable by the label, as properties are.
+  await page.getByLabel("Filtrar propriedades").fill("id global");
+  await expect(globalId).toBeVisible();
+  await expect(name).toHaveCount(0);
 });
 
 test("in English, standard properties carry bSDD's English name alone", async ({ page }) => {

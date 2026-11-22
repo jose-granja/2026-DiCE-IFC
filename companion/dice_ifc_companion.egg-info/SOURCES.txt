@@ -5,6 +5,7 @@ dice_companion/__main__.py
 dice_companion/card.py
 dice_companion/origins.py
 dice_companion/server.py
+dice_companion/timestamp.py
 dice_ifc_companion.egg-info/PKG-INFO
 dice_ifc_companion.egg-info/SOURCES.txt
 dice_ifc_companion.egg-info/dependency_links.txt

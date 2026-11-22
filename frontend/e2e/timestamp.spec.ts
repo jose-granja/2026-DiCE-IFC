@@ -39,6 +39,12 @@ test.afterAll(async () => {
 
 const DIGEST = "cd".repeat(32);
 
+// A companion running on the machine that runs the tests would add its own
+// time-stamp source; these are about the deployment's authority alone.
+test.beforeEach(async ({ page }) => {
+  await page.route("http://127.0.0.1:8765/**", (route) => route.abort());
+});
+
 test("the route stamps a hash through the configured authority", async ({ request }) => {
   const service = await (await request.get("/api/tsa")).json();
   expect(service).toEqual({ configured: true, name: "Test time-stamp authority" });
@@ -78,14 +84,15 @@ test("the signing page offers a time-stamp when the deployment has an authority"
   await openIfczip(page);
   const option = page.locator("[data-timestamp-option]");
   await expect(option).toHaveAttribute("data-configured", "true");
-  await expect(option.getByLabel("Add a time-stamp from Test time-stamp authority")).toBeChecked();
+  // Offered, and off until the user ticks it.
+  await expect(option.getByLabel("Add a time-stamp from Test time-stamp authority")).not.toBeChecked();
   await expect(option).toContainText("Only a hash of the signature is sent");
 });
 
 test("the BCF signing page offers it too", async ({ page }) => {
   await page.goto("/sign/bcf");
   await expect(page.locator("[data-timestamp-option]")).toHaveAttribute("data-configured", "true");
-  await expect(page.getByLabel("Add a time-stamp from Test time-stamp authority")).toBeChecked();
+  await expect(page.getByLabel("Add a time-stamp from Test time-stamp authority")).not.toBeChecked();
 });
 
 test("the signing page says so when the deployment has none", async ({ page }) => {
@@ -96,8 +103,9 @@ test("the signing page says so when the deployment has none", async ({ page }) =
   );
   await openIfczip(page);
   // Nothing to offer, and no note saying so either.
+  await expect(page.locator("[data-signature-details]")).toBeVisible();
   await expect(page.locator("[data-timestamp-option]")).toHaveCount(0);
-  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await expect(page.locator("#ifc-sign-timestamp")).toHaveCount(0);
 });
 
 test("the signing page reads in Portuguese", async ({ page, context }) => {
@@ -110,5 +118,8 @@ test("the signing page reads in Portuguese", async ({ page, context }) => {
 
 test("the privacy page lists the time-stamp request", async ({ page }) => {
   await page.goto("/privacy");
-  await expect(page.getByText(/SHA-256 hash of a signature's own value/)).toBeVisible();
+  // Two ways out: this app's server for its own authority, and the companion
+  // for the Cartão de Cidadão service.
+  await expect(page.getByText(/SHA-256 hash of a signature's own value/)).toHaveCount(2);
+  await expect(page.getByText(/ts\.cartaodecidadao\.pt/).first()).toBeVisible();
 });

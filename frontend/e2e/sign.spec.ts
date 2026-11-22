@@ -33,7 +33,7 @@ test("queues files and reports their size", async ({ page }) => {
   await page.setInputFiles('input[type="file"]', [IFC4]);
 
   await expect(
-    page.getByRole("cell", { name: "georeferenced-wall-ifc4.ifc", exact: true }),
+    page.getByRole("cell", { name: /^georeferenced-wall-ifc4\.ifc/ }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign" })).toBeEnabled();
 });
@@ -64,14 +64,14 @@ test("queues a file dropped onto the empty area, and refuses one of the wrong ki
     { name: "notes.txt", text: "not a model" },
   ]);
 
-  await expect(page.getByRole("cell", { name: "dropped.ifc", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /^dropped\.ifc/ })).toBeVisible();
   await expect(page.getByRole("cell", { name: "notes.txt", exact: true })).toHaveCount(0);
   await expect(page.getByText(/Not signed: notes\.txt/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign" })).toBeEnabled();
 
   // Still a drop target once there are files, so more can be added.
   await dropFiles(page, [{ name: "second.ifc", text: "ISO-10303-21;" }]);
-  await expect(page.getByRole("cell", { name: "second.ifc", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /^second\.ifc/ })).toBeVisible();
 });
 
 test("the BCF page takes dropped BCF files, not IFC ones", async ({ page }) => {

@@ -172,10 +172,19 @@ const models = new Map<ModelId, LoadedModel>();
 
 let nextModelSeq = 0;
 
+/**
+ * This adapter instance's own mark. Models are parsed in a *pool* of workers
+ * (`lib/workers/pool.ts`), each with its own counter, so a counter and a name
+ * alone collide: two `.ifczip`s wrapping a `model.ifc` — the same file before
+ * and after a co-signature, say — opened together were both `m1:model.ifc`,
+ * and the viewer's store wrote each one's results onto both rows.
+ */
+const instanceTag = crypto.randomUUID().slice(0, 8);
+
 function mint(name: string): ModelId {
   nextModelSeq += 1;
-  // Deterministic and readable in logs; uniqueness only has to hold per session.
-  return `m${nextModelSeq}:${name}`;
+  // Readable in logs; unique across every worker in the session.
+  return `m${nextModelSeq}-${instanceTag}:${name}`;
 }
 
 const placedCache = new WeakMap<IfcDataStore, Set<number>>();

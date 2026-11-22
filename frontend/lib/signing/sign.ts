@@ -34,6 +34,7 @@ import {
   type SigningCertificate,
   type SigningProvider,
 } from "./provider";
+import type { SignatureDetails } from "./details";
 import { completeSignature, prepareSignature, signatureTimestampDigest } from "./xades";
 
 export type SignMode = "per-file" | "combined";
@@ -54,7 +55,10 @@ export type SignedOutput = {
    * failure is reported rather than thrown: by then the citizen has typed the
    * PIN, and the signature is real — it is just B-B, not B-T, and the page says so.
    */
-  timestamp?: { status: "added"; time: string; tsa?: string } | { status: "failed"; error: string };
+  timestamp?:
+    | { status: "added"; time: string; tsa?: string }
+    /** `reason` names a failure the page words itself: the Cartão de Cidadão service's limit. */
+    | { status: "failed"; error: string; reason?: "rate-limited" };
 };
 
 export type SignProgress = {
@@ -82,6 +86,8 @@ export type SignOptions = {
   /** Injected in tests so output is byte-identical between runs. */
   now?: Date;
   idSuffix?: string;
+  /** Reason, place and attributes the signer states, signed with it (`details.ts`). */
+  details?: SignatureDetails;
 };
 
 export async function signFiles(
@@ -183,14 +189,7 @@ function buildEntries(files: FileToSign[], kind: "ifc" | "bcf"): ContainerEntry[
   });
 }
 
-/**
- * Prepare, sign, assemble.
- *
- * The certificate is passed to `sign` as `expectCertificateDer` so the device
- * can refuse if the card changed between preparing and signing — otherwise a
- * swapped card yields a signature over a `SignedInfo` naming someone else's
- * certificate, which verifies against nothing and is hard to diagnose.
- */
+/** Prepare, sign, assemble a new container. */
 async function signGroup(
   files: FileToSign[],
   certificate: SigningCertificate,
@@ -199,28 +198,64 @@ async function signGroup(
   current: number,
   total: number,
 ): Promise<{ bytes: Uint8Array; timestamp?: SignedOutput["timestamp"] }> {
-  const { algorithm } = negotiateAlgorithm(certificate);
-
   const entries = buildEntries(files, options.kind ?? "ifc");
+  const signed = await signEntries(entries, certificate, provider, options, { current, total, fileName: files[0]?.name });
+  const container = createContainer(entries, signed.signatureXml);
+
+  options.onProgress?.({ phase: "done", current, total });
+  return { bytes: container, timestamp: signed.timestamp };
+}
+
+/**
+ * A time-stamp that could not be had, as the page reports it. Never thrown: by
+ * then the PIN was typed and the signature is real.
+ */
+export function timestampFailure(error: unknown): NonNullable<SignedOutput["timestamp"]> {
+  return {
+    status: "failed",
+    error: error instanceof Error ? error.message : "The time-stamp could not be obtained.",
+    ...((error as { code?: unknown } | null)?.code === "rate-limited" ? { reason: "rate-limited" as const } : {}),
+  };
+}
+
+/**
+ * One XAdES signature over `entries`: prepare, sign on the device, time-stamp
+ * if asked. The caller puts it in a container — a new one, or beside the
+ * signatures already in one (`cosign.ts`).
+ *
+ * The certificate is passed to `sign` as `expectCertificateDer` so the device
+ * can refuse if the card changed between preparing and signing — otherwise a
+ * swapped card yields a signature over a `SignedInfo` naming someone else's
+ * certificate, which verifies against nothing and is hard to diagnose.
+ */
+export async function signEntries(
+  entries: ContainerEntry[],
+  certificate: SigningCertificate,
+  provider: SigningProvider,
+  options: Pick<SignOptions, "onProgress" | "timestamper" | "now" | "idSuffix" | "details">,
+  { current, total, fileName }: { current: number; total: number; fileName?: string },
+): Promise<{ signatureXml: string; timestamp?: SignedOutput["timestamp"] }> {
+  const { algorithm } = negotiateAlgorithm(certificate);
 
   options.onProgress?.({
     phase: "preparing",
     current,
     total,
-    fileName: files[0]?.name,
+    fileName,
   });
 
   const prepared = await prepareSignature(entries, certificate, {
     algorithm,
     now: options.now,
     idSuffix: options.idSuffix,
+    details: options.details,
   });
 
   options.onProgress?.({
     phase: "awaiting-pin",
     current,
     total,
-    fileName: files[0]?.name,
+    fileName,
   });
 
   const result = await provider.sign({
@@ -241,7 +276,7 @@ async function signGroup(
   let timestamp: SignedOutput["timestamp"];
   let timestampToken: string | undefined;
   if (options.timestamper) {
-    options.onProgress?.({ phase: "timestamping", current, total, fileName: files[0]?.name });
+    options.onProgress?.({ phase: "timestamping", current, total, fileName });
     try {
       const stamped = await options.timestamper(
         await signatureTimestampDigest(prepared.context, result.signatureValue),
@@ -249,18 +284,12 @@ async function signGroup(
       timestampToken = stamped.token;
       timestamp = { status: "added", time: stamped.time, tsa: stamped.tsa };
     } catch (error) {
-      timestamp = {
-        status: "failed",
-        error: error instanceof Error ? error.message : "The time-stamp could not be obtained.",
-      };
+      timestamp = timestampFailure(error);
     }
   }
 
   options.onProgress?.({ phase: "assembling", current, total });
 
   const signatureXml = completeSignature(prepared.context, result.signatureValue, { timestampToken });
-  const container = createContainer(entries, signatureXml);
-
-  options.onProgress?.({ phase: "done", current, total });
-  return { bytes: container, timestamp };
+  return { signatureXml, timestamp };
 }
