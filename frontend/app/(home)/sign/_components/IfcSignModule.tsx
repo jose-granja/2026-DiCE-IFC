@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Download, FileSignature, Upload, X } from "lucide-react";
 import { zip } from "fflate";
+import { InfoTip } from "@/components/InfoTip";
 import ModuleHeader from "@/components/ModuleHeader";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -350,7 +351,12 @@ export default function IfcSignModule() {
           <div className="grid gap-4 sm:grid-cols-2">
             {showFormat && (
             <div className="space-y-2">
-              <Label htmlFor="ifc-sign-format">{m("format")}</Label>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="ifc-sign-format">{m("format")}</Label>
+                {/* Inside the IFC there is one kind of signature, so this is
+                    help, not a guarantee to choose between: behind the "i". */}
+                {embedded && <InfoTip>{m("embeddedHint")}</InfoTip>}
+              </div>
               <Select
                 value={format}
                 disabled={busy}
@@ -408,10 +414,10 @@ export default function IfcSignModule() {
               {m("cosign.hint")}
             </p>
           )}
-          {showFormat && <p className="text-muted-foreground text-sm">
-            {embedded
-              ? m("embeddedHint")
-              : t.rich(
+          {/* IFCZIP's two modes give different guarantees, and the page says
+              which one is being made (sign.ts): in view, not behind an "i". */}
+          {showFormat && !embedded && <p className="text-muted-foreground text-sm">
+            {t.rich(
                   mode === "combined" ? "combinedModeHint" : "perFileModeHint",
                   {
                     count: files.length || t("theFilesWord"),

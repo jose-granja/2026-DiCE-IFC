@@ -88,7 +88,15 @@ test("explains what each signature mode guarantees", async ({ page }) => {
   // The difference between the modes is a guarantee the user is entitled to
   // understand, not an implementation detail.
   await openSign(page);
-  // The modes are the IFCZIP container's; "Inside IFC file" (the default) has none.
+  // "Inside IFC file" (the default) has one kind of signature: its note is help,
+  // behind the "i" beside the format, not a paragraph.
+  await expect(page.getByText(/stays a \.ifc file/)).toHaveCount(0);
+  const formatTip = page.locator("div:has(> label[for='ifc-sign-format']) [data-info-tip]");
+  await formatTip.click();
+  await expect(page.getByRole("tooltip")).toContainText("Each model is signed separately and stays a .ifc file");
+  await page.keyboard.press("Escape");
+
+  // The modes are the IFCZIP container's, and stay in view: they are guarantees.
   await page.getByRole("combobox", { name: "Output format" }).click();
   await page.getByRole("option", { name: "IFCZIP container", exact: true }).click();
   await page.setInputFiles('input[type="file"]', [IFC4]);

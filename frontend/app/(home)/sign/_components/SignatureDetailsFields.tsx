@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
-import { Checkbox } from "@/components/ui/checkbox";
+import { InfoTip } from "@/components/InfoTip";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DETAIL_MAX_LENGTH } from "@/lib/signing/details";
@@ -42,8 +43,10 @@ export function SignatureDetailsFields({
 
   return (
     <fieldset className="space-y-3 rounded-md border p-3" data-signature-details disabled={disabled}>
-      <legend className="px-1 text-sm font-medium">{t("title")}</legend>
-      <p className="text-muted-foreground text-xs">{t("hint")}</p>
+      <legend className="flex items-center gap-1 px-1 text-sm font-medium">
+        {t("title")}
+        <InfoTip>{t("hint")}</InfoTip>
+      </legend>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-reason`}>{t("reason")}</Label>
@@ -69,16 +72,14 @@ export function SignatureDetailsFields({
         </div>
       </div>
       {attributes && (
-        <div className="flex items-start gap-2" data-professional-attributes={attributes.available ? "available" : "unavailable"}>
-          <Checkbox id={`${idPrefix}-professional`} checked={false} disabled className="mt-0.5" />
-          <div className="space-y-0.5">
-            <Label htmlFor={`${idPrefix}-professional`} className="text-sm">
-              {t("professional")}
-            </Label>
-            {!attributes.available && (
-              <p className="text-muted-foreground text-xs">{t("professionalUnavailable")}</p>
-            )}
-          </div>
+        <div className="flex items-center gap-2" data-professional-attributes={attributes.available ? "available" : "unavailable"}>
+          <Switch id={`${idPrefix}-professional`} checked={false} disabled />
+          <Label htmlFor={`${idPrefix}-professional`} className="text-sm font-normal">
+            {t("professional")}
+          </Label>
+          {!attributes.available && (
+            <InfoTip>{t("professionalUnavailable")}</InfoTip>
+          )}
         </div>
       )}
     </fieldset>

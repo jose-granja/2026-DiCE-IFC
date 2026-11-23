@@ -86,7 +86,10 @@ test("the signing page offers a time-stamp when the deployment has an authority"
   await expect(option).toHaveAttribute("data-configured", "true");
   // Offered, and off until the user ticks it.
   await expect(option.getByLabel("Add a time-stamp from Test time-stamp authority")).not.toBeChecked();
-  await expect(option).toContainText("Only a hash of the signature is sent");
+  await expect(option.getByRole("switch")).toBeVisible();
+  // What it sends is said behind the "i", on hover or a tap.
+  await option.locator("[data-info-tip]").click();
+  await expect(page.getByRole("tooltip")).toContainText("Only a hash of the signature is sent");
 });
 
 test("the BCF signing page offers it too", async ({ page }) => {
