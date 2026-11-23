@@ -3000,5 +3000,8 @@
     "locationPlaceholder": "ex.: Lisboa",
     "professional": "Incluir atributos profissionais (SCAP)",
     "professionalUnavailable": "Ainda não disponível. O SCAP da ARTE só certifica atributos profissionais para aplicações que registou, e esta não está registada."
+  },
+  "infoTip": {
+    "label": "Mais informação"
   }
 }

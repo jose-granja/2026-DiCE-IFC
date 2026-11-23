@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
-import { Checkbox } from "@/components/ui/checkbox";
+import { InfoTip } from "@/components/InfoTip";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -130,60 +131,61 @@ export function TimestampOption({
 
   return (
     <div
-      className="space-y-1 rounded-md border p-3"
+      className="space-y-2 rounded-md border p-3"
       data-timestamp-option
       data-configured="true"
       data-timestamp-source={source.id}
+      data-timestamp-budget={source.id === "cartao" ? source.remaining : undefined}
     >
-      <div className="flex items-start gap-2">
-        <Checkbox
+      <div className="flex items-center gap-2">
+        <Switch
           id={`${idPrefix}-timestamp`}
           checked={enabled}
           disabled={disabled}
-          className="mt-0.5"
-          onCheckedChange={(checked) => stamping.setEnabled(checked === true)}
+          onCheckedChange={(checked) => stamping.setEnabled(checked)}
         />
-        <div className="min-w-0 flex-1 space-y-1">
-          <Label htmlFor={`${idPrefix}-timestamp`} className="text-sm">
-            {label}
-          </Label>
-          {sources.length > 1 && (
-            <Select
-              value={source.id}
-              disabled={disabled || !enabled}
-              onValueChange={(next) => stamping.setChoice(next as StampSource["id"])}
-            >
-              <SelectTrigger
-                id={`${idPrefix}-timestamp-source`}
-                aria-label={t("timestamp.source")}
-                className="h-8 w-full sm:w-auto"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sources.map((candidate) => (
-                  <SelectItem key={candidate.id} value={candidate.id}>
-                    {candidate.id === "cartao"
-                      ? t("timestamp.cartaoService")
-                      : candidate.name ?? t("timestamp.deploymentService")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <p className="text-muted-foreground text-xs">{t("timestamp.hint")}</p>
+        <Label htmlFor={`${idPrefix}-timestamp`} className="text-sm font-normal">
+          {label}
+        </Label>
+        <InfoTip>
+          <span className="block">{t("timestamp.hint")}</span>
           {source.id === "cartao" && (
-            <p className="text-muted-foreground text-xs" data-timestamp-budget={source.remaining}>
+            <span className="mt-1.5 block">
               {t("timestamp.cartaoHint", { remaining: source.remaining })}
-            </p>
+            </span>
           )}
-          {source.id === "cartao" && enabled && signatures > source.remaining && (
-            <p className="text-xs text-amber-700 dark:text-amber-400" data-timestamp-budget-short>
-              {t("timestamp.cartaoShort", { remaining: source.remaining, count: signatures })}
-            </p>
-          )}
-        </div>
+        </InfoTip>
       </div>
+      {sources.length > 1 && (
+        <Select
+          value={source.id}
+          disabled={disabled || !enabled}
+          onValueChange={(next) => stamping.setChoice(next as StampSource["id"])}
+        >
+          <SelectTrigger
+            id={`${idPrefix}-timestamp-source`}
+            aria-label={t("timestamp.source")}
+            className="h-8 w-full sm:ml-10 sm:w-auto"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {sources.map((candidate) => (
+              <SelectItem key={candidate.id} value={candidate.id}>
+                {candidate.id === "cartao"
+                  ? t("timestamp.cartaoService")
+                  : candidate.name ?? t("timestamp.deploymentService")}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      {/* A warning, not help: it stays in view. */}
+      {source.id === "cartao" && enabled && signatures > source.remaining && (
+        <p className="text-xs text-amber-700 sm:pl-10 dark:text-amber-400" data-timestamp-budget-short>
+          {t("timestamp.cartaoShort", { remaining: source.remaining, count: signatures })}
+        </p>
+      )}
     </div>
   );
 }

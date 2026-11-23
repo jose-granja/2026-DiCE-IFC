@@ -413,8 +413,11 @@ test("signs a reason and a place in both formats, and the verify page reads them
   const details = page.locator("[data-signature-details]");
   await expect(details).toBeVisible();
   // Professional attributes are shown, switched off, with the reason why (ADR 019).
-  await expect(page.locator('[data-professional-attributes="unavailable"]')).toContainText("AMA's SCAP");
-  await expect(page.getByRole("checkbox", { name: "Add professional attributes (SCAP)" })).toBeDisabled();
+  // A switch, off and disabled, and why behind its "i".
+  await expect(page.getByRole("switch", { name: "Add professional attributes (SCAP)" })).toBeDisabled();
+  await page.locator('[data-professional-attributes="unavailable"] [data-info-tip]').click();
+  await expect(page.getByRole("tooltip")).toContainText("SCAP certifies professional attributes only for applications it has registered");
+  await page.keyboard.press("Escape");
 
   await page.getByLabel("Reason", { exact: true }).fill("Approved for construction");
   await page.getByLabel("Location", { exact: true }).fill("Lisboa");
@@ -452,7 +455,10 @@ test.describe("the Cartão de Cidadão time-stamp, through the companion", () =>
     // The user's choice: off until ticked.
     await expect(stampIt).not.toBeChecked();
     await stampIt.check();
-    await expect(option.locator("[data-timestamp-budget]")).toContainText("allows 20 time-stamps in 20 minutes; 18 are left");
+    await expect(option).toHaveAttribute("data-timestamp-budget", "18");
+    // The help, with how many stamps are left, is behind the "i".
+    await option.locator("[data-info-tip]").hover();
+    await expect(page.getByRole("tooltip")).toContainText("allows 20 time-stamps in 20 minutes; 18 are left");
 
     await page.setInputFiles('input[type="file"]', IFC);
     await page.getByRole("button", { name: "Sign", exact: true }).click();
