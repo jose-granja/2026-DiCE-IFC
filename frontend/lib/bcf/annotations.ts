@@ -456,21 +456,33 @@ function isLight(hex: string) {
 }
 
 /**
- * The snapshot with its annotations drawn in, carrying the clean image and the
- * shapes for the next edit. No shapes gives back the clean image itself.
+ * The image with the shapes drawn in, as a plain PNG — nothing kept for a later
+ * edit. No shapes gives back the image itself.
  */
-export async function composeAnnotatedSnapshot(base: Uint8Array, shapes: Annotation[]): Promise<Uint8Array> {
+export async function renderAnnotatedPng(base: Uint8Array, shapes: Annotation[]): Promise<Uint8Array> {
   if (shapes.length === 0) return base;
   const bitmap = await createImageBitmap(new Blob([base as BlobPart], { type: "image/png" }));
   const canvas = document.createElement("canvas");
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;
   const context = canvas.getContext("2d");
-  if (!context) throw new Error("No 2D canvas is available to draw the annotations.");
+  if (!context) {
+    bitmap.close();
+    throw new Error("No 2D canvas is available to draw the annotations.");
+  }
   context.drawImage(bitmap, 0, 0);
   bitmap.close();
   drawAnnotations(context, shapes, canvas.width, canvas.height);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
   if (!blob) throw new Error("The annotated snapshot could not be encoded.");
-  return writeAnnotatedSnapshot(new Uint8Array(await blob.arrayBuffer()), base, shapes);
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+/**
+ * The snapshot with its annotations drawn in, carrying the clean image and the
+ * shapes for the next edit. No shapes gives back the clean image itself.
+ */
+export async function composeAnnotatedSnapshot(base: Uint8Array, shapes: Annotation[]): Promise<Uint8Array> {
+  if (shapes.length === 0) return base;
+  return writeAnnotatedSnapshot(await renderAnnotatedPng(base, shapes), base, shapes);
 }
