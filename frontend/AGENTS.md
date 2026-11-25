@@ -765,6 +765,19 @@ current view — both need the viewport. `/bcf` redirects to `/viewer?panel=bcf`
   The chunk is untrusted (schema-checked). Shapes are fractions of the image,
   widths per 1000 px of height, so "Update" redraws them on a new capture of
   any size. Preview and saved image use the same `drawAnnotations`.
+- **Sketching on the live view uses the same editor** (`SketchOverlay.tsx`,
+  the pen button by "Fit view"; state, toolbar and canvas shared in
+  `components/annotations/AnnotationEditing.tsx` with `AnnotationEditor`).
+  The layer covers the canvas and takes every pointer and wheel event, so
+  the camera stays where the marks were drawn; a camera moved from
+  elsewhere (the tree, a viewpoint) is detected with `onCameraSettled` and
+  shown, not silently ignored. "New BCF topic" is Capture plus
+  `composeAnnotatedSnapshot`, so the topic's editor reopens the marks. It
+  **loads the BCF draft first** when the store is empty and clean, as the
+  panel's own mount would: adding a topic before the panel ever opened
+  would otherwise skip the draft for good. "Download PNG" is
+  `renderAnnotatedPng`, a plain image without the `dcAn` chunk. Esc
+  discards, with Undo in the toast.
 - **A picture from the computer is re-drawn as a PNG** (`lib/bcf/snapshot-file.ts`,
   `usePictureFile.tsx`): at most 1500 px on its longest side, white behind any
   transparency, EXIF dropped (a phone photo's location stays on the machine).

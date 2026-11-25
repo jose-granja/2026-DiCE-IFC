@@ -1840,6 +1840,21 @@
       "expected": "Expected:",
       "observed": "Observed:",
       "showMore": "Show {count} more"
+    },
+    "sketch": {
+      "open": "Sketch on the view",
+      "canvas": "Sketch over the 3D view",
+      "close": "Close",
+      "download": "Download PNG",
+      "createIssue": "New BCF topic",
+      "issueCreated": "BCF topic created from the current view with {count, plural, =0 {no marks} one {# mark} other {# marks}}.",
+      "downloaded": "Saved {name}",
+      "failed": "The sketch could not be saved: {message}",
+      "noView": "There is no 3D view to capture yet.",
+      "viewMoved": "The view has moved — the marks may not point at what they did.",
+      "restart": "Clear and start again",
+      "discarded": "Sketch closed — {count, plural, one {# mark} other {# marks}} discarded.",
+      "undoDiscard": "Undo"
     }
   },
   "idsCreate": {
@@ -2612,6 +2627,7 @@
       "toolbar": "Annotation tools",
       "tools": {
         "select": "Select and move",
+        "erase": "Eraser — click or drag over a mark to remove it",
         "arrow": "Arrow",
         "line": "Line",
         "rect": "Rectangle",

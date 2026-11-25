@@ -19,7 +19,9 @@ import RealisticMaterials from "./RealisticMaterials";
 import { useSunPlaceSync } from "@/lib/viewer/use-sun-place";
 import OrbitPivotMarker from "./OrbitPivotMarker";
 import { Button } from "@/components/ui/button";
-import { Axis3D, Contrast, Maximize2 } from "lucide-react";
+import { Axis3D, Contrast, Maximize2, PenLine } from "lucide-react";
+import type { Annotation } from "@/lib/bcf/annotations";
+import SketchOverlay from "./SketchOverlay";
 import { cn } from "@/lib/utils";
 import { setGlobeCanvas } from "@/lib/viewer/globe-canvas";
 import { useGlobeStore } from "@/lib/viewer/globe-store";
@@ -67,6 +69,9 @@ export function ViewerCanvas() {
   const contextAttribution = useContextModelStore((s) => s.visible ? s.loaded?.attribution : undefined);
   const contextAttributionUrl = useContextModelStore((s) => s.loaded?.attributionUrl);
   const t = useTranslations("viewer.canvas");
+  const tSketch = useTranslations("viewer.sketch");
+  // Sketching on the live view: the shapes to start from, or null when off.
+  const [sketch, setSketch] = useState<{ initial: Annotation[] } | null>(null);
   const edgeShading = usePointCloudStore((s) => s.edgeShading);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const globeRef = useRef<HTMLDivElement>(null);
@@ -843,6 +848,19 @@ export function ViewerCanvas() {
         </div>
       )}
 
+      {sketch && (
+        <SketchOverlay
+          initial={sketch.initial}
+          onClose={(discarded) => {
+            setSketch(null);
+            if (discarded.length === 0) return;
+            toast(tSketch("discarded", { count: discarded.length }), {
+              action: { label: tSketch("undoDiscard"), onClick: () => setSketch({ initial: discarded }) },
+            });
+          }}
+        />
+      )}
+
       <ViewCube
         ref={viewCubeRef}
         projection={projection}
@@ -902,6 +920,25 @@ export function ViewerCanvas() {
             <TooltipContent>{t(edgeShading ? "edgeShadingOff" : "edgeShadingOn")}</TooltipContent>
           </Tooltip>
         )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={models.length === 0 && cloudCount === 0}
+              aria-label={tSketch("open")}
+              data-sketch-toggle
+              onClick={() => {
+                // A half-placed measurement would catch Esc meant for the sketch.
+                useViewerStore.getState().setTool("select");
+                setSketch({ initial: [] });
+              }}
+            >
+              <PenLine className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{tSketch("open")}</TooltipContent>
+        </Tooltip>
         <Button
           variant="secondary"
           size="sm"

@@ -1840,6 +1840,21 @@
       "expected": "Esperado:",
       "observed": "Observado:",
       "showMore": "Mostrar mais {count}"
+    },
+    "sketch": {
+      "open": "Anotar a vista",
+      "canvas": "Anotações sobre a vista 3D",
+      "close": "Fechar",
+      "download": "Descarregar PNG",
+      "createIssue": "Novo tópico BCF",
+      "issueCreated": "Tópico BCF criado a partir da vista atual com {count, plural, =0 {nenhuma marca} one {# marca} other {# marcas}}.",
+      "downloaded": "Guardado: {name}",
+      "failed": "Não foi possível guardar as anotações: {message}",
+      "noView": "Ainda não há uma vista 3D para capturar.",
+      "viewMoved": "A vista mudou — as marcas podem já não apontar para o que apontavam.",
+      "restart": "Limpar e recomeçar",
+      "discarded": "Anotações fechadas — {count, plural, one {# marca descartada} other {# marcas descartadas}}.",
+      "undoDiscard": "Anular"
     }
   },
   "idsCreate": {
@@ -2612,6 +2627,7 @@
       "toolbar": "Ferramentas de anotação",
       "tools": {
         "select": "Selecionar e mover",
+        "erase": "Borracha — clique ou arraste sobre uma marca para a apagar",
         "arrow": "Seta",
         "line": "Linha",
         "rect": "Retângulo",
