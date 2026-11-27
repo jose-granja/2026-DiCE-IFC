@@ -171,7 +171,23 @@ export function snapshotSession(): SessionSnapshot {
   };
 }
 
-export function buildCurrentProject(): BuiltProject {
+/**
+ * The BCF topics and the IDS editor's document live in their stores only once
+ * their panel or page has loaded the draft kept on this device. After a reload
+ * that has not happened yet, and a snapshot taken then would leave the user's
+ * topics and specifications out of the project — and restoring it would write
+ * an empty BCF draft over theirs. So an untouched, empty store reads its draft
+ * first, as the panel would on opening (and as `SketchOverlay` does).
+ */
+async function loadUnopenedDrafts() {
+  const bcf = useBcfStore.getState();
+  if (bcf.file.topics.length === 0 && !bcf.dirty) await bcf.loadDraft().catch(() => false);
+  const ids = useIdsStore.getState();
+  if (ids.document.specifications.length === 0 && !ids.dirty) await ids.loadDraft().catch(() => false);
+}
+
+export async function buildCurrentProject(): Promise<BuiltProject> {
+  await loadUnopenedDrafts();
   return buildProject(snapshotSession());
 }
 
@@ -647,7 +663,14 @@ export async function restoreProject(
     }
   }
 
-  useFacetSelectionStore.getState().setSelection(facetSelectionFromJson(manifest.filters.facets));
+  // An isolation that replaced the filter set these ticks aside when it was
+  // made; they come back set aside, or applying them would undo it.
+  useFacetSelectionStore
+    .getState()
+    .restore(
+      facetSelectionFromJson(manifest.filters.facets),
+      manifest.filters.isolated !== null && manifest.filters.isolationFilterMode === "replace",
+    );
   if (viewer.panel) panels.open(viewer.panel);
 
   return report;

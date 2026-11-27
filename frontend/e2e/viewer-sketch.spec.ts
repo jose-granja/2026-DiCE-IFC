@@ -60,8 +60,11 @@ test("a sketch on the live view becomes a BCF topic, its marks baked in and stil
   await loadModel(page, baseURL);
   const { layer, canvas, at, dragOn } = await sketch(page);
 
-  // The layer has the pointer: a drag draws instead of orbiting.
-  const camera = await page.locator("[data-model-canvas]").screenshot();
+  // The layer has the pointer: a drag draws instead of orbiting. The view
+  // cube's rotation is the camera's, so it is the witness.
+  const cube = page.locator("[data-view-cube] [style*='transform-style']");
+  const rotation = () => cube.evaluate((element) => (element as HTMLElement).style.transform);
+  const rotationBefore = await rotation();
   await dragOn(at(0.2, 0.7), at(0.6, 0.4));
   await page.getByRole("button", { name: "Revision cloud" }).click();
   await dragOn(at(0.55, 0.3), at(0.85, 0.6));
@@ -73,8 +76,14 @@ test("a sketch on the live view becomes a BCF topic, its marks baked in and stil
   await expect(canvas).toHaveAttribute("data-annotation-count", "1");
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(canvas).toHaveAttribute("data-annotation-count", "2");
+  expect(await rotation()).toBe(rotationBefore);
+
+  // Nor does the wheel zoom. Both pictures include the marks, which are on
+  // the page over the canvas.
+  const before = await page.locator("[data-model-canvas]").screenshot();
   await page.mouse.wheel(0, 400);
-  expect(await page.locator("[data-model-canvas]").screenshot()).toEqual(camera);
+  await page.waitForTimeout(300);
+  expect((await page.locator("[data-model-canvas]").screenshot()).equals(before)).toBe(true);
 
   await page.getByRole("button", { name: "New BCF topic" }).click();
   await expect(page.getByText("BCF topic created from the current view with 2 marks.")).toBeVisible();

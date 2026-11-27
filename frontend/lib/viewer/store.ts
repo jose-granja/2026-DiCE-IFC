@@ -13,6 +13,7 @@
 
 import { create } from "zustand";
 import { useContextModelStore } from "./context-model-store";
+import { useFacetSelectionStore } from "./facet-selection-store";
 import { useGisAreaStore } from "./gis-area-store";
 
 import type { SignatureSummary } from "@/lib/signing/summary";
@@ -498,7 +499,10 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   // Result-driven isolation defaults to "show exactly this" and clears a stale
   // facet filter. Spatial-tree isolation opts into `intersect`, treating the
   // chosen subtree as a scope that the filter panel can refine.
-  isolate: (refs, filterMode = "replace", ghosts) =>
+  isolate: (refs, filterMode = "replace", ghosts) => {
+    // Replacing the filter sets its ticks aside until the user changes them,
+    // rather than letting them re-apply (and undo this) on their own.
+    if (filterMode === "replace") useFacetSelectionStore.getState().setDormant(true);
     set((state) => {
       const isolated = new Set(refs.map(refKey));
       return {
@@ -508,7 +512,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
           ghosts && ghosts.length > 0 ? { isolated, keys: new Set(ghosts.map(refKey)) } : null,
         facetVisible: filterMode === "replace" ? null : state.facetVisible,
       };
-    }),
+    });
+  },
   clearIsolation: () =>
     set({ isolated: null, isolationFilterMode: null }),
   resetVisibility: () =>

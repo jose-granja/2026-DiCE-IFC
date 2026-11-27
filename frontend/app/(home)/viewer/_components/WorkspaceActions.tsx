@@ -45,7 +45,7 @@ export function WorkspaceActions() {
     setSaving(true);
     try {
       toast.loading(t("saving"), { id: PROJECT_TOAST_ID });
-      const project = buildCurrentProject();
+      const project = await buildCurrentProject();
       await saveWorkspace(project);
       setRestorable(true);
       toast.success(

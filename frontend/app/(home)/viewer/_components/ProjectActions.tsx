@@ -66,7 +66,7 @@ export function ProjectActions() {
       const parent = writesFolders ? await pickParentDirectory() : null;
       if (writesFolders && !parent) return;
 
-      const project = buildCurrentProject();
+      const project = await buildCurrentProject();
       const name = projectFolderName();
       toast.loading(t("saving"), { id: TOAST_ID });
 
