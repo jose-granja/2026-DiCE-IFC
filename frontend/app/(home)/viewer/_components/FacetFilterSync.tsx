@@ -21,12 +21,16 @@ import { useViewerStore } from "@/lib/viewer/store";
 
 export function FacetFilterSync() {
   const selection = useFacetSelectionStore((s) => s.selection);
+  const dormant = useFacetSelectionStore((s) => s.dormant);
   const modelCount = useViewerStore((s) => s.models.length);
   const { facets } = useModelFacets(!selectionIsEmpty(selection));
 
   useEffect(() => {
+    // Set aside by an isolation that replaced the filter: applying the ticks
+    // now would take that isolation away (`setFacetVisible`).
+    if (dormant) return;
     useViewerStore.getState().setFacetVisible(resolveVisible(facets, selection));
-  }, [facets, selection]);
+  }, [facets, selection, dormant]);
 
   // Ticks with nothing left to filter would leave the badge on for ever.
   useEffect(() => {

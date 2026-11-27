@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Axis3D, Contrast, Maximize2, PenLine } from "lucide-react";
 import type { Annotation } from "@/lib/bcf/annotations";
 import SketchOverlay from "./SketchOverlay";
+import { VisibilityActions } from "./ClassFilter";
 import { cn } from "@/lib/utils";
 import { setGlobeCanvas } from "@/lib/viewer/globe-canvas";
 import { useGlobeStore } from "@/lib/viewer/globe-store";
@@ -901,6 +902,7 @@ export function ViewerCanvas() {
             {originsVisible ? t("hideOrigins") : t("showOrigins")}
           </TooltipContent>
         </Tooltip>
+        <VisibilityActions />
         {cloudCount > 0 && (
           // The same setting as the switch in the point-cloud list, where the
           // eye already is when looking at a scan.
@@ -939,19 +941,24 @@ export function ViewerCanvas() {
           </TooltipTrigger>
           <TooltipContent>{tSketch("open")}</TooltipContent>
         </Tooltip>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() =>
-            rendererRef.current?.fitToBounds(
-              useViewerStore.getState().federationBounds() ??
-                rendererRef.current.getPointCloudBounds(),
-            )
-          }
-        >
-          <Maximize2 className="h-4 w-4" />
-          {t("fitView")}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label={t("fitView")}
+              onClick={() =>
+                rendererRef.current?.fitToBounds(
+                  useViewerStore.getState().federationBounds() ??
+                    rendererRef.current.getPointCloudBounds(),
+                )
+              }
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("fitView")}</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );

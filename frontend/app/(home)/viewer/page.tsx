@@ -45,7 +45,6 @@ import ViewerCanvas from "./_components/ViewerCanvas";
 import ModelList from "./_components/ModelList";
 import SpatialTree from "./_components/SpatialTree";
 import PropertyPanel from "./_components/PropertyPanel";
-import { VisibilityActions } from "./_components/ClassFilter";
 import FilterPanel from "./_components/FilterPanel";
 import SectionPanel from "./_components/SectionPanel";
 import MeasurePanel from "./_components/MeasurePanel";
@@ -192,7 +191,6 @@ export default function ViewerPage() {
         actions={
           <>
             <AddModelsButton />
-            <VisibilityActions />
             <WorkspaceActions />
             {/* After "Add models", not before: its hidden folder and .zip
                 inputs must not become the page's first file input, which is

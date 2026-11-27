@@ -10,6 +10,7 @@ import { useViewerStore, type EntityRef } from "@/lib/viewer/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -174,6 +175,10 @@ export function ClassFilter() {
 }
 
 /** Hide / isolate / reset for the current selection. */
+/**
+ * Hide, isolate and show all, for the viewport's bottom bar: icons, named by
+ * `aria-label` and explained by a tooltip.
+ */
 export function VisibilityActions() {
   const t = useTranslations("viewer.classFilter");
   const selection = useViewerStore((s) => s.selection);
@@ -185,39 +190,36 @@ export function VisibilityActions() {
 
   const hasOverrides = hidden.size > 0 || isolated !== null;
 
+  const actions = [
+    { key: "hide", icon: EyeOff, disabled: selection.length === 0, onClick: () => hide(selection) },
+    { key: "isolate", icon: Filter, disabled: selection.length === 0, onClick: () => isolate(selection) },
+    { key: "showAll", icon: Eye, disabled: !hasOverrides, onClick: resetVisibility },
+  ] as const;
+
   return (
-    <div className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={selection.length === 0}
-        title={t("hide")}
-        onClick={() => hide(selection)}
-      >
-        <EyeOff className="h-4 w-4" />
-        <span className="sr-only lg:not-sr-only">{t("hide")}</span>
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={selection.length === 0}
-        title={t("isolate")}
-        onClick={() => isolate(selection)}
-      >
-        <Filter className="h-4 w-4" />
-        <span className="sr-only lg:not-sr-only">{t("isolate")}</span>
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={!hasOverrides}
-        title={t("showAll")}
-        onClick={resetVisibility}
-      >
-        <Eye className="h-4 w-4" />
-        <span className="sr-only lg:not-sr-only">{t("showAll")}</span>
-      </Button>
-    </div>
+    <>
+      {actions.map(({ key, icon: Icon, disabled, onClick }) => (
+        <Tooltip key={key}>
+          <TooltipTrigger asChild>
+            {/* A disabled button gets no pointer events, so its tooltip
+                would never open; the span takes the hover instead. */}
+            <span tabIndex={disabled ? 0 : -1} className="inline-flex rounded-md">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={disabled}
+                aria-label={t(key)}
+                data-visibility-action={key}
+                onClick={onClick}
+              >
+                <Icon className="h-4 w-4" />
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{t(key)}</TooltipContent>
+        </Tooltip>
+      ))}
+    </>
   );
 }
 

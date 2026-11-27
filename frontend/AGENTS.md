@@ -1304,7 +1304,16 @@ empty one. The first workspace format (`workspaces/current` + handles keyed
   counters restart at 1, and a saved `section-1` would collide with the next one.
 - **The BCF panel and the IDS editor reload their OPFS drafts on mount**, so a
   restore writes the drafts too; otherwise the old topics come back the first time
-  the BCF tab opens.
+  the BCF tab opens. The other way round, a save reads an untouched, empty
+  store's draft first (`buildCurrentProject`): after a reload the topics and the
+  editor's document are in no store until their panel or page opens, and a
+  project saved without them would, restored, write an empty BCF draft over the
+  user's (`e2e/project-gaps.spec.ts`).
+- **An isolation that replaces the filter leaves its ticks `dormant`**
+  (`facet-selection-store`): they stay ticked but are not applied until the user
+  changes them, because applied ticks clear such an isolation. A restore puts
+  them back dormant when the project has one, or the filter would come back in
+  place of the isolation.
 - **The context model and the 3D world context are placed through the Geo
   panel**, which is what works out where the model sits on the earth. The restore
   leaves each `pending` in its store (`context-model-store`, `globe-store`), opens

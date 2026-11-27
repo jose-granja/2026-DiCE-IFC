@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { GeoreferenceView, ModelSummary } from "@/lib/ifc/types";
+import { emptySelection } from "../facets";
+import { useFacetSelectionStore } from "../facet-selection-store";
 import { isolationGhostKeys, useViewerStore, type ViewerModel } from "../store";
 
 function summary(id: string): ModelSummary {
@@ -43,6 +45,7 @@ function viewerModel(id: string, georeference: GeoreferenceView): ViewerModel {
 
 beforeEach(() => {
   useViewerStore.getState().reset();
+  useFacetSelectionStore.getState().clear();
 });
 
 describe("models", () => {
@@ -182,6 +185,28 @@ describe("visibility", () => {
 
     expect(useViewerStore.getState().isVisible(isolated)).toBe(true);
     expect(useViewerStore.getState().isVisible(filtered)).toBe(false);
+  });
+
+  it("an isolation that replaces the filter sets its ticks aside until the user changes them", () => {
+    const ticked = emptySelection();
+    ticked.classes.add("IfcWall");
+    useFacetSelectionStore.getState().setSelection(ticked);
+    expect(useFacetSelectionStore.getState().dormant).toBe(false);
+
+    useViewerStore.getState().isolate([{ modelId: "a", expressId: 1 }]);
+    expect(useFacetSelectionStore.getState().dormant).toBe(true);
+    // Untouched by a spatial-tree scope, which the filter refines.
+    useViewerStore.getState().isolate([{ modelId: "a", expressId: 2 }], "intersect");
+    expect(useFacetSelectionStore.getState().dormant).toBe(true);
+
+    // A change of ticks is the user starting a new filter: it applies again.
+    useFacetSelectionStore.getState().setSelection(emptySelection());
+    expect(useFacetSelectionStore.getState().dormant).toBe(false);
+  });
+
+  it("an intersecting isolation leaves the ticks applied", () => {
+    useViewerStore.getState().isolate([{ modelId: "a", expressId: 2 }], "intersect");
+    expect(useFacetSelectionStore.getState().dormant).toBe(false);
   });
 
   it("combines spatial-tree isolation with facet filters", () => {
